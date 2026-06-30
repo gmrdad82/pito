@@ -27,6 +27,24 @@ module Pito
       # Full set — the union used for short-circuit detection in the dispatch job.
       VERBS = (ALWAYS_AVAILABLE + SHARE_REQUIRED).freeze
 
+      # Message kinds that carry NO universal share verbs. A :confirmation message
+      # is an ephemeral prompt (confirm/cancel) — sharing it makes no sense
+      # (owner 2026-06-29), so its reply menu shows neither share nor revoke/unshare.
+      NON_SHAREABLE_KINDS = %w[confirmation].freeze
+
+      # The universal verbs to offer for an event's reply menu: none for a
+      # non-shareable kind (e.g. confirmation); else `share` always, plus
+      # `revoke`/`unshare` once the event has a Share. Centralised so the palette
+      # (Suggestions::Engine) and the `--help` page (HashtagHelp) stay in agreement.
+      def self.verbs_for(event)
+        # A :confirmation message carries NO universal verbs. A nil event is the
+        # generic (event-less) help page → `share` is shown (no revoke/unshare,
+        # since there's no event to check for an existing Share).
+        return [] if event && NON_SHAREABLE_KINDS.include?(event.kind.to_s)
+
+        ALWAYS_AVAILABLE + (event && ::Share.exists?(event_id: event.id) ? SHARE_REQUIRED : [])
+      end
+
       # `origin` is the request origin (scheme + host + port, e.g.
       # "https://dev.pitomd.com") captured in the controller and threaded through
       # FollowUpDispatchJob — so the minted /share URL points at the host the owner

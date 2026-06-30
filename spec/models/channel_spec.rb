@@ -48,4 +48,24 @@ RSpec.describe Channel, type: :model do
       expect(channel.youtube_studio_url).to eq("https://studio.youtube.com/channel/UCxyz999")
     end
   end
+
+  describe "#banner" do
+    let(:channel) { create(:channel) }
+    let(:jpeg) { Vips::Image.black(374, 210).cast(:uchar).bandjoin([ 0, 0 ]).jpegsave_buffer }
+
+    it "is an ActiveStorage attachment, unattached by default" do
+      expect(channel.banner).not_to be_attached
+    end
+
+    it "#banner_variant_url is nil when no banner is attached" do
+      expect(channel.banner_variant_url).to be_nil
+    end
+
+    it "#banner_variant_url returns a host-less proxy path once a banner is attached" do
+      channel.banner.attach(io: StringIO.new(jpeg), filename: "banner-#{channel.id}.jpg", content_type: "image/jpeg")
+      url = channel.banner_variant_url
+      expect(url).to be_present
+      expect(url).to start_with("/") # host-less (loads from whatever host serves the page)
+    end
+  end
 end

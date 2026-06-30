@@ -3,6 +3,7 @@ en:
     channel:
       detail:
         handle: "Handle"
+        avatar: "Avatar"
         title: "Title"
         description: "Description"
         last_sync_at: "Last sync at"

@@ -97,62 +97,41 @@ RSpec.describe "POST /suggestions", type: :request do
     end
   end
 
-  describe "auth-gating for dynamic channel suggestions" do
+  describe "non-config slash arg stage returns empty menu_items" do
     let!(:channel) { create(:channel, handle: "@testchan") }
 
+    # Non-config slash args (e.g. /disconnect) return no menu_items — only
+    # /config offers a browsable palette.
     context "when authenticated" do
       before { sign_in! }
 
-      it "returns the channel in menu_items" do
+      it "returns empty menu_items for /disconnect arg stage" do
         post "/suggestions", params: { input: "/disconnect @", cursor: 13 }
         body = response.parsed_body
-        labels = body["menu_items"].map { |i| i["label"] }
-        expect(labels).to include("@testchan")
+        expect(body["menu_items"]).to be_empty
       end
     end
 
     context "when unauthenticated" do
-      it "does NOT return channels in menu_items" do
+      it "returns empty menu_items for /disconnect arg stage" do
         post "/suggestions", params: { input: "/disconnect @", cursor: 13 }
         body = response.parsed_body
-        labels = body["menu_items"].map { |i| i["label"] }
-        expect(labels).not_to include("@testchan")
+        expect(body["menu_items"]).to be_empty
       end
     end
   end
 
-  describe "free-mode ghost text" do
+  describe "free-mode always returns empty ghost" do
     before { sign_in! }
 
-    it "returns ghost.complete_current == 'oming' for 'find upc'" do
+    it "returns ghost.complete_current == '' for free-mode input 'find upc'" do
       post "/suggestions", params: { input: "find upc", cursor: 8 }
-      body = response.parsed_body
-      expect(body["ghost"]["complete_current"]).to eq("oming")
-    end
-  end
-
-  describe "game-title ghost" do
-    before { sign_in! }
-
-    let!(:lies_of_p) { create(:game, title: "Lies of P") }
-
-    it "returns empty ghost for 'show game li' (show is id-only — no title ghost)" do
-      input = "show game li"
-      post "/suggestions", params: { input: input, cursor: input.length }
       body = response.parsed_body
       expect(body["ghost"]["complete_current"]).to eq("")
     end
 
-    it "returns ghost completing 'li' → 'es of P' for 'delete game li'" do
-      input = "delete game li"
-      post "/suggestions", params: { input: input, cursor: input.length }
-      body = response.parsed_body
-      expect(body["ghost"]["complete_current"]).to eq("es of P")
-    end
-
-    it "returns empty ghost when partial matches nothing" do
-      input = "show game zzz"
-      post "/suggestions", params: { input: input, cursor: input.length }
+    it "returns ghost.complete_current == '' when partial matches nothing" do
+      post "/suggestions", params: { input: "show game zzz", cursor: 13 }
       body = response.parsed_body
       expect(body["ghost"]["complete_current"]).to eq("")
     end

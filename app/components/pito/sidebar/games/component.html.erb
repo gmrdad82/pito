@@ -7,16 +7,14 @@
      data-controller="pito--games-nav"
      data-pito--games-nav-mode-value="<%= mode %>">
   <%# Search input — filters the local game library (POST /games/search-local).
-      Wrapped so the terminal block caret + trail ride along (input mode). %>
-  <div class="relative" data-controller="pito--terminal-caret pito--cursor-trail">
+      Native caret styled as a block via .pito-block-caret (caret-shape: block). %>
+  <div class="relative">
     <input type="text"
            class="w-full bg-transparent outline-none border-b border-line-default
-                  text-fg pb-1 placeholder:text-fg-faded focus:border-accent pito-caret-input"
+                  text-fg pb-1 placeholder:text-fg-faded focus:border-accent pito-block-caret"
            placeholder="<%= t('pito.sidebar.games.search_placeholder') %>"
            autocomplete="off"
-           data-pito--games-nav-target="input"
-           data-pito--terminal-caret-target="field">
-    <span class="terminal-caret" data-pito--terminal-caret-target="block" aria-hidden="true"></span>
+           data-pito--games-nav-target="input">
   </div>
 
   <%# In-flight shimmer dots while a local search runs (mirrors the IGDB import

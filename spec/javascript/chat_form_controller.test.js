@@ -270,6 +270,56 @@ describe("pito--chat-form controller", () => {
     expect(periodDisplay.querySelector(".text-cyan").textContent).toBe("28d")
   })
 
+  // ── item 10: cycling + sending gated on hint visibility ───────────────────────
+
+  it("Shift+Tab does NOT cycle the channel when its hint is hidden", async () => {
+    const { inputField, channelInput, channelDisplay } = buildScaffold({
+      channels: ["@all", "@gaming"]
+    })
+    await waitForConnect()
+    channelDisplay.classList.add("hidden") // not `list vids/games`
+
+    keydown(inputField, "Tab", { shiftKey: true })
+
+    expect(channelInput.value).toBe("@all") // unchanged
+  })
+
+  it("Shift+Space does NOT cycle the period when its hint is hidden", async () => {
+    const { inputField, periodInput, periodDisplay } = buildScaffold({
+      periods: ["7d", "28d"]
+    })
+    await waitForConnect()
+    periodDisplay.classList.add("hidden") // not `analyze`
+
+    keydown(inputField, " ", { shiftKey: true, code: "Space" })
+
+    expect(periodInput.value).toBe("7d") // unchanged
+  })
+
+  it("on submit, channelInput is DISABLED (omitted) when its hint is hidden", async () => {
+    const { inputField, channelInput, channelDisplay, periodInput, periodDisplay } = buildScaffold()
+    await waitForConnect()
+    channelDisplay.classList.add("hidden")
+    periodDisplay.classList.add("hidden")
+    inputField.value = "show game 5"
+
+    keydown(inputField, "Enter")
+
+    expect(channelInput.disabled).toBe(true)
+    expect(periodInput.disabled).toBe(true)
+  })
+
+  it("on submit, channelInput stays ENABLED (sent) when its hint is visible", async () => {
+    const { inputField, channelInput, channelDisplay } = buildScaffold()
+    await waitForConnect()
+    channelDisplay.classList.remove("hidden") // visible (`list vids/games`)
+    inputField.value = "list vids"
+
+    keydown(inputField, "Enter")
+
+    expect(channelInput.disabled).toBe(false)
+  })
+
   it("default periods value does not include '1m' and contains exactly 5 tokens", async () => {
     // Mount without an explicit periods override so the Stimulus default kicks in.
     setAuthenticated(true)

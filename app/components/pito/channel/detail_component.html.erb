@@ -11,16 +11,16 @@
       <div class="pito-channel-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
     <% end %>
 
-    <%# Avatar or placeholder %>
-    <div class="pito-channel-detail__avatar">
-      <% if avatar_attached? && (url = avatar_url) %>
-        <%= image_tag url, alt: @channel.title, class: "block" %>
-      <% else %>
-        <div class="text-fg-dim"><%= t("pito.channel.detail.no_avatar") %></div>
-      <% end %>
-    </div>
+    <%# Banner (our cached 374x210 16:9 copy) in the top-left spot. When the channel
+        has NO banner, the spot is EMPTY — the avatar is NOT shown here; it lives in
+        the kv-table on the right (owner 2026-06-29). %>
+    <% if banner_attached? && (burl = banner_url) %>
+      <div class="pito-channel-detail__banner">
+        <%= image_tag burl, alt: @channel.title, class: "block" %>
+      </div>
+    <% end %>
 
-    <%# Hairline separating the avatar from the stats %>
+    <%# Hairline separating the banner (when present) from the stats %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
     <%# Stats — bold heading (Pito::Copy) + one-line word counters, left. %>
@@ -50,6 +50,15 @@
       YouTube line breaks) right inside its value cell. %>
   <div class="pito-channel-detail__right flex flex-col gap-1 flex-1 min-w-0">
     <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%# Avatar row — the small 50% (120×120 variant, displayed 60px) circle+ring
+          avatar, ALWAYS shown when the channel has an avatar (independent of the
+          banner), as the FIRST kv-row above Handle. Two bare grid children (key +
+          value) to match KeyValueRowComponent's output. %>
+      <% if avatar_attached? && (inline_avatar = avatar_inline_url) %>
+        <span class="text-fg-dim whitespace-nowrap"><%= t("pito.channel.detail.avatar") %></span>
+        <span><%= image_tag inline_avatar, alt: @channel.title, class: "pito-channel-detail__avatar-inline block" %></span>
+      <% end %>
+
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.channel.detail.handle"),
             value_text:  @channel.at_handle,

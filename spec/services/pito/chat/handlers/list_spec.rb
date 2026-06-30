@@ -193,21 +193,26 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
-  # ── Unknown list target ─────────────────────────────────────────────────────
+  # ── Unknown list target → no-guess (huh) ─────────────────────────────────────
+  #
+  # Owner 2026-06-29: a genuinely unknown word (neither an entity noun nor a
+  # recognised game filter, and not a near-miss typo) no longer silently lists ALL
+  # games — it returns the generic `pito.copy.huh` error. Bare `list`, entity nouns,
+  # and valid filters (`list rpg`) are unaffected (covered below).
 
-  describe "#call with arbitrary filler / unrecognized tokens (allowlist)" do
+  describe "#call with a genuinely unknown word → unknown_entity (huh), no guess" do
     let!(:game) { create(:game, title: "Tears of the Kingdom") }
 
-    it "drops a truly-unknown short token (`list asd`) and lists all games" do
-      result  = handler_for("list asd").call
-      payload = result.events.first[:payload]
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(payload["table_rows"]).to be_present
+    it "a truly-unknown token (`list asd`) → huh error, not a silent list-all" do
+      result = handler_for("list asd").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(I18n.t("pito.copy.huh")).to include(result.message_key)
     end
 
-    it "drops conversational filler (`list games please yo`) and lists all games" do
-      payload = handler_for("list games please yo").call.events.first[:payload]
-      expect(payload["table_rows"]).to be_present
+    it "conversational filler (`list games please yo`) → huh error" do
+      result = handler_for("list games please yo").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(I18n.t("pito.copy.huh")).to include(result.message_key)
     end
 
     it "still lists games for a bare `list`" do

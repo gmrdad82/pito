@@ -26,6 +26,27 @@ RSpec.describe Channel::Avatar::Ingest do
     expect(channel.avatar).not_to be_attached
   end
 
+  # Digest-gate (owner 2026-06-29): re-attach only when the image changed.
+  it "does NOT re-attach when a sync returns the identical avatar (digest-gate)" do
+    allow_any_instance_of(Pito::Image::Normalizer).to receive(:call).and_return(jpeg_bytes)
+    described_class.new(channel:, source_url: "https://yt3.ggpht.com/x=s800").call
+    first_blob_id = channel.avatar.blob.id
+
+    described_class.new(channel: channel.reload, source_url: "https://yt3.ggpht.com/x=s800").call
+    expect(channel.reload.avatar.blob.id).to eq(first_blob_id)
+  end
+
+  it "re-attaches when the avatar bytes change" do
+    allow_any_instance_of(Pito::Image::Normalizer).to receive(:call).and_return(jpeg_bytes)
+    described_class.new(channel:, source_url: "https://yt3.ggpht.com/x=s800").call
+    first_blob_id = channel.avatar.blob.id
+
+    other = Vips::Image.black(240, 240).cast(:uchar).bandjoin([ 255, 255 ]).jpegsave_buffer
+    allow_any_instance_of(Pito::Image::Normalizer).to receive(:call).and_return(other)
+    described_class.new(channel: channel.reload, source_url: "https://yt3.ggpht.com/x=s800").call
+    expect(channel.reload.avatar.blob.id).not_to eq(first_blob_id)
+  end
+
   it "swallows a fetch failure and leaves no attachment" do
     allow_any_instance_of(Pito::Image::Normalizer)
       .to receive(:call)

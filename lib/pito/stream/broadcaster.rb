@@ -138,6 +138,20 @@ module Pito
         event
       end
 
+      # Replace a SINGLE metric's slot inside a live glance message — targets
+      # `event_<id>__metric_<key>` so each metric swaps in independently as its
+      # per-metric job lands (item 5 progressive at-a-glance), without re-rendering
+      # the whole message. `html` is the rendered filled Slots::Compact for that key.
+      def replace_metric_fragment(event:, key:, html:)
+        helper  = ApplicationController.helpers
+        content = helper.turbo_stream.replace("event_#{event.id}__metric_#{key}", html)
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+        event
+      end
+
       # Consume every prior LIVE repliable event in the conversation (turns strictly
       # earlier than `before_turn`) so old `#handle` affordances retire the moment a
       # new message renders — only the newest turn's handles stay live. Stamps
@@ -465,14 +479,16 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_context_meter failed: #{e.class}: #{e.message}")
       end
 
-      # Broadcast a new showcase set (10–15 command strings) to the chatbox so
-      # the pito--chat-showcase Stimulus controller can start cycling them.
-      # Targets the stable `#pito-showcase-data` element embedded in the chatbox;
-      # the replace swaps out its JSON content so the controller sees the update
-      # via a MutationObserver (no full chatbox re-render needed).
+      # Broadcast a new hint set (10–15 command strings) to the chatbox so the
+      # pito--placeholder-rotate Stimulus controller can cycle them through the
+      # field's native placeholder. Targets the stable `#pito-showcase-data`
+      # element embedded in the chatbox; the replace swaps out its JSON content so
+      # the controller sees the update via a MutationObserver (no full chatbox
+      # re-render needed). The replacement MUST keep the controller's target attr
+      # so Stimulus re-registers the new node as the `data` target.
       def broadcast_showcase(suggestions:)
         json = Pito::Showcase::SafeJson.encode(Array(suggestions))
-        html = %(<script type="application/json" id="pito-showcase-data">#{json}</script>).html_safe
+        html = %(<script type="application/json" id="pito-showcase-data" data-pito--placeholder-rotate-target="data">#{json}</script>).html_safe
         content = ApplicationController.helpers.turbo_stream.replace("pito-showcase-data", html)
         Turbo::StreamsChannel.broadcast_stream_to(
           "pito:conversation:#{@conversation.uuid}",

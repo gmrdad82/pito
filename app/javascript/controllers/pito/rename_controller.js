@@ -58,36 +58,22 @@ export default class extends Controller {
     const currentTitle = span.textContent.trim()
 
     // Build the input — borderless/transparent; the orange underline is drawn
-    // on the whole row via .pito-row-editing (see application.css). The input is
-    // wrapped so the shared terminal block caret + trail attach to it: Stimulus
-    // auto-connects pito--terminal-caret / pito--cursor-trail when the wrap enters
-    // the DOM, and auto-disconnects (tearing down mirror + ghosts, no leak) when
-    // the wrap is removed on commit/cancel.
+    // on the whole row via .pito-row-editing (see application.css). The caret is
+    // the browser's NATIVE caret, styled as a block via .pito-block-caret
+    // (caret-shape: block) — no JS overlay, nothing to tear down.
     const input = document.createElement("input")
     input.type      = "text"
     input.value     = currentTitle
-    input.className = "pito--rename-input pito-caret-input text-fg bg-transparent outline-none w-full"
-    input.setAttribute("data-pito--terminal-caret-target", "field")
-
-    const block = document.createElement("span")
-    block.className = "terminal-caret"
-    block.setAttribute("data-pito--terminal-caret-target", "block")
-    block.setAttribute("aria-hidden", "true")
-
-    const wrap = document.createElement("span")
-    wrap.className = "pito--rename-caret-wrap relative inline-block w-full"
-    wrap.setAttribute("data-controller", "pito--terminal-caret pito--cursor-trail")
-    wrap.appendChild(input)
-    wrap.appendChild(block)
+    input.className = "pito--rename-input pito-block-caret text-fg bg-transparent outline-none w-full"
 
     // Grow the name so the input + row underline span the full width, and flag
     // the row as editing (drops the highlight bg, draws the orange underline).
     span.classList.add("flex-1", "min-w-0")
     this.element.classList.add("pito-row-editing")
 
-    // Replace span content with the wrapped input
+    // Replace span content with the input
     span.textContent = ""
-    span.appendChild(wrap)
+    span.appendChild(input)
     input.focus()
     input.select()
 

@@ -19,12 +19,12 @@ module Pito
       # @param history [Array<String>] previously-sent input_text values (newest
       #   first, capped to ~50) exposed to the history Stimulus controller.
       #   Empty on the start screen / 404; populated on the conversation page.
-      # @param suggestions [Array<String>] initial showcase suggestions to cycle
-      #   in the empty + idle chatbox (pito--chat-showcase controller). The
+      # @param suggestions [Array<String>] command hints rotated through the
+      #   field's native placeholder (pito--placeholder-rotate controller). The
       #   server broadcasts replacements after each turn via Broadcaster
       #   #broadcast_showcase; this param seeds the first render.
       # @param reduced [Boolean] when true, strips non-essential controllers and
-      #   script tags (catalog, showcase, suggestions palette, filter row, history,
+      #   script tags (catalog, placeholder hints, suggestions palette, filter row, history,
       #   draft). Used on /share pages where the chatbox is a lightweight unfold
       #   affordance only, not a full-featured input.
       def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil, history: [], suggestions: [], reduced: false)
@@ -46,12 +46,11 @@ module Pito
       # `authenticated:` can be passed explicitly for out-of-request rendering
       # (e.g. Turbo Stream broadcasts); falls back to Current.session when nil.
       #
-      # When suggestions are present the showcase comet IS the hint — suppress the
-      # native placeholder entirely so the block caret at position 0 never sits on
-      # top of placeholder text before the first comet pass (SHOWCASE-NODEFAULT).
+      # Always resolves to a real hint: it is the field's initial native
+      # placeholder, which pito--placeholder-rotate then cycles through the
+      # command suggestions. (The native block caret is fine sitting over it.)
       def placeholder
         return t(@placeholder_key) if @placeholder_key
-        return "" if @suggestions.any?
 
         auth = @authenticated.nil? ? Current.session.present? : @authenticated
         Pito::Shell::ChatboxHint.sample(authenticated: auth)
@@ -64,8 +63,8 @@ module Pito
         Pito::Suggestions::Catalog.to_json(authenticated: auth)
       end
 
-      # JSON-encoded showcase suggestions for embedding in the data script element.
-      # Escapes </script> sequences so no suggestion string can break the tag.
+      # JSON-encoded placeholder-rotate hints for embedding in the data script
+      # element. Escapes </script> sequences so no suggestion string can break the tag.
       def showcase_json
         Pito::Showcase::SafeJson.encode(@suggestions)
       end

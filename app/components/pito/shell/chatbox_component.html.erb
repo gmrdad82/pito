@@ -6,31 +6,33 @@
                   # of capitalize/correct/spellcheck (the keyword sanitizer is the
                   # server-side backstop).
                   autocapitalize: "off", autocorrect: "off", spellcheck: "false", rows: 1,
-                  class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input",
+                  class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input pito-block-caret",
                   data: {} }
 
   if @reduced
     input_attrs[:data].merge!(
-      pito__terminal_caret_target: "field",
+      pito__autosize_target: "field",
       pito__type_fx_target: "field"
     )
   else
     input_attrs[:data].merge!(
       action: "keydown->pito--suggestions#handleKeydown keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput",
       pito__suggestions_target: "field",
-      pito__terminal_caret_target: "field",
+      pito__autosize_target: "field",
       pito__type_fx_target: "field",
-      pito__chat_showcase_target: "field"
+      pito__placeholder_rotate_target: "field"
     )
   end
 
   input_attrs[:data].merge!(@input_data) if @input_data
 
   if @reduced
-    chatbox_controllers = "pito--terminal-caret pito--cursor-trail pito--type-fx"
+    # The field-wrap below carries pito--type-fx + pito--autosize; the reduced
+    # chatbox needs no wrapper-level controllers.
+    chatbox_controllers = ""
     chatbox_data = {}
   else
-    chatbox_controllers = "pito--suggestions pito--chatbox-hints pito--history pito--chat-showcase"
+    chatbox_controllers = "pito--suggestions pito--chatbox-hints pito--history pito--placeholder-rotate"
     chatbox_data = { "pito--history-entries-value": @history.to_json }
     if @draft_uuid.present?
       chatbox_controllers += " pito--draft"
@@ -41,8 +43,8 @@
 <div id="pito-chatbox" class="chatbox-wrapper" data-controller="<%= chatbox_controllers %>" data-action="click->pito--chat-form#focusField"<% chatbox_data.each do |k, v| %> data-<%= k %>="<%= v %>"<% end %>>
 <% unless @reduced %>
 <script type="application/json" data-pito--suggestions-target="catalog"><%= catalog_json.html_safe %></script>
-<%# Showcase data — cycled by pito--chat-showcase; replaced by Turbo Stream after each turn. %>
-<script type="application/json" id="pito-showcase-data" data-pito--chat-showcase-target="data"><%= showcase_json.html_safe %></script>
+<%# Showcase data — cycled into the placeholder by pito--placeholder-rotate; replaced by Turbo Stream after each turn. %>
+<script type="application/json" id="pito-showcase-data" data-pito--placeholder-rotate-target="data"><%= showcase_json.html_safe %></script>
 <div data-pito--suggestions-target="palette" class="pito-suggestions-palette hidden"></div>
 <% end %>
 <%= render(Pito::Segment::Component.new(
@@ -56,38 +58,36 @@
       <%= hidden_field_tag :period, @filter[:period], data: { pito__chat_form_target: "periodInput" } %>
     <% end %>
 
-    <%# Line 1: text input + terminal block caret overlay %>
-    <div class="pito-chatbox__field-wrap" data-controller="pito--terminal-caret pito--cursor-trail pito--type-fx"
-         data-pito--terminal-caret-autofocus-value="true">
+    <%# Line 1: text input. The caret is the browser's NATIVE caret, styled as a
+        block via .pito-block-caret (caret-shape: block) — no JS overlay. %>
+    <div class="pito-chatbox__field-wrap" data-controller="pito--type-fx pito--autosize"
+         data-pito--autosize-autofocus-value="true">
       <%= text_area_tag :input_field, @initial_value, **input_attrs %>
-      <span class="terminal-caret" data-pito--terminal-caret-target="block" aria-hidden="true"></span>
-      <%# Showcase ghost — cycles comet-revealed suggestions in the idle empty chatbox. %>
-      <% unless @reduced %>
-      <div class="pito-showcase-ghost" data-pito--chat-showcase-target="item" aria-hidden="true"></div>
-      <% end %>
     </div>
     <%# Line 2: filter context (only shown in :default state, not in reduced mode) %>
     <% if !@reduced && @filter && @state != :start %>
-      <div class="flex items-center text-fg-faded pito-chatbox__filter">
+      <%# Single row, no middot separators (gap-3 spaces the elements). Exactly ONE
+          of the three hints shows at a time (chatbox-hints controller, item 10):
+            • unfocused                     → `m to start chatting`
+            • focused + `list vids/games`   → shift+tab (channel cycler)
+            • focused + `analyze`           → shift+space (period cycler)
+            • focused + anything else       → nothing
+          The display spans double as chat-form targets so cycling still syncs. %>
+      <div class="flex items-center gap-3 text-fg-faded pito-chatbox__filter">
         <%= render(Pito::Shell::Chatbox::NameComponent.new(title: @conversation_title)) %>
-        <%# Channel/period cyclers (shift+tab / shift+space) — shown ONLY when the
-            chatbox is focused. Mutually exclusive with the `m chat` hint below
-            (its inverse). The display spans stay in the DOM so chat-form keeps
-            their values in sync while hidden. %>
-        <span data-pito--chatbox-hints-target="filterHints" class="items-center hidden">
-          <span data-pito--chat-form-target="channelDisplay">
-            <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
-          </span>
-          <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-          <span data-pito--chat-form-target="periodDisplay">
-            <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
-          </span>
+        <span data-pito--chatbox-hints-target="shiftTabHint" data-pito--chat-form-target="channelDisplay" class="items-center hidden">
+          <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
         </span>
-        <span data-pito--chatbox-hints-target="suggestHint" class="items-center hidden"><%= render(Pito::Shell::InlineSeparatorComponent.new) %><%= render(Pito::Keybinding::HintComponent.new(shortcut: "tab", description: "suggest")) %></span>
-        <%# `m chat` hint — shown ONLY when the chatbox is NOT focused. No leading
-            separator: when it shows, the filter cyclers are hidden, so there's
-            nothing to separate it from. %>
-        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: "chat")) %></span>
+        <span data-pito--chatbox-hints-target="shiftSpaceHint" data-pito--chat-form-target="periodDisplay" class="items-center hidden">
+          <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+        </span>
+        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: Pito::Copy.render("pito.copy.start_chatting"))) %></span>
+      </div>
+    <% elsif @reduced || @state == :start %>
+      <%# Start screen / 404 / share: a single always-on `m to start chatting` hint
+          (no cyclers, no focus swap) on one row. %>
+      <div class="flex items-center text-fg-faded pito-chatbox__filter">
+        <%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: Pito::Copy.render("pito.copy.start_chatting"))) %>
       </div>
     <% end %>
   </div>

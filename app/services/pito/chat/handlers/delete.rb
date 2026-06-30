@@ -23,12 +23,22 @@ module Pito
         def call
           if video_target?(VIDEO_NOUN_FILLERS)
             handle_video
-          else
+          elsif follow_up? || game_noun?
             handle_game
+          else
+            unknown_entity
           end
         end
 
         private
+
+        # Free-chat: an EXPLICIT game noun token present? In free chat the 2nd token
+        # IS the entity (owner 2026-06-29) — a bare id (`rm 123`) or unknown word
+        # (`rm foo`) is NEVER silently treated as a game; only `game`/`games` routes
+        # here. (Follow-up replies bypass this via `follow_up?` in `call`.)
+        def game_noun?
+          message.body_tokens.any? { |t| GAME_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+        end
 
         # ── Video branch ────────────────────────────────────────────────────────
 
@@ -76,6 +86,14 @@ module Pito
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.delete.needs_ref", message_args: {})
+        end
+
+        # Free-chat with no recognised entity (bare `rm`, bare id, or unknown word)
+        # — no guessing (owner 2026-06-29). Render the generic "I don't get it"
+        # dictionary (`pito.copy.huh`, reused per owner). Pre-rendered so the
+        # finalizer routes it to `text:` while keeping the :error chrome.
+        def unknown_entity
+          Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
         end
       end
     end

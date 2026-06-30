@@ -21,7 +21,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
     end
 
     it "produces the SAME events as the free-chat verb (chat ≡ #hashtag)" do
-      free      = Pito::Chat::Dispatcher.call(input: "show #{game.id}", conversation:)
+      free      = Pito::Chat::Dispatcher.call(input: "show game #{game.id}", conversation:)
       delegated = described_class.call(source_event:, rest: "show #{game.id}", conversation:)
 
       expect(delegated.events.map { |e| e[:kind] }).to eq(free.events.map { |e| e[:kind] })

@@ -20,10 +20,10 @@ RSpec.describe "Dispatch pipeline parity (Finalizer)", type: :job do
     turn = conversation.turns.create!(
       position:   Turn.next_position_for(conversation),
       input_kind: :chat,
-      input_text: "show #{game.id}"
+      input_text: "show game #{game.id}"
     )
     Event.create_with_position!(
-      conversation:, turn:, kind: :echo, payload: { text: "show #{game.id}" }
+      conversation:, turn:, kind: :echo, payload: { text: "show game #{game.id}" }
     )
     ChatDispatchJob.perform_now(turn.id, channel: "@all", authenticated: true)
     turn.events.reload.where.not(kind: %w[echo thinking]).order(:position).to_a

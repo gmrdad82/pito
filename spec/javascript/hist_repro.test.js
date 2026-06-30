@@ -1,13 +1,13 @@
 // Reproduce test for HIST1: ArrowUp on the TEXTAREA (not wrapper) should
 // still recall history when pito--history, pito--suggestions, and
-// pito--chat-showcase are all connected on the same #pito-chatbox.
+// pito--placeholder-rotate are all connected on the same #pito-chatbox.
 //
 // The existing history tests fire the event on the chatbox WRAPPER which
 // bypasses data-action handlers (suggestions, chat-form). The real app
 // fires on the TEXTAREA and it bubbles. This test reproduces the real flow.
 //
 // Root cause (HIST1): history#applyEntry dispatches a synthetic `input` event
-// so other controllers (draft, caret, type-fx) rerender. The suggestions
+// so other controllers (draft, type-fx) rerender. The suggestions
 // controller's onInput fires and opens the verb palette for slash commands
 // (e.g. "/games" is in verb-stage when catalog has "games"). The NEXT arrow
 // key then hits suggestions#handleKeydown with _paletteOpen=true →
@@ -17,7 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import HistoryController from "controllers/pito/history_controller"
 import SuggestionsController from "controllers/pito/suggestions_controller"
-import ChatShowcaseController from "controllers/pito/chat_showcase_controller"
+import PlaceholderRotateController from "controllers/pito/placeholder_rotate_controller"
 
 // Catalog with "games" and "sync" — these are verb-stage entries, so applying
 // "/games" from history would open the suggestions palette (that's the bug).
@@ -38,7 +38,7 @@ function buildFullChatbox(entriesJson = "[]") {
   // Mirrors the real chatbox_component.html.erb structure
   const chatbox = document.createElement("div")
   chatbox.id = "pito-chatbox"
-  chatbox.setAttribute("data-controller", "pito--suggestions pito--history pito--chat-showcase")
+  chatbox.setAttribute("data-controller", "pito--suggestions pito--history pito--placeholder-rotate")
   chatbox.setAttribute("data-pito--history-entries-value", entriesJson)
 
   // Catalog script (suggestions target)
@@ -48,11 +48,11 @@ function buildFullChatbox(entriesJson = "[]") {
   catalog.textContent = CATALOG_JSON
   chatbox.appendChild(catalog)
 
-  // Showcase data script
+  // Placeholder-rotate hints data script
   const showcaseData = document.createElement("script")
   showcaseData.type = "application/json"
   showcaseData.id = "pito-showcase-data"
-  showcaseData.setAttribute("data-pito--chat-showcase-target", "data")
+  showcaseData.setAttribute("data-pito--placeholder-rotate-target", "data")
   showcaseData.textContent = SHOWCASE_JSON
   chatbox.appendChild(showcaseData)
 
@@ -74,17 +74,11 @@ function buildFullChatbox(entriesJson = "[]") {
     "keydown->pito--suggestions#handleKeydown keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput"
   )
   textarea.setAttribute("data-pito--suggestions-target", "field")
-  textarea.setAttribute("data-pito--chat-showcase-target", "field")
+  textarea.setAttribute("data-pito--placeholder-rotate-target", "field")
   fieldWrap.appendChild(textarea)
 
-  // Showcase ghost (chat-showcase item target)
-  const ghost = document.createElement("div")
-  ghost.className = "pito-showcase-ghost"
-  ghost.setAttribute("data-pito--chat-showcase-target", "item")
-  fieldWrap.appendChild(ghost)
-
   document.body.appendChild(chatbox)
-  return { chatbox, textarea, palette, ghost }
+  return { chatbox, textarea, palette }
 }
 
 function arrowUp(el) {
@@ -106,7 +100,7 @@ describe("HIST1 reproduce: history works when arrows fire on the TEXTAREA", () =
     app = Application.start()
     app.register("pito--history", HistoryController)
     app.register("pito--suggestions", SuggestionsController)
-    app.register("pito--chat-showcase", ChatShowcaseController)
+    app.register("pito--placeholder-rotate", PlaceholderRotateController)
   })
 
   afterEach(async () => {

@@ -21,8 +21,6 @@ en:
           other: "%{count}*"
         notifications_hint: "ctrl+/"
         notifications_open: "Open notifications"
-        suggestions_hint: "tab"
-        suggestions_label: "suggest"
         chat_hint: "m"
         chat_label: "chat"
         commands_hint: "ctrl+k"

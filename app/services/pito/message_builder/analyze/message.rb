@@ -7,7 +7,7 @@ module Pito
       # and ready states.
       #
       # SCAFFOLD (owner-resolved): each role renders ITS ordered metrics
-      # (Pito::Analytics::MetricOrder) as generic Metric::CompactComponent cells via
+      # (Pito::Analytics::MetricOrder) as generic Slots::Compact cells via
       # Pito::Analytics::ScaffoldComponent, every cell a `0`/`1` data-pulled flag —
       # proving the fan-out + verb + with/without work end-to-end. Roles differ by
       # their metric set + their Pito::Copy intro
@@ -20,7 +20,7 @@ module Pito
       # Payload keys are strings so they round-trip through jsonb unchanged.
       #
       # Chart metrics (views / watched_hours / subs): `:system` role only, rendered
-      # as Pito::Analytics::Metric::AreaChart (braille area chart). Each chart's
+      # as Pito::Analytics::Visualizers::Area (braille area chart). Each chart's
       # data is persisted in the marker under its metric name (string key) so a
       # mutate reply re-renders the chart without re-fetching. CHART_METRIC_KEYS
       # lists the metrics that may carry chart data.
@@ -49,7 +49,7 @@ module Pito
         NO_DATA_METRICS = (CHART_METRIC_KEYS.map(&:to_sym) + %i[likes] + BAR_METRIC_KEYS.map(&:to_sym)).freeze
 
         # Fixed key→colour token maps for the categorical bar metrics (the
-        # BarChartComponent COLOR_TOKENS palette). geography + age have dynamic keys
+        # Pito::Analytics::Visualizers::Bar COLOR_TOKENS palette). geography + age have dynamic keys
         # → coloured by ORDER from a ramp instead (GEO_RAMP / AGE_RAMP).
         BAR_COLORS = {
           subscribed_status:   { "SUBSCRIBED" => :green, "UNSUBSCRIBED" => :red },
@@ -313,7 +313,7 @@ module Pito
         end
 
         # Build the HEART grid cell from the persisted likes marker — symbolises the
-        # stored colour + keys for HeartChartComponent.
+        # stored colour + keys for Pito::Analytics::Visualizers::Heart.
         def heart_cell(likes)
           hearts = Array(likes["hearts"]).map do |h|
             {
@@ -371,7 +371,7 @@ module Pito
           caption
         end
 
-        # The witty caption under the likes-hearts (HeartChartComponent) — the
+        # The witty caption under the likes-hearts (Pito::Analytics::Visualizers::Heart) — the
         # SUBJECT ("Likes vs Dislikes", blue→purple shimmer) + the score% as a cyan
         # token followed by the cyan "lifetime" reference. Mirrors
         # render_chart_caption's render_html/shimmer path; html-safe; persisted in
@@ -407,7 +407,7 @@ module Pito
           token = Pito::Shimmer::TokenComponent.html(fmt_chart_value(metric, chart))
 
           triangle = if trend
-            Pito::Analytics::Metric::TrendTriangleComponent.html(
+            Pito::Analytics::Support::TrendTriangle.html(
               value:    (chart["total"] || chart["total_pct"]).to_f,
               previous: chart["previous"]
             )

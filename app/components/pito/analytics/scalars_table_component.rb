@@ -18,10 +18,24 @@ module Pito
     #            + thumbs-down red (:down). Replaces the standalone Dislikes cell.
     #   - Comments: word label + a plain trend-coloured count.
     #
-    # The green/red shimmer reuses the TrendNumberComponent `.pito-trend-number`
+    # The green/red shimmer reuses the Pito::Analytics::Support::TrendNumber `.pito-trend-number`
     # classes so the numbers shimmer and the icons pick up the accent colour.
     class ScalarsTableComponent < ViewComponent::Base
       EM_DASH = "—"
+
+      # Canonical ordered list of glance metrics — the single source of truth for
+      # both the loading skeleton (cells rendered without a Result) and the filled
+      # render (cells rendered from a Scalars::Result). The key matches the metric
+      # key in Scalars::Result.metrics; the label matches the i18n token used by
+      # metric_label. Jobs that fill individual cells address them via the dom-id
+      # "<token>__metric_<key>" produced by the component template.
+      GLANCE_METRICS = [
+        { key: :views,             label: "views" },
+        { key: :watched_hours,     label: "watch_hours" },
+        { key: :avg_view_duration, label: "avg_view_duration" },
+        { key: :subs_net,          label: "subs_net" },
+        { key: :likes,             label: "likes" }
+      ].freeze
 
       # Row 1 metric configs.
       ROW1 = [
@@ -34,14 +48,24 @@ module Pito
         { key: :avg_view_duration, label: "avg_view_duration", polarity: true, format: :duration }
       ].freeze
 
-      # @param series [Hash{Symbol=>Array}] optional day-series per metric
+      # @param result  [Pito::Analytics::Scalars::Result, nil] — nil when loading:
+      # @param series  [Hash{Symbol=>Array}] optional day-series per metric
       #   (views/watched_hours/avg_view_duration/subs/likes) from
       #   Pito::Analytics::GlanceSeries — each renders a 2-row braille sparkline
-      #   (Metric::SparklineComponent) above its scalar.
-      def initialize(result:, series: {})
-        @result = result
-        @series = series || {}
+      #   (Visualizers::Sparkline) above its scalar.
+      # @param token   [String, nil] per-message hex token used to build stable
+      #   dom-ids ("<token>__metric_<key>") for each cell — nil suppresses the id.
+      # @param loading [Boolean] true → render every metric as a LoadingDots
+      #   skeleton using Slots::Compact(loading: true); @result is not used.
+      def initialize(result: nil, series: {}, token: nil, loading: false)
+        @result  = result
+        @series  = series || {}
+        @token   = token
+        @loading = loading
       end
+
+      def loading? = @loading
+      def token    = @token
 
       def row1_cells = build_cells(ROW1)
       def row2_cells = build_cells(ROW2)
@@ -50,6 +74,7 @@ module Pito
       # Canonical order: views → watched_hours → avg_view_duration → subs → likes.
       # (avg_viewed_pct + comments removed from the glance — owner 2026-06-29; the
       # five remaining metrics all carry a GlanceSeries sparkline.)
+      # Each element carries a :key for the dom-id, plus :label, :series, :value.
       def cells
         build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell ]
       end
@@ -69,7 +94,7 @@ module Pito
               down: "-#{Pito::Formatter::CompactCount.call(lost.to_i)}"
             )
           end
-        { label: metric_label("subs_net"), series: @series[:subs], value: }
+        { key: :subs_net, label: metric_label("subs_net"), series: @series[:subs], value: }
       end
 
       # Likes: "<likes>👍/<dislikes>👎" — green likes, red dislikes (em dash when
@@ -86,7 +111,7 @@ module Pito
               down: icon_count(dislikes, "thumbs-down", metric_label("dislikes"))
             )
           end
-        { label: metric_label("likes"), series: @series[:likes], value: }
+        { key: :likes, label: metric_label("likes"), series: @series[:likes], value: }
       end
 
       private
@@ -95,9 +120,10 @@ module Pito
         cfg_list.map do |cfg|
           metric = @result.metrics[cfg[:key]] || {}
           {
+            key:    cfg[:key],
             label:  metric_label(cfg[:label]),
             series: @series[cfg[:key]],
-            value:  render(Pito::Analytics::TrendNumberComponent.new(
+            value:  render(Pito::Analytics::Support::TrendNumber.new(
               value:            metric[:current],
               previous:         metric[:previous],
               comparable:       @result.comparable,
@@ -140,7 +166,7 @@ module Pito
         ])
       end
 
-      # Reuses the TrendNumberComponent green/red shimmer classes so the number
+      # Reuses the Pito::Analytics::Support::TrendNumber green/red shimmer classes so the number
       # shimmers and any child icon picks up the green/red accent colour. An
       # explicit `offset` lets a split value share ONE stagger across both halves
       # so they pulse in phase; falls back to a per-content offset otherwise.

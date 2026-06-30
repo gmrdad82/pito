@@ -14,6 +14,18 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
+- **Channel banner on `show channel`** — PITO now caches its own copy of the
+  YouTube channel banner during sync: it fetches the **original 2560×1440** banner
+  (the raw URL serves only a 512×288 default) and downscales it to 374×210 — the
+  same 16:9 box as a video thumbnail (both 16:9, so nothing is cropped), served
+  from our host, never hotlinked. On the `show channel` card the banner takes the
+  top-left spot, and the **avatar always lives in the kv-table** (above the handle)
+  as a small **120×120 variant** shown at 60px (a real ActiveStorage variant, not a
+  CSS-scaled full image). A channel with **no banner** leaves the top-left spot
+  empty (the avatar is never shown on the left). The banner and avatar are
+  **re-saved on sync only when the image actually changed** (digest-gated), and the
+  small avatar variant is derived from the attached avatar — so it shows even on a
+  channel that hasn't re-synced since.
 - **`show game` split into three reply-able cards** — the recommendations now
   arrive as separate `:enhanced` messages — **similar games**, **linked videos**
   (when any), and **channel matches** — in that order under the detail card, each
@@ -134,6 +146,36 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Changed
 
+- **Inline chat suggestions removed; palettes stay** — the inline free-chat
+  typeahead "ghost" (and the `tab` completion shortcut + its chatbox hint) is gone.
+  Typing a natural-language message no longer ghost-completes verbs or arguments.
+  The `/slash` command palette and the `#hashtag` reply-verb palette (arrow-key
+  navigable, Enter to accept) are unchanged and remain the only suggestion
+  surfaces. `tab` no longer completes anything (it still stays inside the chatbox
+  rather than moving focus).
+- **shift+tab / shift+space are contextual now** — the channel cycler (shift+tab)
+  shows only while you're typing `list vids`/`list games`, and the period cycler
+  (shift+space) only while typing `analyze`; otherwise the row shows `m to start
+  chatting` (when unfocused) or nothing. The keystrokes are live only when their
+  hint is showing, and the channel/period are **sent only when their cycler is
+  visible** — so no other verb picks up a stale channel or period (`list games`
+  with `@all` = all games; with `@handle` = games having a vid on that channel;
+  `list vids @handle` = that channel's vids). The meta row is a single row on
+  desktop and mobile with the middot separators removed.
+- **`m to start chatting` hint** — the chatbox `m` shortcut (yellow, clickable)
+  now reads **`m to start chatting`** (new `Pito::Copy` caption, replacing the old
+  `chat` label) and shows on the **start screen, 404, `/chat`, and `/share`**. The
+  meta line is a **single row on desktop and mobile** again (no more stacking). On
+  `/chat` it still swaps with the shift+tab/shift+space cyclers by focus; the other
+  surfaces show it always.
+- **Native block caret replaces the custom JS cursor** — the bespoke
+  caret/comet-trail JavaScript (mirror-based pixel math, ghost trail, showcase
+  comet) is gone everywhere — the chatbox textarea **and every search/rename input,
+  including the ctrl+k command palette and the sidebar IGDB search**; the browser's
+  native caret is styled as a phasing block via CSS (`caret-shape: block`). Idle
+  conversation hints now rotate through the input's `placeholder` every ~10s. This
+  removes a class of caret bugs (the caret dropping 1–2px on hover, sitting under
+  the placeholder on reload, and the broken caret on the `/share` page).
 - **Analyze `:enhanced` is always lifetime** — the enhanced analyze card no longer
   follows the shift+space period (its audience-composition bars + retention are
   all lifetime anyway), so it shows the all-time picture and its intro copy says so
@@ -148,6 +190,14 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Slash palette** triggers argument completion on a trailing space and sends on
   Enter at the verb stage.
 - **`list channels`** is ordered by most-recently-published vid.
+- **No more entity guessing in free chat** — `show`, `rm`/`delete`, and `list` no
+  longer silently assume "game" when the second word isn't a recognised entity. In
+  free chat the second token *is* the entity: a bare id (`show 123`, `rm 5`), a
+  bare verb (`show`, `rm`), or an unknown word (`show foo`, `list foobar`) now gets
+  a clear "I don't get it" nudge instead of a surprise game lookup. Explicit nouns
+  (`show game 12`, `rm vid 5`, `list vids`) and `list`'s filter shortcuts
+  (`list rpg`, `list upcoming`) are unchanged; reply (`#<handle>`) flows keep their
+  context. `analyze` already worked this way (it suggests options).
 - **Mini-status shows the build** — the nickname now carries a muted suffix:
   `gmrdad82@<tag>` on a Docker production image, `gmrdad82@localhost` (or your
   configured host) in development.
@@ -170,6 +220,13 @@ stacks. (Bespoke analytics view components close out the tag.)
   `https://dev.pitomd.com`) instead of the static configured host (which read as
   `http://localhost:3027` behind a tunnel). Threaded from the request through the
   async dispatch job.
+- **Bare `show channel` reads as a channel, not a game** — `show channel` with no
+  `@handle` (and no channel scope) now asks *which channel* instead of falling
+  through to the game picker; with a shift+tab channel scope set, it shows that
+  channel directly.
+- **`share` is hidden on confirmation prompts** — the reply menu on an ephemeral
+  confirm/cancel message (e.g. a delete confirmation) no longer offers
+  `share`/`revoke`/`unshare`; sharing a throwaway prompt made no sense.
 - **Owner-set game platforms survive an IGDB re-sync** (no longer overwritten).
 - **`/connect`** no longer shows a no-handle confirmation when already connected.
 - **Channel avatar filenames are channel-unique** so the CDN can't serve a stale

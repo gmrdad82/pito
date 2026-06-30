@@ -49,8 +49,10 @@ module Pito
             handle_channel
           elsif video_target?(VIDEO_NOUN_FILLERS)
             handle_video
-          else
+          elsif follow_up? || game_noun? || extract_ordinal
             handle_game
+          else
+            unknown_entity
           end
         end
 
@@ -64,10 +66,18 @@ module Pito
           message.body_tokens.any? { |t| CHANNEL_NOUN_FILLERS.include?(t.value.to_s.downcase) }
         end
 
+        # Free-chat: an EXPLICIT game noun token present? In free chat the 2nd token
+        # IS the entity (owner 2026-06-29) — a bare id (`show 123`) or unknown word
+        # (`show foo`) is NEVER silently treated as a game; only `game`/`games`
+        # routes here. (Follow-up replies bypass this via `follow_up?` in `call`.)
+        def game_noun?
+          message.body_tokens.any? { |t| GAME_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+        end
+
         def handle_channel
           channel = resolve_channel
-          return needs_ref if channel == :needs_ref
-          return channel_not_found(channel_ref) if channel.nil?
+          return channel_needs_ref if channel == :needs_ref
+          return channel_not_found(channel_ref.presence || scoped_channel_handle) if channel.nil?
 
           # :system detail card, then — when the channel has videos — the repliable
           # :enhanced vids list (video_list follow-up target), then LAST the channel
@@ -82,13 +92,33 @@ module Pito
           Pito::Chat::Result::Ok.new(events: events)
         end
 
-        # Resolve the channel by @handle (case-insensitive, @-agnostic).
+        # Resolve the channel by @handle (case-insensitive, @-agnostic). A bare
+        # `show channel` (no @handle in the body) falls back to the shift+tab
+        # channel SCOPE — so it's treated as a channel, never the game picker. Only
+        # truly ambiguous (no handle + @all/blank scope) → :needs_ref.
         def resolve_channel
-          handle = channel_ref
+          handle = channel_ref.presence || scoped_channel_handle
           return :needs_ref if handle.blank?
 
           norm = handle.to_s.sub(/\A@+/, "").downcase
           ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+        end
+
+        # The shift+tab channel scope as a concrete @handle, or nil for @all / blank
+        # (ambiguous — a bare `show channel` then asks which channel, not which game).
+        def scoped_channel_handle
+          h = channel.to_s.strip
+          return nil if h.blank? || %w[@all all].include?(h.downcase)
+
+          h
+        end
+
+        # Channel-specific needs-ref (NOT the game-oriented `needs_ref`) — owner
+        # 2026-06-29: a bare `show channel` must read as a channel, never a game.
+        def channel_needs_ref
+          Pito::Chat::Result::Ok.new(consume: false, events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.chat.show.channel_needs_ref") }
+          ])
         end
 
         # The @handle token after stripping the verb + channel noun.
@@ -200,6 +230,14 @@ module Pito
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.show.needs_ref", message_args: {})
+        end
+
+        # Free-chat with no recognised entity (bare `show`, bare id, or unknown
+        # word) — no guessing (owner 2026-06-29). Render the generic "I don't get
+        # it" dictionary (`pito.copy.huh`, reused per owner). Pre-rendered so the
+        # finalizer routes it to `text:` while keeping the :error chrome.
+        def unknown_entity
+          Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
         end
 
         # ── Ordinal helpers ────────────────────────────────────────────────────

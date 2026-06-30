@@ -6,8 +6,8 @@ require "rails_helper"
 # imports `from "pito/foo"` will fail to load in the real browser (bare-specifier
 # resolution) unless `pito/foo` is pinned in config/importmap.rb. vitest/Vite
 # resolve by file path and never exercise importmap, so this is the only place
-# that catches an unpinned module. (Caught the missing `pito/terminal_caret_core`
-# pin that left the custom cursor dead in the browser while every test passed.)
+# that catches an unpinned module. (Historically caught a missing pin that left a
+# module dead in the browser while every test passed.)
 RSpec.describe "importmap pin coverage" do
   it "pins every pito/* module imported anywhere in app/javascript" do
     imported = Dir.glob(Rails.root.join("app/javascript/**/*.js")).flat_map do |file|

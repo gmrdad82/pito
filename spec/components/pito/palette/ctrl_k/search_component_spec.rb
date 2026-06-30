@@ -37,26 +37,20 @@ RSpec.describe Pito::Palette::CtrlK::SearchComponent do
     end
   end
 
-  describe "terminal block caret" do
-    it "wraps the search input in a caret + trail controller host" do
-      wrap = node.css("[data-controller~='pito--terminal-caret'][data-controller~='pito--cursor-trail']").first
-      expect(wrap).to be_present
-    end
-
-    it "marks the search input as the caret field target (keeping the palette target)" do
-      input = node.css("input[data-pito--terminal-caret-target='field']").first
+  describe "native block caret" do
+    it "styles the search input with the native block caret (.pito-block-caret + .font-mono)" do
+      input = node.css("input[data-pito--command-palette-target='search']").first
       expect(input).to be_present
-      expect(input["data-pito--command-palette-target"]).to eq("search")
-    end
-
-    it "renders the .terminal-caret block target" do
-      expect(node.css("span.terminal-caret[data-pito--terminal-caret-target='block']")).not_to be_empty
-    end
-
-    it "keeps the input monospace and hides the native caret (.font-mono + .pito-caret-input)" do
-      input = node.css("input[data-pito--terminal-caret-target='field']").first
       expect(input["class"]).to include("font-mono")
-      expect(input["class"]).to include("pito-caret-input")
+      expect(input["class"]).to include("pito-block-caret")
+    end
+
+    it "renders no bespoke caret/trail machinery" do
+      expect(node.css("[data-controller~='pito--terminal-caret']")).to be_empty
+      expect(node.css("[data-controller~='pito--cursor-trail']")).to be_empty
+      expect(node.css("span.terminal-caret")).to be_empty
+      expect(node.css("[data-pito--terminal-caret-target]")).to be_empty
+      expect(node.css(".pito-caret-input")).to be_empty
     end
   end
 end

@@ -1,72 +1,57 @@
 // spec/javascript/chatbox_hints_controller.test.js
 //
-// Tests for pito--chatbox-hints Stimulus controller.
+// Tests for pito--chatbox-hints (item 10): single-row meta hints chosen from
+// focus + the leading verb/noun typed in the chatbox textarea.
 //
-// Covers:
-//   - Initial state: suggestHint hidden, chatHint visible when no active focus
-//   - pito:suggest(active:true) shows suggestHint; (active:false) hides it
-//   - pito:focus(focused:true) hides chatHint; (focused:false) shows it
-//   - focusin/focusout on elements inside #pito-chatbox updates focused state
-//   - Inline-flex / hidden class swap (never both present together)
-//   - disconnect removes all listeners
+// Matrix:
+//   unfocused                                    → chatHint (m)
+//   focused + `list` + vids/games noun           → shiftTabHint
+//   focused + `analyze`                          → shiftSpaceHint
+//   focused + empty / other verb                 → nothing
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import ChatboxHintsController from "controllers/pito/chatbox_hints_controller"
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildChatbox() {
   const box = document.createElement("div")
   box.id = "pito-chatbox"
   box.setAttribute("data-controller", "pito--chatbox-hints")
 
-  const suggestHint = document.createElement("span")
-  suggestHint.setAttribute("data-pito--chatbox-hints-target", "suggestHint")
-  suggestHint.className = "hidden"
-  box.appendChild(suggestHint)
+  const chatHint = mkSpan(box, "chatHint")
+  const shiftTabHint = mkSpan(box, "shiftTabHint")
+  const shiftSpaceHint = mkSpan(box, "shiftSpaceHint")
 
-  const chatHint = document.createElement("span")
-  chatHint.setAttribute("data-pito--chatbox-hints-target", "chatHint")
-  chatHint.className = "hidden"
-  box.appendChild(chatHint)
-
-  const filterHints = document.createElement("span")
-  filterHints.setAttribute("data-pito--chatbox-hints-target", "filterHints")
-  filterHints.className = "hidden"
-  box.appendChild(filterHints)
-
-  // A focusable child to simulate focus events
-  const input = document.createElement("input")
-  box.appendChild(input)
+  const field = document.createElement("textarea")
+  box.appendChild(field)
 
   document.body.appendChild(box)
-  return { box, suggestHint, chatHint, filterHints, input }
+  return { box, chatHint, shiftTabHint, shiftSpaceHint, field }
 }
 
-function fireCustomEvent(name, detail = {}) {
-  document.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }))
+function mkSpan(box, target) {
+  const span = document.createElement("span")
+  span.setAttribute("data-pito--chatbox-hints-target", target)
+  span.className = "hidden"
+  box.appendChild(span)
+  return span
 }
 
-function fireFocusIn(target) {
-  target.dispatchEvent(new FocusEvent("focusin", { bubbles: true }))
+const visible = (el) => el.classList.contains("inline-flex") && !el.classList.contains("hidden")
+
+function focus(value) {
+  // Set the field text, then mark focused via the custom event and fire input.
+  const field = document.querySelector("#pito-chatbox textarea")
+  field.value = value
+  document.dispatchEvent(new CustomEvent("pito:focus", { bubbles: true, detail: { focused: true } }))
+  field.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
-function fireFocusOut(target) {
-  target.dispatchEvent(new FocusEvent("focusout", { bubbles: true }))
+function blur() {
+  document.dispatchEvent(new CustomEvent("pito:focus", { bubbles: true, detail: { focused: false } }))
 }
 
-// Wait one rAF tick for the controller's requestAnimationFrame recheck.
-function rAFTick() {
-  return new Promise((resolve) => requestAnimationFrame(resolve))
-}
-
-// Wait one event-loop turn.
-function tick() {
-  return new Promise((r) => setTimeout(r, 0))
-}
-
-// ── Suite ─────────────────────────────────────────────────────────────────────
+const tick = () => new Promise((r) => setTimeout(r, 0))
 
 describe("pito--chatbox-hints controller", () => {
   let app
@@ -82,161 +67,108 @@ describe("pito--chatbox-hints controller", () => {
     document.body.innerHTML = ""
   })
 
-  // ── Initial state ───────────────────────────────────────────────────────────
-
-  it("hides suggestHint on connect (no suggest active)", async () => {
-    const { suggestHint } = buildChatbox()
+  it("shows the m hint when not focused", async () => {
+    const { chatHint, shiftTabHint, shiftSpaceHint } = buildChatbox()
     await tick()
-    expect(suggestHint.classList.contains("hidden")).toBe(true)
-    expect(suggestHint.classList.contains("inline-flex")).toBe(false)
+    expect(visible(chatHint)).toBe(true)
+    expect(visible(shiftTabHint)).toBe(false)
+    expect(visible(shiftSpaceHint)).toBe(false)
   })
 
-  it("shows chatHint on connect when nothing inside chatbox is focused", async () => {
-    const { chatHint } = buildChatbox()
+  it("focused + empty → nothing", async () => {
+    const { chatHint, shiftTabHint, shiftSpaceHint } = buildChatbox()
     await tick()
-    expect(chatHint.classList.contains("inline-flex")).toBe(true)
-    expect(chatHint.classList.contains("hidden")).toBe(false)
+    focus("")
+    expect(visible(chatHint)).toBe(false)
+    expect(visible(shiftTabHint)).toBe(false)
+    expect(visible(shiftSpaceHint)).toBe(false)
   })
 
-  // ── pito:suggest event ──────────────────────────────────────────────────────
-
-  it("shows suggestHint when pito:suggest fires with active:true", async () => {
-    const { suggestHint } = buildChatbox()
+  it("focused + `list vids` → shift+tab", async () => {
+    const { shiftTabHint, shiftSpaceHint, chatHint } = buildChatbox()
     await tick()
-    fireCustomEvent("pito:suggest", { active: true })
-    expect(suggestHint.classList.contains("inline-flex")).toBe(true)
-    expect(suggestHint.classList.contains("hidden")).toBe(false)
+    focus("list vids")
+    expect(visible(shiftTabHint)).toBe(true)
+    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(chatHint)).toBe(false)
   })
 
-  it("hides suggestHint when pito:suggest fires with active:false", async () => {
-    const { suggestHint } = buildChatbox()
+  it("focused + `list games rpg` → shift+tab (noun anywhere after verb)", async () => {
+    const { shiftTabHint } = buildChatbox()
     await tick()
-    // Activate then deactivate
-    fireCustomEvent("pito:suggest", { active: true })
-    fireCustomEvent("pito:suggest", { active: false })
-    expect(suggestHint.classList.contains("hidden")).toBe(true)
-    expect(suggestHint.classList.contains("inline-flex")).toBe(false)
+    focus("list games rpg")
+    expect(visible(shiftTabHint)).toBe(true)
   })
 
-  it("hides suggestHint when pito:suggest fires with no detail", async () => {
-    const { suggestHint } = buildChatbox()
+  it("focused + `ls videos` (aliases) → shift+tab", async () => {
+    const { shiftTabHint } = buildChatbox()
     await tick()
-    fireCustomEvent("pito:suggest", { active: true })
-    // Fire without detail — active is falsy
-    document.dispatchEvent(new CustomEvent("pito:suggest", { bubbles: true }))
-    expect(suggestHint.classList.contains("hidden")).toBe(true)
+    focus("ls videos")
+    expect(visible(shiftTabHint)).toBe(true)
   })
 
-  // ── pito:focus event ────────────────────────────────────────────────────────
-
-  it("hides chatHint when pito:focus fires with focused:true", async () => {
-    const { chatHint } = buildChatbox()
+  it("focused + `list channels` → nothing (channels noun isn't vids/games)", async () => {
+    const { shiftTabHint, shiftSpaceHint, chatHint } = buildChatbox()
     await tick()
-    fireCustomEvent("pito:focus", { focused: true })
-    expect(chatHint.classList.contains("hidden")).toBe(true)
-    expect(chatHint.classList.contains("inline-flex")).toBe(false)
+    focus("list channels")
+    expect(visible(shiftTabHint)).toBe(false)
+    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(chatHint)).toBe(false)
   })
 
-  it("shows chatHint when pito:focus fires with focused:false", async () => {
-    const { chatHint } = buildChatbox()
+  it("focused + `analyze` → shift+space", async () => {
+    const { shiftSpaceHint, shiftTabHint } = buildChatbox()
     await tick()
-    fireCustomEvent("pito:focus", { focused: true })
-    fireCustomEvent("pito:focus", { focused: false })
-    expect(chatHint.classList.contains("inline-flex")).toBe(true)
-    expect(chatHint.classList.contains("hidden")).toBe(false)
+    focus("analyze channel")
+    expect(visible(shiftSpaceHint)).toBe(true)
+    expect(visible(shiftTabHint)).toBe(false)
   })
 
-  // ── filterHints (shift+tab / shift+space) ⟺ focused (inverse of chatHint) ─────
-
-  it("shows filterHints and hides chatHint when focused", async () => {
-    const { filterHints, chatHint } = buildChatbox()
+  it("focused + `stats` (alias) → shift+space", async () => {
+    const { shiftSpaceHint } = buildChatbox()
     await tick()
-    fireCustomEvent("pito:focus", { focused: true })
-    expect(filterHints.classList.contains("inline-flex")).toBe(true)
-    expect(filterHints.classList.contains("hidden")).toBe(false)
-    expect(chatHint.classList.contains("hidden")).toBe(true)
+    focus("stats vids")
+    expect(visible(shiftSpaceHint)).toBe(true)
   })
 
-  it("hides filterHints and shows chatHint when not focused (mutually exclusive)", async () => {
-    const { filterHints, chatHint } = buildChatbox()
+  it("focused + other verb (`show game`) → nothing", async () => {
+    const { shiftTabHint, shiftSpaceHint, chatHint } = buildChatbox()
     await tick()
-    fireCustomEvent("pito:focus", { focused: true })
-    fireCustomEvent("pito:focus", { focused: false })
-    expect(filterHints.classList.contains("hidden")).toBe(true)
-    expect(filterHints.classList.contains("inline-flex")).toBe(false)
-    expect(chatHint.classList.contains("inline-flex")).toBe(true)
-    // never both visible at once
-    expect(filterHints.classList.contains("inline-flex") && chatHint.classList.contains("inline-flex")).toBe(false)
+    focus("show game 5")
+    expect(visible(shiftTabHint)).toBe(false)
+    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(chatHint)).toBe(false)
   })
 
-  // ── Class swap invariant ────────────────────────────────────────────────────
+  it("losing focus from `list vids` falls back to the m hint", async () => {
+    const { chatHint, shiftTabHint } = buildChatbox()
+    await tick()
+    focus("list vids")
+    expect(visible(shiftTabHint)).toBe(true)
+    blur()
+    expect(visible(chatHint)).toBe(true)
+    expect(visible(shiftTabHint)).toBe(false)
+  })
 
   it("never leaves both inline-flex and hidden on the same element", async () => {
-    const { suggestHint, chatHint } = buildChatbox()
+    const { chatHint, shiftTabHint, shiftSpaceHint } = buildChatbox()
     await tick()
-
-    const events = [
-      ["pito:suggest", { active: true }],
-      ["pito:suggest", { active: false }],
-      ["pito:focus",   { focused: true }],
-      ["pito:focus",   { focused: false }],
-    ]
-    for (const [name, detail] of events) {
-      fireCustomEvent(name, detail)
-      for (const el of [suggestHint, chatHint]) {
-        expect(
-          el.classList.contains("inline-flex") && el.classList.contains("hidden"),
-          `${name}: ${el.dataset.pitoChatboxHintsTarget} has both classes`
-        ).toBe(false)
+    for (const v of ["", "list vids", "analyze", "show game"]) {
+      focus(v)
+      for (const el of [chatHint, shiftTabHint, shiftSpaceHint]) {
+        expect(el.classList.contains("inline-flex") && el.classList.contains("hidden")).toBe(false)
       }
     }
   })
 
-  // ── focusin / focusout native events ────────────────────────────────────────
-
-  it("hides chatHint when an element inside #pito-chatbox gains focus", async () => {
-    const { chatHint, input } = buildChatbox()
+  it("no-ops on a row without the hint targets (start/reduced static m)", async () => {
+    const box = document.createElement("div")
+    box.id = "pito-chatbox"
+    box.setAttribute("data-controller", "pito--chatbox-hints")
+    document.body.appendChild(box)
     await tick()
-    // Simulate focus entering the chatbox
-    Object.defineProperty(document, "activeElement", {
-      get: () => input,
-      configurable: true,
-    })
-    fireFocusIn(input)
-    await rAFTick()
-    expect(chatHint.classList.contains("hidden")).toBe(true)
-  })
-
-  it("shows chatHint when focus leaves #pito-chatbox", async () => {
-    const { chatHint, input } = buildChatbox()
-    await tick()
-    // First focus inside
-    Object.defineProperty(document, "activeElement", {
-      get: () => input,
-      configurable: true,
-    })
-    fireFocusIn(input)
-    await rAFTick()
-    // Now focus leaves
-    Object.defineProperty(document, "activeElement", {
-      get: () => document.body,
-      configurable: true,
-    })
-    fireFocusOut(input)
-    await rAFTick()
-    expect(chatHint.classList.contains("inline-flex")).toBe(true)
-  })
-
-  // ── disconnect ───────────────────────────────────────────────────────────────
-
-  it("removes pito:suggest listener on disconnect", async () => {
-    const { box, suggestHint } = buildChatbox()
-    await tick()
-    // Disconnect the controller
-    box.removeAttribute("data-controller")
-    await tick()
-    fireCustomEvent("pito:suggest", { active: true })
-    // suggestHint should still be hidden (listener removed)
-    expect(suggestHint.classList.contains("hidden")).toBe(true)
+    // No throw, nothing to toggle.
+    document.dispatchEvent(new CustomEvent("pito:focus", { bubbles: true, detail: { focused: true } }))
+    expect(true).toBe(true)
   })
 })

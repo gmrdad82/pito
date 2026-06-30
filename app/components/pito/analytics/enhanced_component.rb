@@ -8,12 +8,16 @@ module Pito
     # brief note instead of the table. Rendered by Pito::MessageBuilder::Analytics
     # once AnalyticsFillJob has the data.
     class EnhancedComponent < ViewComponent::Base
-      def initialize(intro:, result: nil, pending: false, nudge: nil, series: {})
+      # @param token [String, nil] per-message hex token threaded from the pending
+      #   marker — used to build stable dom-ids on the ScalarsTableComponent cells
+      #   so Turbo Stream per-metric fills can target them by id.
+      def initialize(intro:, result: nil, pending: false, nudge: nil, series: {}, token: nil)
         @intro   = intro
         @result  = result
         @pending = pending
         @nudge   = nudge
         @series  = series || {}
+        @token   = token
       end
 
       def pending?

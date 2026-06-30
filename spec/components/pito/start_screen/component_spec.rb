@@ -213,11 +213,11 @@ RSpec.describe Pito::StartScreen::Component do
     end
   end
 
-  # ── SHOWCASE-START-NOTFOUND: auth-gated comet ────────────────────────────────
-  # When suggestions are passed (authenticated path), the showcase data script
-  # tag carries the suggestions JSON and the native textarea placeholder is
-  # empty.  When suggestions is [] (unauthenticated path), the script tag is
-  # empty and the native login hint shows.
+  # ── SHOWCASE-START-NOTFOUND: auth-gated hints ────────────────────────────────
+  # When suggestions are passed (authenticated path), the hints data script tag
+  # carries the suggestions JSON, which pito--placeholder-rotate cycles through
+  # the field's native placeholder. When suggestions is [] (unauthenticated
+  # path), the script tag is empty and the native login hint shows.
 
   describe "showcase suggestions (SHOWCASE-START-NOTFOUND)" do
     let(:suggestions) { %w[list\ games show\ last\ vid list\ vids] }
@@ -232,9 +232,8 @@ RSpec.describe Pito::StartScreen::Component do
         expect(parsed).to eq(suggestions)
       end
 
-      it "renders the textarea with an empty native placeholder" do
-        # The showcase comet IS the hint — no static placeholder behind the caret.
-        expect(node.css("textarea").first["placeholder"]).to eq("")
+      it "renders the textarea with a non-empty sampled placeholder (rotated by placeholder-rotate)" do
+        expect(node.css("textarea").first["placeholder"]).to be_present
       end
     end
 

@@ -3,7 +3,7 @@
 module Pito
   module Analytics
     # The `analyze` `:system`/`:enhanced` message body: the (stable) intro line + a
-    # grid of generic `Metric::CompactComponent` cells. For now every cell shows a
+    # grid of generic `Slots::Compact` cells. For now every cell shows a
     # `0`/`1` data-pulled scaffold value (real per-metric components come on the
     # owner's "revisit"). Mirrors `EnhancedComponent`'s intro/pending shape (inline
     # `data-pito-ts-slot`, spinner while the fan-out runs) but renders the analyze

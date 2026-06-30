@@ -22,8 +22,25 @@ module Pito
         nil
       end
 
+      # Small (50%, 120×120) avatar variant for the kv-table row.
+      def avatar_inline_url
+        @channel.avatar_inline_variant_url
+      rescue StandardError
+        nil
+      end
+
       def avatar_attached?
         @channel.avatar.attached?
+      end
+
+      def banner_url
+        @channel.banner_variant_url
+      rescue StandardError
+        nil
+      end
+
+      def banner_attached?
+        @channel.banner.attached?
       end
 
       # Stat counters (subs · views · vids) for Pito::Stats::CountersComponent.

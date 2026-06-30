@@ -235,24 +235,28 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
     end
   end
 
-  # ── Game: no noun → defaults to game branch ───────────────────────────────────
+  # ── No entity noun in free chat → NO GUESS → unknown_entity (huh) ─────────────
   #
-  # When no noun filler appears in body_tokens, both channel_noun? and
-  # video_target? are false → the handler falls through to handle_game.
-  # The ref is extracted from raw directly (after stripping the verb word).
+  # Owner 2026-06-29: in free chat the 2nd token IS the entity — a bare id
+  # (`show 123`), a hash id (`show #123`), or an unknown word (`show foo`) is NEVER
+  # silently treated as a game. With neither channel_noun? nor video_target? nor an
+  # EXPLICIT game_noun? (and not a follow-up), the handler returns a Result::Error
+  # rendering the generic `pito.copy.huh` dictionary (NOT `pito.chat.show.needs_ref`,
+  # NOT the game branch). DB is never touched.
 
-  describe "no noun → defaults to game branch" do
-    {
-      "show ##{SHOW_GAME_ID}" => SHOW_GAME_ID,
-      "show #{SHOW_GAME_ID}"  => SHOW_GAME_ID
-    }.each do |raw, expected_id|
-      it "#{raw.inspect} → game branch (no noun = game default), game_id: #{expected_id}" do
+  describe "no entity noun (bare id / hash id / unknown word) → unknown_entity (huh), no guess" do
+    [
+      "show ##{SHOW_GAME_ID}",
+      "show #{SHOW_GAME_ID}",
+      "show foo",
+      "show lies-of-p"
+    ].each do |raw|
+      it "#{raw.inspect} → Result::Error rendering a pito.copy.huh variant (no DB call, not the game branch)" do
+        expect(::Game).not_to receive(:find_by)
         result = call(raw)
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        event = result.events.first
-        expect(event[:kind]).to eq(:system)
-        expect(event[:payload]["reply_target"]).to eq("game_detail")
-        expect(event[:payload]["game_id"]).to eq(expected_id)
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.message_key).not_to eq("pito.chat.show.needs_ref")
+        expect(I18n.t("pito.copy.huh")).to include(result.message_key)
       end
     end
   end
@@ -282,8 +286,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
     {
       "show game #99"  => nil,
       "show games #99" => nil,
-      "show game 99"   => nil,
-      "show #99"       => nil
+      "show game 99"   => nil
     }.each do |raw, _|
       it "#{raw.inspect} → consume: false, :system not-found event" do
         result = call(raw)
@@ -338,32 +341,47 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
     end
   end
 
-  # ── Bare show / noun-only → Result::Error (needs_ref) ────────────────────────
+  # ── Noun-only (no id) → Result::Error (needs_ref) ────────────────────────────
   #
-  # In every branch:
-  #   - bare "show"           → falls into game branch → extract_ref → "" → :needs_ref
+  # An EXPLICIT entity noun with no id still names the entity → its needs_ref:
   #   - "show vid" (no id)    → video branch → extract_ref strips "vid" → "" → :needs_ref
   #   - "show game" (no id)   → game branch  → extract_ref strips "game" → "" → :needs_ref
-  #   - "show channel" (no @) → channel branch → channel_ref = "" → :needs_ref
-  # All return Result::Error with message_key "pito.chat.show.needs_ref".
+  # (bare `show` and `show channel` are NOT here — see the no-guess + channel-needs-ref
+  # blocks below. Owner 2026-06-29: no entity noun ⇒ never the game picker.)
 
-  describe "bare/noun-only input → Result::Error (needs_ref)" do
+  describe "noun-only input (explicit entity, no id) → Result::Error (needs_ref)" do
     [
-      "show",
-      "show   ",
       "show vid",
       "show vids",
       "show video",
       "show videos",
       "show game",
-      "show games",
-      "show channel",
-      "show channels"
+      "show games"
     ].each do |raw|
       it "#{raw.inspect} → Result::Error, message_key: pito.chat.show.needs_ref" do
         result = call(raw)
         expect(result).to be_a(Pito::Chat::Result::Error)
         expect(result.message_key).to eq("pito.chat.show.needs_ref")
+      end
+    end
+  end
+
+  # Regression (owner 2026-06-29): a bare `show channel` (no @handle, no channel
+  # scope) reads as a CHANNEL — its own channel needs-ref (a Result::Ok rendering
+  # `pito.chat.show.channel_needs_ref`) — NOT the game picker (Result::Error
+  # `pito.chat.show.needs_ref`). The bug was it being perceived as a game.
+  # (MessageBuilder::Text is stubbed in the suite-wide `before`, so we assert the
+  # COPY KEY routed to it, not the rendered string.)
+  describe "bare `show channel`/`show channels` → channel needs-ref (never the game Error)" do
+    [ "show channel", "show channels" ].each do |raw|
+      it "#{raw.inspect} → Result::Ok rendering the channel needs-ref copy (not the game needs_ref)" do
+        expect(Pito::MessageBuilder::Text).to receive(:call)
+          .with("pito.chat.show.channel_needs_ref").and_return("text" => "Which channel?")
+
+        result = call(raw)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result).not_to be_a(Pito::Chat::Result::Error)
+        expect(result.consume).to eq(false)
       end
     end
   end

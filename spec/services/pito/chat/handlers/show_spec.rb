@@ -29,13 +29,24 @@ RSpec.describe Pito::Chat::Handlers::Show do
 
   # ── Game branch — id resolution ───────────────────────────────────────────────
 
-  it "shows a game by id (#N)" do
-    payload = handler_for("##{game.id}").call.events.first[:payload]
-    expect(payload["body"]).to include("Lies of P")
+  # No-guess (owner 2026-06-29): in free chat a bare id with NO entity noun is no
+  # longer silently treated as a game — it returns the generic `pito.copy.huh`
+  # error. The positive "game by id" path now requires an explicit `game` noun
+  # (covered below).
+  it "bare hash id (#N, no noun) → unknown_entity error (pito.copy.huh), not a game" do
+    result = handler_for("##{game.id}").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(I18n.t("pito.copy.huh")).to include(result.message_key)
   end
 
-  it "shows a game by bare id" do
-    payload = handler_for(game.id.to_s).call.events.first[:payload]
+  it "bare id (no noun) → unknown_entity error (pito.copy.huh), not a game" do
+    result = handler_for(game.id.to_s).call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(I18n.t("pito.copy.huh")).to include(result.message_key)
+  end
+
+  it "shows a game by id with explicit hash id + `game` noun" do
+    payload = handler_for("game", "##{game.id}").call.events.first[:payload]
     expect(payload["body"]).to include("Lies of P")
   end
 
@@ -50,19 +61,19 @@ RSpec.describe Pito::Chat::Handlers::Show do
   end
 
   it "stamps the detail message follow-up-able (game_detail)" do
-    payload = handler_for("##{game.id}").call.events.first[:payload]
+    payload = handler_for("game", "##{game.id}").call.events.first[:payload]
     expect(Pito::FollowUp.followupable?(payload)).to be(true)
     expect(payload["reply_target"]).to eq("game_detail")
   end
 
   it "does not emit an analytics message for a game with no linked videos" do
-    events    = handler_for("##{game.id}").call.events
+    events    = handler_for("game", "##{game.id}").call.events
     analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
     expect(analytics).to be_nil
   end
 
   it "emits two enhanced recommendations messages (SimilarGames + Channels, kind :enhanced, each follow-up-able)" do
-    events = handler_for("##{game.id}").call.events
+    events = handler_for("game", "##{game.id}").call.events
     recs = events.select { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
     expect(recs.length).to eq(2)
     recs.each do |r|
@@ -75,7 +86,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
   end
 
   it "emits events in order: detail → SimilarGames → Channels (no analytics when no linked videos)" do
-    events = handler_for("##{game.id}").call.events
+    events = handler_for("game", "##{game.id}").call.events
     detail_idx  = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
     recs        = events.each_with_index.select { |e, _| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
     similar_idx = recs.first&.last
@@ -98,7 +109,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       let!(:vgl)     { create(:video_game_link, video: video, game: game) }
 
       it "emits an :enhanced linked-videos list message after detail and SimilarGames" do
-        events = handler_for("##{game.id}").call.events
+        events = handler_for("game", "##{game.id}").call.events
         list_index   = events.index { |e| e[:payload]["reply_target"] == "game_linked_videos" }
         detail_index = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
         expect(list_index).to be_present
@@ -108,7 +119,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
 
       it "emits events in order: detail → SimilarGames → linked-videos → Channels → analytics" do
-        events = handler_for("##{game.id}").call.events
+        events = handler_for("game", "##{game.id}").call.events
         detail_idx    = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
         videos_idx    = events.index { |e| e[:payload]["reply_target"] == "game_linked_videos" }
         recs          = events.each_with_index.select { |e, _| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
@@ -123,7 +134,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
 
       it "emits an analytics pending event for the game (kind :enhanced, scope_type Game)" do
-        events    = handler_for("##{game.id}").call.events
+        events    = handler_for("game", "##{game.id}").call.events
         analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
 
         expect(analytics).to be_present
@@ -134,27 +145,27 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
 
       it "is repliable via the game_linked_videos follow-up target (game context for unlink)" do
-        payload = linked_videos_event("##{game.id}")[:payload]
+        payload = linked_videos_event("game", "##{game.id}")[:payload]
         expect(Pito::FollowUp.followupable?(payload)).to be(true)
         expect(payload["reply_target"]).to eq("game_linked_videos")
         expect(payload["game_id"]).to eq(game.id)
       end
 
       it "lists the linked video as a table row" do
-        payload = linked_videos_event("##{game.id}")[:payload]
+        payload = linked_videos_event("game", "##{game.id}")[:payload]
         expect(payload["table_rows"].size).to eq(1)
         expect(payload["video_ids"]).to eq([ video.id ])
       end
 
       it "names the channel the game appears on in the intro body (witty channels line)" do
-        payload = linked_videos_event("##{game.id}")[:payload]
+        payload = linked_videos_event("game", "##{game.id}")[:payload]
         expect(payload["body"]).to include(channel.handle)
       end
     end
 
     context "when the game has no linked videos" do
       it "emits no linked-videos (video_list) message" do
-        expect(linked_videos_event("##{game.id}")).to be_nil
+        expect(linked_videos_event("game", "##{game.id}")).to be_nil
       end
     end
   end
@@ -183,10 +194,12 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(result.events.first[:payload]["game_id"]).to be_nil
   end
 
-  it "returns a usage hint when no reference is given" do
+  # No-guess (owner 2026-06-29): a bare `show` (no entity noun at all) is not the
+  # game picker — it returns the generic `pito.copy.huh` error.
+  it "bare `show` (no entity) → unknown_entity error (pito.copy.huh)" do
     result = handler_for.call
     expect(result).to be_a(Pito::Chat::Result::Error)
-    expect(result.message_key).to eq("pito.chat.show.needs_ref")
+    expect(I18n.t("pito.copy.huh")).to include(result.message_key)
   end
 
   # ── not-found is a soft Ok: consume: false so a `#<handle>` reply can retry ──────
@@ -436,6 +449,40 @@ RSpec.describe Pito::Chat::Handlers::Show do
       result = show_real("show channel @nope")
       expect(result.consume).to be(false)
       expect(result.events.first[:payload].to_s).to include("nope")
+    end
+
+    # Regression (owner 2026-06-29): a bare `show channel` must read as a CHANNEL,
+    # never fall through to the game picker ("Which game?"). The 2nd token is the
+    # entity — no guessing.
+    context "bare `show channel` (regression: channel, never the game picker)" do
+      def show_scoped(input, scope)
+        msg = Pito::Chat::Parser.call(Pito::Lex::Lexer.call(input), raw: input, conversation: Conversation.singleton)
+        described_class.new(message: msg, conversation: Conversation.singleton, channel: scope).call
+      end
+
+      def body_text(result)
+        pl = result.events.first[:payload]
+        (pl["text"] || pl["body"]).to_s
+      end
+
+      it "with NO channel scope → asks which CHANNEL (not 'Which game?')" do
+        result = show_scoped("show channel", nil)
+        expect(body_text(result)).to include("Which channel")
+        expect(body_text(result)).not_to include("Which game")
+      end
+
+      it "with the @all scope → still asks which channel, not which game" do
+        result = show_scoped("show channel", "@all")
+        expect(body_text(result)).to include("Which channel")
+        expect(body_text(result)).not_to include("Which game")
+      end
+
+      it "with a specific shift+tab channel scope → resolves THAT channel's detail card" do
+        result = show_scoped("show channel", "@gmrdad82")
+        event = result.events.first
+        expect(event[:kind]).to eq(:system)
+        expect(event[:payload]["body"]).to include("GMR Dad")
+      end
     end
 
     it "emits :system detail + the :enhanced channel analytics glance when the channel has no videos" do

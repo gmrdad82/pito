@@ -19,18 +19,16 @@
      data-pito--games-search-i18n-step-labels-value="<%= [Pito::Copy.render('pito.copy.games.import.step1'), Pito::Copy.render('pito.copy.games.import.step2'), Pito::Copy.render('pito.copy.games.import.step3'), Pito::Copy.render('pito.copy.games.import.step4'), Pito::Copy.render('pito.copy.games.import.step5')].to_json %>">
 
   <%# Search input — styled like the conversation-rename input.
-      Wrapped so the terminal block caret + trail ride along (input mode). %>
-  <div class="relative" data-controller="pito--terminal-caret pito--cursor-trail">
+      Native caret styled as a block via .pito-block-caret (caret-shape: block). %>
+  <div class="relative">
     <input type="text"
            class="w-full bg-transparent outline-none border-b border-line-default
                   text-fg pb-1 placeholder:text-fg-faded
-                  focus:border-accent pito-caret-input"
+                  focus:border-accent pito-block-caret"
            placeholder="<%= t('pito.sidebar.games_import.search_placeholder') %>"
            autocomplete="off"
            data-pito--games-search-target="input"
-           data-pito--terminal-caret-target="field"
            value="<%= prefill %>">
-    <span class="terminal-caret" data-pito--terminal-caret-target="block" aria-hidden="true"></span>
   </div>
 
   <%# Shimmer indicator — shown while talking to IGDB (search or import). %>

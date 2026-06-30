@@ -5,31 +5,27 @@
 // Strategy: mount the real controller on a jsdom document using the same
 // Stimulus-Application pattern as history_controller.test.js.  We mock
 // pito/auth so isAuthenticated() returns a controllable value, and mock
-// global fetch for arg-stage / dynamic fetch tests.
+// global fetch for arg-stage palette fetch tests.
 //
 // COVERAGE
 //   Verb-stage palette:
 //     - slash catalog filter + Arrow nav + Enter accept + Tab no-op + Esc close
 //     - Space dismisses palette (lets space type normally)
-//     - pito:suggest dispatched on open/close
-//   Ghost (arg-stage / free-form):
-//     - Tab accepts free-form ghost
-//     - Enter passes through (does not accept ghost)
-//     - debounced /suggestions fetch: mock fetch → ghost set from response
-//     - stale-response guard: rapid input → only last fetch applies
 //   External hashtag picker (pito:hashtag-picker:open from shift+r):
 //     - opens inline palette with handle rows
 //     - Arrow nav + Enter accept inserts `#handle ` at position 0
 //     - Escape closes without inserting
 //     - ignores event when unauthenticated or empty handles
+//   Fetched palettes:
+//     - hashtag reply-verb palette render (stage:"verb" fetch)
+//     - slash /config arg-stage palette render (stage:"verb" fetch)
+//   I3 — Enter sends complete slash commands:
+//     - exact verb Enter falls through to submit; partial verb accepts palette row
+//   Stage classifiers:
+//     - _isHashtagReplyVerbStage
 //   Misc:
 //     - modeFor classification
 //     - connect / disconnect lifecycle
-//
-// SKIPPED (requires real layout / caret pixels):
-//   - Ghost span absolute positioning (relies on getComputedStyle line-height
-//     and caret coords from pito:caret event; jsdom always returns 0 for metrics)
-//   - Terminal-caret integration (_positionGhost transform values)
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -59,41 +55,8 @@ const CATALOG_JSON = JSON.stringify({
     { name: "help",       insert: "/help ",       description: "Show help" },
   ],
   hashtag: [],
-  chat: [
-    { name: "list",     insert: "list ",     description: "List resources",       slots: [{ name: "noun",       source: "nouns"             }] },
-    { name: "show",     insert: "show ",     description: "Show a resource",      slots: []                                                     },
-    { name: "analyze",  insert: "analyze ",  description: "Analyze metrics",      slots: [{ name: "noun",       source: "nouns"             }] },
-    { name: "import",   insert: "import ",   description: "Import a game",        slots: [{ name: "noun",       source: "import_nouns"      }] },
-    { name: "sync",     insert: "sync ",     description: "Sync data",            slots: [{ name: "target",     source: "sync_targets"      }] },
-    { name: "footage",  insert: "footage ",  description: "Set footage hours",    slots: [{ name: "title",      source: "game_titles"       }] },
-    { name: "price",    insert: "price ",    description: "Set/unset a price",    slots: [{ name: "subcommand", source: "price_subcommands" }] },
-    { name: "delete",   insert: "delete ",   description: "Delete a game",        slots: [{ name: "title",      source: "game_titles"       }] },
-    { name: "reindex",  insert: "reindex ",  description: "Reindex a game",       slots: [{ name: "title",      source: "game_titles"       }] },
-    { name: "platform", insert: "platform ", description: "Set platform",         slots: [{ name: "subcommand", source: "platform_subcommands" }] },
-    { name: "publish",  insert: "publish ",  description: "Publish a video",      slots: []                                                     },
-    { name: "unlist",   insert: "unlist ",   description: "Unlist a video",       slots: []                                                     },
-    { name: "schedule", insert: "schedule ", description: "Schedule a video",     slots: [{ name: "slate",      source: "schedule_whens"   }] },
-    { name: "find",     insert: "find ",     description: "Find games",           slots: [{ name: "status", source: "release_status" }, { name: "genre", source: "genres" }, { name: "platform", source: "platforms" }] },
-    { name: "link",     insert: "link ",     description: "Link game to video",   slots: []                                                     },
-    { name: "unlink",   insert: "unlink ",   description: "Unlink a game",        slots: []                                                     },
-    { name: "shinies",  insert: "shinies ",  description: "Show achievements",    slots: []                                                     },
-    { name: "help",     insert: "help ",     description: "Show help",            slots: []                                                     },
-    { name: "greet",    insert: "greet ",    description: "Greet",                slots: []                                                     },
-    { name: "farewell", insert: "farewell ", description: "Farewell",             slots: []                                                     },
-  ],
-  vocabularies: {
-    release_status:    { canonical: ["released", "upcoming", "tba"],        synonyms: {},                                                                     fillers: [], dynamic: false },
-    genres:            { canonical: ["RPG", "Racing", "Shooter"],           synonyms: {},                                                                     fillers: [], dynamic: false },
-    platforms:         { canonical: ["PlayStation 5", "PC", "Xbox"],        synonyms: {},                                                                     fillers: [], dynamic: false },
-    game_titles:       { dynamic: true, endpoint: "/suggestions" },
-    sync_targets:      { canonical: ["channels", "videos"],                 synonyms: { channel: "channels", video: "videos" },                              fillers: [], dynamic: false },
-    fillers:           { canonical: [], fillers: ["the", "a", "an", "game", "games"], synonyms: {},                                                         dynamic: false },
-    nouns:             { canonical: ["channels", "vids", "games"],          synonyms: { channel: "channels", video: "vids", videos: "vids", vid: "vids" },  fillers: [], dynamic: false },
-    import_nouns:      { canonical: ["game"],                               synonyms: { games: "game" },                                                     fillers: [], dynamic: false },
-    schedule_whens:    { canonical: ["slate"],                              synonyms: {},                                                                     fillers: [], dynamic: false },
-    price_subcommands: { canonical: ["set", "unset"],                       synonyms: {},                                                                     fillers: [], dynamic: false },
-    platform_subcommands: { canonical: ["set", "unset"],                    synonyms: {},                                                                     fillers: [], dynamic: false },
-  },
+  chat: [],
+  vocabularies: {},
 })
 
 // ── DOM scaffold ─────────────────────────────────────────────────────────────
@@ -104,7 +67,7 @@ function buildScaffold() {
   chatbox.id = "pito-chatbox"
   chatbox.setAttribute("data-controller", "pito--suggestions")
 
-  // field-wrap (needed for ghost span creation)
+  // field-wrap
   const fieldWrap = document.createElement("div")
   fieldWrap.className = "pito-chatbox__field-wrap"
   fieldWrap.style.position = "relative"
@@ -177,8 +140,6 @@ describe("pito--suggestions controller", () => {
 
     beforeEach(async () => {
       await waitForConnect()
-      // Access the controller instance via the element's __stimulusController
-      // convention (Stimulus stores it on the element)
       ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
     })
 
@@ -269,14 +230,12 @@ describe("pito--suggestions controller", () => {
       expect(textarea.value.startsWith("/")).toBe(true)
     })
 
-    it("Tab is a no-op while palette is open (does not accept)", async () => {
+    it("Tab does not accept a palette selection (Tab is no longer handled — #9)", async () => {
       input(textarea, "/co")
       await waitForConnect()
       const valueBefore = textarea.value
       key(textarea, "Tab")
-      // Palette stays open
-      expect(palette.classList.contains("hidden")).toBe(false)
-      // Value unchanged (Tab didn't accept anything)
+      // Tab is not intercepted at all anymore — it never accepts/inserts anything.
       expect(textarea.value).toBe(valueBefore)
     })
 
@@ -300,647 +259,15 @@ describe("pito--suggestions controller", () => {
       await waitForConnect()
       expect(palette.classList.contains("hidden")).toBe(true)
     })
-  })
 
-  // ── pito:suggest dispatch ────────────────────────────────────────────────
-
-  describe("pito:suggest dispatch", () => {
-    beforeEach(async () => {
-      await waitForConnect()
-    })
-
-    it("dispatches pito:suggest with active:true when palette opens", async () => {
-      const events = []
-      document.addEventListener("pito:suggest", (e) => events.push(e.detail.active))
-
-      input(textarea, "/co")
-      await waitForConnect()
-
-      expect(events).toContain(true)
-
-      document.removeEventListener("pito:suggest", () => {})
-    })
-
-    it("dispatches pito:suggest with active:false when palette closes", async () => {
-      const events = []
-      document.addEventListener("pito:suggest", (e) => events.push(e.detail.active))
-
-      input(textarea, "/co")
-      await waitForConnect()
-      key(textarea, "Escape")
-
-      expect(events).toContain(false)
-
-      document.removeEventListener("pito:suggest", () => {})
-    })
-  })
-
-  // ── Arg-stage ghost — debounced /suggestions fetch ───────────────────────
-  //
-  // We test the debounce and stale-response guard by calling controller methods
-  // directly (bypassing Stimulus event wiring) and using vi.useFakeTimers with
-  // manual timer advancement.  The Stimulus app is shared from the outer scaffold;
-  // we wait for it to connect with real timers first, then activate fake timers
-  // just for the setTimeout-based debounce inside the test body.
-
-  describe("arg-stage ghost — debounced /suggestions fetch", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("calls /suggestions after the debounce interval fires", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          menu_items: [{ label: "google", insert: "google " }],
-          ghost: { complete_current: "", next_hint: "" },
-        }),
-      })
-      vi.stubGlobal("fetch", fetchMock)
-
-      // Call the internal schedule method directly to bypass Stimulus event wiring
-      vi.useFakeTimers()
-      try {
-        ctrl._scheduleArgFetch("/config ", 8)
-
-        // Before debounce fires, fetch should not have been called
-        expect(fetchMock).not.toHaveBeenCalled()
-
-        // Advance past ARG_DEBOUNCE_MS (120ms)
-        vi.advanceTimersByTime(200)
-        await Promise.resolve()
-        await Promise.resolve()
-
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        const callArgs = fetchMock.mock.calls[0]
-        expect(callArgs[0]).toBe("/suggestions")
-        expect(JSON.parse(callArgs[1].body)).toMatchObject({ input: "/config " })
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it("stale-response guard: second schedule call increments requestId, first response ignored", async () => {
-      let resolveFirst, resolveSecond
-      const firstPending  = new Promise((r) => (resolveFirst  = r))
-      const secondPending = new Promise((r) => (resolveSecond = r))
-
-      let callCount = 0
-      vi.stubGlobal("fetch", vi.fn().mockImplementation(() => {
-        callCount++
-        return callCount === 1 ? firstPending : secondPending
-      }))
-
-      vi.useFakeTimers()
-      try {
-        // Schedule first fetch
-        ctrl._scheduleArgFetch("/config g", 9)
-        vi.advanceTimersByTime(200)
-        await Promise.resolve()
-        // First fetch is now in-flight (firstPending)
-
-        // Schedule second fetch — this cancels first timer and bumps requestId
-        ctrl._scheduleArgFetch("/config go", 10)
-        vi.advanceTimersByTime(200)
-        await Promise.resolve()
-
-        // Resolve stale first response after requestId was bumped
-        resolveFirst({
-          ok: true,
-          json: async () => ({ menu_items: [{ label: "stale", insert: "stale " }], ghost: {} }),
-        })
-        await Promise.resolve()
-        await Promise.resolve()
-
-        // Resolve fresh second response
-        resolveSecond({
-          ok: true,
-          json: async () => ({ menu_items: [{ label: "google", insert: "google " }], ghost: {} }),
-        })
-        await Promise.resolve()
-        await Promise.resolve()
-
-        // Controller is still alive — stale response was discarded without error
-        expect(ctrl).toBeTruthy()
-        // The stale response should not have set the ghost (we can't read ghost span
-        // content without real layout, but we verify no exception occurred)
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-  })
-
-  // ── Ghost — Tab accept (free-form) ────────────────────────────────────────
-
-  describe("ghost — Tab accept in free-form mode", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("Tab with no ghost active is a no-op (field unchanged)", async () => {
+    it("Tab with no palette open does nothing (not intercepted, no insertion — #9)", async () => {
       input(textarea, "list upcoming")
       await waitForConnect()
       const before = textarea.value
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }))
+      key(textarea, "Tab")
+      // Tab is no longer handled — free input has no palette and no completion.
       expect(textarea.value).toBe(before)
-    })
-
-    it("Tab accepts the ghost suffix and appends it at the cursor", async () => {
-      // Manually inject a ghost state (bypassing fetch/caret layout).
-      // We call handleKeydown directly (same as dispatching a keydown action event)
-      // to avoid Stimulus event-wiring timing issues in jsdom.
-      expect(ctrl).toBeTruthy()
-      ctrl._ghostComplete = "oming"
-      ctrl._mode = "free"
-
-      const initialValue = "list upc"
-      textarea.value = initialValue
-      textarea.selectionStart = textarea.selectionEnd = initialValue.length
-
-      // Call the action handler directly — avoids Stimulus action wiring timing in jsdom
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }))
-
-      expect(textarea.value).toBe("list upcoming")
-    })
-
-    it("Tab with ghost does not submit (no form submit side-effect)", async () => {
-      ctrl._ghostComplete = "oming"
-      ctrl._mode = "free"
-      textarea.value = "list upc"
-      textarea.selectionStart = textarea.selectionEnd = 8
-
-      const submitEvents = []
-      document.addEventListener("submit", (e) => submitEvents.push(e))
-
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }))
-
-      expect(submitEvents).toHaveLength(0)
-    })
-
-    it("Enter passes through ghost without accepting it", async () => {
-      // Inject ghost state; Enter must NOT call _acceptGhost (it passes through to submit)
-      ctrl._ghostComplete = "oming"
-      ctrl._mode = "free"
-      textarea.value = "list upc"
-      textarea.selectionStart = textarea.selectionEnd = 8
-
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
-
-      // Ghost not accepted — value unchanged
-      expect(textarea.value).toBe("list upc")
-    })
-  })
-
-  // ── _chatEnumSlots verb-awareness (T10.5) ───────────────────────────────
-
-  describe("_chatEnumSlots — verb-aware slot derivation", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("returns empty slots for the 'show' spec (no enum slots — catalog slots: [])", () => {
-      const showSpec = ctrl._findChatSpec("show")
-      expect(showSpec).toBeTruthy()
-      const slots = ctrl._chatEnumSlots(showSpec)
-      expect(slots).toHaveLength(0)
-    })
-
-    it("returns game_titles slot for the 'delete' spec", () => {
-      const deleteSpec = ctrl._findChatSpec("delete")
-      expect(deleteSpec).toBeTruthy()
-      const slots = ctrl._chatEnumSlots(deleteSpec)
-      expect(slots).toHaveLength(1)
-      expect(slots[0].source).toBe("game_titles")
-    })
-
-    it("returns nouns slot for 'list' spec (static enum slot from catalog)", () => {
-      const listSpec = ctrl._findChatSpec("list")
-      expect(listSpec).toBeTruthy()
-      const slots = ctrl._chatEnumSlots(listSpec)
-      expect(slots).toHaveLength(1)
-      expect(slots[0].name).toBe("noun")
-      expect(slots[0].source).toBe("nouns")
-    })
-
-    it("returns legacy fallback slots when chatSpec is null", () => {
-      const slots = ctrl._chatEnumSlots(null)
-      expect(slots.map(s => s.name)).toEqual(["status", "genre", "platform"])
-    })
-
-    it("'show ' at trailing space produces no enum ghost (show has no enum slots)", () => {
-      const result = ctrl._computeLocalGhost("show ", 5)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-
-    it("dynamic game_titles slot causes _computeLocalGhost to return null (→ dynamic fetch)", () => {
-      // 'delete game li' — 'game' is a filler, 'li' is the partial for game_titles (dynamic)
-      // _computeLocalGhost should return null to trigger the dynamic fetch path
-      const result = ctrl._computeLocalGhost("delete game li", 14)
-      // null means "defer to dynamic fetch"
-      expect(result).toBeNull()
-    })
-  })
-
-  // ── list verb — server-side ghost deferral ────────────────────────────────
-  //
-  // The `list` verb defers all ghost computation to POST /suggestions so the
-  // server-side ListClauseGhost can handle noun completion, the `with`
-  // connector, and field-token completion uniformly.
-
-  describe("free-form verb-stage prefix completion", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("completes a unique verb prefix ('sy' → 'nc' for 'sync')", () => {
-      expect(ctrl._computeLocalGhost("sy", 2).complete_current).toBe("nc")
-    })
-
-    it("stays silent for ambiguous prefix 'sh' (show + shinies)", () => {
-      expect(ctrl._computeLocalGhost("sh", 2).complete_current).toBe("")
-    })
-
-    it("completes 'sho' → 'w' for 'show' (unique once past 'sh')", () => {
-      expect(ctrl._computeLocalGhost("sho", 3).complete_current).toBe("w")
-    })
-
-    it("completes 'shi' → 'nies' for 'shinies' (unique once past 'sh')", () => {
-      expect(ctrl._computeLocalGhost("shi", 3).complete_current).toBe("nies")
-    })
-
-    it("stays silent for an ambiguous prefix ('s' matches show, sync, shinies, schedule)", () => {
-      expect(ctrl._computeLocalGhost("s", 1).complete_current).toBe("")
-    })
-
-    it("does not verb-complete once a trailing space follows the partial", () => {
-      expect(ctrl._computeLocalGhost("sy ", 3).complete_current).toBe("")
-    })
-
-    it("completes 'an' → 'alyze' for 'analyze' (unique prefix)", () => {
-      expect(ctrl._computeLocalGhost("an", 2).complete_current).toBe("alyze")
-    })
-
-    it("completes 'anal' → 'yze' for 'analyze'", () => {
-      expect(ctrl._computeLocalGhost("anal", 4).complete_current).toBe("yze")
-    })
-
-    // platform set/unset subcommand slot (mirrors price)
-    it("ghosts the first subcommand for 'platform ' → 'set'", () => {
-      expect(ctrl._computeLocalGhost("platform ", 9).complete_current).toBe("set")
-    })
-
-    it("completes 'platform u' → 'nset' (unique prefix)", () => {
-      expect(ctrl._computeLocalGhost("platform u", 10).complete_current).toBe("nset")
-    })
-
-    // `sync` (like `list`) now defers its whole ghost to the server-side
-    // ListClauseGhost — _computeLocalGhost returns null so the caller fetches
-    // POST /suggestions instead of guessing locally.
-    it("defers 'sync ' to the server (returns null, no local ghost)", () => {
-      expect(ctrl._computeLocalGhost("sync ", 5)).toBeNull()
-    })
-
-    it("defers 'sync c' to the server (returns null)", () => {
-      expect(ctrl._computeLocalGhost("sync c", 6)).toBeNull()
-    })
-  })
-
-  describe("list verb — server-side ghost deferral", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("_computeLocalGhost returns null for 'list ' (defers to server)", () => {
-      // null signals _refreshGhost to call _scheduleDynamicFetch instead of
-      // applying a static ghost — so the client does NOT resolve 'channels' locally.
-      const result = ctrl._computeLocalGhost("list ", 5)
-      expect(result).toBeNull()
-    })
-
-    it("_computeLocalGhost returns null for 'list games ' (defers to server)", () => {
-      const result = ctrl._computeLocalGhost("list games ", 11)
-      expect(result).toBeNull()
-    })
-
-    it("_computeLocalGhost returns null for 'list games with ' (defers to server)", () => {
-      const result = ctrl._computeLocalGhost("list games with ", 16)
-      expect(result).toBeNull()
-    })
-
-    it("'list games ' → fetch → ghost shows 'with' from server response", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ ghost: { complete_current: "with", next_hint: "" } }),
-      })
-      vi.stubGlobal("fetch", fetchMock)
-
-      vi.useFakeTimers()
-      try {
-        ctrl._scheduleDynamicFetch("list games ", 11)
-
-        // Before debounce fires, fetch has not been called
-        expect(fetchMock).not.toHaveBeenCalled()
-
-        // Advance past DYNAMIC_DEBOUNCE_MS (150 ms)
-        vi.advanceTimersByTime(200)
-        await Promise.resolve()
-        await Promise.resolve()
-        await Promise.resolve()
-
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ input: "list games " })
-        expect(ctrl._ghostComplete).toBe("with")
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it("'list games with ' → fetch → ghost shows 'platform' from server response", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ ghost: { complete_current: "platform", next_hint: "" } }),
-      })
-      vi.stubGlobal("fetch", fetchMock)
-
-      vi.useFakeTimers()
-      try {
-        ctrl._scheduleDynamicFetch("list games with ", 16)
-
-        vi.advanceTimersByTime(200)
-        await Promise.resolve()
-        await Promise.resolve()
-        await Promise.resolve()
-
-        expect(fetchMock).toHaveBeenCalledTimes(1)
-        expect(ctrl._ghostComplete).toBe("platform")
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-  })
-
-  // ── --help ghost hint ─────────────────────────────────────────────────────
-  //
-  // For any non-list chat verb, typing a "-" partial should ghost "--help".
-
-  describe("--help ghost hint", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("'show -' ghosts '-help' (complete_current = '-help')", () => {
-      const result = ctrl._computeLocalGhost("show -", 6)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("-help")
-      expect(result.next_hint).toBe("")
-    })
-
-    it("'show --' ghosts 'help' (complete_current = 'help')", () => {
-      const result = ctrl._computeLocalGhost("show --", 7)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("help")
-      expect(result.next_hint).toBe("")
-    })
-
-    it("'show --h' ghosts 'elp' (complete_current = 'elp')", () => {
-      const result = ctrl._computeLocalGhost("show --h", 8)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("elp")
-    })
-
-    it("'show --help' produces empty complete_current (exact match)", () => {
-      const result = ctrl._computeLocalGhost("show --help", 11)
-      // "--help" fully typed — no remaining chars to ghost
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-
-    it("'delete -' also ghosts '-help'", () => {
-      const result = ctrl._computeLocalGhost("delete -", 8)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("-help")
-    })
-
-    it("'delete game -' ghosts '-help' (verb + noun + partial)", () => {
-      // game_titles slot is dynamic; 'game' is consumed as a dynamic slot word,
-      // then '-' triggers the --help ghost before the dynamic-fetch path.
-      const result = ctrl._computeLocalGhost("delete game -", 13)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("-help")
-      expect(result.next_hint).toBe("")
-    })
-
-    it("'show video --' ghosts 'help' (verb + noun + partial)", () => {
-      const result = ctrl._computeLocalGhost("show video --", 13)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("help")
-      expect(result.next_hint).toBe("")
-    })
-  })
-
-  // ── Per-verb local ghost completions ─────────────────────────────────────
-  //
-  // These exercise _computeLocalGhost against the faithful mock catalog,
-  // covering every verb that carries a static enum slot plus the dynamic
-  // game_titles deferral and verb-ambiguity cases.
-
-  describe("per-verb local ghost completions", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    // find — release_status slot (first canonical: "released")
-    it("'find ' → 'released' (first release_status canonical)", () => {
-      expect(ctrl._computeLocalGhost("find ", 5).complete_current).toBe("released")
-    })
-
-    it("'find upc' → 'oming' (release_status prefix match)", () => {
-      expect(ctrl._computeLocalGhost("find upc", 8).complete_current).toBe("oming")
-    })
-
-    // analyze — nouns slot (first canonical: "channels")
-    it("'analyze ' → 'channels' (first noun canonical)", () => {
-      expect(ctrl._computeLocalGhost("analyze ", 8).complete_current).toBe("channels")
-    })
-
-    it("'analyze v' → 'ids' (nouns prefix match → vids)", () => {
-      expect(ctrl._computeLocalGhost("analyze v", 9).complete_current).toBe("ids")
-    })
-
-    // import — import_nouns slot (first canonical: "game")
-    it("'import ' → 'game' (first import_nouns canonical)", () => {
-      expect(ctrl._computeLocalGhost("import ", 7).complete_current).toBe("game")
-    })
-
-    // schedule — schedule_whens slot (first canonical: "slate")
-    it("'schedule ' → 'slate' (first schedule_whens canonical)", () => {
-      expect(ctrl._computeLocalGhost("schedule ", 9).complete_current).toBe("slate")
-    })
-
-    // price — price_subcommands slot (first canonical: "set")
-    it("'price ' → 'set' (first price_subcommands canonical)", () => {
-      expect(ctrl._computeLocalGhost("price ", 6).complete_current).toBe("set")
-    })
-
-    it("'price u' → 'nset' (price_subcommands prefix match)", () => {
-      expect(ctrl._computeLocalGhost("price u", 7).complete_current).toBe("nset")
-    })
-
-    // footage — game_titles slot is dynamic → null (defers to server)
-    it("'footage zel' → null (dynamic game_titles slot defers to server)", () => {
-      expect(ctrl._computeLocalGhost("footage zel", 11)).toBeNull()
-    })
-
-    // verb-ambiguity: 'p' matches platform, publish, price → silent
-    it("'p' is silent (ambiguous: platform, publish, price)", () => {
-      expect(ctrl._computeLocalGhost("p", 1).complete_current).toBe("")
-    })
-
-    // 'pr' → price (unique)
-    it("'pr' → 'ice' (unique: price)", () => {
-      expect(ctrl._computeLocalGhost("pr", 2).complete_current).toBe("ice")
-    })
-
-    // 'f' matches find, footage, farewell → silent
-    it("'f' is silent (ambiguous: find, footage, farewell)", () => {
-      expect(ctrl._computeLocalGhost("f", 1).complete_current).toBe("")
-    })
-
-    // 'fo' → footage (unique: find=fi, farewell=fa)
-    it("'fo' → 'otage' (unique: footage)", () => {
-      expect(ctrl._computeLocalGhost("fo", 2).complete_current).toBe("otage")
-    })
-
-    // 'sc' → schedule (unique: sync=sy, show/shinies=sh)
-    it("'sc' → 'hedule' (unique: schedule)", () => {
-      expect(ctrl._computeLocalGhost("sc", 2).complete_current).toBe("hedule")
-    })
-  })
-
-  // ── IG2: import game <name> — ghost must clear after noun is typed ─────────
-  //
-  // Bug: "game" is both the canonical value of the `import_nouns` slot AND listed
-  // in the global fillers vocabulary. The slot-walking loop checked fillerWords
-  // BEFORE trying static slot matching, so "game" was skipped as a filler and the
-  // noun slot was never marked filled. After typing "import game ", the ghost
-  // showed "game" again instead of clearing — and kept showing it throughout the
-  // rest of the game name.
-  //
-  // Fix: try static slot matching FIRST. Only skip as a filler if the word does
-  // not match any static slot's canonical or synonym list.
-
-  describe("import verb — ghost must clear once the noun is typed (IG2)", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    // Baseline: before the noun is typed, "game" IS the correct ghost.
-    it("'import ' → ghost 'game' (noun not yet typed — correct first suggestion)", () => {
-      expect(ctrl._computeLocalGhost("import ", 7).complete_current).toBe("game")
-    })
-
-    // ── Reproducing cases (all showed "game" before the fix) ──────────────────
-
-    it("'import game ' → '' (noun typed — ghost must clear, not re-show 'game')", () => {
-      // ROOT STATE: this is the first state that showed the bug.
-      const result = ctrl._computeLocalGhost("import game ", 12)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-
-    it("'import game Metal ' → '' (multi-word name in progress — ghost stays clear)", () => {
-      const result = ctrl._computeLocalGhost("import game Metal ", 18)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-
-    it("'import game Metal Gear ' → '' (multi-word name continued — ghost stays clear)", () => {
-      const result = ctrl._computeLocalGhost("import game Metal Gear ", 23)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-
-    it("'import game Metal Gear Solid ' → '' (longer title — ghost stays clear)", () => {
-      const result = ctrl._computeLocalGhost("import game Metal Gear Solid ", 29)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-
-    // These were already correct (no trailing space → currentPartial not in import_nouns):
-    it("'import game Metal' → '' (no trailing space — was already correct)", () => {
-      expect(ctrl._computeLocalGhost("import game Metal", 17).complete_current).toBe("")
-    })
-
-    it("'import game Metal Gear' → '' (no trailing space — was already correct)", () => {
-      expect(ctrl._computeLocalGhost("import game Metal Gear", 22).complete_current).toBe("")
-    })
-
-    // Synonym: "games" is a synonym of "game" in import_nouns — also fills the slot.
-    it("'import games ' → '' (synonym noun typed — ghost must clear)", () => {
-      const result = ctrl._computeLocalGhost("import games ", 13)
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
-    })
-  })
-
-  // ── IG2 regression: delete verb must be unaffected by the fix ────────────
-  //
-  // "game" is also a filler for the `delete` verb's dynamic game_titles slot.
-  // After the fix, "game" must still be treated as a filler there (not as a
-  // slot-consumer), so that "li" in "delete game li" correctly becomes the
-  // dynamic slot's currentPartial and triggers the server-side fetch.
-
-  describe("delete verb — 'game' filler still triggers dynamic fetch (IG2 regression)", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("'delete game li' → null (filler 'game' skipped; dynamic slot triggers server fetch)", () => {
-      // Regression: the fix must not cause "game" to consume the dynamic game_titles slot.
-      expect(ctrl._computeLocalGhost("delete game li", 14)).toBeNull()
-    })
-
-    it("'delete game ' → null (filler skipped; dynamic slot at fresh position → server fetch)", () => {
-      // With trailing space, the dynamic slot is the activeSlot; defaultEnumCompletion returns ""
-      // for dynamic, so the next_hint branch applies — but actually the dynamic path returns null.
-      // Let's just verify: at a fresh trailing-space position with a dynamic active slot,
-      // the function returns the hint (not null), because the dynamic null-return only fires
-      // for a non-empty currentPartial. Trailing space → _nextHintForSlot on dynamic = "<title>".
-      const result = ctrl._computeLocalGhost("delete game ", 12)
-      // The dynamic slot is still the active slot (game not consumed as filler) →
-      // endsWithSpace + dynamic → _defaultEnumCompletion → "" → _nextHintForSlot → "<title>"
-      // So result is NOT null (null only for non-empty partial on dynamic).
-      // The key is: "game" is treated as a filler, NOT as consuming the dynamic slot.
-      expect(result).not.toBeNull()
-      expect(result.complete_current).toBe("")
+      expect(palette.classList.contains("hidden")).toBe(true)
     })
   })
 
@@ -1145,7 +472,7 @@ describe("pito--suggestions controller", () => {
       expect(textarea.value).toBe("#kappa-5874 with ")
     })
 
-    it("arg-stage (stage:'arg') keeps the palette CLOSED (ghost path)", async () => {
+    it("arg-stage (stage:'arg') keeps the palette CLOSED", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -1244,7 +571,7 @@ describe("pito--suggestions controller", () => {
       textarea.selectionStart = textarea.selectionEnd = 14
       await ctrl._fetchArgSuggestions("/config google", 14)
       // stage:"verb" came back, but no trailing space → palette must stay hidden
-      // (ghost path) so Enter submits the bare command.
+      // so Enter submits the bare command.
       expect(palette.classList.contains("hidden")).toBe(true)
     })
   })
@@ -1301,32 +628,6 @@ describe("pito--suggestions controller", () => {
     })
   })
 
-  // ── Ghost layers within the caret overlay stack (z-index) ────────────────
-  //
-  // Deliberate field-wrap stack (bottom → top):
-  //   type-fx layer (1)  <  trail ghosts (1)  <  suggestion ghost (2)  <  block (3)
-  // The suggestion ghost reads ABOVE the decoration layers (type-fx + trail) but
-  // BELOW the live block caret (.terminal-caret z-index:3) — so the block is
-  // never occluded at the caret cell. Regression: the ghost was z-index:3, ABOVE
-  // the block, which hid the block whenever a completion was showing.
-
-  describe("ghost layering within the caret stack", () => {
-    let ctrl
-
-    beforeEach(async () => {
-      await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
-    })
-
-    it("the ghost span sits above the decoration layers but below the block caret", () => {
-      ctrl._setGhost("oming", "")
-      expect(ctrl._ghostSpan).toBeTruthy()
-      const z = Number(ctrl._ghostSpan.style.zIndex)
-      expect(z).toBeGreaterThan(1) // above type-fx layer + trail ghosts (z-index 1)
-      expect(z).toBeLessThan(3)    // below the live block caret (.terminal-caret z-index 3)
-    })
-  })
-
   // ── _isHashtagReplyVerbStage classification ──────────────────────────────
 
   describe("_isHashtagReplyVerbStage", () => {
@@ -1369,7 +670,7 @@ describe("pito--suggestions controller", () => {
       expect(ctrl._paletteOpen).toBe(false)
     })
 
-    it("disconnect clears ghost span and removes event listeners", async () => {
+    it("disconnect clears palette and removes event listeners", async () => {
       await waitForConnect()
       const ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
       // Should not throw on disconnect

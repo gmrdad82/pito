@@ -4005,6 +4005,10 @@ en:
         - "See ya. May your uploads process and your schedules never clash."
         - "Take it easy — PITO holds the fort, single owner, no fuss."
         - "Goodbye, and thanks for hanging out. Say `hi` to start again whenever."
+      # The chatbox "m" hint caption — what follows the yellow clickable `m` key
+      # ("m to start chatting"). Shown on the start screen, 404, /chat, and /share.
+      # Single string (a persistent UI hint, not a 1-or-50 witty dictionary).
+      start_chatting: "to start chatting"
       huh:
         - "I have no idea what you just said. Try `help`."
         - "Yo no comprendo lo que me estás diciendo. Prueba `help`."

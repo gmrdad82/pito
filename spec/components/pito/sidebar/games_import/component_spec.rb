@@ -90,27 +90,21 @@ RSpec.describe Pito::Sidebar::GamesImport::Component do
     end
   end
 
-  describe "terminal block caret" do
+  describe "native block caret" do
     subject(:node) { render_inline(described_class.new(prefill: "", conversation_uuid: uuid)) }
 
-    it "wraps the search input in a caret + trail controller host" do
-      wrap = node.css("[data-controller~='pito--terminal-caret'][data-controller~='pito--cursor-trail']").first
-      expect(wrap).to be_present
-    end
-
-    it "marks the search input as the caret field target" do
-      input = node.css("input[data-pito--terminal-caret-target='field']").first
+    it "styles the search input with the native block caret (.pito-block-caret)" do
+      input = node.css("input[data-pito--games-search-target='input']").first
       expect(input).to be_present
-      expect(input["data-pito--games-search-target"]).to eq("input")
+      expect(input["class"]).to include("pito-block-caret")
     end
 
-    it "renders the .terminal-caret block target" do
-      expect(node.css("span.terminal-caret[data-pito--terminal-caret-target='block']")).not_to be_empty
-    end
-
-    it "makes the input monospace + native-caret-hidden via .pito-caret-input" do
-      input = node.css("input[data-pito--terminal-caret-target='field']").first
-      expect(input["class"]).to include("pito-caret-input")
+    it "renders no bespoke caret/trail machinery" do
+      expect(node.css("[data-controller~='pito--terminal-caret']")).to be_empty
+      expect(node.css("[data-controller~='pito--cursor-trail']")).to be_empty
+      expect(node.css("span.terminal-caret")).to be_empty
+      expect(node.css("[data-pito--terminal-caret-target]")).to be_empty
+      expect(node.css(".pito-caret-input")).to be_empty
     end
   end
 end

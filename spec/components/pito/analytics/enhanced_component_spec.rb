@@ -39,8 +39,16 @@ RSpec.describe Pito::Analytics::EnhancedComponent do
       expect(node.css("[data-pito-ts-slot]")).not_to be_empty
     end
 
-    it "does not render the scalars table" do
-      expect(node.css(".pito-analytics-scalars")).to be_empty
+    it "renders the scalars table in loading state" do
+      expect(node.css(".pito-analytics-scalars")).not_to be_empty
+    end
+
+    it "renders exactly 5 loading cells (one .pito-metric--nodata per metric)" do
+      expect(node.css(".pito-metric--nodata").size).to eq(5)
+    end
+
+    it "renders loading dots in each of the 5 cells" do
+      expect(node.css(".pito-loading-dots").size).to eq(5)
     end
 
     it "does not render the unavailable note" do
@@ -49,6 +57,27 @@ RSpec.describe Pito::Analytics::EnhancedComponent do
 
     it "has the outer pito-analytics-enhanced class" do
       expect(node.css(".pito-analytics-enhanced")).not_to be_empty
+    end
+
+    context "with a token" do
+      let(:token) { "abcd1234" }
+      subject(:node) { render_inline(described_class.new(intro: intro, pending: true, token: token)) }
+
+      it "wraps each loading cell in a div whose id matches <token>__metric_<key>" do
+        expected_keys = %w[views watched_hours avg_view_duration subs_net likes]
+        ids = node.css("div.pito-analytics-scalars__cell[id]").map { |d| d["id"] }
+        expect(ids.size).to eq(5)
+        expected_keys.each do |key|
+          expect(ids).to include("#{token}__metric_#{key}")
+        end
+      end
+
+      it "each cell id ends with one of the canonical metric keys" do
+        ids = node.css("div.pito-analytics-scalars__cell[id]").map { |d| d["id"] }
+        ids.each do |id|
+          expect(id).to match(/__metric_(views|watched_hours|avg_view_duration|subs_net|likes)\z/)
+        end
+      end
     end
 
     it "renders an html_safe intro (subject-shimmer span) raw, not escaped" do
@@ -85,6 +114,34 @@ RSpec.describe Pito::Analytics::EnhancedComponent do
 
     it "renders data-pito-ts-slot in the intro" do
       expect(node.css("[data-pito-ts-slot]")).not_to be_empty
+    end
+
+    context "with a token" do
+      let(:token) { "deadbeef" }
+      subject(:node) { render_inline(described_class.new(intro: intro, result: result, token: token)) }
+
+      it "wraps each filled cell in a div whose id matches <token>__metric_<key>" do
+        expected_keys = %w[views watched_hours avg_view_duration subs_net likes]
+        ids = node.css("div.pito-analytics-scalars__cell[id]").map { |d| d["id"] }
+        expect(ids.size).to eq(5)
+        expected_keys.each do |key|
+          expect(ids).to include("#{token}__metric_#{key}")
+        end
+      end
+
+      it "each ready cell id ends with one of the canonical metric keys" do
+        ids = node.css("div.pito-analytics-scalars__cell[id]").map { |d| d["id"] }
+        ids.each do |id|
+          expect(id).to match(/__metric_(views|watched_hours|avg_view_duration|subs_net|likes)\z/)
+        end
+      end
+
+      it "uses the SAME dom-id format as the loading state (ids are stable across transitions)" do
+        loading_node = render_inline(described_class.new(intro: intro, pending: true, token: token))
+        loading_ids  = loading_node.css("div.pito-analytics-scalars__cell[id]").map { |d| d["id"] }.sort
+        ready_ids    = node.css("div.pito-analytics-scalars__cell[id]").map { |d| d["id"] }.sort
+        expect(ready_ids).to eq(loading_ids)
+      end
     end
   end
 

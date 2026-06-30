@@ -129,38 +129,21 @@ describe("pito--rename controller", () => {
     expect(inputs.length).toBe(1)
   })
 
-  // ── Terminal block caret attach / teardown ─────────────────────────────────────
+  // ── Native block caret (no JS overlay) ─────────────────────────────────────────
 
-  it("wraps the rename input so the caret + trail controllers attach", async () => {
+  it("gives the rename input the native block-caret class and no caret overlay", async () => {
     const { row } = buildScaffold()
     await waitForConnect()
 
     dblclick(row)
 
-    const wrap = row.querySelector(".pito--rename-caret-wrap")
-    expect(wrap).not.toBeNull()
-    const controllers = wrap.getAttribute("data-controller")
-    expect(controllers).toContain("pito--terminal-caret")
-    expect(controllers).toContain("pito--cursor-trail")
-
-    const input = wrap.querySelector("input.pito--rename-input")
-    expect(input.getAttribute("data-pito--terminal-caret-target")).toBe("field")
-    expect(input.className).toContain("pito-caret-input")
-    expect(wrap.querySelector("span.terminal-caret[data-pito--terminal-caret-target='block']")).not.toBeNull()
-  })
-
-  it("tears down the caret wrap on Esc cancel (no leaked DOM)", async () => {
-    const { row, span } = buildScaffold()
-    await waitForConnect()
-
-    dblclick(row)
-    expect(row.querySelector(".pito--rename-caret-wrap")).not.toBeNull()
-
-    keydown(row.querySelector("input.pito--rename-input"), "Escape")
-
+    const input = row.querySelector("input.pito--rename-input")
+    expect(input).not.toBeNull()
+    expect(input.className).toContain("pito-block-caret")
+    // No bespoke caret/trail machinery is attached anymore.
     expect(row.querySelector(".pito--rename-caret-wrap")).toBeNull()
     expect(row.querySelector("span.terminal-caret")).toBeNull()
-    expect(span.textContent).toBe("My Conversation")
+    expect(input.getAttribute("data-pito--terminal-caret-target")).toBeNull()
   })
 
   // ── Enter commits rename ──────────────────────────────────────────────────────
