@@ -115,7 +115,7 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
     it "first cell has yellow kbd shimmer token and is right-aligned (clickable)" do
       cell = payload["table_rows"].first[:cells][0]
-      expect(cell[:class]).to include("pito-kbd-shimmer")
+      expect(cell[:class]).to include("pito-action-shimmer")
       expect(cell[:class]).to include("text-right")
     end
 

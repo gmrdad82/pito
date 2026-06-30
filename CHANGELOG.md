@@ -14,6 +14,20 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
+- **`show game` channel coverage + recommendation** — the channel-matches card is now
+  two columns: the left shows this game's coverage **distribution across your channels**
+  (offset bars weighted by linked videos, views, and lifetime watch-time), the right shows the top-5 channel
+  **recommendation** (avatar + fit score) — the same channels, side by side. The
+  distribution streams in progressively (a no-data canvas until the numbers land);
+  the recommendation renders instantly. No other tool shows cross-channel game coverage.
+
+- **Auto-purge of unnamed conversations** — a nightly job deletes conversations
+  that you never named (still on the default `Unnamed N` title) once they've had no
+  activity for **30 days**; anything you actually titled — even a name that starts
+  with "Unnamed" — is kept and only ever deleted by you. It deletes one at a time
+  through the same path as the sidebar `dd` shortcut (no bulk lock), and the
+  `/resume` sidebar now shows an ironic heads-up under "n rename · dd delete".
+
 - **Image masters + on-demand variants** — the channel banner & avatar, video
   thumbnail, and game cover art now store the **original, unprocessed** source image
   as the master, with the display sizes derived as named ActiveStorage variants
@@ -184,6 +198,38 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Changed
 
+- **Shimmer system overhaul** — one consistent set of shimmers, all sharing a single
+  diagonal angle (135°) and speed (5s) as Tailwind tokens, all 20-step staggered:
+  - **action** (pito-blue + purple) is now the *only* clickable shimmer — keys, table
+    links, clickable tokens, `/resume` suggestions, `#id` links, shift+r.
+  - **subject** and **reference** (decorative identifiers) read as normal foreground
+    text with an orange→yellow sheen.
+  - **network** activity (thinking block, IGDB search/import, notification "load more")
+    shares one inverted shimmer (purple + pito-blue).
+  - all **charts + score bar + time-to-beat** share one `--chart-shimmer` (pito-blue).
+  - **`#reply` handles** and the **notification count** are now plain muted text (the
+    reply action lives on shift+r; open notifications with ctrl+/).
+  - achievement/shinies badges keep their per-tier colours but use the global speed/angle.
+- **Context bar** — no longer shimmers. It keeps its green→red gradient and now counts
+  only distinct backend messages (`:system`/`:enhanced`/`:confirmation` — follow-up
+  re-renders don't add); each increment lights an **orange "lit-fuse" comet** that grows
+  the fill from the old position to the new one, then settles.
+- **`/themes`: click or tap to apply** — clicking (or tapping, on mobile) a theme in
+  the themes sidebar now applies it immediately, the same as pressing Enter on it. The
+  live preview stays desktop-only via the ↑/↓ keys.
+- **Wider detail layout (450px columns)** — `show game` / `show channel` / `show vid`
+  now use two **450px** columns (left media + right content), and the conversation
+  column is sized to fit them exactly (964px on desktop). The banner / thumbnail /
+  cover boxes render at their native 450px variant size (no more browser downscale).
+  The `list`/recommendation **cover strips** and **channel matches** show the **top 5**
+  (by score) on one row, with a tightened gap so they fit the narrower column.
+- **Single-line chatbox** — the chatbox is shorter, with the textarea vertically
+  centered; the `c to chat` hint (and the shift+tab / shift+space cyclers) now sit
+  inline, right-aligned on the textarea's line, with symmetric left/right padding.
+  The conversation name moved out of the chatbox to above the context bar (left of
+  the `xx%`), shown only when the conversation is named.
+- **Rake tasks drop the `tools` namespace** — every `pito:tools:*` task is now
+  `pito:*` (e.g. `pito:totp`, `pito:clean`, `pito:games:*`, `pito:images:*`).
 - **Normal text cursor in every input** — the chatbox, the ctrl+k command-palette
   search, the sidebar search boxes, and the conversation-rename field now use the
   browser's normal native caret. The bespoke JS caret/cursor machinery was already
@@ -264,6 +310,38 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Fixed
 
+- **Analytics grids are always two columns** — the `analyze` message and every
+  at-a-glance grid (show vid / game / channel) now lay out as a fixed 2×450px grid on
+  desktop (stacked on mobile), so the braille charts sit side by side instead of
+  collapsing to a single full-width stack. Every glance metric (including net subs at
+  +0/-0) now carries a sparkline with a baseline floor, and a pending metric's loading
+  comet rides in the caption row rather than floating over the chart canvas.
+- **Less shimmer, more signal** — only actionable, thinking, network, and subject text
+  shimmers now. Channel `@handles`, video/game `#ids`, scope chips, and table column
+  headings are plain text; the subject shimmer is a single orange band and the (now
+  reserved) reference shimmer a single yellow band.
+- **Footage value never hides behind a bracket** — on the time-to-beat bar the inline
+  footage value is offset past its tick (left or right of the pillar by where it sits),
+  so a `0h` value at the far-left no longer overlaps the `[`.
+- **Channel recommendation rows line up** — in `show game` the right-column avatars now
+  match the left column's bars row-for-row: each tiny avatar is a 1px-ringed circle
+  sized to one bar's height (its `:xs` variant regenerated to match).
+- **Context bar meets the chatbox** — the conversation context meter now sits flush
+  against the chatbox with no gap.
+- **Chatbox lines up with the messages** — the chatbox / slash palette left border now
+  aligns with the scrollback messages' left border on desktop (a residual column
+  padding had pushed it 5px to the right).
+- **Scroll-nav count reads correctly** — the "N more above/below" pill now uses the
+  right singular/plural noun ("1 more message", "3 more messages"), and both pills hide
+  reliably at the very top/bottom and on a short, all-visible conversation; the bottom
+  pill sits flush against the context bar.
+- **Footage value is readable on the time-to-beat bar** — the generic footage tick
+  color was bleeding onto the inline value chip (fg-on-fg = invisible); the chip now
+  keeps its inverted, legible colors.
+- **Score value sits tight to the pillar** — the inline score-bar value chip is
+  nudged 2px toward its marker.
+- **No gap above the score bar** — removed a stale top margin (left over from when the
+  score floated above the bar) in `show game` and the similar-games cards.
 - **Conversation autocomplete** — the `:conversations` slot (used by reply/resume
   completion) resolves again; a new `Pito::Conversation` namespace had shadowed the
   top-level `::Conversation` model in the grammar resolver.

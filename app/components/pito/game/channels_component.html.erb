@@ -1,19 +1,20 @@
-<%# Pito::Game::ChannelsComponent — channel matches grid %>
-<%# Intro leads inline so the event timestamp sits on the same row. %>
+<%# Pito::Game::ChannelsComponent — channel DISTRIBUTION (col 1) + RECOMMENDATION
+    (col 2), two 450px columns aligned on desktop, stacked on mobile (item 16).
+    Intro leads inline so the event timestamp sits on the same row. %>
 <span class="pito-game-enhanced-message__intro text-fg"><%= raw(intro) %></span>
 <% if channels? %>
   <div class="pito-game-enhanced-message">
-    <div class="pito-game-enhanced-message__channel-grid">
-      <% channel_results.each do |result| %>
-        <div class="pito-game-enhanced-message__channel-col">
-          <%= render(Pito::Channel::ItemComponent.new(
-                channel:     result.channel,
-                show_avatar: true,
-                show_title:  false,
-                score:       result.score
-              )) %>
-        </div>
-      <% end %>
+    <div class="pito-game-channels">
+      <div class="pito-game-channels__col pito-game-channels__col--dist">
+        <%= render(Pito::Game::ChannelDistributionComponent.new(
+              caption: distribution_caption, shares: shares
+            )) %>
+      </div>
+      <div class="pito-game-channels__col pito-game-channels__col--reco">
+        <%= render(Pito::Game::ChannelScoreTableComponent.new(
+              results: channel_results, caption: recommendation_caption
+            )) %>
+      </div>
     </div>
   </div>
 <% end %>

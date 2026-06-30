@@ -1,0 +1,22 @@
+<%# Col 2 — channel recommendation kv-table: small avatar (key) + score bar (value),
+    one row per channel, top-5 by score. %>
+<div class="pito-game-channels__reco">
+  <div class="pito-game-channels__reco-table">
+    <% results.each do |r| %>
+      <div class="pito-game-channels__reco-row">
+        <span class="pito-game-channels__reco-avatar">
+          <% if avatar_url(r.channel) %>
+            <%= image_tag avatar_url(r.channel), alt: r.channel.handle,
+                          class: "pito-game-channels__reco-avatar-img block" %>
+          <% else %>
+            <span class="pito-game-channels__reco-avatar-img pito-game-channels__reco-avatar--placeholder text-fg-faded">?</span>
+          <% end %>
+        </span>
+        <span class="pito-game-channels__reco-score">
+          <%= render(Pito::ScoreBarComponent.new(score: r.score, show_label: false)) %>
+        </span>
+      </div>
+    <% end %>
+  </div>
+  <% if caption.present? %><p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p><% end %>
+</div>

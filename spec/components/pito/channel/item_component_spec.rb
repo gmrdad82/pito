@@ -27,10 +27,10 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.at_css(".pito-channel-item__handle").text.strip).to eq("@mychannel")
     end
 
-    it "wraps the @handle in a pito-kbd-shimmer span (yellow — clickable)" do
+    it "wraps the @handle in a pito-action-shimmer span (yellow — clickable)" do
       channel = build_channel(handle: "@mychannel")
       node    = render_inline(described_class.new(channel: channel))
-      shimmer = node.css(".pito-channel-item__handle span.pito-kbd-shimmer").first
+      shimmer = node.css(".pito-channel-item__handle span.pito-action-shimmer").first
       expect(shimmer).to be_present
       expect(shimmer.text).to eq("@mychannel")
     end

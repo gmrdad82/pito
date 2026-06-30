@@ -31,13 +31,13 @@ RSpec.describe Pito::Shell::ScrollNavComponent do
   it "renders the top pill yellow token with jumpTop action" do
     token = node.css("[data-action='click->pito--scroll-nav#jumpTop']")
     expect(token).not_to be_empty
-    expect(token.first["class"]).to include("pito-kbd-shimmer")
+    expect(token.first["class"]).to include("pito-action-shimmer")
   end
 
   it "renders the bottom pill yellow token with jumpBottom action" do
     token = node.css("[data-action='click->pito--scroll-nav#jumpBottom']")
     expect(token).not_to be_empty
-    expect(token.first["class"]).to include("pito-kbd-shimmer")
+    expect(token.first["class"]).to include("pito-action-shimmer")
   end
 
   it "labels the top token ctrl+home" do

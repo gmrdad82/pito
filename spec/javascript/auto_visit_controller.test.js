@@ -3,7 +3,7 @@
 // Tests for pito--auto-visit Stimulus controller.
 //
 // Covers:
-//   - After the delay, pito-shimmer is removed from the copy target.
+//   - After the delay, pito-network-shimmer is removed from the copy target.
 //   - After the delay, the link target is clicked (opening the YouTube page).
 //   - When hasLinkTarget is false, falls back to document.getElementById.
 //   - Timer is cleared on disconnect (no stale click after element removed).
@@ -22,7 +22,7 @@ function buildDOM({ delay = 1000, linkId = "visit-link-1" } = {}) {
 
   const copy = document.createElement("span")
   copy.setAttribute("data-pito--auto-visit-target", "copy")
-  copy.classList.add("pito-shimmer")
+  copy.classList.add("pito-network-shimmer")
   copy.textContent = "Visiting @alpha..."
   div.appendChild(copy)
 
@@ -55,17 +55,17 @@ describe("pito--auto-visit controller", () => {
     vi.useRealTimers()
   })
 
-  it("removes pito-shimmer from the copy target after the delay", async () => {
+  it("removes pito-network-shimmer from the copy target after the delay", async () => {
     const { copy } = buildDOM({ delay: 1000 })
     await Promise.resolve()
 
-    expect(copy.classList.contains("pito-shimmer")).toBe(true)
+    expect(copy.classList.contains("pito-network-shimmer")).toBe(true)
 
     vi.advanceTimersByTime(999)
-    expect(copy.classList.contains("pito-shimmer")).toBe(true)
+    expect(copy.classList.contains("pito-network-shimmer")).toBe(true)
 
     vi.advanceTimersByTime(1)
-    expect(copy.classList.contains("pito-shimmer")).toBe(false)
+    expect(copy.classList.contains("pito-network-shimmer")).toBe(false)
   })
 
   it("calls click() on the link target after the delay", async () => {
@@ -90,7 +90,7 @@ describe("pito--auto-visit controller", () => {
 
     const copy = document.createElement("span")
     copy.setAttribute("data-pito--auto-visit-target", "copy")
-    copy.classList.add("pito-shimmer")
+    copy.classList.add("pito-network-shimmer")
     div.appendChild(copy)
 
     // Link exists in DOM but NOT as a Stimulus target

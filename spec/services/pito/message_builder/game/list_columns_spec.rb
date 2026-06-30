@@ -364,14 +364,14 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:text]).not_to include("<br>")
       end
 
-      it "applies shimmer and clamps the :channels cell (pito-token-shimmer + pito-cell-channel)" do
+      it "applies shimmer and clamps the :channels cell (pito-token + pito-cell-channel)" do
         result = described_class.cells(game_with_channels, [ :channels ])
-        expect(result.first[:class]).to include("pito-token-shimmer")
+        expect(result.first[:class]).to include("pito-token")
         expect(result.first[:class]).to include("pito-cell-channel")
         expect(result.first[:class]).not_to include("text-cyan")
       end
 
-      it "seeds the shimmer offset with the game id so the same @handle in two rows is not synchronised" do
+      it "renders the channel @handle as a PLAIN token (no shimmer offset — owner 17.4)" do
         link(channel1)
         game_with_channels.reload
         game_b = create(:game)
@@ -382,17 +382,14 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         result_a = described_class.cells(game_with_channels, [ :channels ])
         result_b = described_class.cells(game_b,             [ :channels ])
 
-        text_a = result_a.first[:text]
-        text_b = result_b.first[:text]
-
         # Verify both rows show the same handle so the test is meaningful.
-        expect(text_a).to eq(text_b)
+        expect(result_a.first[:text]).to eq(result_b.first[:text])
 
-        # The class should encode the game-id seed, not a raw text hash.
-        expected_a = Pito::Shimmer.offset_class(text_a, seed: game_with_channels.id)
-        expected_b = Pito::Shimmer.offset_class(text_b, seed: game_b.id)
-        expect(result_a.first[:class]).to include(expected_a)
-        expect(result_b.first[:class]).to include(expected_b)
+        # Decorative handles are plain now — no shimmer, hence no game-id offset.
+        [ result_a, result_b ].each do |r|
+          expect(r.first[:class]).to include("pito-token")
+          expect(r.first[:class]).not_to match(/\bpito-shimmer-d\d+\b/)
+        end
       end
     end
 

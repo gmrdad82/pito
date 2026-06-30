@@ -4,7 +4,7 @@ module Pito
   module Shimmer
     # Renders an identifier token — a channel @handle, the @all / period (28d)
     # scope chip, or a video/game #id — with the cyan→pito-blue shimmer
-    # (.pito-token-shimmer) and a shared staggered offset (Pito::Shimmer.offset_class)
+    # (.pito-reference-shimmer) and a shared staggered offset (Pito::Shimmer.offset_class)
     # so adjacent tokens are out of phase (never synchronised).
     #
     # `extra_class` carries layout-only utilities (e.g. "tabular-nums",
@@ -19,21 +19,26 @@ module Pito
     #   Pito::Shimmer::TokenComponent.css_class("##{id}", extra: "tabular-nums")
     #   Pito::Shimmer::TokenComponent.html(channel.at_handle)
     class TokenComponent < ViewComponent::Base
-      # Convention (owner 2026-06-29): YELLOW shimmer = clickable; everything else is
-      # decorative. A token that prefills/submits on click renders yellow
-      # (pito-kbd-shimmer, the shared clickable-shimmer); a purely-identifying token
-      # stays the cyan decorative shimmer. Raw-markup callers that merge
-      # `prefill_data` themselves must pass `clickable: true` so the colour matches.
-      SHIMMER_CLASS   = "pito-token-shimmer" # cyan — DECORATIVE (not clickable)
-      CLICKABLE_CLASS = "pito-kbd-shimmer"   # yellow — CLICKABLE (the only clickable shimmer)
+      # Convention: a token that prefills/submits on click SHIMMERS (action-shimmer,
+      # the only clickable shimmer); a purely-identifying token is PLAIN (owner 17.4 —
+      # @handle / #id / scope chips no longer shimmer). Raw-markup callers that merge
+      # `prefill_data` themselves must pass `clickable: true` so the styling matches.
+      SHIMMER_CLASS   = "pito-reference-shimmer" # RESERVED — defined but unused (owner 17.4)
+      CLICKABLE_CLASS = "pito-action-shimmer"   # CLICKABLE (the only clickable shimmer)
+      PLAIN_CLASS     = "pito-token"            # DECORATIVE identifiers — plain text + JS hook
 
-      # Full class string for a shimmer span (colour + shared offset + extra).
-      # `seed:` is forwarded to Pito::Shimmer.offset_class so that list-row
-      # call sites can break synchrony when the same text repeats across rows.
-      # `clickable:` picks the yellow clickable shimmer over the cyan decorative one.
+      # Full class string for a token span.
+      # CLICKABLE tokens shimmer (action-shimmer + a shared staggered offset so
+      #   adjacent tokens never sync; `seed:` breaks synchrony when text repeats).
+      # DECORATIVE tokens (@handle / #id / scope chips) are PLAIN (owner 17.4): no
+      #   shimmer, no offset — just the `pito-token` hook class (the chat-form
+      #   controller targets it to update a cycled value) plus any layout `extra`.
       def self.css_class(text, extra: nil, seed: nil, clickable: false)
-        base = clickable ? CLICKABLE_CLASS : SHIMMER_CLASS
-        [ base, Pito::Shimmer.offset_class(text, seed: seed), extra ].compact.join(" ")
+        if clickable
+          [ CLICKABLE_CLASS, Pito::Shimmer.offset_class(text, seed: seed), extra ].compact.join(" ")
+        else
+          [ PLAIN_CLASS, extra ].compact.join(" ")
+        end
       end
 
       # html-safe <span> for builders / cells that compose raw markup.

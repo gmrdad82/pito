@@ -3,17 +3,17 @@
 module Pito
   module Shell
     # Renders a shimmering text span (or other inline element) using the
-    # existing `.pito-shimmer` CSS class — no new keyframes.
+    # existing `.pito-network-shimmer` CSS class — no new keyframes.
     #
     # API:
     #   ShimmerTextComponent.new(text:)
-    #     → <span class="pito-shimmer">text</span>
+    #     → <span class="pito-network-shimmer">text</span>
     #
     #   ShimmerTextComponent.new(text: ". " * 15, extra_classes: "shrink-0")
-    #     → <span class="pito-shimmer shrink-0">. . . . . . . . . . . . . . .</span>
+    #     → <span class="pito-network-shimmer shrink-0">. . . . . . . . . . . . . . .</span>
     #
     #   ShimmerTextComponent.new(text: "●", extra_classes: "shrink-0", delay: "0.30s")
-    #     → <span class="pito-shimmer shrink-0" style="animation-delay:0.30s">●</span>
+    #     → <span class="pito-network-shimmer shrink-0" style="animation-delay:0.30s">●</span>
     #
     # Stagger approach: the caller passes an explicit `delay:` string (e.g. "0.15s").
     # This maps to an inline `animation-delay` style. JS-set inline delay on
@@ -34,7 +34,7 @@ module Pito
       attr_reader :text, :extra_classes, :delay
 
       def css_classes
-        [ "pito-shimmer", extra_classes ].compact.join(" ")
+        [ "pito-network-shimmer", extra_classes ].compact.join(" ")
       end
 
       def inline_style

@@ -43,7 +43,7 @@ RSpec.describe "Channel visit consume endpoint", type: :request do
       event.reload
       expect(event.kind).to eq("system_follow_up")
       expect(event.payload["visit_state"]).to eq("visited")
-      expect(event.payload["body"]).not_to include("pito-shimmer")
+      expect(event.payload["body"]).not_to include("pito-network-shimmer")
     end
 
     it "is idempotent — a second consume leaves it visited" do

@@ -12,9 +12,13 @@ class Channel < ApplicationRecord
   # yt3.ggpht.com (which 429s). Display resizing is handled by named variants:
   #   :lg — 120×120 fill (item lists, recommended channels)
   #   :sm —  60×60  fill (kv-table inline row in the show-channel detail card)
+  #   :xs —  35×35  fill (game channel-recommendation kv-table rows, item 16) —
+  #          a DISTINCT variant (no browser downscale), sized to ONE braille bar
+  #          (2.5em @ 14px = 35px) so each avatar row aligns with its bar (17.9)
   has_one_attached :avatar do |attachable|
     attachable.variant :lg, resize_to_fill: [ 120, 120 ]
     attachable.variant :sm, resize_to_fill: [ 60, 60 ]
+    attachable.variant :xs, resize_to_fill: [ 35, 35 ]
   end
 
   # Host-less ActiveStorage proxy path for the :lg avatar variant (120×120),
@@ -28,6 +32,12 @@ class Channel < ApplicationRecord
   # the avatar blob changes on a later sync.
   def avatar_inline_url
     Pito::ImagePath.call(avatar, variant: :sm)
+  end
+
+  # Host-less proxy path for the :xs avatar variant (35×35) — used in the
+  # show-game channel-recommendation kv-table (item 16). nil when none attached.
+  def avatar_xs_url
+    Pito::ImagePath.call(avatar, variant: :xs)
   end
 
   # Locally-cached channel BANNER (RAW master blob, sourced from the

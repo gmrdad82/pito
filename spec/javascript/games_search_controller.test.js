@@ -45,7 +45,7 @@ function buildScaffold({ prefill = "", uuid = "test-uuid" } = {}) {
   const shimmer = document.createElement("p")
   shimmer.setAttribute("data-pito--games-search-target", "shimmer")
   shimmer.classList.add("hidden")
-  shimmer.innerHTML = '<span class="pito-shimmer">. . . . .</span>'
+  shimmer.innerHTML = '<span class="pito-network-shimmer">. . . . .</span>'
   wrapper.appendChild(shimmer)
 
   const status = document.createElement("p")
@@ -423,7 +423,7 @@ describe("pito--games-search controller", () => {
     expect(sidebar.innerHTML).not.toBe("")
   })
 
-  it("each step row has a .pito-shimmer span with an animation-delay", async () => {
+  it("each step row has a .pito-network-shimmer span with an animation-delay", async () => {
     global.fetch = vi.fn().mockImplementation((url) => {
       if (url.includes("/games/search")) {
         return Promise.resolve({
@@ -452,8 +452,8 @@ describe("pito--games-search controller", () => {
     const stepRows = Array.from(results.querySelectorAll("[id^='import-step-']"))
     expect(stepRows.length).toBe(5)
     stepRows.forEach((r, i) => {
-      const dot = r.querySelector(".pito-shimmer")
-      expect(dot, `step ${i + 1} should have .pito-shimmer`).not.toBeNull()
+      const dot = r.querySelector(".pito-network-shimmer")
+      expect(dot, `step ${i + 1} should have .pito-network-shimmer`).not.toBeNull()
       // animationDelay should be set (stagger)
       expect(dot.style.animationDelay).toBeTruthy()
     })

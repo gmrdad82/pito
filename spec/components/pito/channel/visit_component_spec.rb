@@ -13,10 +13,10 @@ RSpec.describe Pito::Channel::VisitComponent do
   end
 
   describe "shimmer copy" do
-    it "renders the pito-shimmer span" do
+    it "renders the pito-network-shimmer span" do
       channel = build_channel(handle: "@testhandle")
       html = render_inline(described_class.new(channel:)).to_html
-      expect(html).to include("pito-shimmer")
+      expect(html).to include("pito-network-shimmer")
     end
 
     it "interpolates the @handle in the copy text" do
@@ -110,7 +110,7 @@ RSpec.describe Pito::Channel::VisitComponent do
     it "renders no shimmer" do
       channel = build_channel
       html = render_inline(described_class.new(channel:, state: :visited)).to_html
-      expect(html).not_to include("pito-shimmer")
+      expect(html).not_to include("pito-network-shimmer")
     end
 
     it "renders a visible manual [view] link to the YouTube page" do

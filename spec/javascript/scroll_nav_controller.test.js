@@ -84,7 +84,13 @@ function buildScaffold({ variants = VARIANTS } = {}) {
 }
 
 // Mock the scrollback container's visible rect (represents viewport window into scroll content).
-function setContainerRect(scrollback, { top = 0, height = 600 } = {}) {
+// Also stubs scrollTop/clientHeight/scrollHeight — the controller's at-top/at-bottom guards
+// (13.36a/13.37a) read them. Defaults put the container MID-SCROLL (not at either extreme) so
+// the geometry-based pill tests behave as before; pass scrollTop/scrollHeight to test the extremes.
+function setContainerRect(
+  scrollback,
+  { top = 0, height = 600, scrollTop = 500, scrollHeight = 4000 } = {}
+) {
   scrollback.getBoundingClientRect = () => ({
     top,
     bottom: top + height,
@@ -93,6 +99,9 @@ function setContainerRect(scrollback, { top = 0, height = 600 } = {}) {
     width: 800,
     height,
   })
+  Object.defineProperty(scrollback, "scrollTop", { get: () => scrollTop, configurable: true })
+  Object.defineProperty(scrollback, "clientHeight", { get: () => height, configurable: true })
+  Object.defineProperty(scrollback, "scrollHeight", { get: () => scrollHeight, configurable: true })
 }
 
 // Stub scrollTo on the scrollback element; returns a spy array.
@@ -163,6 +172,76 @@ describe("pito--scroll-nav controller", () => {
     await tick()
 
     expect(bottomPill.classList.contains("hidden")).toBe(false)
+  })
+
+  it("shows NEITHER pill for a brand-new conversation with zero messages (13.43)", async () => {
+    const { scrollback, topPill, bottomPill } = buildScaffold()
+    // Empty, non-scrollable scrollback: no [data-scrollback-message] elements.
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 600 })
+
+    await tick()
+
+    expect(topPill.classList.contains("hidden")).toBe(true)
+    expect(bottomPill.classList.contains("hidden")).toBe(true)
+  })
+
+  it("hides BOTH pills when the content fits the viewport / not scrollable (17.2)", async () => {
+    const { scrollback, topPill, bottomPill } = buildScaffold()
+    // scrollHeight === clientHeight → all messages visible, nothing to jump to.
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 600 })
+    addMessage(scrollback, { top: 10, height: 50 })
+    addMessage(scrollback, { top: 70, height: 50 })
+
+    await tick()
+
+    expect(topPill.classList.contains("hidden")).toBe(true)
+    expect(bottomPill.classList.contains("hidden")).toBe(true)
+  })
+
+  it("renders the SINGULAR noun when exactly one message is out of view (17.3 pluralization)", async () => {
+    const { scrollback, topCount } = buildScaffold({
+      variants: [ "%{count} {message|messages} %{direction}" ],
+    })
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
+    addMessage(scrollback, { top: -60, height: 50 })
+
+    await tick()
+
+    expect(topCount.textContent).toBe("1 message above")
+  })
+
+  it("renders the PLURAL noun when several messages are out of view (17.3 pluralization)", async () => {
+    const { scrollback, topCount } = buildScaffold({
+      variants: [ "%{count} {message|messages} %{direction}" ],
+    })
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
+    addMessage(scrollback, { top: -120, height: 50 })
+    addMessage(scrollback, { top: -60, height: 50 })
+
+    await tick()
+
+    expect(topCount.textContent).toBe("2 messages above")
+  })
+
+  it("hides top pill when scrolled to the very top, even if a message reads above (13.36a)", async () => {
+    const { scrollback, topPill } = buildScaffold()
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 4000 })
+    addMessage(scrollback, { top: -60, height: 50 }) // would otherwise count as "above"
+
+    await tick()
+
+    expect(topPill.classList.contains("hidden")).toBe(true)
+  })
+
+  it("hides bottom pill when scrolled to the very bottom, even if a message reads below (13.37a)", async () => {
+    const { scrollback, bottomPill } = buildScaffold()
+    // scrollTop + clientHeight (3400 + 600 = 4000) === scrollHeight → at the bottom.
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 3400, scrollHeight: 4000 })
+    addMessage(scrollback, { top: 700, height: 50 }) // would otherwise count as "below"
+
+    await tick()
+
+    expect(bottomPill.classList.contains("hidden")).toBe(true)
   })
 
   it("hides top pill when no message is above the viewport", async () => {

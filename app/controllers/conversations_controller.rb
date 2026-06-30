@@ -9,9 +9,9 @@ class ConversationsController < ApplicationController
   # authentication (no allow_anonymous). Responds 204 No Content.
   def destroy
     conversation = Conversation.find_by!(uuid: params[:uuid])
-    conversation.update!(deleting_at: Time.current)
-    Pito::Stream::Broadcaster.broadcast_global_conversation_row(conversation:)
-    DeleteConversationJob.perform_later(conversation.id)
+    # Shared mark-and-enqueue path — the SAME service the nightly auto-purge uses
+    # (Conversation::RequestDeletion), so the two never drift.
+    Conversation::RequestDeletion.call(conversation: conversation)
     head :no_content
   end
 
@@ -28,7 +28,7 @@ class ConversationsController < ApplicationController
     # must NOT see the conversation's contents. Withhold the scrollback here; the
     # view likewise withholds the typed-command history, draft, and title.
     @events      = @authenticated ? @conversation.events.includes(:turn).order(:position) : Event.none
-    @event_count = @authenticated ? @conversation.events.where.not(kind: :thinking).count : 0
+    @event_count = @authenticated ? @conversation.context_event_count : 0
   end
 
   # GET /resume — re-render the conversations sidebar (same Turbo Stream as the

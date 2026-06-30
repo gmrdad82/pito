@@ -126,7 +126,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       "body" => "<game-similar-games/>", "reply_target" => "game_similar",
       "reply_handle" => "mock-show-sim1"
     )
-    allow(Pito::MessageBuilder::Game::Channels).to receive(:call).and_return(
+    allow(Pito::MessageBuilder::Game::Channels).to receive(:pending).and_return(
       "body" => "<game-channels/>", "reply_target" => "game_channels",
       "reply_handle" => "mock-show-chan1"
     )

@@ -210,7 +210,7 @@ module Pito
           ]
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::SimilarGames.call(game, conversation:) }
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) } if game.linked_videos.any?
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Channels.call(game, conversation:) }
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Channels.pending(game, conversation:) }
           # The at-a-glance is ALWAYS present on a game (item 5: channel/vid/game) —
           # a game with no linked videos still shows the glance (its metrics resolve
           # to the no-data cells), matching the channel + video branches.

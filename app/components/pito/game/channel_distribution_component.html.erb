@@ -1,0 +1,9 @@
+<%# Col 1 — channel distribution: the offset bar-group when share data is present,
+    else the NoData dotted canvas (pending / no coverage). %>
+<div class="pito-game-channels__dist">
+  <% if data? %>
+    <%= render(Pito::Analytics::Visualizers::Bar.new(bars: bars, caption: caption)) %>
+  <% else %>
+    <%= render(Pito::Analytics::Visualizers::NoData.new(caption: caption)) %>
+  <% end %>
+</div>

@@ -154,26 +154,16 @@ module Pito
       # cleanly to plain muted (no leftover cyan). See J7/J8/J15.
       HEADING_AFFORDANCE_CLASS = "pito-table-heading--added"
 
-      # Composes a heading-cell class through the SINGLE sortable-shimmer-or-muted
-      # path used by every heading column. When the list is live (shimmer_heading
-      # set AND not yet reply_consumed) the cyan identifier shimmer + font-bold is
-      # appended via Pito::Shimmer::TokenComponent.css_class so the headers read as
-      # interactive affordances — uniformly for the hardcoded #/Title/Game cells
-      # and the dynamic `with`-columns alike.
-      #
-      # Once a list message is reply_consumed (historical scrollback entry) ALL
-      # headings revert to plain muted text — no shimmer, no bold, no cyan. Only
-      # layout-affecting extras (e.g. `text-right`) survive into either state; the
-      # legacy `pito-table-heading--added` colour class is dropped so added columns
-      # never linger cyan after consume.
-      def heading_class(base, extra, text)
+      # Composes a heading-cell class. Table headings are ALWAYS PLAIN muted text
+      # (owner 17.4): no shimmer, no bold, no cyan — in BOTH the live and the
+      # reply_consumed states. The rule is "only action / thinking / network /
+      # subject / reference shimmer; everything else is plain", and a column
+      # heading is none of those. Only layout-affecting extras (e.g. `text-right`)
+      # survive; the legacy `pito-table-heading--added` colour class is dropped so
+      # added columns never linger cyan.
+      def heading_class(base, extra, _text)
         layout = Array(extra&.split).reject { |c| c == HEADING_AFFORDANCE_CLASS }
-        parts  = [ base, *layout ]
-        if shimmer_heading && !reply_consumed
-          parts << "font-bold"
-          parts << Pito::Shimmer::TokenComponent.css_class(text)
-        end
-        parts.compact.join(" ")
+        [ base, *layout ].compact.join(" ")
       end
 
       private

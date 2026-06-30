@@ -95,12 +95,12 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("notification")
       end
 
-      it "renders notifications as ctrl+/ (yellow) + count (yellow kbd shimmer)" do
+      it "renders notifications as ctrl+/ (yellow) + a muted count (item 7)" do
         node = render_inline(described_class.new(notifications: 2, show_notifications: true))
         yellow = node.css("span.font-bold.text-yellow")
         expect(yellow.map(&:text)).to include("ctrl+/")
-        kbd_text = node.css("span.pito-kbd-shimmer").map(&:text).join
-        expect(kbd_text).to include("2*")
+        expect(node.to_html).to include("2*")
+        expect(node.css('[role="button"]')).to be_empty
       end
 
       it "renders the count with the '*' glyph (singular)" do

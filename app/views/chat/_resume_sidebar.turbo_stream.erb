@@ -16,6 +16,9 @@
               description: t("pito.sidebar.conversations.delete_hint")
             )) %>
       </span>
+      <%# Ironic heads-up: unnamed conversations idle >30 days are auto-purged
+          (item 15) unless renamed. 50-variant Pito::Copy dictionary. %>
+      <span class="block text-fg-faded pito-purge-warning"><%= Pito::Copy.render("pito.copy.purge_warning") %></span>
     <% end %>
     <% sidebar.with_body do %>
       <%= render(Pito::Sidebar::Conversations::Component.new(

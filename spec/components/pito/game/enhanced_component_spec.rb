@@ -151,13 +151,13 @@ RSpec.describe Pito::Game::EnhancedComponent do
 
     it "wraps each similar-game #id in the yellow kbd shimmer (clickable)" do
       node = render_component
-      shimmer_ids = node.css(".pito-game-enhanced-message__similar-game-id.pito-kbd-shimmer").map(&:text).map(&:strip)
+      shimmer_ids = node.css(".pito-game-enhanced-message__similar-game-id.pito-action-shimmer").map(&:text).map(&:strip)
       expect(shimmer_ids).to include("##{sg1.id}", "##{sg2.id}")
     end
 
     it "wires each similar-game #id to prefill + auto-submit `show game #id`" do
       node = render_component
-      spans = node.css(".pito-game-enhanced-message__similar-game-id.pito-kbd-shimmer")
+      spans = node.css(".pito-game-enhanced-message__similar-game-id.pito-action-shimmer")
       expect(spans).not_to be_empty
       spans.each do |span|
         expect(span["data-controller"]).to eq("pito--chat-prefill")

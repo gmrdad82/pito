@@ -36,7 +36,7 @@ module Pito
     # Dot/connector/ellipsis colors: the whole *reached run* — every reached dot
     # plus the joiners between them, up to and including the standing ◉, plus the
     # in-progress joiner toward `next` — shimmers (background-clip text gradient,
-    # shared `pito-kbd-shimmer-sweep` keyframe) coloured by the NEXT unreached tier
+    # shared `pito-action-shimmer-sweep` keyframe) coloured by the NEXT unreached tier
     # (not each dot's own tier). The next-tier token is set as `data-accent` on the
     # reached-run elements so `currentColor` resolves to that colour; if the top
     # tier is already reached we fall back to the highest tier. Each reached element

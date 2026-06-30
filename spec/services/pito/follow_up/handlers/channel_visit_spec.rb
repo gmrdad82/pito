@@ -40,7 +40,7 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelVisit do
 
     it "rebuilds the :visited payload (visit_state visited, no shimmer)" do
       expect(result.payload["visit_state"]).to eq("visited")
-      expect(result.payload["body"]).not_to include("pito-shimmer")
+      expect(result.payload["body"]).not_to include("pito-network-shimmer")
     end
 
     it "is not follow-up-able once consumed (graceful repeat no-op)" do

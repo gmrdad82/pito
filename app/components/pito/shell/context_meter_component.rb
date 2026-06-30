@@ -17,9 +17,16 @@ module Pito
     class ContextMeterComponent < ViewComponent::Base
       THRESHOLD = 100
 
-      def initialize(event_count:)
+      # @param event_count       [Integer] non-thinking events in the conversation.
+      # @param conversation_name  [String, nil] the conversation's custom name, shown
+      #   at the LEFT of the meter header (mirror of the right-side "xx%") — ONLY when
+      #   the conversation is named (caller passes nil otherwise). (13.39 / Q3)
+      def initialize(event_count:, conversation_name: nil)
         @event_count = event_count.to_i
+        @conversation_name = conversation_name.presence
       end
+
+      attr_reader :conversation_name
 
       # Fill percentage, 0–100, clamped.
       def fill_pct

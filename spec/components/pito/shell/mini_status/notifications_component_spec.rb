@@ -11,39 +11,34 @@ RSpec.describe Pito::Shell::MiniStatus::NotificationsComponent do
       expect(yellow.text).to eq("ctrl+/")
     end
 
-    it "renders the count in the YELLOW clickable shimmer (it's clickable, so not cyan)" do
-      # owner 2026-06-29: clickable ⇒ yellow shimmer; the count toggles the panel.
+    it "renders the count as muted, non-clickable text (item 7 — no shimmer)" do
       node = render_inline(described_class.new(count: 3))
-      expect(node.css("span.pito-kbd-shimmer")).not_to be_empty
-      expect(node.css("span.pito-token-shimmer")).to be_empty
+      expect(node.to_html).to include("text-fg-faded")
+      expect(node.css('[role="button"]')).to be_empty
     end
 
     it "renders a singular count as '1*'" do
-      node = render_inline(described_class.new(count: 1))
-      control = node.css('[role="button"]').first
-      expect(control.css("span.pito-kbd-shimmer").text).to eq("1*")
+      expect(render_inline(described_class.new(count: 1)).text).to include("1*")
     end
 
     it "renders a plural count with the same '*' glyph" do
-      node = render_inline(described_class.new(count: 5))
-      control = node.css('[role="button"]').first
-      expect(control.css("span.pito-kbd-shimmer").text).to eq("5*")
+      expect(render_inline(described_class.new(count: 5)).text).to include("5*")
     end
 
-    it "wraps the count in a clickable control that toggles notifications (same as ctrl+/)" do
-      node    = render_inline(described_class.new(count: 2))
-      control = node.css('[role="button"]').first
-      expect(control).to be_present
-      expect(control["data-action"]).to include("click->pito--notifications-count#toggle")
-      expect(control["aria-label"]).to eq("Open notifications")
-      # the clickable count rides the yellow shimmer inside the control
-      expect(control.css("span.pito-kbd-shimmer")).not_to be_empty
+    it "is NOT clickable — no toggle action (open notifications via ctrl+/)" do
+      node = render_inline(described_class.new(count: 2))
+      expect(node.css('[role="button"]')).to be_empty
+      expect(node.to_html).not_to include("pito--notifications-count#toggle")
+    end
+
+    it "keeps the new-notification chime controller on the wrapper" do
+      node = render_inline(described_class.new(count: 2))
+      expect(node.css('[data-controller="pito--notifications-count"]')).not_to be_empty
     end
 
     it "renders inside an inline-flex gap-1 wrapper" do
       node = render_inline(described_class.new(count: 2))
-      wrapper = node.css("span.inline-flex.items-center.gap-1").first
-      expect(wrapper).not_to be_nil
+      expect(node.css("span.inline-flex.items-center.gap-1").first).not_to be_nil
     end
   end
 end

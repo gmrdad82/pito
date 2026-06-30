@@ -58,37 +58,35 @@
       <%= hidden_field_tag :period, @filter[:period], data: { pito__chat_form_target: "periodInput" } %>
     <% end %>
 
-    <%# Line 1: text input. Uses the browser's native (normal) caret. %>
+    <%# Single-line chatbox (13.39): the textarea, with an absolute-positioned,
+        right-aligned HINT SLOT on the SAME line. Exactly ONE hint shows at a time
+        (chatbox-hints controller, item 10):
+          • unfocused                     → `c to chat`
+          • focused + `list vids/games`   → shift+tab (channel cycler)
+          • focused + `analyze`           → shift+space (period cycler)
+          • focused + anything else       → nothing
+        The cycler spans double as chat-form targets so cycling still syncs. The
+        conversation NAME no longer lives here — it moved above the context bar. %>
     <div class="pito-chatbox__field-wrap" data-controller="pito--type-fx pito--autosize"
          data-pito--autosize-autofocus-value="true">
       <%= text_area_tag :input_field, @initial_value, **input_attrs %>
+      <% if !@reduced && @filter && @state != :start %>
+        <div class="pito-chatbox__hint-slot text-fg-faded">
+          <span data-pito--chatbox-hints-target="shiftTabHint" data-pito--chat-form-target="channelDisplay" class="items-center hidden">
+            <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
+          </span>
+          <span data-pito--chatbox-hints-target="shiftSpaceHint" data-pito--chat-form-target="periodDisplay" class="items-center hidden">
+            <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+          </span>
+          <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %></span>
+        </div>
+      <% elsif @reduced || @state == :start %>
+        <%# Start screen / 404 / share: a single always-on `c to chat` hint. %>
+        <div class="pito-chatbox__hint-slot text-fg-faded">
+          <%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %>
+        </div>
+      <% end %>
     </div>
-    <%# Line 2: filter context (only shown in :default state, not in reduced mode) %>
-    <% if !@reduced && @filter && @state != :start %>
-      <%# Single row, no middot separators (gap-3 spaces the elements). Exactly ONE
-          of the three hints shows at a time (chatbox-hints controller, item 10):
-            • unfocused                     → `c to chat`
-            • focused + `list vids/games`   → shift+tab (channel cycler)
-            • focused + `analyze`           → shift+space (period cycler)
-            • focused + anything else       → nothing
-          The display spans double as chat-form targets so cycling still syncs. %>
-      <div class="flex items-center gap-3 text-fg-faded pito-chatbox__filter">
-        <%= render(Pito::Shell::Chatbox::NameComponent.new(title: @conversation_title)) %>
-        <span data-pito--chatbox-hints-target="shiftTabHint" data-pito--chat-form-target="channelDisplay" class="items-center hidden">
-          <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
-        </span>
-        <span data-pito--chatbox-hints-target="shiftSpaceHint" data-pito--chat-form-target="periodDisplay" class="items-center hidden">
-          <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
-        </span>
-        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %></span>
-      </div>
-    <% elsif @reduced || @state == :start %>
-      <%# Start screen / 404 / share: a single always-on `c to chat` hint
-          (no cyclers, no focus swap) on one row. %>
-      <div class="flex items-center text-fg-faded pito-chatbox__filter">
-        <%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %>
-      </div>
-    <% end %>
   </div>
 <% end %>
 </div>

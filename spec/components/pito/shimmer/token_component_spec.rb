@@ -3,11 +3,12 @@
 require "rails_helper"
 
 RSpec.describe Pito::Shimmer::TokenComponent, type: :component do
-  it "renders the text in a shimmer span with a shared staggered offset bucket" do
+  it "renders a decorative identifier as PLAIN text (pito-token, no shimmer)" do
     span = render_inline(described_class.new(text: "@gmrdad82")).css("span").first
     expect(span.text).to eq("@gmrdad82")
-    expect(span["class"]).to include("pito-token-shimmer")
-    expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
+    expect(span["class"]).to include("pito-token")
+    expect(span["class"]).not_to include("pito-reference-shimmer")
+    expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
   end
 
   it "is deterministic — same text yields the same offset bucket" do
@@ -22,17 +23,18 @@ RSpec.describe Pito::Shimmer::TokenComponent, type: :component do
   end
 
   describe ".css_class / .html (string-only call sites)" do
-    it "builds the same class string as the rendered component" do
+    it "builds a plain decorative class string (pito-token + layout extra, no shimmer)" do
       cls = described_class.css_class("##{42}", extra: "tabular-nums")
-      expect(cls).to include("pito-token-shimmer")
-      expect(cls).to match(/\bpito-shimmer-d\d+\b/)
+      expect(cls).to include("pito-token")
+      expect(cls).not_to include("pito-reference-shimmer")
+      expect(cls).not_to match(/\bpito-shimmer-d\d+\b/)
       expect(cls).to include("tabular-nums")
     end
 
     it "renders an html-safe span" do
       html = described_class.html("@gmrdad82")
       expect(html).to be_html_safe
-      expect(html).to include("pito-token-shimmer")
+      expect(html).to include("pito-token")
       expect(html).to include("@gmrdad82")
     end
   end
@@ -100,45 +102,45 @@ RSpec.describe Pito::Shimmer::TokenComponent, type: :component do
     end
   end
 
-  describe ".css_class with seed:" do
-    it "passes seed through to offset_class" do
-      cls_seeded = described_class.css_class("@handle", seed: 7)
-      cls_no_seed = described_class.css_class("@handle")
-      # Both include the shimmer class...
-      expect(cls_seeded).to include("pito-token-shimmer")
-      expect(cls_no_seed).to include("pito-token-shimmer")
-      # ... but the offset bucket will generally differ.
-      offset_seeded   = cls_seeded[/pito-shimmer-d\d+/]
-      offset_no_seed  = cls_no_seed[/pito-shimmer-d\d+/]
-      expected_with_seed = Pito::Shimmer.offset_class("@handle", seed: 7)
-      expect(offset_seeded).to eq(expected_with_seed)
+  describe ".css_class with seed: (only CLICKABLE tokens carry an offset)" do
+    it "passes seed through to offset_class for clickable tokens" do
+      cls_seeded  = described_class.css_class("@handle", seed: 7, clickable: true)
+      cls_no_seed = described_class.css_class("@handle", clickable: true)
+      expect(cls_seeded).to include("pito-action-shimmer")
+      expect(cls_no_seed).to include("pito-action-shimmer")
+      offset_seeded  = cls_seeded[/pito-shimmer-d\d+/]
+      offset_no_seed = cls_no_seed[/pito-shimmer-d\d+/]
+      expect(offset_seeded).to eq(Pito::Shimmer.offset_class("@handle", seed: 7))
       expect(offset_no_seed).to eq(Pito::Shimmer.offset_class("@handle"))
     end
 
-    it "nil seed leaves the class identical to the seed-less call" do
-      expect(described_class.css_class("@handle", seed: nil)).to eq(described_class.css_class("@handle"))
+    it "decorative tokens are plain regardless of seed (no shimmer, no offset)" do
+      expect(described_class.css_class("@handle", seed: 7)).to eq(described_class.css_class("@handle"))
+      expect(described_class.css_class("@handle", seed: 7)).not_to match(/\bpito-shimmer-d\d+\b/)
     end
   end
 
-  # Convention (owner 2026-06-29): YELLOW shimmer = clickable; cyan = decorative.
-  describe "clickable ⇒ yellow shimmer" do
-    it "a prefill (clickable) token renders the yellow clickable shimmer, not cyan" do
+  # Convention (owner 17.4): action-shimmer = clickable; decorative tokens are PLAIN.
+  describe "clickable ⇒ action shimmer; decorative ⇒ plain" do
+    it "a prefill (clickable) token renders the action shimmer" do
       span = render_inline(described_class.new(text: "#42", prefill: "show game #42", submit: true)).css("span").first
-      expect(span["class"]).to include("pito-kbd-shimmer")
-      expect(span["class"]).not_to include("pito-token-shimmer")
+      expect(span["class"]).to include("pito-action-shimmer")
+      expect(span["class"]).not_to include("pito-reference-shimmer")
       expect(span["data-controller"]).to eq("pito--chat-prefill")
     end
 
-    it "a decorative (no prefill) token stays cyan and is not clickable" do
+    it "a decorative (no prefill) token is PLAIN and not clickable" do
       span = render_inline(described_class.new(text: "#42")).css("span").first
-      expect(span["class"]).to include("pito-token-shimmer")
-      expect(span["class"]).not_to include("pito-kbd-shimmer")
+      expect(span["class"]).to include("pito-token")
+      expect(span["class"]).not_to include("pito-reference-shimmer")
+      expect(span["class"]).not_to include("pito-action-shimmer")
       expect(span["data-controller"]).to be_nil
     end
 
-    it "css_class(clickable: true) picks the yellow shimmer for raw-markup call sites" do
-      expect(described_class.css_class("#42", clickable: true)).to include("pito-kbd-shimmer")
-      expect(described_class.css_class("#42")).to include("pito-token-shimmer")
+    it "css_class(clickable: true) shimmers; the decorative css_class is plain" do
+      expect(described_class.css_class("#42", clickable: true)).to include("pito-action-shimmer")
+      expect(described_class.css_class("#42")).to include("pito-token")
+      expect(described_class.css_class("#42")).not_to include("pito-reference-shimmer")
     end
   end
 end

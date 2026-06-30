@@ -90,7 +90,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
     it "includes a body with the shimmer-wrapped handle" do
       result = build_handler(raw: "/disconnect @gaming").call
       body = result.events.first[:payload]["body"]
-      expect(body).to include("pito-token-shimmer")
+      expect(body).to include("pito-token")
       expect(body).to include("@gamingchannel")
       expect(result.events.first[:payload]["html"]).to be(true)
     end

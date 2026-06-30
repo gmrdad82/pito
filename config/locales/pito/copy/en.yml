@@ -5299,56 +5299,56 @@ en:
           - Full import done — here's what you should know.
           - Context and colour for your newest library game.
         channels_match_header:
-          - Channels that would match this game
-          - Channels with a feel for this one
-          - Where this game lives on YouTube
-          - Channels in this game's orbit
-          - Channels that'd cover this
-          - The channels this game calls home
-          - Channels that speak this game's language
-          - Where this one gets screen time
-          - Channels that have a taste for this
-          - This game's natural YouTube habitat
-          - Channels likely to feature this title
-          - Who covers games like this
-          - Channels tuned to this kind of game
-          - The YouTube neighbourhood for this title
-          - Channels this game would feel at home in
-          - Where this game tends to show up
-          - Channels with skin in this game
-          - The channels this title gravitates toward
-          - Channels that get what this game is
-          - Who plays games like this on YouTube
-          - Channels this game belongs on
-          - The right channels for this kind of title
-          - Where this game finds its audience
-          - Channels that vibe with this one
-          - Channels that play in this space
-          - The YouTube spots for games like this
-          - Channels this title fits right into
-          - Channels already in this game's world
-          - The channels this game should appear on
-          - Where games like this find their people
-          - Channels with an eye for this genre
-          - The creators this game calls to
-          - Channels that naturally cover this
-          - Who on YouTube would love this
-          - Channels that run in the same circles
-          - This game's likely YouTube territory
-          - Channels this title resonates with
-          - The YouTubers who'd be into this
-          - Channels already playing in this space
-          - Where this game's audience lives
-          - Channels aligned with this game's vibe
-          - The kind of channels that love this
-          - Channels that track well with this game
-          - Where this game would get a good reception
-          - Channels that match this game's energy
-          - The YouTube crowd this one speaks to
-          - Channels this game fits neatly into
-          - Who else covers games in this lane
-          - Channels that feel right for this title
-          - The channels most likely to review this
+          - How this game spreads across your channels
+          - Your coverage of this game, split by channel
+          - Which of your channels carries this most
+          - "This game's footprint across your network"
+          - Channel distribution for this title
+          - How your lineup covers this one
+          - The spread of this game across your channels
+          - How each channel owns a piece of this
+          - "Your network's stake in this title"
+          - Where this game is concentrated in your world
+          - Channel weight on this title
+          - Your per-channel footprint here
+          - Coverage depth by channel
+          - Who in your network is running point on this
+          - The channel-by-channel breakdown on this game
+          - Who should post this next
+          - Your best channel for this game, ranked
+          - The top fit from your lineup
+          - Which of your channels should take this one
+          - The fit verdict is in
+          - Who on your roster should own this
+          - Your top five for this game
+          - Who gets dibs on this one
+          - Your channels scored and sorted
+          - The right home for this in your network
+          - Which of your channels has the edge here
+          - Your coverage options, ranked by score
+          - The channel that should own this one
+          - Where this game belongs in your catalogue
+          - Which of yours is the clearest match
+          - Where this game lives — and who should post it next
+          - Coverage spread and who should take point
+          - How your channels cover this — and who leads the charge
+          - The breakdown and the recommendation, together
+          - Distribution first, recommendation second
+          - Spread across your channels — and the winner
+          - Your coverage picture and your best call
+          - The channel map and your top pick, side by side
+          - "How it's covered and who should cover it more"
+          - "Who's invested and who should be"
+          - Your channel split and the best fit, in one shot
+          - Spread and score — your channels on this game
+          - "Your channels' stake in this game — and the smart bet"
+          - Where each channel stands — and the clear front-runner
+          - "Your network's read on this game and the right call"
+          - "Who's already on it and who should lead"
+          - Your channels on this game — weighted and ranked
+          - The coverage map and the scoring verdict
+          - How this game is shared and where the score points
+          - How this game sits across your channels — and where to go next
         similar_games_header:
           - Similar games
           - Games cut from the same cloth
@@ -5400,6 +5400,108 @@ en:
           - The overlap worth exploring
           - Games that get the same instinct going
           - More titles you'd probably dig
+        channel_recommendation_caption:
+          - Your channels, ranked by fit
+          - Which of yours should post this
+          - Your best fit for this game
+          - Your channels scored for this title
+          - Which channel from your roster wins this
+          - Your lineup, sorted by relevance
+          - Your top match candidates
+          - Where this game belongs in your world
+          - Your channels in contention
+          - The fit scores are in
+          - Which of your channels calls dibs
+          - Your coverage candidates, ranked
+          - The scoreboard for your channels
+          - Your best vehicle for this game
+          - Which channel of yours has the edge
+          - Your portfolio, scored for fit
+          - Which of your channels should own this
+          - Your channels, assessed for fit
+          - The right channel from your stable
+          - Your match rankings for this title
+          - Which of your audiences wants this most
+          - Your coverage contenders, ranked
+          - Your channels scored and stacked
+          - Where this game thrives in your lineup
+          - Your channels, fit-tested
+          - Which of yours is the clearest match
+          - Your coverage options, ranked by score
+          - The right slot in your lineup
+          - Which of your channels should take this one
+          - Your roster sorted by fit score
+          - Your channels competing for this title
+          - The channel that should own this one
+          - Who in your stable gets this game
+          - Your channels ranked by readiness
+          - Which of your channels would thrive here
+          - Your top picks for covering this
+          - Where this game fits your catalogue
+          - The fit verdict for your channels
+          - Which of your channels has the pull for this
+          - Your channels sorted by match score
+          - The ranking of your coverage options
+          - Which of yours is the right home for this
+          - Your top five for this game
+          - The channels on your end that fit
+          - Which of your slots should this fill
+          - Your channels auditioned and scored
+          - Which channel from your end lands this
+          - The coverage match from your perspective
+          - Your channels in the running
+          - Which of yours nails the fit
+        channel_distribution_caption:
+          - Your channels' share of this game
+          - How this game lands across your channels
+          - Channel coverage split
+          - Which of your channels carries this most
+          - Your network's stake in this title
+          - Coverage by channel
+          - How the game spreads across your lineup
+          - Who does the heavy lifting on this one
+          - This game's breakdown by channel
+          - Where this game shows up on your network
+          - Your per-channel footprint on this game
+          - The channels in this game's corner
+          - How your coverage shakes out by channel
+          - Your channel-by-channel commitment here
+          - Which channel owns this game
+          - How each channel stacks up on this title
+          - This game's home base across your network
+          - How deep each channel goes on this
+          - Your channel map for this title
+          - Channel weight on this game
+          - Each channel's slice of this title
+          - Where this game is concentrated in your library
+          - Your lineup's grip on this game
+          - How this title is spread across your network
+          - Channel-level investment in this game
+          - The per-channel breakdown here
+          - Your network cut for this title
+          - Which channels are all-in on this game
+          - This game's distribution across your channels
+          - How each channel handles this title
+          - Coverage weight by channel
+          - Your channel split on this one
+          - Where this game gets the most play on your end
+          - The channel-by-channel read on this game
+          - Your channels on this game by weight
+          - How this title lives in your network
+          - Channel representation for this game
+          - Who's running point on this title
+          - Your coverage footprint by channel
+          - The game's reach across your channels
+          - Channel allocation for this title
+          - How your channels split this game's coverage
+          - This game mapped to your channels
+          - Your channel roster for this title
+          - Per-channel coverage for this game
+          - The spread across your channels
+          - How much of this game each channel owns
+          - Your channel stack on this game
+          - Coverage across your channels for this title
+          - Who on your network has this covered
         deleted:
           - "Deleted %{title}."
           - "%{title} is gone."
@@ -8203,58 +8305,109 @@ en:
         # 50-variant dictionary for the scroll-nav count badge.
         # Interpolates %{count} (integer) and %{direction} ("above" / "below").
         count:
-          - "%{count} messages %{direction}"
+          - "%{count} {message|messages} %{direction}"
           - "%{count} more %{direction}"
-          - "%{direction}: %{count} messages"
+          - "%{direction}: %{count} {message|messages}"
           - "%{count} %{direction}"
-          - "%{direction} — %{count} messages"
-          - "%{count} messages sitting %{direction}"
+          - "%{direction} — %{count} {message|messages}"
+          - "%{count} {message|messages} sitting %{direction}"
           - "%{direction}: %{count}"
-          - "%{count} more messages %{direction}"
+          - "%{count} more {message|messages} %{direction}"
           - "%{direction} — %{count} waiting"
           - "%{count} unread %{direction}"
           - "%{direction} — %{count}"
-          - "%{count} messages waiting %{direction}"
+          - "%{count} {message|messages} waiting %{direction}"
           - "%{direction}: %{count} more"
-          - "%{count} segments %{direction}"
-          - "%{direction}: %{count} messages there"
-          - "%{count} lines %{direction}"
-          - "%{direction}: %{count} lines"
-          - "%{count} events %{direction}"
+          - "%{count} {segment|segments} %{direction}"
+          - "%{direction}: %{count} {message|messages} there"
+          - "%{count} {line|lines} %{direction}"
+          - "%{direction}: %{count} {line|lines}"
+          - "%{count} {event|events} %{direction}"
           - "%{direction} — %{count} more"
-          - "%{count} messages remain %{direction}"
-          - "%{direction}: %{count} segments"
-          - "%{count} messages %{direction} (scroll)"
-          - "%{count} messages %{direction} ↕"
-          - "%{count} messages headed %{direction}"
-          - "%{direction}: %{count} messages waiting"
-          - "%{count} messages %{direction}, unseen"
-          - "%{direction} — %{count} messages remain"
-          - "%{count} messages off-screen %{direction}"
-          - "%{direction}: %{count} events"
-          - "%{count} scrollback items %{direction}"
-          - "%{direction} holds %{count} messages"
-          - "%{count} items %{direction}"
-          - "%{direction}: %{count} items"
-          - "%{count} entries %{direction}"
-          - "%{direction}: %{count} entries"
-          - "%{count} turns %{direction}"
-          - "%{direction}: %{count} turns"
-          - "%{count} prompts %{direction}"
-          - "%{direction}: %{count} prompts"
-          - "%{count} messages %{direction} — scroll to see"
-          - "%{direction}: %{count} more messages"
-          - "%{count} messages %{direction} — keep scrolling"
-          - "%{direction}: %{count} messages (scroll)"
+          - "%{count} {message|messages} remain %{direction}"
+          - "%{direction}: %{count} {segment|segments}"
+          - "%{count} {message|messages} %{direction} (scroll)"
+          - "%{count} {message|messages} %{direction} ↕"
+          - "%{count} {message|messages} headed %{direction}"
+          - "%{direction}: %{count} {message|messages} waiting"
+          - "%{count} {message|messages} %{direction}, unseen"
+          - "%{direction} — %{count} {message|messages} remain"
+          - "%{count} {message|messages} off-screen %{direction}"
+          - "%{direction}: %{count} {event|events}"
+          - "%{count} scrollback {item|items} %{direction}"
+          - "%{direction} holds %{count} {message|messages}"
+          - "%{count} {item|items} %{direction}"
+          - "%{direction}: %{count} {item|items}"
+          - "%{count} {entry|entries} %{direction}"
+          - "%{direction}: %{count} {entry|entries}"
+          - "%{count} {turn|turns} %{direction}"
+          - "%{direction}: %{count} {turn|turns}"
+          - "%{count} {prompt|prompts} %{direction}"
+          - "%{direction}: %{count} {prompt|prompts}"
+          - "%{count} {message|messages} %{direction} — scroll to see"
+          - "%{direction}: %{count} more {message|messages}"
+          - "%{count} {message|messages} %{direction} — keep scrolling"
+          - "%{direction}: %{count} {message|messages} (scroll)"
           - "(%{count}) %{direction}"
-          - "%{count} messages %{direction} — out of view"
-          - "%{direction} — %{count} messages unseen"
+          - "%{count} {message|messages} %{direction} — out of view"
+          - "%{direction} — %{count} {message|messages} unseen"
           - "%{count} more %{direction} — scroll to read"
-          - "%{direction}: %{count} messages left"
-          - "%{count} messages %{direction} in this conversation"
-          - "%{direction}: %{count} messages in thread"
+          - "%{direction}: %{count} {message|messages} left"
+          - "%{count} {message|messages} %{direction} in this conversation"
+          - "%{direction}: %{count} {message|messages} in thread"
         jump_to_start: "jump to the start"
         jump_to_end: "jump to the end"
       compact:
         confirmation_body: "Compact this conversation? This will condense the context. (This is a placeholder — real compaction coming later.)"
         queued: "Compacting… (this is a no-op placeholder for now.)"
+      purge_warning:
+        - "Unnamed after 30 days? Gone. It's not personal. It's automation."
+        - "Your conversation has no name. In 30 days, neither will it."
+        - "Hit `n` to name this. Or don't. The purge doesn't care."
+        - "Unnamed conversations self-destruct at 30 days. This is not a threat, it's a policy."
+        - "This conversation is nameless. Nameless things disappear. Coincidence? No."
+        - "30 days and counting. The unnamed get purged. You have been informed."
+        - "Give this a name or lose it. `n` is right there."
+        - "Unnamed = temporary. The math is not in your favor."
+        - "The 30-day clock started the moment you didn't name this."
+        - "This conversation is living on borrowed time. Rename it with `n`."
+        - "Purge policy: unnamed conversations after 30 days. Rename to survive."
+        - "No name, no future. Press `n` before this becomes a statistic."
+        - "Anonymous conversations are cleaned up automatically. Just saying."
+        - "You haven't named this. In 30 days, you won't be able to — because it'll be gone."
+        - "The auto-purge does not discriminate. It only checks for names."
+        - "Conversation: untitled. Fate: deletion. Timeline: 30 days."
+        - "Nameless things get swept away. Add a name with `n` if you'd like to keep this one."
+        - "30-day timer is ticking for all unnamed conversations. Yours included."
+        - "No name = scheduled for deletion. This is your one warning."
+        - "The purge is systematic, impartial, and coming. Name this with `n`."
+        - "Unnamed conversations don't survive the month. Friendly reminder."
+        - "A name costs nothing. Losing this conversation costs everything. Use `n`."
+        - "Untitled: the only word that guarantees deletion. Hit `n` to disagree."
+        - "30 days. That's the grace period for the nameless. The clock is running."
+        - "This will be automatically deleted unless you press `n` and name it."
+        - "The system purges the unnamed. The system has no feelings about this."
+        - "Rename this or watch it vanish. `n` handles it in one keystroke."
+        - "No title, no mercy, no recovery. Press `n` now."
+        - "Conversations without names get purged at 30 days. This one qualifies."
+        - "If it has no name, the system assumes you don't want it. Prove it wrong with `n`."
+        - "Unnamed = disposable. It's a design decision, not a bug."
+        - "Give this conversation a name before it gives up on existing."
+        - "The 30-day purge is not optional and not negotiable. `n` is your escape hatch."
+        - "It's not deleted yet. It will be. Unless you press `n`."
+        - "Unnamed conversations are collected every 30 days. Like taxes, but less useful."
+        - "This conversation is on the purge list. Remove it from the list with a single `n`."
+        - "Auto-deletion in 30 days for all unnamed conversations. This is one of them."
+        - "In the hierarchy of survival, named beats unnamed every time. Hit `n`."
+        - "Nameless in 30 days means gone in 30 days. This is not ambiguous."
+        - "The purge is the system's way of asking if you really wanted to keep this."
+        - "Unnamed conversations expire. You can stop this one by pressing `n`."
+        - "You didn't name this. The clock disagrees with your indifference."
+        - "Every unnamed conversation gets deleted at 30 days. Every. Single. One."
+        - "Press `n`, type a name, hit enter. That's all it takes to save this."
+        - "Unnamed = flagged for deletion. It's already been flagged."
+        - "The system deletes the unnamed. It has no sentiment about this whatsoever."
+        - "30-day survival rate for unnamed conversations: zero percent."
+        - "Your conversation has no name. The purge has a schedule. You can do the math."
+        - "Name it with `n` or surrender it to the void in 30 days."
+        - "The purge respects names. Name this conversation before the purge respects nothing."

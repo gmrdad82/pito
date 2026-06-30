@@ -41,7 +41,7 @@ RSpec.describe Pito::MessageBuilder::Game::LinkedVideos do
   end
 
   it "renders each channel @handle as a cyan token-shimmer span" do
-    expect(payload["body"]).to match(%r{<span class="pito-token-shimmer[^"]*">@bossarena</span>})
+    expect(payload["body"]).to match(%r{<span class="pito-token[^"]*">@bossarena</span>})
   end
 
   it "escapes HTML-special characters in the game title (no XSS)" do

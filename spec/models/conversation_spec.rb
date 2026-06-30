@@ -105,6 +105,25 @@ RSpec.describe Conversation, type: :model do
     end
   end
 
+  describe "#default_title? (stricter than !named?, for auto-purge)" do
+    it "is true for the literal auto-default 'Unnamed N'" do
+      expect(build(:conversation, title: "Unnamed 17").default_title?).to be true
+    end
+
+    it "is true for a blank/nil title" do
+      expect(build(:conversation, title: "").default_title?).to be true
+      expect(build(:conversation, title: nil).default_title?).to be true
+    end
+
+    it "is FALSE for a user title that merely starts with 'Unnamed' (protected)" do
+      expect(build(:conversation, title: "Unnamed thoughts").default_title?).to be false
+    end
+
+    it "is false for any user-chosen title" do
+      expect(build(:conversation, title: "My Gaming Session").default_title?).to be false
+    end
+  end
+
   describe ".singleton" do
     it "creates a conversation when none exists" do
       expect { Conversation.singleton }.to change(described_class, :count).by(1)
@@ -155,6 +174,66 @@ RSpec.describe Conversation, type: :model do
       create(:conversation)
       results = described_class.by_recent_activity.to_a
       expect(results).to all(respond_to(:last_activity_at))
+    end
+  end
+
+  describe "#context_event_count" do
+    it "counts only :system, :enhanced, :confirmation messages (not thinking/echo/follow-ups)" do
+      conv = create(:conversation)
+      turn = create(:turn, conversation: conv)
+      %i[system enhanced confirmation].each { |k| create(:event, conversation: conv, turn: turn, kind: k) }
+      %i[thinking echo error theme_diff system_follow_up enhanced_follow_up confirmation_follow_up]
+        .each { |k| create(:event, conversation: conv, turn: turn, kind: k) }
+      expect(conv.context_event_count).to eq(3)
+    end
+  end
+
+  describe ".purgeable" do
+    # An UNNAMED conversation (default "Unnamed N" title) made "old" via a 40-day-old event.
+    def old_unnamed
+      c = create(:conversation)
+      t = create(:turn, conversation: c)
+      create(:event, conversation: c, turn: t, created_at: 40.days.ago)
+      c
+    end
+
+    it "selects unnamed conversations with no activity in 30 days" do
+      c = old_unnamed
+      expect(described_class.purgeable.map(&:id)).to include(c.id)
+    end
+
+    it "NEVER selects a named conversation, even when old" do
+      c = create(:conversation, :named)
+      t = create(:turn, conversation: c)
+      create(:event, conversation: c, turn: t, created_at: 40.days.ago)
+      expect(c.named?).to be true
+      expect(described_class.purgeable.map(&:id)).not_to include(c.id)
+    end
+
+    it "protects a user title that merely starts with 'Unnamed' (not the literal default)" do
+      c = create(:conversation, title: "Unnamed thoughts")
+      t = create(:turn, conversation: c)
+      create(:event, conversation: c, turn: t, created_at: 40.days.ago)
+      expect(described_class.purgeable.map(&:id)).not_to include(c.id)
+    end
+
+    it "does not select a recently-active unnamed conversation" do
+      c = create(:conversation) # no events → last_activity = created_at (now)
+      expect(described_class.purgeable.map(&:id)).not_to include(c.id)
+    end
+
+    it "treats the default 'Unnamed' title as unnamed (selectable when old)" do
+      c = old_unnamed
+      expect(c.named?).to be false
+      expect(described_class.purgeable.map(&:id)).to include(c.id)
+    end
+
+    it "respects the older_than boundary" do
+      c = create(:conversation)
+      t = create(:turn, conversation: c)
+      create(:event, conversation: c, turn: t, created_at: 20.days.ago)
+      expect(described_class.purgeable.map(&:id)).not_to include(c.id)
+      expect(described_class.purgeable(older_than: 10.days.ago).map(&:id)).to include(c.id)
     end
   end
 

@@ -115,7 +115,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
 
     it "renders the period as a cyan reference token (distinct from the subject)" do
       doc = Nokogiri::HTML.fragment(payload.dig("analyze", "intro"))
-      expect(doc.css("span.pito-token-shimmer").map(&:text)).to include("7d")
+      expect(doc.css("span.pito-token").map(&:text)).to include("7d")
     end
 
     it "body is a non-blank HTML string" do

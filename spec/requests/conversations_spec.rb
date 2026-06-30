@@ -303,4 +303,20 @@ RSpec.describe "Conversation requests", type: :request do
       expect(html).not_to include('data-accent="purple"')
     end
   end
+
+  # ── GET /resume — auto-purge warning in the sidebar header (item 15, P15.10) ──
+  describe "GET /resume" do
+    def authenticate!
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+    end
+
+    it "renders the auto-purge warning below the rename/delete hints" do
+      Conversation.singleton # ensure at least one conversation exists
+      authenticate!
+      get resume_path, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      expect(response.body).to include("pito-purge-warning")
+    end
+  end
 end

@@ -194,17 +194,18 @@ RSpec.describe Pito::Copy, type: :service do
       expect(html).to include("Renamed Hades.")
     end
 
-    it "wraps a reference: placeholder in a cyan pito-token-shimmer span (distinct from the subject)" do
+    it "wraps a reference: placeholder in a PLAIN token span (owner 17.4 — no shimmer; subject still shimmers)" do
       html = described_class.render_html(
         "copy_spec.subject_two", { title: "Hades", game: "28d" },
         shimmer: [ :title ], reference: [ :game ]
       )
       doc = Nokogiri::HTML.fragment(html)
       subject   = doc.css("span.pito-subject-shimmer").first
-      reference = doc.css("span.pito-token-shimmer").first
+      reference = doc.css("span.pito-token").first
       expect(subject.text).to eq("Hades")
       expect(reference).not_to be_nil
       expect(reference.text).to eq("28d")
+      expect(doc.css("span.pito-reference-shimmer")).to be_empty
     end
 
     it "escapes a malicious reference: value inside the token span (no raw markup)" do

@@ -50,15 +50,15 @@ RSpec.describe Pito::Palette::CtrlK::CommandComponent do
   end
 
   describe "command token (shimmer)" do
-    it "renders the insert text in the cyan pito-token-shimmer span" do
-      span = node.css("span.pito-token-shimmer").first
+    it "renders the insert text in the cyan pito-token span" do
+      span = node.css("span.pito-token").first
       expect(span).not_to be_nil
       expect(span.text.strip).to eq(insert)
     end
 
     it "does not colour the row or label (shimmer lives only on the token)" do
       label_span = node.css("span.text-fg").first
-      expect(label_span["class"]).not_to include("pito-token-shimmer")
+      expect(label_span["class"]).not_to include("pito-token")
     end
   end
 
@@ -71,7 +71,7 @@ RSpec.describe Pito::Palette::CtrlK::CommandComponent do
     end
 
     it "renders the disconnect insert text" do
-      expect(node.css("span.pito-token-shimmer").first.text.strip).to eq(insert)
+      expect(node.css("span.pito-token").first.text.strip).to eq(insert)
     end
 
     it "builds data-label from the disconnect label and insert" do

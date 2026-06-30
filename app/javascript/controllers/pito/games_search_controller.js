@@ -8,7 +8,7 @@
 //     select() so the user can type immediately to replace, and fire an
 //     immediate search (no debounce delay for the pre-filled query).
 //   - On input events: debounce 250ms + AbortController to cancel stale requests.
-//   - Shows .pito-shimmer row while waiting for IGDB (search + import).
+//   - Shows .pito-network-shimmer row while waiting for IGDB (search + import).
 //   - Renders results as .pito-igdb-row elements inside the results target.
 //     Each row has a small SQUARE cover-art thumbnail (t_thumb → t_cover_small).
 //   - ↑ / ↓ moves highlight through rows.
@@ -39,7 +39,7 @@ const DEBOUNCE_MS   = 250
 const HIGHLIGHT_CLS = "pito-resume-highlight"
 
 // Per-step shimmer animation-delay offsets (stagger).  No new CSS needed —
-// we inject inline animation-delay on each .pito-shimmer span so each step
+// we inject inline animation-delay on each .pito-network-shimmer span so each step
 // starts its sweep at a different phase.
 const STEP_DELAYS = ["0s", "0.15s", "0.30s", "0.45s", "0.60s"]
 
@@ -326,9 +326,9 @@ export default class extends Controller {
       row.id        = `import-step-${step}`
       row.className = "flex items-center gap-2 py-1 px-2"
 
-      // Shimmer dot — reuses .pito-shimmer; stagger via inline animation-delay.
+      // Shimmer dot — reuses .pito-network-shimmer; stagger via inline animation-delay.
       const dot = document.createElement("span")
-      dot.className = "pito-shimmer shrink-0"
+      dot.className = "pito-network-shimmer shrink-0"
       dot.style.animationDelay = delay
       dot.textContent = "●"
       row.appendChild(dot)
@@ -336,7 +336,7 @@ export default class extends Controller {
       // Step label text — shimmers too, in sync with the dot (same per-row
       // delay) so the whole row pulses together, staggered against other rows.
       const lbl = document.createElement("span")
-      lbl.className          = "pito-shimmer"
+      lbl.className          = "pito-network-shimmer"
       lbl.style.animationDelay = delay
       lbl.textContent        = label
       row.appendChild(lbl)

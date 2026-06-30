@@ -70,7 +70,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         node = render_inline(described_class.new(
           filter: { channel: "@sports", period: "30d" }
         ))
-        shimmer_texts = node.css("span.pito-token-shimmer").map(&:text)
+        shimmer_texts = node.css("span.pito-token").map(&:text)
         expect(shimmer_texts).to include("@sports")
         expect(shimmer_texts).to include("30d")
       end
@@ -97,7 +97,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
           state: :start,
           filter: { channel: "@gaming", period: "7d" }
         ))
-        row = node.css(".pito-chatbox__filter")
+        row = node.css(".pito-chatbox__hint-slot")
         expect(row).not_to be_empty
         expect(node.to_html).to include("to chat")
         # No channel/period cyclers on the start row.
@@ -107,7 +107,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
 
       it "does NOT render the filter line when filter is nil" do
         node = render_inline(described_class.new(filter: nil))
-        expect(node.css("span.pito-token-shimmer")).to be_empty
+        expect(node.css("span.pito-token")).to be_empty
       end
 
       it "wraps the filter line with data-pito--chat-form-target attributes" do
@@ -142,7 +142,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         ))
         channel_display = node.css('[data-pito--chat-form-target="channelDisplay"]').first
         expect(channel_display).not_to be_nil
-        expect(channel_display.css("span.pito-token-shimmer").first).not_to be_nil
+        expect(channel_display.css("span.pito-token").first).not_to be_nil
       end
 
       it "keeps a shimmer span inside periodDisplay for the cycling hook" do
@@ -151,7 +151,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         ))
         period_display = node.css('[data-pito--chat-form-target="periodDisplay"]').first
         expect(period_display).not_to be_nil
-        expect(period_display.css("span.pito-token-shimmer").first).not_to be_nil
+        expect(period_display.css("span.pito-token").first).not_to be_nil
       end
 
       it "renders the chatHint target wrapper hidden by default" do
@@ -166,41 +166,25 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       end
     end
 
-    context "conversation_title (purple name in filter row)" do
-      it "renders the conversation name in purple when conversation_title is present" do
+    context "conversation_title (relocated to the context meter — 13.39 / Q3)" do
+      it "does NOT render the conversation name in the chatbox (it moved above the context bar)" do
         node = render_inline(described_class.new(
           filter:             { channel: "@all", period: "7d" },
           conversation_title: "My Gaming Session"
         ))
-        purple_span = node.css("span.text-purple").first
-        expect(purple_span).not_to be_nil
-        expect(purple_span.text).to eq("My Gaming Session")
-      end
-
-      it "does NOT render a purple name span when conversation_title is nil" do
-        node = render_inline(described_class.new(
-          filter:             { channel: "@all", period: "7d" },
-          conversation_title: nil
-        ))
+        expect(node.to_html).not_to include("My Gaming Session")
+        # No purple name span lives in the chatbox anymore.
         expect(node.css("span.text-purple")).to be_empty
       end
 
-      it "does NOT render a purple name span when conversation_title is blank" do
-        node = render_inline(described_class.new(
-          filter:             { channel: "@all", period: "7d" },
-          conversation_title: "   "
-        ))
-        expect(node.css("span.text-purple")).to be_empty
-      end
-
-      it "renders NO separator after the title (middots dropped — owner 2026-06-29, item 10)" do
+      it "still renders the cycler hint slot (channelDisplay) with no middot separators" do
         node = render_inline(described_class.new(
           filter:             { channel: "@all", period: "7d" },
           conversation_title: "My Chat"
         ))
         html = node.to_html
-        expect(html).to include("My Chat")
         expect(html).to include("channelDisplay")
+        expect(html).to include("pito-chatbox__hint-slot")
         expect(html).not_to include("·")
       end
     end
@@ -480,7 +464,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         # The reduced/share row shows only the always-on `c to chat` hint — no cyclers.
         expect(node2.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
         expect(node2.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
-        expect(node2.css("span.pito-token-shimmer")).to be_empty
+        expect(node2.css("span.pito-token")).to be_empty
       end
 
       it "does NOT carry suggestions-related data actions on the textarea" do

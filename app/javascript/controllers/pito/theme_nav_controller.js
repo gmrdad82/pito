@@ -99,12 +99,13 @@ export default class extends Controller {
   #onClick(e) {
     const row = e.target.closest(".pito-theme-row")
     if (!row) return
-    const rows = this.#rows()
-    const idx = rows.indexOf(row)
+    const idx = this.#rows().indexOf(row)
     if (idx === -1) return
+    // Click / tap = literally simulate pressing Enter on that row: highlight it,
+    // then dispatch a real Enter keydown so the SAME apply path runs (#onKey →
+    // #apply). NO live preview — preview is desktop-only via ↑/↓.
     this.highlightIndex = idx
-    this.#paint(rows)
-    this.#previewHighlighted(rows)
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
   }
 
   #move(rows, delta) {
@@ -120,6 +121,11 @@ export default class extends Controller {
 
   #apply(slug) {
     if (!slug) return
+
+    // Apply LIVE to the conversation immediately (no reload): the keyboard path
+    // got this from the ↑/↓ preview, but a click/tap has no preview — so set it
+    // here too, making apply self-sufficient for both paths.
+    document.documentElement.dataset.theme = slug
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
     fetch("/settings/theme", {
