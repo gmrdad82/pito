@@ -55,15 +55,20 @@
           banner), as the FIRST kv-row above Handle. Two bare grid children (key +
           value) to match KeyValueRowComponent's output. %>
       <% if avatar_attached? && (inline_avatar = avatar_inline_url) %>
-        <span class="text-fg-dim whitespace-nowrap"><%= t("pito.channel.detail.avatar") %></span>
+        <span class="text-fg-dim whitespace-nowrap self-center"><%= t("pito.channel.detail.avatar") %></span>
         <span><%= image_tag inline_avatar, alt: @channel.title, class: "pito-channel-detail__avatar-inline block" %></span>
       <% end %>
 
+      <%# Handle — clickable yellow-shimmer token: prefills `show channel @handle`
+          and submits, same affordance as the #id click in show vid/game. %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.channel.detail.handle"),
-            value_text:  @channel.at_handle,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-cyan"
+            key_text:        t("pito.channel.detail.handle"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Shimmer::TokenComponent.new(
+              text:    @channel.at_handle,
+              prefill: "show channel #{@channel.at_handle}",
+              submit:  true
+            )
           )) %>
 
       <%= render(Pito::Table::KeyValueRowComponent.new(

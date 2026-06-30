@@ -19,7 +19,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
 
       # The placeholder is always a real sampled hint — it is the field's initial
       # native placeholder, which pito--placeholder-rotate then cycles through the
-      # command suggestions. (The native block caret is fine over placeholder text.)
+      # command suggestions. (The normal native caret is fine over placeholder text.)
       context "suggestions present (placeholder-rotate active)" do
         let(:suggestions) { %w[list\ games show\ last\ vid list\ vids] }
 
@@ -92,14 +92,14 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(dot_spans).to be_empty
       end
 
-      it "renders the `m to start chatting` hint (not the cyclers) when state is :start" do
+      it "renders the `c to chat` hint (not the cyclers) when state is :start" do
         node = render_inline(described_class.new(
           state: :start,
           filter: { channel: "@gaming", period: "7d" }
         ))
         row = node.css(".pito-chatbox__filter")
         expect(row).not_to be_empty
-        expect(node.to_html).to include("m")
+        expect(node.to_html).to include("to chat")
         # No channel/period cyclers on the start row.
         expect(node.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
         expect(node.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
@@ -161,7 +161,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         chat = node.css('[data-pito--chatbox-hints-target="chatHint"]').first
         expect(chat).not_to be_nil
         expect(chat["class"]).to include("hidden")
-        expect(chat.to_html).to include(">m<")
+        expect(chat.to_html).to include(">c<")
         expect(chat.to_html).to include("chat")
       end
     end
@@ -279,10 +279,10 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(textarea).not_to be_nil
       end
 
-      it "styles the textarea with the native block caret (.pito-block-caret)" do
+      it "uses the normal native caret on the textarea (no block-caret)" do
         node = render_inline(described_class.new)
-        textarea = node.css("textarea.pito-block-caret").first
-        expect(textarea).not_to be_nil
+        expect(node.css("textarea.pito-block-caret")).to be_empty
+        expect(node.css("textarea.pito-chatbox__input")).not_to be_empty
       end
 
       it "renders no bespoke caret/trail machinery in the chatbox" do
@@ -475,9 +475,9 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(node.css("div.pito-showcase-ghost")).to be_empty
       end
 
-      it "renders the `m to start chatting` hint (not the channel/period cyclers) in reduced mode" do
+      it "renders the `c to chat` hint (not the channel/period cyclers) in reduced mode" do
         node2 = render_inline(described_class.new(reduced: true, filter: { channel: "@all", period: "7d" }))
-        # The reduced/share row shows only the always-on m hint — no cyclers.
+        # The reduced/share row shows only the always-on `c to chat` hint — no cyclers.
         expect(node2.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
         expect(node2.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
         expect(node2.css("span.pito-token-shimmer")).to be_empty

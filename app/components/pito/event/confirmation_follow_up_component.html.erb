@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent: :orange, background:, id: dom_id)) do %>
+<%= render(Pito::Segment::Component.new(accent: :orange, background:, id: dom_id, scrollback_message: true)) do %>
   <div class="flex flex-col">
     <%# Outcome text — standalone follow-up message; timestamp leads the first line. %>
     <% if outcome_text.present? %>

@@ -33,6 +33,31 @@ RSpec.describe Pito::Event::ThinkingComponent do
     expect(node.css(".pito-thinking__braille")).to be_empty
   end
 
+  it "shows a resolved glyph from GLYPHS in place of the braille spinner" do
+    event.update!(payload: event.payload.merge("resolved" => true, "elapsed_seconds" => 1.0))
+
+    node = render_inline(described_class.new(payload: event.payload, event:))
+
+    glyph_text = node.css(".pito-thinking__glyph").text
+    expect(described_class::GLYPHS).to include(glyph_text)
+  end
+
+  it "picks the same glyph on every re-render of the same resolved event" do
+    event.update!(payload: event.payload.merge("resolved" => true, "elapsed_seconds" => 1.0))
+
+    glyph1 = render_inline(described_class.new(payload: event.payload, event:)).css(".pito-thinking__glyph").text
+    glyph2 = render_inline(described_class.new(payload: event.payload, event:)).css(".pito-thinking__glyph").text
+
+    expect(glyph1).to eq(glyph2)
+    expect(glyph1).not_to be_empty
+  end
+
+  it "shows no glyph while the thinking block is still spinning" do
+    node = render_inline(described_class.new(payload: event.payload, event:))
+
+    expect(node.css(".pito-thinking__glyph")).to be_empty
+  end
+
   describe "elapsed formatting in resolved label" do
     def resolved_text(elapsed_seconds)
       event.update!(payload: event.payload.merge("resolved" => true, "elapsed_seconds" => elapsed_seconds, "word_index" => 2))

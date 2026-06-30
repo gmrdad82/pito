@@ -51,21 +51,64 @@ RSpec.describe Channel, type: :model do
 
   describe "#banner" do
     let(:channel) { create(:channel) }
-    let(:jpeg) { Vips::Image.black(374, 210).cast(:uchar).bandjoin([ 0, 0 ]).jpegsave_buffer }
+    # Raw bytes — not a processed image; the master stores whatever the CDN returned.
+    let(:raw_bytes) { "fake-banner-raw-master" }
 
     it "is an ActiveStorage attachment, unattached by default" do
       expect(channel.banner).not_to be_attached
     end
 
-    it "#banner_variant_url is nil when no banner is attached" do
-      expect(channel.banner_variant_url).to be_nil
+    it "declares a :display named variant (450×253)" do
+      reflection = Channel.attachment_reflections["banner"]
+      expect(reflection.named_variants).to have_key(:display)
     end
 
-    it "#banner_variant_url returns a host-less proxy path once a banner is attached" do
-      channel.banner.attach(io: StringIO.new(jpeg), filename: "banner-#{channel.id}.jpg", content_type: "image/jpeg")
-      url = channel.banner_variant_url
+    it "#banner_url is nil when no banner is attached" do
+      expect(channel.banner_url).to be_nil
+    end
+
+    it "#banner_url returns a host-less proxy path once a banner is attached" do
+      channel.banner.attach(io: StringIO.new(raw_bytes), filename: "banner-#{channel.id}.jpg", content_type: "image/jpeg")
+      url = channel.banner_url
       expect(url).to be_present
       expect(url).to start_with("/") # host-less (loads from whatever host serves the page)
+    end
+  end
+
+  describe "#avatar" do
+    let(:channel)   { create(:channel) }
+    let(:raw_bytes) { "fake-avatar-raw-master" }
+
+    def attach_avatar
+      channel.avatar.attach(io: StringIO.new(raw_bytes), filename: "avatar-#{channel.id}.jpg", content_type: "image/jpeg")
+    end
+
+    it "declares :lg (120×120) and :sm (60×60) named variants" do
+      reflection = Channel.attachment_reflections["avatar"]
+      expect(reflection.named_variants).to have_key(:lg)
+      expect(reflection.named_variants).to have_key(:sm)
+    end
+
+    it "#avatar_variant_url is nil when no avatar is attached" do
+      expect(channel.avatar_variant_url).to be_nil
+    end
+
+    it "#avatar_variant_url returns a host-less proxy path once an avatar is attached" do
+      attach_avatar
+      url = channel.avatar_variant_url
+      expect(url).to be_present
+      expect(url).to start_with("/")
+    end
+
+    it "#avatar_inline_url is nil when no avatar is attached" do
+      expect(channel.avatar_inline_url).to be_nil
+    end
+
+    it "#avatar_inline_url returns a host-less proxy path once an avatar is attached" do
+      attach_avatar
+      url = channel.avatar_inline_url
+      expect(url).to be_present
+      expect(url).to start_with("/")
     end
   end
 end

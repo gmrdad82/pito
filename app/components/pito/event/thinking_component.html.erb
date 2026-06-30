@@ -1,6 +1,11 @@
 <% if resolved? %>
   <%= render(Pito::Segment::Component.new(id: dom_id)) do %>
-    <span class="pito-thinking__message" data-controller="pito--turn-complete"><%= resolved_message %></span>
+    <%# Wrap in .pito-thinking so the glyph hangs left to the SAME message-border
+        column the braille spinner used while thinking (13.19). %>
+    <span class="pito-thinking pito-thinking--resolved">
+      <span class="pito-thinking__glyph"><%= resolved_glyph %></span>
+      <span class="pito-thinking__message" data-controller="pito--turn-complete"><%= resolved_message %></span>
+    </span>
   <% end %>
 <% else %>
   <%= render(Pito::Segment::Component.new(id: dom_id)) do %>

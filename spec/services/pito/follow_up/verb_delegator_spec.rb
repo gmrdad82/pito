@@ -13,9 +13,9 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       result = described_class.call(source_event:, rest: "show #{game.id}", conversation:)
 
       expect(result).to be_a(Pito::FollowUp::Result::Append)
-      # Game with no linked videos: detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced).
-      # Analytics is only deferred when the game has linked videos.
-      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
+      # detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced) + the
+      # at-a-glance (:enhanced, ALWAYS present — item 5).
+      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced, :enhanced ])
       detail = result.events.first[:payload].with_indifferent_access
       expect(detail[:game_id]).to eq(game.id)
     end

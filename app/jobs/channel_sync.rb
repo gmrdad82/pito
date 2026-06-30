@@ -9,8 +9,20 @@
 #     stays unchanged.
 #   - Channel deleted between enqueue and perform / channel without a
 #     `youtube_connection_id` → no-op.
+#
+# After a successful field update, enqueues ChannelAvatarJob and
+# ChannelBannerJob so every sync also refreshes the locally-cached
+# avatar and banner images (digest-gated inside each Ingest service —
+# unchanged bytes are a no-op). This mirrors ChannelInfoJob's behavior
+# on OAuth connect and ensures banners are refreshed on `sync channels`.
 class ChannelSync < ApplicationJob
   queue_as :default
+
+  # Columns on the `channels` table that `fetch_channel` can populate.
+  # Sliced from the normalized hash before `update!` so non-column keys
+  # returned by `normalize_channel_item` (avatar_url, banner_url, etc.)
+  # never raise ActiveRecord::UnknownAttributeError.
+  SYNC_COLUMNS = %i[title handle description video_count].freeze
 
   def perform(channel_id)
     channel = Channel.find_by(id: channel_id)
@@ -29,7 +41,13 @@ class ChannelSync < ApplicationJob
     end
 
     Channel.transaction do
-      channel.update!(normalized.merge(last_synced_at: Time.current))
+      channel.update!(normalized.slice(*SYNC_COLUMNS).merge(last_synced_at: Time.current))
     end
+
+    # Refresh locally-cached avatar and banner off the sync path so CDN
+    # latency never blocks the field update. Each Ingest is digest-gated —
+    # unchanged images are a cheap no-op.
+    ChannelAvatarJob.perform_later(channel.id, normalized[:avatar_url]) if normalized[:avatar_url].present?
+    ChannelBannerJob.perform_later(channel.id, normalized[:banner_url]) if normalized[:banner_url].present?
   end
 end

@@ -67,10 +67,18 @@ RSpec.describe Pito::Channel::ItemComponent do
   # ── Title ────────────────────────────────────────────────────────────────────
 
   describe "title" do
-    it "renders the channel title inside .pito-channel-item__title" do
+    it "renders the channel title inside .pito-channel-item__title by default" do
       channel = build_channel(title: "My Awesome Channel")
       node = render_inline(described_class.new(channel: channel))
       expect(node.at_css(".pito-channel-item__title").text.strip).to eq("My Awesome Channel")
+    end
+
+    it "omits the title when show_title: false (show game channel matches)" do
+      channel = build_channel(title: "My Awesome Channel")
+      node = render_inline(described_class.new(channel: channel, show_title: false))
+      expect(node.css(".pito-channel-item__title")).to be_empty
+      # the @handle still renders
+      expect(node.at_css(".pito-channel-item__handle").text).to include("@")
     end
   end
 

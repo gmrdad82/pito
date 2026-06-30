@@ -82,36 +82,28 @@ class Pito::ScoreBarComponent < ViewComponent::Base
     !score.nil?
   end
 
-  # Left offset (%) for the needle + bubble — the PRECISE score percent across
-  # the full-width bar (0–100). No cell-snapping: an 81 sits at 81%.
-  def overlay_left_percent
+  # Left offset (%) for the marker — the PRECISE score percent across the
+  # full-width bar, CLAMPED to 1–99 so a 0 or 100 marker is never clipped off the
+  # track edge. The DISPLAYED number stays the real score (0/100); only the
+  # POSITION is clamped (13.4).
+  def overlay_position_percent
     return nil if score.nil?
 
-    score.to_f.clamp(0.0, 100.0)
+    score.to_f.clamp(1.0, 99.0)
+  end
+
+  # Which side of the pillar the inline score value sits on: for a LOW score (< 50)
+  # the pillar is near the left, so the value goes to its RIGHT (reads into the bar);
+  # for a HIGH score (>= 50) the pillar is near the right, so the value goes to its
+  # LEFT. Either way the value never touches the pillar (13.17).
+  def value_side_class
+    return "" if score.nil?
+
+    score < 50 ? "pito-score-bar__marker--value-right" : "pito-score-bar__marker--value-left"
   end
 
   def fill_text
     "=" * FILL_CELLS
-  end
-
-  # Edge-clamp class for the floating bubble + tick so neither overflows the
-  # track (and the page) at the extremes — a score of 100 centred on the right
-  # edge would otherwise poke its bubble ~12px past the container, and a 0 poke
-  # left. Mirrors the TTB value-label clamp (ttb-label--at-start/at-end):
-  # near the left edge the overlay left-aligns, near the right it right-aligns,
-  # everywhere in between it stays centred on its exact position. Both the bubble
-  # and the tick take the SAME class so they shift together.
-  def overlay_alignment_class
-    pct = overlay_left_percent
-    return "pito-score-bar__overlay--centered" if pct.nil?
-
-    if pct < 10
-      "pito-score-bar__overlay--at-start"
-    elsif pct > 90
-      "pito-score-bar__overlay--at-end"
-    else
-      "pito-score-bar__overlay--centered"
-    end
   end
 
   # Witty label rendered before the bar (e.g. "People Score"), via Pito::Copy.

@@ -2,10 +2,13 @@
 
 require "rails_helper"
 
+# AnalyticsFillJob is now a PURE FAN-OUT point: for each pending glance event it
+# enqueues one AnalyticsMetricJob per metric (each makes its own dedicated request
+# and swaps its own cell). The fill/resolve/complete behaviour lives in
+# AnalyticsMetricJob (see analytics_metric_job_spec) — here we assert the fan-out
+# itself plus the end-to-end result when the fanned jobs run inline.
 RSpec.describe AnalyticsFillJob, type: :job do
-  # The glance now also fetches day-series for its 4 charted metrics; stub it so
-  # the request flow never hits YouTube (covered on its own in glance_series_spec).
-  before { allow(Pito::Analytics::GlanceSeries).to receive(:for).and_return({}) }
+  include ActiveJob::TestHelper
 
   let(:conversation) { Conversation.singleton }
 
@@ -20,24 +23,17 @@ RSpec.describe AnalyticsFillJob, type: :job do
     )
   end
 
-  # The analytics pending event emitted by the Show handler.
   let!(:analytics_event) do
     Event.create_with_position!(
-      conversation: conversation,
-      turn:         turn,
-      kind:         :enhanced,
-      payload:      Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: "28d")
+      conversation: conversation, turn: turn, kind: :enhanced,
+      payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: "28d")
     )
   end
 
-  # The per-message thinking indicator linked to the analytics card (the
-  # Finalizer stamps for_event_id; AnalyticsFillJob resolves THIS one by id).
   let!(:thinking_event) do
     Event.create_with_position!(
-      conversation: conversation,
-      turn:         turn,
-      kind:         :thinking,
-      payload:      {
+      conversation: conversation, turn: turn, kind: :thinking,
+      payload: {
         "dictionary"   => "chat",
         "order"        => [ 0, 1, 2 ],
         "started_at"   => 5.seconds.ago.iso8601,
@@ -46,172 +42,75 @@ RSpec.describe AnalyticsFillJob, type: :job do
     )
   end
 
-  # Canonical full-metrics Result returned by the stub.
-  let(:scalars_result) do
-    Pito::Analytics::Scalars::Result.new(
-      metrics: {
-        views:             { current: 1234, previous: 1000 },
-        watched_hours:     { current: 12.5, previous: 10.0 },
-        avg_view_duration: { current: 245,  previous: 200 },
-        avg_viewed_pct:    { current: 38.2, previous: 40.0 },
-        subs_gained:       { current: 20,   previous: 10 },
-        subs_lost:         { current: 9,    previous: 4 },
-        likes:             { current: 210,  previous: 180 },
-        dislikes:          { current: 4,    previous: 2 },
-        comments:          { current: 31,   previous: 30 }
-      },
-      label:      "28d",
-      comparable: true
-    )
-  end
+  let(:metric_keys) { Pito::Analytics::ScalarsTableComponent::GLANCE_METRICS.map { |m| m[:key].to_s } }
 
-  # ── Happy path: scalars available ────────────────────────────────────────────
+  # ── Fan-out ──────────────────────────────────────────────────────────────────
 
-  context "when Scalars.for returns a Result" do
-    before do
-      allow(Pito::Analytics::Scalars).to receive(:for).and_return(scalars_result)
-    end
-
-    it "rewrites the event payload to status 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload.dig("analytics", "status")).to eq("ready")
-    end
-
-    it "body of the ready payload includes the scalars table" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload["body"]).to include("pito-analytics-scalars")
-    end
-
-    it "does NOT include the unavailable note in the body" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload["body"]).not_to include("pito-analytics-enhanced__note")
-    end
-
-    it "preserves the scope_type in the ready marker" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload.dig("analytics", "scope_type")).to eq("Video")
-    end
-
-    it "resolves the thinking event (resolved: true in payload)" do
-      described_class.perform_now(turn.id)
-      expect(thinking_event.reload.payload["resolved"]).to be(true)
-    end
-
-    it "stamps elapsed_seconds on the thinking event" do
-      described_class.perform_now(turn.id)
-      expect(thinking_event.reload.payload["elapsed_seconds"]).to be_a(Numeric)
-    end
-
-    it "stamps completed_at on the turn" do
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-  end
-
-  # ── Sad path: scalars unavailable ─────────────────────────────────────────────
-
-  context "when Scalars.for returns :unavailable" do
-    before do
-      allow(Pito::Analytics::Scalars).to receive(:for).and_return(Pito::Analytics::Scalars::UNAVAILABLE)
-    end
-
-    it "rewrites the event payload to status 'ready' (not stuck at pending)" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload.dig("analytics", "status")).to eq("ready")
-    end
-
-    it "body of the ready payload includes the unavailable note" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload["body"]).to include("pito-analytics-enhanced__note")
-    end
-
-    it "does NOT include the scalars table in the body" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload["body"]).not_to include("pito-analytics-scalars")
-    end
-
-    it "still resolves the thinking event" do
-      described_class.perform_now(turn.id)
-      expect(thinking_event.reload.payload["resolved"]).to be(true)
-    end
-
-    it "still stamps completed_at on the turn" do
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-  end
-
-  # ── Error path: Scalars.for raises ───────────────────────────────────────────
-
-  context "when Scalars.for raises a StandardError" do
-    before do
-      allow(Pito::Analytics::Scalars).to receive(:for).and_raise(RuntimeError, "API timeout")
-    end
-
-    it "writes the unavailable ready state instead of leaving the event pending" do
-      described_class.perform_now(turn.id)
-      expect(analytics_event.reload.payload.dig("analytics", "status")).to eq("ready")
-      expect(analytics_event.reload.payload["body"]).to include("pito-analytics-enhanced__note")
-    end
-
-    it "still resolves the thinking event (ensure block runs)" do
-      described_class.perform_now(turn.id)
-      expect(thinking_event.reload.payload["resolved"]).to be(true)
-    end
-
-    it "still stamps completed_at on the turn (ensure block runs)" do
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-  end
-
-  # ── Per-message indicator resolution + completion gate ───────────────────────
-
-  context "with a multi-message turn (plain message + pending analytics card)" do
-    before do
-      allow(Pito::Analytics::Scalars).to receive(:for).and_return(scalars_result)
-    end
-
-    # A plain :system message whose own indicator is ALREADY resolved (the
-    # Finalizer resolves ready messages before enqueueing this job).
-    let!(:plain_message) do
-      Event.create_with_position!(
-        conversation:, turn:, kind: :system, payload: { "text" => "intro" }
-      )
-    end
-    let!(:plain_indicator) do
-      Event.create_with_position!(
-        conversation:, turn:, kind: :thinking,
-        payload: { "dictionary" => "chat", "order" => [ 0 ], "started_at" => 5.seconds.ago.iso8601,
-                   "for_event_id" => plain_message.id, "resolved" => true, "elapsed_seconds" => 1 }
-      )
-    end
-
-    it "resolves the analytics card's OWN indicator (by for_event_id), leaving others intact" do
-      described_class.perform_now(turn.id)
-      expect(thinking_event.reload.payload["resolved"]).to be(true)
-    end
-
-    it "leaves the already-resolved plain indicator untouched" do
+  describe "fan-out" do
+    it "enqueues one AnalyticsMetricJob per glance metric" do
       expect { described_class.perform_now(turn.id) }
-        .not_to change { plain_indicator.reload.payload["elapsed_seconds"] }
+        .to have_enqueued_job(AnalyticsMetricJob).exactly(metric_keys.size).times
     end
 
-    it "completes the turn once every indicator is resolved" do
+    it "enqueues a job per metric key, all scoped to the pending event" do
       described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
+      jobs = ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j[:job] == AnalyticsMetricJob }
+      expect(jobs.map { |j| j[:args][1] }).to match_array(metric_keys)
+      expect(jobs.map { |j| j[:args][0] }).to all(eq(analytics_event.id))
     end
 
-    it "does NOT complete the turn while another indicator is still spinning" do
-      # An unrelated, still-spinning indicator (no matching analytics event) keeps
-      # the turn open even after the analytics fill resolves its own indicator.
-      Event.create_with_position!(
-        conversation:, turn:, kind: :thinking,
-        payload: { "dictionary" => "chat", "order" => [ 0 ], "started_at" => 1.second.ago.iso8601,
-                   "for_event_id" => -1 }
-      )
+    it "does NOT complete the turn itself — the last metric job does" do
       described_class.perform_now(turn.id)
       expect(turn.reload.completed_at).to be_nil
+    end
+  end
+
+  # ── No metrics to fan ─────────────────────────────────────────────────────────
+
+  context "when a pending glance carries no metric_keys" do
+    before do
+      analytics_event.update!(
+        payload: analytics_event.payload.deep_merge("analytics" => { "metric_keys" => [] })
+      )
+    end
+
+    it "resolves that message's indicator immediately and completes the turn" do
+      described_class.perform_now(turn.id)
+      expect(thinking_event.reload.payload["resolved"]).to be(true)
+      expect(turn.reload.completed_at).not_to be_nil
+    end
+  end
+
+  # ── End-to-end: fanned metric jobs run inline ────────────────────────────────
+
+  context "when the fanned metric jobs run" do
+    let(:cell) do
+      Pito::Analytics::MetricFill::Cell.new(
+        result: Pito::Analytics::Scalars::Result.new(
+          metrics: {
+            views:             { current: 1234, previous: nil },
+            watched_hours:     { current: 12.5, previous: nil },
+            avg_view_duration: { current: 245,  previous: nil },
+            subs_gained:       { current: 20,   previous: nil },
+            subs_lost:         { current: 9,    previous: nil },
+            likes:             { current: 210,  previous: nil },
+            dislikes:          { current: 4,    previous: nil }
+          },
+          label: "lifetime", comparable: false
+        ),
+        series: {}
+      )
+    end
+
+    before { allow(Pito::Analytics::MetricFill).to receive(:for).and_return(cell) }
+
+    it "fills the event to ready with the scalars table, resolves the indicator, completes the turn" do
+      perform_enqueued_jobs { described_class.perform_now(turn.id) }
+
+      expect(analytics_event.reload.payload.dig("analytics", "status")).to eq("ready")
+      expect(analytics_event.payload["body"]).to include("pito-analytics-scalars")
+      expect(thinking_event.reload.payload["resolved"]).to be(true)
+      expect(turn.reload.completed_at).not_to be_nil
     end
   end
 
@@ -219,9 +118,7 @@ RSpec.describe AnalyticsFillJob, type: :job do
 
   context "when the turn no longer exists" do
     it "does not raise" do
-      expect {
-        described_class.perform_now(0)
-      }.not_to raise_error
+      expect { described_class.perform_now(0) }.not_to raise_error
     end
   end
 end

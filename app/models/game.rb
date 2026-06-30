@@ -17,17 +17,16 @@ class Game < ApplicationRecord
   has_many :achievements, as: :achievable, dependent: :destroy
   has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
-  has_one_attached :cover_art
-
-  # Small cover-art display variant (180×240, 3:4) — the enhanced "similar
-  # games" strip and channel-adjacent surfaces. The 374×499 master is the source
-  # of truth; variants only downscale, never upscale.
-  COVER_VARIANT = { resize_to_limit: [ 180, 240 ] }.freeze
-
-  # Larger cover variant for the game detail (Standard) message — 374px wide
-  # (= two 180px similar-game covers + their 1rem gap), rendered at its actual
-  # 374×499 size (it equals the master).
-  DETAIL_COVER_VARIANT = { resize_to_limit: [ 374, 499 ] }.freeze
+  has_one_attached :cover_art do |attachable|
+    # :detail — 450px-wide portrait for the game detail card and the video
+    # linked-game card cover box. resize_to_limit preserves aspect ratio and
+    # never upscales below the natural size.
+    attachable.variant :detail, resize_to_limit: [ 450, 600 ]
+    # :strip — exact 180×240px fill for the similar-games strip card.
+    # resize_to_fill crops to the exact display dimensions so the browser
+    # performs no downscale (eliminates subpixel blur on the strip).
+    attachable.variant :strip,  resize_to_fill:  [ 180, 240 ]
+  end
 
   has_neighbors :summary_embedding
 

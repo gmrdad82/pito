@@ -96,13 +96,13 @@ RSpec.describe Pito::Sidebar::Videos::Component do
     end
   end
 
-  describe "native block caret" do
+  describe "caret" do
     subject(:node) { render_inline(described_class.new(videos: [])) }
 
-    it "styles the search input with the native block caret (.pito-block-caret)" do
+    it "uses the normal native caret on the search input (no block-caret)" do
       input = node.css("input[data-pito--videos-nav-target='input']").first
       expect(input).to be_present
-      expect(input["class"]).to include("pito-block-caret")
+      expect(input["class"]).not_to include("pito-block-caret")
     end
 
     it "renders no bespoke caret/trail machinery" do

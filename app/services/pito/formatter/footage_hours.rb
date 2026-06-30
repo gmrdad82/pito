@@ -9,27 +9,24 @@ require "bigdecimal"
 # Output: dense "<N>h" label — whole numbers drop the decimal ("5h"); halves
 # keep one decimal ("12.5h").
 #
-# Nil, zero, and negative values render as "—" so the cell stays present
-# without claiming a fake zero. BigDecimal-based so there is no float drift.
+# Footage ALWAYS has 0 as its fallback (games.footage_hours is `default 0, NOT
+# NULL`), so nil / zero / negative render as "0h" — never a dash (owner 2026-06-30).
+# BigDecimal-based so there is no float drift.
 #
 # Examples:
-#   call(nil)                 => "—"
-#   call(0)                   => "—"
+#   call(nil)                 => "0h"
+#   call(0)                   => "0h"
 #   call(BigDecimal("5.0"))   => "5h"
 #   call(BigDecimal("12.5"))  => "12.5h"
 #   call(BigDecimal("2.5"))   => "2.5h"
 module Pito
   module Formatter
     module FootageHours
-      EM_DASH = "—"
-
       module_function
 
       def call(hours)
-        return EM_DASH if hours.nil?
-
-        value = BigDecimal(hours.to_s)
-        return EM_DASH if value <= 0
+        value = hours.nil? ? BigDecimal(0) : BigDecimal(hours.to_s)
+        value = BigDecimal(0) if value.negative?
 
         if value == value.to_i
           "#{value.to_i}h"

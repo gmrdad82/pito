@@ -206,4 +206,42 @@ RSpec.describe Game, type: :model do
       end
     end
   end
+
+  # ── cover_art named variants ─────────────────────────────────────────────────
+
+  describe "cover_art named variants" do
+    let(:reflection) { Game.attachment_reflections["cover_art"] }
+
+    it "declares a :detail named variant (resize_to_limit 450×600)" do
+      expect(reflection.named_variants).to have_key(:detail)
+    end
+
+    it "declares a :strip named variant (resize_to_fill 180×240)" do
+      expect(reflection.named_variants).to have_key(:strip)
+    end
+
+    context "with a cover attached" do
+      let(:game) { create(:game) }
+
+      before do
+        game.cover_art.attach(
+          io:           StringIO.new("fake-cover-bytes"),
+          filename:     "cover-#{game.id}.jpg",
+          content_type: "image/jpeg"
+        )
+      end
+
+      it "resolves a host-less proxy path for the :detail variant" do
+        url = Pito::ImagePath.call(game.cover_art, variant: :detail)
+        expect(url).to be_present
+        expect(url).to start_with("/")
+      end
+
+      it "resolves a host-less proxy path for the :strip variant" do
+        url = Pito::ImagePath.call(game.cover_art, variant: :strip)
+        expect(url).to be_present
+        expect(url).to start_with("/")
+      end
+    end
+  end
 end

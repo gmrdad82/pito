@@ -52,14 +52,20 @@ module Pito
 
       # Filled dot-height (BASELINE_DOTS..dot_h) for each of the dot_w columns.
       # Empty / all-zero → a flat baseline; otherwise each value is floored to the
-      # baseline so 0-days still show the minimal dot row.
+      # baseline so 0-days still show the minimal dot row. Any strictly-positive
+      # value is guaranteed at least one dot above the baseline floor so a tiny
+      # entry (e.g. 1 view against a high max) is visually distinct from zero.
       def column_heights(values, ceiling, dot_w, dot_h)
         floor = [ BASELINE_DOTS, dot_h ].min
         return Array.new(dot_w, floor) if ceiling <= 0 || values.empty?
 
         Array.new(dot_w) do |x|
           v = sample(values, x, dot_w)
-          [ ((v / ceiling) * dot_h).round.clamp(0, dot_h), floor ].max
+          h = [ ((v / ceiling) * dot_h).round.clamp(0, dot_h), floor ].max
+          # Ensure every strictly-positive value renders at least one braille
+          # level above the baseline so it is never confused with a genuine zero.
+          h = [ floor + 1, dot_h ].min if v.positive? && h <= floor
+          h
         end
       end
 

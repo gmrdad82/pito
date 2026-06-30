@@ -122,12 +122,27 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       expect(payload["body"]).to be_a(String).and(be_present)
     end
 
-    it "body does NOT include the scalars grid (still pending)" do
-      expect(payload["body"]).not_to include("pito-analytics-scalars")
+    it "body includes the scalars grid with loading cells (progressive fan-out)" do
+      expect(payload["body"]).to include("pito-analytics-scalars")
     end
 
     it "body includes the intro wrapper (pending ScaffoldComponent)" do
       expect(payload["body"]).to include("pito-analytics-enhanced__intro")
+    end
+
+    it "analyze.token is a non-blank hex string" do
+      expect(payload.dig("analyze", "token")).to be_a(String).and(be_present)
+    end
+
+    it "analyze.metric_keys lists the ordered metrics for the role+level" do
+      expected = Pito::Analytics::MetricOrder.for(role: :system, level: :channel).map(&:to_s)
+      expect(payload.dig("analyze", "metric_keys")).to eq(expected)
+    end
+
+    it "body includes loading-cell swap targets for the first metric key" do
+      token       = payload.dig("analyze", "token")
+      first_key   = Pito::Analytics::MetricOrder.for(role: :system, level: :channel).first.to_s
+      expect(payload["body"]).to include("#{token}__metric_#{first_key}")
     end
 
     it "stamps reply_target: 'analyze_message' (followupable)" do

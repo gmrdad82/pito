@@ -63,6 +63,11 @@ RSpec.describe Pito::Analytics::Visualizers::Heart do
     expect(node.css(".pito-metric__caption").text).to include("the crowd has spoken")
   end
 
+  it "does NOT render an empty .pito-metric__caption <p> when caption is blank" do
+    node = render_hearts(hearts: two_hearts, caption: "")
+    expect(node.at_css(".pito-metric__caption")).to be_nil
+  end
+
   it "renders a single heart when given one (channel-only)" do
     node = render_hearts(hearts: [ { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ])
     expect(node.css(".pito-metric__hlegend-item").size).to eq(1)

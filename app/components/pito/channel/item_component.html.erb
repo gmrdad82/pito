@@ -14,10 +14,12 @@
   <%# Handle — clickable prefill token that auto-runs `show channel @handle`. %>
   <div class="pito-channel-item__handle"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle, prefill: "show channel #{channel.at_handle}", submit: true)) %></div>
 
-  <%# Title %>
-  <div class="pito-channel-item__title text-fg">
-    <%= channel.title.to_s %>
-  </div>
+  <%# Title — hidden on `show game` channel matches (show_title: false) %>
+  <% if show_title? %>
+    <div class="pito-channel-item__title text-fg">
+      <%= channel.title.to_s %>
+    </div>
+  <% end %>
 
   <%# Score bar — only when a score is provided %>
   <% if score? %>

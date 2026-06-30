@@ -6,7 +6,7 @@
                   # of capitalize/correct/spellcheck (the keyword sanitizer is the
                   # server-side backstop).
                   autocapitalize: "off", autocorrect: "off", spellcheck: "false", rows: 1,
-                  class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input pito-block-caret",
+                  class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input",
                   data: {} }
 
   if @reduced
@@ -58,8 +58,7 @@
       <%= hidden_field_tag :period, @filter[:period], data: { pito__chat_form_target: "periodInput" } %>
     <% end %>
 
-    <%# Line 1: text input. The caret is the browser's NATIVE caret, styled as a
-        block via .pito-block-caret (caret-shape: block) — no JS overlay. %>
+    <%# Line 1: text input. Uses the browser's native (normal) caret. %>
     <div class="pito-chatbox__field-wrap" data-controller="pito--type-fx pito--autosize"
          data-pito--autosize-autofocus-value="true">
       <%= text_area_tag :input_field, @initial_value, **input_attrs %>
@@ -68,7 +67,7 @@
     <% if !@reduced && @filter && @state != :start %>
       <%# Single row, no middot separators (gap-3 spaces the elements). Exactly ONE
           of the three hints shows at a time (chatbox-hints controller, item 10):
-            • unfocused                     → `m to start chatting`
+            • unfocused                     → `c to chat`
             • focused + `list vids/games`   → shift+tab (channel cycler)
             • focused + `analyze`           → shift+space (period cycler)
             • focused + anything else       → nothing
@@ -81,13 +80,13 @@
         <span data-pito--chatbox-hints-target="shiftSpaceHint" data-pito--chat-form-target="periodDisplay" class="items-center hidden">
           <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
         </span>
-        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: Pito::Copy.render("pito.copy.start_chatting"))) %></span>
+        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %></span>
       </div>
     <% elsif @reduced || @state == :start %>
-      <%# Start screen / 404 / share: a single always-on `m to start chatting` hint
+      <%# Start screen / 404 / share: a single always-on `c to chat` hint
           (no cyclers, no focus swap) on one row. %>
       <div class="flex items-center text-fg-faded pito-chatbox__filter">
-        <%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: Pito::Copy.render("pito.copy.start_chatting"))) %>
+        <%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %>
       </div>
     <% end %>
   </div>

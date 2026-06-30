@@ -78,12 +78,16 @@ module Pito
         # @param entity_ids [Array<Integer>] resolved entity ids at that level
         # @param period     [String] the shift+space window token
         def pending(role:, title:, level:, entity_ids:, period:, conversation:, selection: nil)
-          intro   = intro_for(role, title, period)
+          intro       = intro_for(role, title, period)
+          token       = SecureRandom.hex(4)
+          # The ordered metrics the fan-out fills (the full role+level set; the
+          # with/without selection only filters the final render, not the fetch).
+          metric_keys = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym).map(&:to_s)
           payload = {
-            "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro:, pending: true)),
+            "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro:, pending: true, token:, metric_keys:)),
             "html"    => true,
             "anchor"  => true,
-            "analyze" => marker("pending", role:, title:, level:, entity_ids:, period:, intro:, selection:)
+            "analyze" => marker("pending", role:, title:, level:, entity_ids:, period:, intro:, selection:, token:, metric_keys:)
           }
           # Followupable so the owner can reply `with`/`without` to mutate it in place.
           Pito::FollowUp.make_followupable!(payload, target: "analyze_message", conversation:)
@@ -516,18 +520,22 @@ module Pito
           end
         end
 
-        def marker(status, role:, title:, level:, entity_ids:, period:, intro:, selection: nil)
+        def marker(status, role:, title:, level:, entity_ids:, period:, intro:, selection: nil, token: nil, metric_keys: nil)
           {
-            "status"     => status,
-            "role"       => role.to_s,
-            "title"      => title,
-            "level"      => level.to_s,
-            "entity_ids" => Array(entity_ids),
-            "period"     => period,
-            "intro"      => intro,
-            "with"       => Array(selection&.with).map(&:to_s),
-            "without"    => Array(selection&.without).map(&:to_s)
-          }
+            "status"      => status,
+            "role"        => role.to_s,
+            "title"       => title,
+            "level"       => level.to_s,
+            "entity_ids"  => Array(entity_ids),
+            "period"      => period,
+            "intro"       => intro,
+            "with"        => Array(selection&.with).map(&:to_s),
+            "without"     => Array(selection&.without).map(&:to_s),
+            # Progressive fan-out: the per-message dom-id token + the ordered metric
+            # keys the fan-out enqueues a job for. nil for non-fanned callers.
+            "token"       => token,
+            "metric_keys" => metric_keys
+          }.compact
         end
       end
     end

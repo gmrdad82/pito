@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent:, background:, id: segment_id)) do %>
+<%= render(Pito::Segment::Component.new(accent:, background:, id: segment_id, scrollback_message: true)) do %>
   <div data-controller="pito--diff-reveal"
        data-pito--diff-reveal-granularity-value="<%= @granularity %>"
        data-pito--diff-reveal-phase-value="<%= @phase %>">

@@ -94,7 +94,7 @@ module Pito
               down: "-#{Pito::Formatter::CompactCount.call(lost.to_i)}"
             )
           end
-        { key: :subs_net, label: metric_label("subs_net"), series: @series[:subs], value: }
+        { key: :subs_net, label: metric_label("subs_net"), series: @series[:subs], no_data: gained.nil? && lost.nil?, value: }
       end
 
       # Likes: "<likes>👍/<dislikes>👎" — green likes, red dislikes (em dash when
@@ -111,7 +111,7 @@ module Pito
               down: icon_count(dislikes, "thumbs-down", metric_label("dislikes"))
             )
           end
-        { key: :likes, label: metric_label("likes"), series: @series[:likes], value: }
+        { key: :likes, label: metric_label("likes"), series: @series[:likes], no_data: likes.nil? && dislikes.nil?, value: }
       end
 
       private
@@ -120,9 +120,10 @@ module Pito
         cfg_list.map do |cfg|
           metric = @result.metrics[cfg[:key]] || {}
           {
-            key:    cfg[:key],
-            label:  metric_label(cfg[:label]),
-            series: @series[cfg[:key]],
+            key:     cfg[:key],
+            label:   metric_label(cfg[:label]),
+            series:  @series[cfg[:key]],
+            no_data: metric[:current].nil?,
             value:  render(Pito::Analytics::Support::TrendNumber.new(
               value:            metric[:current],
               previous:         metric[:previous],

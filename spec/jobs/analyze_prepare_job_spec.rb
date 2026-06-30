@@ -2,616 +2,185 @@
 
 require "rails_helper"
 
-# Fills the two pending analyze events (system + enhanced) for a turn, resolves
-# each message's per-message thinking indicator, and completes the turn.
+# AnalyzePrepareJob is now a PURE FAN-OUT point: for each pending analyze event
+# it enqueues one AnalyzeMetricJob per metric key. The fill/resolve/complete
+# behaviour lives in AnalyzeMetricJob (see analyze_metric_job_spec.rb) — here we
+# assert the fan-out shape, the blank-metric_keys fast-path, and the missing-turn
+# guard. An end-to-end pass runs the fanned jobs inline and confirms the final
+# ready state lands.
 #
-# The 0/1 scaffold rendering is tested here end-to-end; detailed DOM assertions
-# live in spec/components/pito/analytics/scaffold_component_spec.rb.
-#
-# Scope dispatch:
-#   channel level → Scaffold.for receives groups with :channel subject (videos: nil semantics)
-#   vid level     → Scaffold.for receives groups with [youtube_video_id] subject
-#   game level    → resolves via linked videos, same Scaffold path
-#
-# Fan-out memoisation: each role gets exactly one Scaffold.for call per job run
-# (keyed by level:ids:period:role signature in the job's cache hash).
+# .aggregate is exercised here too (it is now a public class-method re-used by
+# the last AnalyzeMetricJob; stub the analytics services to keep it offline).
 RSpec.describe AnalyzePrepareJob, type: :job do
+  include ActiveJob::TestHelper
+
   let(:conversation) { Conversation.singleton }
+  let!(:channel)     { create(:channel, :on_connection) }
 
-  # Stub all chart-data paths so the :system AreaChart cells render without
-  # hitting YouTube. The five chart metrics (views/watched_hours/subs/
-  # avg_view_duration/avg_viewed_pct) are bespoke AreaChart cells, NOT 0/1
-  # scalar cells — so the "all cells 0/1" assertions count only the remaining
-  # scalar metrics (likes/comments/subscribed_status = 3 cells).
-  before do
-    allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
-      Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
+  let!(:turn) do
+    conversation.turns.create!(
+      position:   Turn.next_position_for(conversation),
+      input_kind: :chat,
+      input_text: "analyze channel"
     )
-    allow(Pito::Analytics::AdaptiveSeries).to receive(:for).and_return(
-      Pito::Analytics::AdaptiveSeries::Result.new(series: [ 90.0, 120.0, 110.0 ], total: 108.0, dates: [])
-    )
-    allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
-      Pito::Analytics::RetentionSeries::Result.new(series: [ 95.0, 80.0, 65.0, 50.0 ], total_pct: 72.5, rel_performance: 0.52)
-    )
-    allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
-    # Likes hearts render as a HEART cell (not a 0/1 scalar) in the system role —
-    # stubbed like the other analytics services. Returns nil for an empty scope
-    # (unavailable channel) so its likes cell falls back to the scaffold "0".
-    allow(Pito::Analytics::LikesHearts).to receive(:for) do |groups:, level:|
-      if groups.blank?
-        nil
-      else
-        [ { score: 92.2, color: :red, likes: 922, dislikes: 78 },
-          { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
-      end
-    end
-    # Bar breakdowns (subscribed_status/devices/geography/gender/age) — stub empty
-    # by default so existing cells fall back to the 0/1 scaffold; the bar-specific
-    # examples stub canned rows. (Breakdown.for rescues StandardError in prod;
-    # WebMock's NetConnect error subclasses Exception, so it must be stubbed here.)
-    allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
   end
 
-  # Stub Scaffold.for to return a per-role map of metric => data-pulled?.
-  # Default: all metrics "true" (every cell renders "1").
-  def stub_scaffold(map = nil)
-    if map
-      allow(Pito::Analytics::Scaffold).to receive(:for).and_return(map)
-    else
-      allow(Pito::Analytics::Scaffold).to receive(:for) do |role:, level:, **|
-        Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
-      end
-    end
-  end
-
-  # Persist a pair of pending analyze events (system + enhanced) for `turn` at
-  # `level` with the given `entity_ids`, each linked to its own thinking
-  # indicator. Returns [system_event, enhanced_event, system_indicator,
-  # enhanced_indicator] so callers can call .reload on each.
-  def build_pending_events(turn, level:, entity_ids:, period: "7d")
-    events = Pito::MessageBuilder::Analyze::Message::ROLES.map do |role|
-      kind    = role == "system" ? :system : :enhanced
-      payload = Pito::MessageBuilder::Analyze::Message.pending(
-        role: role, title: "Test Scope", level: level,
-        entity_ids: entity_ids, period: period, conversation:
+  let!(:analyze_event) do
+    Event.create_with_position!(
+      conversation: conversation, turn: turn, kind: :system,
+      payload: Pito::MessageBuilder::Analyze::Message.pending(
+        role: "system", title: "My Channel", level: :channel,
+        entity_ids: [ channel.id ], period: "7d",
+        conversation: conversation
       )
-      Event.create_with_position!(conversation: conversation, turn: turn, kind: kind, payload: payload)
+    )
+  end
+
+  let!(:thinking_event) do
+    Event.create_with_position!(
+      conversation: conversation, turn: turn, kind: :thinking,
+      payload: {
+        "dictionary"   => "chat",
+        "order"        => [ 0, 1, 2 ],
+        "started_at"   => 5.seconds.ago.iso8601,
+        "for_event_id" => analyze_event.id
+      }
+    )
+  end
+
+  let(:metric_keys) do
+    Pito::Analytics::MetricOrder.for(role: :system, level: :channel).map(&:to_s)
+  end
+
+  # ── Fan-out ──────────────────────────────────────────────────────────────────
+
+  describe "fan-out" do
+    it "enqueues one AnalyzeMetricJob per metric_key" do
+      expect { described_class.perform_now(turn.id) }
+        .to have_enqueued_job(AnalyzeMetricJob).exactly(metric_keys.size).times
     end
 
-    indicators = events.map do |event|
+    it "enqueues each job with the event id + the metric key string" do
+      described_class.perform_now(turn.id)
+      jobs = ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j[:job] == AnalyzeMetricJob }
+      expect(jobs.map { |j| j[:args][1] }).to match_array(metric_keys)
+      expect(jobs.map { |j| j[:args][0] }).to all(eq(analyze_event.id))
+    end
+
+    it "does NOT complete the turn itself — the last metric job does" do
+      described_class.perform_now(turn.id)
+      expect(turn.reload.completed_at).to be_nil
+    end
+  end
+
+  # ── Multiple pending events (system + enhanced) ───────────────────────────────
+
+  context "with two pending analyze events (system + enhanced)" do
+    let!(:enhanced_event) do
       Event.create_with_position!(
-        conversation: conversation,
-        turn:         turn,
-        kind:         :thinking,
-        payload: {
-          "dictionary"   => "chat",
-          "order"        => [ 0 ],
-          "started_at"   => 5.seconds.ago.iso8601,
-          "for_event_id" => event.id
-        }
+        conversation: conversation, turn: turn, kind: :enhanced,
+        payload: Pito::MessageBuilder::Analyze::Message.pending(
+          role: "enhanced", title: "My Channel", level: :channel,
+          entity_ids: [ channel.id ], period: "lifetime",
+          conversation: conversation
+        )
       )
     end
 
-    events + indicators
+    let(:enhanced_keys) do
+      Pito::Analytics::MetricOrder.for(role: :enhanced, level: :channel).map(&:to_s)
+    end
+
+    it "fans out jobs for both events combined" do
+      total = metric_keys.size + enhanced_keys.size
+      expect { described_class.perform_now(turn.id) }
+        .to have_enqueued_job(AnalyzeMetricJob).exactly(total).times
+    end
+
+    it "each event's jobs carry its own event id and metric keys" do
+      described_class.perform_now(turn.id)
+      jobs          = ActiveJob::Base.queue_adapter.enqueued_jobs.select { |j| j[:job] == AnalyzeMetricJob }
+      system_jobs   = jobs.select { |j| j[:args][0] == analyze_event.id }
+      enhanced_jobs = jobs.select { |j| j[:args][0] == enhanced_event.id }
+      expect(system_jobs.map   { |j| j[:args][1] }).to match_array(metric_keys)
+      expect(enhanced_jobs.map { |j| j[:args][1] }).to match_array(enhanced_keys)
+    end
   end
 
-  # ── Missing turn guard ─────────────────────────────────────────────────────
+  # ── No metrics to fan (blank metric_keys fast-path) ──────────────────────────
+
+  context "when a pending analyze event carries blank metric_keys" do
+    before do
+      analyze_event.update!(
+        payload: analyze_event.payload.deep_merge("analyze" => { "metric_keys" => [] })
+      )
+    end
+
+    it "resolves that message's indicator immediately" do
+      described_class.perform_now(turn.id)
+      expect(thinking_event.reload.payload["resolved"]).to be(true)
+    end
+
+    it "completes the turn (nothing was fanned and all indicators are resolved)" do
+      described_class.perform_now(turn.id)
+      expect(turn.reload.completed_at).not_to be_nil
+    end
+  end
+
+  # ── End-to-end: fanned metric jobs run inline ─────────────────────────────────
+
+  context "when the fanned metric jobs run" do
+    before do
+      allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for)
+        .and_return({ no_data: true, caption: "n/a" })
+      allow(AnalyzePrepareJob).to receive(:aggregate)
+        .and_return({ scaffold: {}, charts: {}, likes: nil, bars: {} })
+    end
+
+    it "fills the event to ready, resolves the indicator, completes the turn" do
+      perform_enqueued_jobs { described_class.perform_now(turn.id) }
+
+      expect(analyze_event.reload.payload.dig("analyze", "status")).to eq("ready")
+      expect(analyze_event.payload["body"]).to include("pito-analytics-scalars")
+      expect(thinking_event.reload.payload["resolved"]).to be(true)
+      expect(turn.reload.completed_at).not_to be_nil
+    end
+  end
+
+  # ── .aggregate class method ──────────────────────────────────────────────────
+
+  describe ".aggregate" do
+    before do
+      allow(Pito::Analytics::Scaffold).to receive(:for).and_return({})
+      allow(Pito::Analytics::LikesHearts).to receive(:for).and_return(nil)
+      allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
+      allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(0)
+      allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
+        Pito::Analytics::DailySeries::Result.new(dates: [], series: [], total: 0)
+      )
+      # avg_view_duration / avg_viewed_pct charts go through these (not DailySeries);
+      # WebMock's NetConnect error is an Exception (not StandardError), so an
+      # unstubbed call would escape compute's rescue and raise.
+      allow(Pito::Analytics::AdaptiveSeries).to receive(:for).and_return(
+        Pito::Analytics::AdaptiveSeries::Result.new(series: [], total: 0, dates: [])
+      )
+      allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
+        Pito::Analytics::RetentionSeries::Result.new(series: [], total_pct: 0, rel_performance: nil)
+      )
+    end
+
+    it "returns a hash with :scaffold, :charts, :likes, :bars keys" do
+      marker = analyze_event.payload["analyze"]
+      result = described_class.aggregate(marker)
+      expect(result).to include(:scaffold, :charts, :likes, :bars)
+    end
+  end
+
+  # ── Missing turn guard ───────────────────────────────────────────────────────
 
   context "when the turn no longer exists" do
     it "does not raise" do
       expect { described_class.perform_now(0) }.not_to raise_error
-    end
-  end
-
-  # ── Channel level ─────────────────────────────────────────────────────────
-
-  context "channel level: usable channel" do
-    let!(:channel) { create(:channel, :on_connection) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze channel"
-      )
-    end
-
-    before do
-      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
-        build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-      stub_scaffold
-    end
-
-    it "writes the system event to status 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload.dig("analyze", "status")).to eq("ready")
-    end
-
-    it "writes the enhanced event to status 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(@enhanced_event.reload.payload.dig("analyze", "status")).to eq("ready")
-    end
-
-    it "body of the ready system event includes the scalars grid" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload["body"]).to include("pito-analytics-scalars")
-    end
-
-    it "body of the ready enhanced event includes the scalars grid" do
-      described_class.perform_now(turn.id)
-      expect(@enhanced_event.reload.payload["body"]).to include("pito-analytics-scalars")
-    end
-
-    it "ready system body has 0/1 cells, not a scalars value table" do
-      described_class.perform_now(turn.id)
-      body = @system_event.reload.payload["body"]
-      doc  = Nokogiri::HTML.fragment(body)
-      values = doc.css(".pito-analytics-scalars__value").map(&:text)
-      expect(values).not_to be_empty
-      expect(values).to all(match(/\A[01]\z/))
-    end
-
-    it "body does NOT include the unavailable note (that concept is gone for analyze)" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload["body"]).not_to include("pito-analytics-enhanced__note")
-      expect(@enhanced_event.reload.payload["body"]).not_to include("pito-analytics-enhanced__note")
-    end
-
-    it "resolves the system thinking indicator" do
-      described_class.perform_now(turn.id)
-      expect(@system_indicator.reload.payload["resolved"]).to be(true)
-    end
-
-    it "resolves the enhanced thinking indicator" do
-      described_class.perform_now(turn.id)
-      expect(@enhanced_indicator.reload.payload["resolved"]).to be(true)
-    end
-
-    it "stamps elapsed_seconds on both indicators" do
-      described_class.perform_now(turn.id)
-      expect(@system_indicator.reload.payload["elapsed_seconds"]).to be_a(Numeric)
-      expect(@enhanced_indicator.reload.payload["elapsed_seconds"]).to be_a(Numeric)
-    end
-
-    it "stamps completed_at on the turn" do
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-
-    it "passes groups with :channel subject to Scaffold.for (channel-wide, not per-video)" do
-      captured_subjects = []
-      allow(Pito::Analytics::Scaffold).to receive(:for) do |groups:, role:, level:, **|
-        captured_subjects.concat(groups.map(&:last))
-        Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
-      end
-      described_class.perform_now(turn.id)
-      expect(captured_subjects).not_to be_empty
-      expect(captured_subjects).to all(eq(:channel))
-    end
-
-    it "persists chart data for views, watched_hours, and subs in the :system marker" do
-      described_class.perform_now(turn.id)
-      marker = @system_event.reload.payload["analyze"]
-      expect(marker["views"]).to be_a(Hash)
-      expect(marker["watched_hours"]).to be_a(Hash)
-      expect(marker["subs"]).to be_a(Hash)
-      # each chart hash carries the expected keys
-      %w[views watched_hours subs].each do |key|
-        expect(marker[key]).to include("series", "total", "target_daily")
-      end
-    end
-
-    it "does NOT persist chart data in the :enhanced marker" do
-      described_class.perform_now(turn.id)
-      marker = @enhanced_event.reload.payload["analyze"]
-      expect(marker["views"]).to be_nil
-      expect(marker["watched_hours"]).to be_nil
-      expect(marker["subs"]).to be_nil
-    end
-
-    context "avg_viewed_pct chart — insight fields" do
-      before { stub_scaffold }
-
-      it "includes at_mark_pct in the avg_viewed_pct chart" do
-        # series: [95, 80, 65, 50], total_pct: 72.5
-        # ratio = 72.5/100 = 0.725 → at index 0.725×3 = 2.175 → lo=2, hi=3, frac=0.175
-        # 65×0.825 + 50×0.175 = 53.625 + 8.75 = 62.375 → round = 62
-        event, = build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-        described_class.perform_now(turn.id)
-        event.reload
-        chart = event.payload.dig("analyze", "avg_viewed_pct")
-        expect(chart["at_mark_pct"]).to eq(62)
-      end
-
-      it "includes benchmark_word in the avg_viewed_pct chart" do
-        # rel_performance: 0.52 → "typical"
-        event, = build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-        described_class.perform_now(turn.id)
-        event.reload
-        chart = event.payload.dig("analyze", "avg_viewed_pct")
-        expect(chart["benchmark_word"]).to eq("typical")
-      end
-    end
-  end
-
-  # ── Vid level ─────────────────────────────────────────────────────────────
-
-  context "vid level: usable channel with a video" do
-    let!(:channel) { create(:channel, :on_connection) }
-    let!(:video)   { create(:video, channel: channel) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze vids"
-      )
-    end
-
-    before do
-      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
-        build_pending_events(turn, level: "vid", entity_ids: [ video.id ])
-      stub_scaffold
-    end
-
-    it "writes both events to 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload.dig("analyze", "status")).to eq("ready")
-      expect(@enhanced_event.reload.payload.dig("analyze", "status")).to eq("ready")
-    end
-
-    it "both ready bodies include the scalars grid" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload["body"]).to include("pito-analytics-scalars")
-      expect(@enhanced_event.reload.payload["body"]).to include("pito-analytics-scalars")
-    end
-
-    it "ready bodies have 0/1 cells" do
-      described_class.perform_now(turn.id)
-      [ @system_event, @enhanced_event ].each do |event|
-        doc    = Nokogiri::HTML.fragment(event.reload.payload["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        expect(values).not_to be_empty
-        expect(values).to all(match(/\A[01]\z/))
-      end
-    end
-
-    it "resolves both thinking indicators" do
-      described_class.perform_now(turn.id)
-      expect(@system_indicator.reload.payload["resolved"]).to be(true)
-      expect(@enhanced_indicator.reload.payload["resolved"]).to be(true)
-    end
-
-    it "stamps completed_at on the turn" do
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-
-    it "passes the video's youtube_video_id in groups to Scaffold.for" do
-      captured_subjects = []
-      allow(Pito::Analytics::Scaffold).to receive(:for) do |groups:, role:, level:, **|
-        captured_subjects.concat(groups.map(&:last))
-        Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
-      end
-      described_class.perform_now(turn.id)
-      video_ids = captured_subjects.select { |s| s.is_a?(Array) }.flatten
-      expect(video_ids).to include(video.youtube_video_id)
-    end
-
-    # ── Bar breakdowns (subscribed_status → :system; devices/geography/gender/age → :enhanced) ──
-    context "with bar breakdown data" do
-      before do
-        allow(Pito::Analytics::Breakdown).to receive(:for) do |metric:, **|
-          case metric
-          when :subscribed_status then [ { key: "UNSUBSCRIBED", pct: 93.0 }, { key: "SUBSCRIBED", pct: 7.0 } ]
-          when :devices           then [ { key: "MOBILE", pct: 70.0 }, { key: "DESKTOP", pct: 25.0 }, { key: "TV", pct: 5.0 } ]
-          when :geography         then [ { key: "us", pct: 60.0 }, { key: "gb", pct: 15.0 } ]
-          when :gender            then [ { key: "male", pct: 80.0 }, { key: "female", pct: 20.0 } ]
-          when :age               then [ { key: "age25-34", pct: 45.0 }, { key: "age18-24", pct: 30.0 } ]
-          else []
-          end
-        end
-      end
-
-      it "renders NO BarChart in the :system body (subscribed_status moved to :enhanced)" do
-        described_class.perform_now(turn.id)
-        expect(@system_event.reload.payload["body"]).not_to include("pito-metric--bar")
-      end
-
-      it "renders BarCharts in the :enhanced body (subscribed/devices/geography/demographics)" do
-        described_class.perform_now(turn.id)
-        expect(@enhanced_event.reload.payload["body"]).to include("pito-metric--bar")
-      end
-
-      it "persists the bar rows (string-keyed) in the :enhanced marker for re-render" do
-        described_class.perform_now(turn.id)
-        bars = @enhanced_event.reload.payload.dig("analyze", "bars")
-        expect(bars["devices"]).to eq([ { "key" => "MOBILE", "pct" => 70.0 },
-                                        { "key" => "DESKTOP", "pct" => 25.0 },
-                                        { "key" => "TV", "pct" => 5.0 } ])
-      end
-
-      it "re-renders bars from the persisted marker without re-fetching (mutate reply)" do
-        described_class.perform_now(turn.id)
-        allow(Pito::Analytics::Breakdown).to receive(:for).and_raise("must not refetch on rerender")
-        payload = Pito::MessageBuilder::Analyze::Message.rerender(@enhanced_event.reload, with: [], without: [])
-        expect(payload["body"]).to include("pito-metric--bar")
-      end
-    end
-  end
-
-  # ── Game level ─────────────────────────────────────────────────────────────
-
-  context "game level: game linked to videos on a usable channel" do
-    let!(:channel) { create(:channel, :on_connection) }
-    let!(:video)   { create(:video, channel: channel) }
-    let!(:game)    { create(:game) }
-    let!(:link)    { create(:video_game_link, video: video, game: game) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze games"
-      )
-    end
-
-    before do
-      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
-        build_pending_events(turn, level: "game", entity_ids: [ game.id ])
-      stub_scaffold
-    end
-
-    it "writes both events to 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload.dig("analyze", "status")).to eq("ready")
-      expect(@enhanced_event.reload.payload.dig("analyze", "status")).to eq("ready")
-    end
-
-    it "both ready bodies include the scalars grid" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload["body"]).to include("pito-analytics-scalars")
-      expect(@enhanced_event.reload.payload["body"]).to include("pito-analytics-scalars")
-    end
-
-    it "resolves both thinking indicators and stamps completed_at" do
-      described_class.perform_now(turn.id)
-      expect(@system_indicator.reload.payload["resolved"]).to be(true)
-      expect(@enhanced_indicator.reload.payload["resolved"]).to be(true)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-
-    it "resolves game scope via linked video ids in groups passed to Scaffold.for" do
-      captured_subjects = []
-      allow(Pito::Analytics::Scaffold).to receive(:for) do |groups:, role:, level:, **|
-        captured_subjects.concat(groups.map(&:last))
-        Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
-      end
-      described_class.perform_now(turn.id)
-      video_ids = captured_subjects.select { |s| s.is_a?(Array) }.flatten
-      expect(video_ids).to include(video.youtube_video_id)
-    end
-  end
-
-  # ── Per-metric data folding (watched_hours ÷60, subs net=gained-lost) ─────
-
-  context "per-metric chart data folding (channel level, system role)" do
-    let!(:channel) { create(:channel, :on_connection) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze channel"
-      )
-    end
-
-    before do
-      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
-        build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-      stub_scaffold
-    end
-
-    it "watched_hours total is minutes/60 (raw total 6 min → 0.1 h)" do
-      described_class.perform_now(turn.id)
-      wh = @system_event.reload.payload.dig("analyze", "watched_hours")
-      expect(wh).not_to be_nil
-      # DailySeries stub returns total:6 for all calls; estimated_minutes_watched
-      # total = 6 min → 6/60.0 = 0.1 hours
-      expect(wh["total"]).to be_within(0.01).of(0.1)
-    end
-
-    it "subs total is net (gained minus lost; stub returns identical series so net=0)" do
-      described_class.perform_now(turn.id)
-      subs = @system_event.reload.payload.dig("analyze", "subs")
-      expect(subs).not_to be_nil
-      # Both gained and lost fold return total:6, so net per day = 0, total = 0
-      expect(subs["total"]).to eq(0)
-    end
-
-    it "views total is raw (stub returns total:6 → 6)" do
-      described_class.perform_now(turn.id)
-      views = @system_event.reload.payload.dig("analyze", "views")
-      expect(views).not_to be_nil
-      expect(views["total"]).to eq(6)
-    end
-  end
-
-  # ── Shared fan-out / memoisation ───────────────────────────────────────────
-
-  context "memoisation: each role's scaffold computed exactly once per run" do
-    let!(:channel) { create(:channel, :on_connection) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze channel"
-      )
-    end
-
-    before do
-      build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-    end
-
-    it "calls Scaffold.for exactly once per role (2 total for system + enhanced)" do
-      call_count = 0
-      allow(Pito::Analytics::Scaffold).to receive(:for) do |role:, level:, **|
-        call_count += 1
-        Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
-      end
-      described_class.perform_now(turn.id)
-      # 2 distinct roles → 2 signatures → 2 computes (memoised by the cache hash)
-      expect(call_count).to eq(2)
-    end
-  end
-
-  # ── Unavailable: no usable channel ────────────────────────────────────────
-
-  context "unavailable: channel has no youtube connection" do
-    let!(:channel) { create(:channel) } # no :on_connection → needs_reauth or absent
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze channel"
-      )
-    end
-
-    before do
-      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
-        build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-      # Scaffold.for is called with groups: [] (no usable channel) → empty map → all "0"
-      stub_scaffold({})
-    end
-
-    it "writes the system event to 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload.dig("analyze", "status")).to eq("ready")
-    end
-
-    it "writes the enhanced event to 'ready'" do
-      described_class.perform_now(turn.id)
-      expect(@enhanced_event.reload.payload.dig("analyze", "status")).to eq("ready")
-    end
-
-    it "every cell in the system ready body is '0' (no data available)" do
-      described_class.perform_now(turn.id)
-      doc    = Nokogiri::HTML.fragment(@system_event.reload.payload["body"])
-      values = doc.css(".pito-analytics-scalars__value").map(&:text)
-      expect(values).not_to be_empty
-      expect(values).to all(eq("0"))
-    end
-
-    it "every cell in the enhanced ready body is '0'" do
-      described_class.perform_now(turn.id)
-      doc    = Nokogiri::HTML.fragment(@enhanced_event.reload.payload["body"])
-      values = doc.css(".pito-analytics-scalars__value").map(&:text)
-      expect(values).not_to be_empty
-      expect(values).to all(eq("0"))
-    end
-
-    it "does NOT include the unavailable note in either body (concept gone for analyze)" do
-      described_class.perform_now(turn.id)
-      expect(@system_event.reload.payload["body"]).not_to include("pito-analytics-enhanced__note")
-      expect(@enhanced_event.reload.payload["body"]).not_to include("pito-analytics-enhanced__note")
-    end
-
-    it "resolves both thinking indicators even when unavailable" do
-      described_class.perform_now(turn.id)
-      expect(@system_indicator.reload.payload["resolved"]).to be(true)
-      expect(@enhanced_indicator.reload.payload["resolved"]).to be(true)
-    end
-
-    it "stamps completed_at on the turn even when unavailable" do
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-  end
-
-  # ── Unavailable: channel needs_reauth ─────────────────────────────────────
-
-  context "unavailable: channel connection needs_reauth" do
-    let!(:connection) { create(:youtube_connection, :needs_reauth) }
-    let!(:channel)    { create(:channel, youtube_connection: connection) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze channel"
-      )
-    end
-
-    before do
-      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
-        build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-      stub_scaffold({})
-    end
-
-    it "writes both events to 'ready' with all-zero cells" do
-      described_class.perform_now(turn.id)
-      [ @system_event, @enhanced_event ].each do |event|
-        expect(event.reload.payload.dig("analyze", "status")).to eq("ready")
-        doc    = Nokogiri::HTML.fragment(event.reload.payload["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        expect(values).not_to be_empty
-        expect(values).to all(eq("0"))
-      end
-    end
-
-    it "resolves both indicators and completes the turn" do
-      described_class.perform_now(turn.id)
-      expect(@system_indicator.reload.payload["resolved"]).to be(true)
-      expect(@enhanced_indicator.reload.payload["resolved"]).to be(true)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-  end
-
-  # ── Idempotent: second run skips already-ready events ─────────────────────
-
-  context "idempotency: running the job twice" do
-    let!(:channel) { create(:channel, :on_connection) }
-
-    let!(:turn) do
-      conversation.turns.create!(
-        position:   Turn.next_position_for(conversation),
-        input_kind: :chat,
-        input_text: "analyze channel"
-      )
-    end
-
-    before do
-      build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
-    end
-
-    it "does not call Scaffold.for a second time on the second run" do
-      call_count = 0
-      allow(Pito::Analytics::Scaffold).to receive(:for) do |role:, level:, **|
-        call_count += 1
-        Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
-      end
-
-      described_class.perform_now(turn.id)
-      first_run_count = call_count
-
-      # Second run: pending_events returns [] (all events are now 'ready')
-      described_class.perform_now(turn.id)
-      expect(call_count).to eq(first_run_count)
-    end
-
-    it "turn remains completed after the second run" do
-      stub_scaffold
-      described_class.perform_now(turn.id)
-      described_class.perform_now(turn.id)
-      expect(turn.reload.completed_at).not_to be_nil
-    end
-
-    it "second run does not raise" do
-      stub_scaffold
-      described_class.perform_now(turn.id)
-      expect { described_class.perform_now(turn.id) }.not_to raise_error
     end
   end
 end

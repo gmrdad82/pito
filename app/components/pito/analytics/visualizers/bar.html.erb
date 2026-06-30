@@ -22,5 +22,5 @@
   </div>
   <%# caption is pre-rendered html (subject shimmer + reference), persisted in
       the marker → re-rendered raw, exactly like the area chart / heart. %>
-  <p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p>
+  <% if caption.present? %><p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p><% end %>
 </div>

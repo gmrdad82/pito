@@ -1,0 +1,17 @@
+<%# Regular metric cell: three branches.
+    loading:  NoData(:regular) canvas + LoadingDots where the caption goes
+              (NOT the visualizer/caption slots).
+    no_data:  NoData(:regular) canvas + caption slot (terminal state).
+    filled:   visualizer slot + caption slot beneath it. %>
+<div class="pito-analytics-scalars__cell"<% if dom_id %> id="<%= dom_id %>"<% end %>>
+  <% if loading? %>
+    <%= render(Pito::Analytics::Visualizers::NoData.new(size: :regular)) %>
+    <%= render(Pito::Analytics::Support::LoadingDots.new(seed: key)) %>
+  <% elsif no_data? %>
+    <%= render(Pito::Analytics::Visualizers::NoData.new(size: :regular)) %>
+    <%= caption %>
+  <% else %>
+    <%= visualizer %>
+    <%= caption %>
+  <% end %>
+</div>

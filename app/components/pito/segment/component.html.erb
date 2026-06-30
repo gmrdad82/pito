@@ -2,12 +2,15 @@
 <%# @background — content background (nil = transparent) %>
 <%# Alignment invariant: text sits 22px from the segment's left edge
     regardless of whether the bar is present. %>
-<div class="pito-segment flex"<% if @id %> id="<%= @id %>"<% end %>>
+<div class="pito-segment flex"<% if @scrollback_message %> data-scrollback-message<% end %><% if @id %> id="<%= @id %>"<% end %>>
   <% if @accent %>
     <div class="pito-segment__bar" data-accent="<%= @accent %>"></div>
     <div class="pito-segment__gap"></div>
   <% end %>
-  <div class="pito-segment__content<%= " pito-segment__content--barred" if @accent %>"<% if @background %> style="background: <%= @background %>;"<% end %>>
+  <%# When surfaced, expose the content bg as --pito-msg-bg so descendants (e.g.
+      chart Y-tick chips) can paint an opaque chip in the same colour; non-surfaced
+      segments leave it unset so chips fall back to the page --bg-root. %>
+  <div class="pito-segment__content<%= " pito-segment__content--barred" if @accent %>"<% if @background %> style="background: <%= @background %>; --pito-msg-bg: <%= @background %>;"<% end %>>
     <%= content %>
   </div>
 </div>

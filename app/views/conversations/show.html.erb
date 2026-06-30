@@ -4,7 +4,7 @@
 <%= turbo_stream_from "pito:conversation:#{@conversation.uuid}" %>
 
 <div class="flex flex-col" style="height: 100vh;">
-  <div id="pito-scrollback" class="pito-hide-scrollbar pito-scroll-fade" style="flex: 1; overflow-y: auto; padding: 32px 25px 20px;"
+  <div id="pito-scrollback" class="pito-thin-scrollbar pito-scroll-fade" style="flex: 1; overflow-y: auto; padding: 32px 5px 20px;"
        data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag">
     <%# Group events by turn so a refresh reproduces the same per-turn containers
         the cable broadcasts build live (echo + its results stay together). %>
@@ -17,7 +17,10 @@
     <% end %>
   </div>
 
-  <div style="padding: 0 25px 32px;">
+  <%# Scroll-nav pills — fixed-positioned, no effect on flex layout. %>
+  <%= render Pito::Shell::ScrollNavComponent.new %>
+
+  <div class="pito-conversation-col" style="padding: 0 5px 32px;">
     <%# CTXF5: meter only inside an authenticated conversation — never for
         unauthenticated visitors, start_screen, or not_found. %>
     <% if @authenticated %>

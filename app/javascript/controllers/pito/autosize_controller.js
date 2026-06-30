@@ -4,11 +4,11 @@
 // asked — autofocuses it with the caret at the end of any restored draft.
 //
 // This is the FUNCTIONAL remainder of the old pito--terminal-caret controller.
-// The bespoke block-caret RENDER (hidden mirror, inverted block span, comet
-// trail) was removed in favour of the browser's native caret styled as a block
-// via CSS (`caret-shape: block`); but the textarea still has to auto-grow and
-// the chatbox still has to take focus on load — those concerns live here now,
-// cleanly separated from any caret painting.
+// The bespoke caret RENDER (hidden mirror, inverted block span, comet trail) AND
+// the later CSS block caret were both removed — inputs now use the browser's
+// normal native caret. The textarea still has to auto-grow and the chatbox still
+// has to take focus on load; those concerns live here now, cleanly separated from
+// any caret painting.
 //
 // DOM contract (chatbox ERB):
 //   <div class="pito-chatbox__field-wrap"

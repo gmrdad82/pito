@@ -129,9 +129,9 @@ describe("pito--rename controller", () => {
     expect(inputs.length).toBe(1)
   })
 
-  // ── Native block caret (no JS overlay) ─────────────────────────────────────────
+  // ── Normal native caret (no block-caret, no JS overlay) ─────────────────────────
 
-  it("gives the rename input the native block-caret class and no caret overlay", async () => {
+  it("gives the rename input the normal native caret and no caret overlay", async () => {
     const { row } = buildScaffold()
     await waitForConnect()
 
@@ -139,7 +139,7 @@ describe("pito--rename controller", () => {
 
     const input = row.querySelector("input.pito--rename-input")
     expect(input).not.toBeNull()
-    expect(input.className).toContain("pito-block-caret")
+    expect(input.className).not.toContain("pito-block-caret")
     // No bespoke caret/trail machinery is attached anymore.
     expect(row.querySelector(".pito--rename-caret-wrap")).toBeNull()
     expect(row.querySelector("span.terminal-caret")).toBeNull()

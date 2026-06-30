@@ -34,8 +34,8 @@
 //
 // Coexistence (F1.5):
 //   z-order: textarea (auto) < .pito-type-layer (1) < .pito-ghost (2)
-//   The caret is the browser's native block caret (CSS .pito-block-caret); the
-//   suggestions controller's ghost layer is unmodified.
+//   The caret is the browser's normal native caret; the suggestions controller's
+//   ghost layer is unmodified.
 
 import { Controller } from "@hotwired/stimulus"
 import { fxEnabled } from "pito/settings"

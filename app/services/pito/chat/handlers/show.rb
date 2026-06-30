@@ -202,15 +202,19 @@ module Pito
           # message (pending state, filled async — aggregated across the linked
           # videos). Analytics goes last because it resolves slowest (the thinking
           # spinner stays up until the background fill job completes), so the
-          # recommendations land first. Linked-videos + analytics are omitted
-          # when the game has none. Identical whether typed or via a `#<handle>` reply.
+          # recommendations land first. Linked-videos is omitted when the game has
+          # none; the analytics glance always shows (no-data cells when there are no
+          # linked videos). Identical whether typed or via a `#<handle>` reply.
           events = [
             { kind: :system, payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) }
           ]
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::SimilarGames.call(game, conversation:) }
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) } if game.linked_videos.any?
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Channels.call(game, conversation:) }
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period, conversation:) } if game.linked_videos.any?
+          # The at-a-glance is ALWAYS present on a game (item 5: channel/vid/game) —
+          # a game with no linked videos still shows the glance (its metrics resolve
+          # to the no-data cells), matching the channel + video branches.
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period, conversation:) }
 
           Pito::Chat::Result::Ok.new(events: events)
         end

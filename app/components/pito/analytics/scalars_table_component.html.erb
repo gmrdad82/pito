@@ -1,15 +1,11 @@
 <div class="pito-analytics-scalars">
   <% if loading? %>
     <% GLANCE_METRICS.each do |metric| %>
-      <div class="pito-analytics-scalars__cell"<% if token %> id="<%= token %>__metric_<%= metric[:key] %>"<% end %>>
-        <%= render(Pito::Analytics::Slots::Compact.new(name: metric_label(metric[:label]), loading: true)) %>
-      </div>
+      <%= render(Pito::Analytics::MetricCellComponent.new(key: metric[:key], label: metric_label(metric[:label]), token: token, loading: true)) %>
     <% end %>
   <% else %>
     <% cells.each do |cell| %>
-      <div class="pito-analytics-scalars__cell"<% if token && cell[:key] %> id="<%= token %>__metric_<%= cell[:key] %>"<% end %>>
-        <%= render(Pito::Analytics::Slots::Compact.new(name: cell[:label], series: cell[:series])) { |c| c.with_scalar { raw(cell[:value].to_s) } } %>
-      </div>
+      <%= render(Pito::Analytics::MetricCellComponent.new(key: cell[:key], label: cell[:label], token: token, series: cell[:series], value: cell[:value], no_data: cell[:no_data])) %>
     <% end %>
   <% end %>
 </div>

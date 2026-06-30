@@ -187,8 +187,8 @@ describe("KbdClickController", () => {
     document.body.innerHTML = `
       <div id="wrap">
         <textarea data-pito--chat-form-target="inputField"></textarea>
-        <span data-controller="pito--kbd-click" data-pito--kbd-click-key-value="m"
-              data-action="mousedown->pito--kbd-click#hold click->pito--kbd-click#fire">m</span>
+        <span data-controller="pito--kbd-click" data-pito--kbd-click-key-value="c"
+              data-action="mousedown->pito--kbd-click#hold click->pito--kbd-click#fire">c</span>
       </div>
     `
     await Promise.resolve()

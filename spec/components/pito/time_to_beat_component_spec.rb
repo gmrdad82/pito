@@ -300,15 +300,13 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(html).to include("var(--accent-purple)") # insanity end (red→purple mix)
     end
 
-    it "renders four | ticks (three pillars + footage) plus the footage ▼ bubble" do
+    it "renders four | ticks (three pillars + footage) with no footage ▼ bubble" do
       comp = described_class.new(game: game, footage_hours: 50)
       html = render_inline(comp).to_html
-      # Footage draws BOTH a | tick inside the bar (mirroring the ScoreBar
-      # needle) AND the arrow bubble above it, so four pito-ttb__tick marks
-      # render: the three pillars plus footage.
       expect(html.scan("pito-ttb__tick").size).to eq(4)
       expect(html).to include("ttb-tick--footage")
-      expect(html).to include("pito-ttb__footage-bubble-arrow")
+      expect(html).not_to include("pito-ttb__footage-bubble")
+      expect(html).not_to include("pito-ttb__footage-bubble-arrow")
     end
 
     it "pins the completionist tick to the last-cell midpoint (98.75%)" do
@@ -470,19 +468,19 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
-  describe "footage absent — mark at left with em-dash label" do
+  describe "footage absent — mark at left with 0h label" do
     subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 0) }
 
-    it "footage_label_alignment_class is at-start" do
-      expect(comp.footage_label_alignment_class).to eq("ttb-label--at-start")
-    end
-
-    it "footage_value_label returns em-dash" do
-      expect(comp.footage_value_label).to eq("—")
+    it "footage_value_label returns 0h (always 0 fallback, never a dash)" do
+      expect(comp.footage_value_label).to eq("0h")
     end
 
     it "footage tick position is at the first cell midpoint (1.25%)" do
       expect(comp.footage_position).to eq(1.25)
+    end
+
+    it "footage inline side class is value-right (left half of bar)" do
+      expect(comp.footage_inline_side_class).to eq("pito-ttb__footage-marker--value-right")
     end
   end
 
@@ -502,8 +500,8 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(comp.footage_position).to eq(98.75)
     end
 
-    it "footage bubble clamps to at-end so it never pokes past the right edge" do
-      expect(comp.footage_label_alignment_class).to eq("ttb-label--at-end")
+    it "footage inline side class is value-left (right half of bar)" do
+      expect(comp.footage_inline_side_class).to eq("pito-ttb__footage-marker--value-left")
     end
 
     it "completionist rescales to its proportional position on the footage axis" do
@@ -549,6 +547,89 @@ RSpec.describe Pito::TimeToBeatComponent do
     it "caps the component box at its container (max-width:100%)" do
       rule = css[/\.pito-ttb\s*\{.*?\}/m]
       expect(rule).to include("max-width: 100%")
+    end
+  end
+
+  # ── Inline footage value on the `=` bar line ─────────────────────────────
+
+  describe "#footage_inline_label" do
+    it "returns the formatted hours when footage is present" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 50)
+      expect(comp.footage_inline_label).to eq("50h")
+    end
+
+    it "returns 0h when footage is 0 (never a dash — always 0 fallback)" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 0)
+      expect(comp.footage_inline_label).to eq("0h")
+    end
+
+    it "returns the decimal form for fractional hours" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 12.5)
+      expect(comp.footage_inline_label).to eq("12.5h")
+    end
+  end
+
+  describe "#footage_inline_side_class" do
+    it "returns footage-marker--value-right when footage tick is in the left half (< 50%)" do
+      # footage 50h / completionist 200h → position ~26.25% → left half → value extends right of pillar
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 50)
+      expect(comp.footage_position).to be < 50.0
+      expect(comp.footage_inline_side_class).to eq("pito-ttb__footage-marker--value-right")
+    end
+
+    it "returns footage-marker--value-left when footage tick is in the right half (>= 50%)" do
+      # footage 300h > completionist 200h → footage drives axis → lands at 98.75% → value extends left of pillar
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 300)
+      expect(comp.footage_position).to be >= 50.0
+      expect(comp.footage_inline_side_class).to eq("pito-ttb__footage-marker--value-left")
+    end
+  end
+
+  describe "render_inline — inline footage value on bar" do
+    it "renders the inline footage marker with footage hours when present" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 50)
+      node = render_inline(comp)
+      inline = node.css('.pito-ttb__footage-marker[data-accent="footage"]').first
+      expect(inline).not_to be_nil
+      expect(inline.text.strip).to eq("50h")
+    end
+
+    it "renders 0h in the footage marker when footage is 0 (always 0 fallback)" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 0)
+      node = render_inline(comp)
+      inline = node.css('.pito-ttb__footage-marker[data-accent="footage"]').first
+      expect(inline).not_to be_nil
+      expect(inline.text.strip).to eq("0h")
+    end
+
+    it "positions the footage marker value-left when footage is in the right half" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 300)
+      node = render_inline(comp)
+      inline = node.css('.pito-ttb__footage-marker[data-accent="footage"]').first
+      expect(inline["class"]).to include("pito-ttb__footage-marker--value-left")
+    end
+
+    it "positions the footage marker value-right when footage is in the left half" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 50)
+      node = render_inline(comp)
+      inline = node.css('.pito-ttb__footage-marker[data-accent="footage"]').first
+      expect(inline["class"]).to include("pito-ttb__footage-marker--value-right")
+    end
+
+    it "renders no footage bubble" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 50)
+      html = render_inline(comp).to_html
+      expect(html).not_to include("pito-ttb__footage-bubble")
+    end
+
+    it "renders no footage legend item" do
+      comp = described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 50)
+      html = render_inline(comp).to_html
+      # Footage | tick appears on the bar; the legend should only show pillar items
+      legend_section = html[/pito-ttb__legend.*/, 0]
+      # legend ticks should not carry data-accent="footage"
+      footage_legend_tick = Nokogiri::HTML.fragment(html).css('.pito-ttb__legend-tick[data-accent="footage"]').first
+      expect(footage_legend_tick).to be_nil
     end
   end
 end

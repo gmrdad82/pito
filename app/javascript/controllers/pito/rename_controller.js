@@ -58,13 +58,12 @@ export default class extends Controller {
     const currentTitle = span.textContent.trim()
 
     // Build the input — borderless/transparent; the orange underline is drawn
-    // on the whole row via .pito-row-editing (see application.css). The caret is
-    // the browser's NATIVE caret, styled as a block via .pito-block-caret
-    // (caret-shape: block) — no JS overlay, nothing to tear down.
+    // on the whole row via .pito-row-editing (see application.css). Uses the
+    // browser's normal native caret — no JS overlay, nothing to tear down.
     const input = document.createElement("input")
     input.type      = "text"
     input.value     = currentTitle
-    input.className = "pito--rename-input pito-block-caret text-fg bg-transparent outline-none w-full"
+    input.className = "pito--rename-input text-fg bg-transparent outline-none w-full"
 
     // Grow the name so the input + row underline span the full width, and flag
     // the row as editing (drops the highlight bg, draws the orange underline).

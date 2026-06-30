@@ -36,19 +36,11 @@ RSpec.describe Game::CoverArt::Normalizer do
     end
 
     context "when fetching from IGDB CDN" do
+      let(:raw_bytes) { "fake-igdb-cover-bytes" }
+
       before do
         stub_request(:get, /images\.igdb\.com.*abc123/)
-          .to_return(status: 200, body: "fake-jpeg-bytes", headers: { "Content-Type" => "image/jpeg" })
-        # Stub vips processing — we test image arithmetic separately.
-        # Here we only care that the CDN fetch + ActiveStorage attach path works.
-        allow(normalizer).to receive(:normalize).and_return(double("vips_img"))
-        allow(normalizer).to receive(:attach_to_game) do |_img|
-          game.cover_art.attach(
-            io:           StringIO.new("processed-jpeg"),
-            filename:     "cover.jpg",
-            content_type: "image/jpeg"
-          )
-        end
+          .to_return(status: 200, body: raw_bytes, headers: { "Content-Type" => "image/jpeg" })
       end
 
       it "attaches the cover_art to the game" do
@@ -59,6 +51,16 @@ RSpec.describe Game::CoverArt::Normalizer do
       it "returns the cover_art attachment" do
         result = normalizer.call
         expect(result).to be_a(ActiveStorage::Attached::One)
+      end
+
+      it "attaches the raw bytes unchanged — blob checksum matches the CDN bytes" do
+        normalizer.call
+        expect(game.cover_art.blob.checksum).to eq(Digest::MD5.base64digest(raw_bytes))
+      end
+
+      it "uses the SOURCE_SIZE URL segment (t_1080p)" do
+        normalizer.call
+        expect(WebMock).to have_requested(:get, /t_1080p\/abc123/)
       end
     end
 
@@ -73,6 +75,63 @@ RSpec.describe Game::CoverArt::Normalizer do
       end
     end
 
+    # Digest-gate: if the CDN returns the same bytes already stored, the blob
+    # must NOT be replaced (no new blob, no new attachment row).
+    context "when IGDB CDN returns the same bytes as the current attachment (digest match)" do
+      let(:raw_bytes) { "existing-cover-bytes-v1" }
+
+      before do
+        game.cover_art.attach(
+          io:           StringIO.new(raw_bytes),
+          filename:     "cover-#{game.id}.jpg",
+          content_type: "image/jpeg"
+        )
+        # Attachment older than igdb_synced_at so the mtime gate is bypassed
+        game.cover_art.attachment.update_columns(created_at: 2.hours.ago)
+        stub_request(:get, /images\.igdb\.com.*abc123/)
+          .to_return(status: 200, body: raw_bytes, headers: { "Content-Type" => "image/jpeg" })
+      end
+
+      it "does not create a new blob (digest-gate no-op)" do
+        original_blob_id = game.cover_art.blob.id
+        normalizer.call
+        expect(game.reload.cover_art.blob.id).to eq(original_blob_id)
+      end
+
+      it "returns the existing attachment" do
+        result = normalizer.call
+        expect(result).to be_a(ActiveStorage::Attached::One)
+      end
+    end
+
+    # Digest-gate: when bytes CHANGE the old blob must be replaced.
+    context "when IGDB CDN returns updated bytes (digest mismatch)" do
+      let(:original_bytes) { "cover-v1" }
+      let(:updated_bytes)  { "cover-v2-different" }
+
+      before do
+        game.cover_art.attach(
+          io:           StringIO.new(original_bytes),
+          filename:     "cover-#{game.id}.jpg",
+          content_type: "image/jpeg"
+        )
+        game.cover_art.attachment.update_columns(created_at: 2.hours.ago)
+        stub_request(:get, /images\.igdb\.com.*abc123/)
+          .to_return(status: 200, body: updated_bytes, headers: { "Content-Type" => "image/jpeg" })
+      end
+
+      it "replaces the blob with the new bytes" do
+        original_blob_id = game.cover_art.blob.id
+        normalizer.call
+        expect(game.reload.cover_art.blob.id).not_to eq(original_blob_id)
+      end
+
+      it "the new blob checksum matches the updated CDN bytes" do
+        normalizer.call
+        expect(game.reload.cover_art.blob.checksum).to eq(Digest::MD5.base64digest(updated_bytes))
+      end
+    end
+
     context "when force: true and the cover is already fresh" do
       subject(:normalizer) { described_class.new(game:, force: true) }
 
@@ -81,21 +140,30 @@ RSpec.describe Game::CoverArt::Normalizer do
         game.cover_art.attachment.update_columns(created_at: Time.current)
         stub_request(:get, /images\.igdb\.com.*abc123/)
           .to_return(status: 200, body: "bytes", headers: { "Content-Type" => "image/jpeg" })
-        allow(normalizer).to receive(:normalize).and_return(double("vips_img"))
-        allow(normalizer).to receive(:attach_to_game)
       end
 
       it "re-fetches from the CDN despite the fresh attachment" do
         normalizer.call
         expect(a_request(:get, /images\.igdb\.com.*abc123/)).to have_been_made
       end
+
+      it "re-attaches even when digest matches (force bypasses digest gate)" do
+        # Attach the same bytes so digest would match normally
+        same_bytes = "bytes"
+        game.cover_art.attach(io: StringIO.new(same_bytes), filename: "cover.jpg", content_type: "image/jpeg")
+        game.cover_art.attachment.update_columns(created_at: Time.current)
+        original_blob_id = game.cover_art.blob.id
+
+        normalizer.call
+        # force: true must replace the blob regardless of digest
+        expect(game.reload.cover_art.blob.id).not_to eq(original_blob_id)
+      end
     end
   end
 
-  describe "master dimensions" do
-    it "are 374×499 (3:4) — the 374px game-detail cover (two 180px covers + gap)" do
-      expect(described_class::MASTER_W).to eq(374)
-      expect(described_class::MASTER_H).to eq(499)
+  describe "SOURCE_SIZE" do
+    it "is t_1080p — the largest available IGDB CDN cover size" do
+      expect(described_class::SOURCE_SIZE).to eq("t_1080p")
     end
   end
 end

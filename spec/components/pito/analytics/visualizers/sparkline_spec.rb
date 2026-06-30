@@ -56,6 +56,20 @@ RSpec.describe Pito::Analytics::Visualizers::Sparkline, type: :component do
     expect(zero.css(".pito-metric__row").last.text).to include(Pito::Analytics::Visualizers::Base::BASELINE_DOT)
   end
 
+  it "renders a visible bump above baseline for a tiny non-zero integer value" do
+    # 1 view against a high series_max must render a bump, not a flat baseline.
+    tiny = render_inline(described_class.new(series: [ 1 ], series_max: 1000))
+    zero = render_inline(described_class.new(series: [ 0 ]))
+    expect(tiny.css(".pito-metric__row").last.text).not_to eq(zero.css(".pito-metric__row").last.text)
+  end
+
+  it "renders a bump for a fractional non-zero value (0.1 must not round to zero)" do
+    # Without the fix, 0.1.round → 0 collapses to the same flat line as all-zero.
+    frac = render_inline(described_class.new(series: [ 0.1 ]))
+    zero = render_inline(described_class.new(series: [ 0 ]))
+    expect(frac.css(".pito-metric__row").last.text).not_to eq(zero.css(".pito-metric__row").last.text)
+  end
+
   it "renders NO ticks / legend / caption (sparkline chrome only)" do
     expect(node.at_css(".pito-metric__ytick")).to be_nil
     expect(node.at_css(".pito-metric__xticks")).to be_nil

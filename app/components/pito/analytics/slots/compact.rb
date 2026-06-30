@@ -12,8 +12,11 @@ module Pito
       #   - Optionally a `Visualizers::Sparkline` or `Visualizers::NoData` above
       #     the pair when a series is supplied or the cell is in a loading state.
       #
-      # Three render branches:
+      # Four render branches:
       #   loading:            NoData(:compact) above pair; pair = MetricName + LoadingDots
+      #   no_data:            NoData(:compact) above pair; pair = MetricName + scalar slot
+      #                       (terminal — a failed/empty/quota'd metric: keep the canvas,
+      #                       scalar shows "n/a"; NO sparkline)
       #   filled + series:    Sparkline above pair; pair = MetricName + scalar slot
       #   filled + no series: bare pair = MetricName + scalar slot (no canvas chrome)
       class Compact < ViewComponent::Base
@@ -23,16 +26,19 @@ module Pito
         # @param series     [Array<Numeric>]  optional day-series → renders a sparkline
         # @param series_max [Numeric]         optional sparkline y-axis ceiling
         # @param loading    [Boolean]         true → renders the loading skeleton
-        def initialize(name:, series: nil, series_max: nil, loading: false)
+        # @param no_data    [Boolean]         true → NoData canvas + scalar slot (terminal)
+        def initialize(name:, series: nil, series_max: nil, loading: false, no_data: false)
           @name       = name
           @series     = Array(series).map(&:to_f).presence
           @series_max = series_max
           @loading    = loading
+          @no_data    = no_data
         end
 
         attr_reader :name, :series, :series_max
 
         def loading? = @loading
+        def no_data? = @no_data
         def series?  = @series.present?
       end
     end

@@ -20,12 +20,12 @@ module Pito
       end
 
       def cover_art_url
-        Pito::ImagePath.call(@game.cover_art, variant: ::Game::COVER_VARIANT)
+        Pito::ImagePath.call(@game.cover_art, variant: :strip)
       end
 
-      # Larger 480px-wide cover variant for the detail card's left column.
+      # Larger cover variant (:detail, 450×600 limit) for the detail card's left column.
       def detail_cover_url
-        Pito::ImagePath.call(@game.cover_art, variant: ::Game::DETAIL_COVER_VARIANT)
+        Pito::ImagePath.call(@game.cover_art, variant: :detail)
       end
 
       def developer_names

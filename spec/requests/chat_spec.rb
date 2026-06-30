@@ -378,6 +378,10 @@ RSpec.describe "Chat requests", type: :request do
         # (WebMock's NetConnect error subclasses Exception, bypassing Breakdown's
         # StandardError rescue).
         allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
+        # The per-metric fan-out's comments cell (AnalyzeMetricFill#comments_cell)
+        # fetches the scalars primitive directly — stub it so the live swap never
+        # hits YouTube.
+        allow(Pito::Analytics::Primitives).to receive(:fetch).and_return({})
       end
 
       it "returns 204 No Content" do
@@ -404,10 +408,12 @@ RSpec.describe "Chat requests", type: :request do
           expect(analyze_events).to all(satisfy { |e| e.payload.dig("analyze", "status") == "ready" })
         end
 
-        it "both ready bodies render the 0/1 scaffold cells" do
+        it "both ready bodies render the metric cells (real visualizers via the fan-out)" do
           expect(analyze_events).to all(satisfy { |e| e.payload["body"].include?("pito-analytics-scalars") })
           joined = analyze_events.map { |e| e.payload["body"] }.join
-          expect(joined).to include(">1<").and(include(">0<"))
+          # :system renders area-chart cells (views/watched/subs); the comments
+          # scalar still shows its 0/1 pulled flag.
+          expect(joined).to include("pito-metric--area-chart").and(include(">1<"))
         end
 
         it "all thinking indicators are resolved" do
@@ -494,6 +500,10 @@ RSpec.describe "Chat requests", type: :request do
         # (WebMock's NetConnect error subclasses Exception, bypassing Breakdown's
         # StandardError rescue).
         allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
+        # The per-metric fan-out's comments cell (AnalyzeMetricFill#comments_cell)
+        # fetches the scalars primitive directly — stub it so the live swap never
+        # hits YouTube.
+        allow(Pito::Analytics::Primitives).to receive(:fetch).and_return({})
       end
 
       it "returns 204 No Content" do

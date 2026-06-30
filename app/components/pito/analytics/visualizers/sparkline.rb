@@ -26,8 +26,10 @@ module Pito
         def reveal_controller = REVEAL_CONTROLLER
 
         # ROWS (2) strings of COLS (45) chars each (top→bottom), capped at series_max.
+        # Pass @series as floats — BrailleAreaChart handles the conversion internally,
+        # and rounding here would silently collapse fractional values (e.g. 0.1h) to zero.
         def rows_braille
-          Pito::Analytics::BrailleAreaChart.call(series: @series.map(&:round), cols:, rows:, max: @series_max.ceil)
+          Pito::Analytics::BrailleAreaChart.call(series: @series, cols:, rows:, max: @series_max.ceil)
         end
 
         # Staggered shimmer-delay bucket, seeded per series so adjacent sparklines

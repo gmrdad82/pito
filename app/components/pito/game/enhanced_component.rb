@@ -52,10 +52,10 @@ module Pito
         similar_game_results.any?
       end
 
-      # Host-less ActiveStorage proxy path for a similar-game cover variant, or
-      # nil when no attachment (the view falls back to the placeholder).
+      # Host-less ActiveStorage proxy path for the :strip cover variant (180×240),
+      # or nil when no attachment (the view falls back to the placeholder).
       def cover_art_url_for(game)
-        Pito::ImagePath.call(game.cover_art, variant: ::Game::COVER_VARIANT)
+        Pito::ImagePath.call(game.cover_art, variant: :strip)
       end
     end
   end

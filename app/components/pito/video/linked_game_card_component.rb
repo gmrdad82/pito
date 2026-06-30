@@ -26,12 +26,12 @@ module Pito
         @game.cover_art.attached?
       end
 
-      # Big detail cover variant (374×499 portrait) — the card's left column.
+      # Big detail cover (:detail, 450×600 limit) — the card's left column.
       # Mirrors the game detail card's cover: bounded to the 374×210 16:9 box
       # (.pito-video-linked-game-card__cover, shared CSS) with the Ken-Burns
-      # vertical pan (.pito-cover-pan). Same variant as Pito::Game::DetailComponent.
+      # vertical pan (.pito-cover-pan). Same named variant as Pito::Game::DetailComponent.
       def cover_url
-        Pito::ImagePath.call(@game.cover_art, variant: ::Game::DETAIL_COVER_VARIANT)
+        Pito::ImagePath.call(@game.cover_art, variant: :detail)
       end
 
       def title

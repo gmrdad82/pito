@@ -9,6 +9,13 @@ module Pito
       # to drive the cycling timer — so JS never hardcodes the interval.
       INTERVAL_SECONDS = 5
 
+      # Decorative funny glyphs shown in the resolved state (where the braille
+      # spinner was). Not in Pito::Copy — these are visual symbols, not translatable
+      # copy, and the Copy dictionary guard requires 1 or ≥50 variants per key.
+      GLYPHS = [
+        '\o/', '¯\_(ツ)_/¯', "(⌐■_■)", "o7", '\m/', "^_^", "(•‿•)", ":3", ">_<", "( •_•)>⌐■-■"
+      ].freeze
+
       # The verb shown after `elapsed_seconds` is the `order`-th index for the
       # step we're on. Shared by the server (initial render + resolve) and
       # mirrored by the Stimulus controller so the cycled word and the final
@@ -48,6 +55,17 @@ module Pito
         word    = done_word
         elapsed = format_elapsed(@elapsed_seconds)
         I18n.t("pito.event.thinking.resolved", word:, elapsed:)
+      end
+
+      # Picks a glyph from GLYPHS deterministically so the same resolved event
+      # always shows the same glyph across re-renders. Seeded from the persisted
+      # event id (or for_event_id from the payload, or word_index as last resort)
+      # so the selection is stable without storing anything extra in the payload.
+      def resolved_glyph
+        return nil unless resolved?
+
+        seed = (@event&.id || @payload[:for_event_id]&.to_i || @word_index).to_i
+        GLYPHS[seed.abs % GLYPHS.size]
       end
 
       def braille_frames_json
