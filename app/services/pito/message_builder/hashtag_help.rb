@@ -98,8 +98,7 @@ module Pito
       # Build the universal share verb rows for the help page.
       # share is always included; revoke/unshare only when the event has a Share.
       def universal_share_verb_rows(event:)
-        verbs = Pito::Share::UniversalActions::ALWAYS_AVAILABLE +
-          (event && ::Share.exists?(event_id: event.id) ? Pito::Share::UniversalActions::SHARE_REQUIRED : [])
+        verbs = Pito::Share::UniversalActions.verbs_for(event)
         verbs.filter_map do |verb|
           desc = I18n.t("pito.copy.share.verb_help.#{verb}", default: nil)
           next unless desc.is_a?(String) && desc.present?

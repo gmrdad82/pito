@@ -1,0 +1,26 @@
+<%# Compact metric cell: three branches.
+    loading:            NoData(:compact) above pair; pair = MetricName + LoadingDots.
+    filled + series:    Sparkline above pair; pair = MetricName + scalar slot.
+    filled + no series: bare pair, natural width — no canvas chrome (analyze bare cells). %>
+<% if loading? %>
+  <div class="pito-analytics-scalars__charted">
+    <%= render(Pito::Analytics::Visualizers::NoData.new(size: :compact)) %>
+    <div class="pito-analytics-scalars__pair pito-analytics-scalars__pair--charted">
+      <%= render(Pito::Analytics::Support::MetricName.new(name: name)) %>
+      <span class="pito-analytics-scalars__value tabular-nums"><%= render(Pito::Analytics::Support::LoadingDots.new(seed: name)) %></span>
+    </div>
+  </div>
+<% elsif series? %>
+  <div class="pito-analytics-scalars__charted">
+    <%= render(Pito::Analytics::Visualizers::Sparkline.new(series: series, series_max: series_max)) %>
+    <div class="pito-analytics-scalars__pair pito-analytics-scalars__pair--charted">
+      <%= render(Pito::Analytics::Support::MetricName.new(name: name)) %>
+      <span class="pito-analytics-scalars__value tabular-nums"><%= scalar %></span>
+    </div>
+  </div>
+<% else %>
+  <div class="pito-analytics-scalars__pair">
+    <%= render(Pito::Analytics::Support::MetricName.new(name: name)) %>
+    <span class="pito-analytics-scalars__value tabular-nums"><%= scalar %></span>
+  </div>
+<% end %>

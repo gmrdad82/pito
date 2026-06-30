@@ -2,19 +2,23 @@
 
 module Pito
   module Suggestions
-    # Computes autocomplete suggestions for a given input and cursor position.
+    # Computes PALETTE suggestions for a given input and cursor position.
     #
     # call(input:, cursor:, conversation: nil, authenticated: false) →
     #   {
     #     mode:       Symbol (:slash | :hashtag | :free | :none),
     #     stage:      Symbol (:verb | :arg | :free | :none),
     #     menu_items: [ { label:, insert:, description:, masked: } ],
-    #     ghost:      { complete_current:, next_hint: }
+    #     ghost:      { complete_current:, next_hint: }   # always empty (kept for shape stability)
     #   }
     #
-    # `stage` tells the client how to surface menu_items: :verb → render the
-    # whole list as a selectable PALETTE (slash/hashtag verb choice, incl. the
-    # follow-up reply verbs); :arg → show only the top hit as an inline GHOST.
+    # Suggestions are PALETTE-only. The inline free-chat "ghost"/typeahead and the
+    # `tab` accept shortcut were removed (owner 2026-06-29): the `/slash` and
+    # `#hashtag` selectable palettes are the only suggestion surfaces. `stage:
+    # :verb` → the client renders menu_items as a browsable palette (slash verb
+    # choice, the `/config` provider/key set, and the follow-up reply verbs).
+    # FREE input and non-palette arg stages return empty. The `ghost` key is
+    # retained as EMPTY_GHOST only to keep the response shape stable for clients.
     #
     # Tasks w + x:
     #   w — slash/hashtag/free mode detection + static slot resolution
@@ -89,31 +93,18 @@ module Pito
           spec = Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: verb.to_sym)
           return { menu_items: [], ghost: EMPTY_GHOST, stage: :arg } unless spec
 
-          # The partial is everything after the last space.
-          # If text ends with " ", partial is "".
-          partial = after_slash.end_with?(" ") ? "" : parts.last.to_s
+          # Only `/config` offers arg suggestions — a small, browsable provider /
+          # per-provider-key set surfaced as a selectable PALETTE (stage: :verb).
+          # Every OTHER slash arg gets nothing: inline arg ghosts were removed
+          # (owner 2026-06-29; the palette is the only slash suggestion surface).
+          return { menu_items: [], ghost: EMPTY_GHOST, stage: :arg } unless spec.name == :config
 
-          # Already-consumed arg tokens (everything between verb and partial).
-          # We need to figure out which slot is active.
+          # The partial is everything after the last space ("" when text ends in " ").
+          partial       = after_slash.end_with?(" ") ? "" : parts.last.to_s
           consumed_args = build_consumed_args(after_slash, partial)
+          items         = arg_stage_completions(spec, consumed_args, partial, authenticated:)
 
-          items = arg_stage_completions(spec, consumed_args, partial, authenticated:)
-          ghost = kv_ghost_for(spec, consumed_args, partial)
-
-          # `/config` arg slots (the provider vocab and per-provider kv keys) are a
-          # small, browsable set — surface them as a selectable PALETTE (stage:
-          # :verb) so the client renders the whole list, not just the top hit as an
-          # inline ghost. Scoped to :config so other slash args (e.g. `/games
-          # import`) keep the inline-ghost arg treatment.
-          stage = config_arg_palette?(spec, items) ? :verb : :arg
-          { menu_items: items, ghost: ghost, stage: stage }
-        end
-
-        # True when the active completion belongs to a `/config` argument slot
-        # (provider vocab or per-provider kv keys) and there is at least one item
-        # to show — the signal that the client should render a browsable palette.
-        def config_arg_palette?(spec, items)
-          spec.name == :config && items.any?
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
         end
 
         # Returns all args that have been fully typed (before the current partial).
@@ -365,33 +356,6 @@ module Pito
           end
         end
 
-        # ── KV ghost ────────────────────────────────────────────────────────
-
-        # When the active slot is a :kv slot and the user is still typing the
-        # key portion (no "=" present), compute a ghost for the remaining chars
-        # if exactly one provider key matches the partial prefix.
-        # Returns EMPTY_GHOST when conditions aren't met or prefix is ambiguous.
-        def kv_ghost_for(spec, consumed_args, partial)
-          return EMPTY_GHOST if partial.empty? || partial.include?("=")
-
-          active_slot, resolved_values = find_active_slot_with_context(spec, consumed_args)
-          return EMPTY_GHOST unless active_slot&.kind == :kv
-
-          provider = resolved_values[:provider].to_s.downcase
-          candidate_keys = Pito::Grammar::Vocabularies.provider_keys(provider)
-
-          if candidate_keys.empty?
-            vocab = Pito::Grammar::Registry.vocabulary(active_slot.source)
-            candidate_keys = vocab&.canonical || []
-          end
-
-          matches = candidate_keys.select { |k| k.to_s.downcase.start_with?(partial.downcase) }
-          return EMPTY_GHOST unless matches.size == 1
-
-          remainder = matches.first.to_s[partial.length..]
-          { complete_current: remainder, next_hint: "" }
-        end
-
         # ── HASHTAG mode ─────────────────────────────────────────────────────
 
         def hashtag_completions(text, conversation: nil)
@@ -418,95 +382,18 @@ module Pito
           # suggest THAT target's actions (e.g. game_list → show/delete) rather
           # than the generic hashtag verbs. Falls through to the legacy path only
           # when the handle isn't a live follow-up.
-          actions, target = follow_up_actions_with_target(handle, conversation)
+          actions, _target = follow_up_actions_with_target(handle, conversation)
           if actions
-            if at_verb_stage
-              return follow_up_action_completions(actions, partial)
-            else
-              # Arg stage: for game_list/video_list with/without, ghost column tokens.
-              action = after_words.first&.downcase
-              if %w[with without].include?(action) && %w[game_list video_list].include?(target)
-                # args_text = everything after "#<handle> <action> " (the comma-list).
-                args_text = after.lstrip.sub(/\A\S+\s+/, "")
-                result = Pito::Suggestions::ListClauseGhost.hashtag_list_action_completions(
-                  target, args_text, ends_with_space
-                )
-                return result.merge(stage: :arg) if result
-              end
-
-              # Arg stage: for game_list/video_list sort/order, ghost sort column tokens.
-              if %w[sort order].include?(action) && %w[game_list video_list].include?(target)
-                # args_text = everything after "#<handle> <action> " (the sort clause).
-                args_text    = after.lstrip.sub(/\A\S+\s*/, "")
-                list_columns = follow_up_event_list_columns(handle, conversation)
-                result = Pito::Suggestions::ListClauseGhost.hashtag_list_sort_completions(
-                  target,
-                  list_columns:,
-                  args_text:,
-                  ends_with_space:
-                )
-                return result.merge(stage: :arg) if result
-              end
-
-              # Arg stage: for schedule, surface the `slate` keyword (the
-              # next-open-slot alternative to an explicit <when>) the same way
-              # other static-vocab options are offered.
-              if action == "schedule" && Pito::FollowUp::Registry.actions_for(target).include?("schedule")
-                result = hashtag_schedule_arg_completions(partial)
-                return result.merge(stage: :arg) if result
-              end
-
-              # Arg stage: for price, surface the `set`/`unset` subcommand — but ONLY
-              # at the subcommand position (`price <here>`), not after it (the id +
-              # amount that follow are free, no suggestion).
-              if action == "price" && Pito::FollowUp::Registry.actions_for(target).include?("price")
-                at_subcommand = (after_words.length == 1 && ends_with_space) ||
-                                (after_words.length == 2 && !ends_with_space)
-                if at_subcommand
-                  result = hashtag_price_arg_completions(partial)
-                  return result.merge(stage: :arg) if result
-                end
-              end
-
-              # Arg stage: for platform, surface the `set`/`unset` subcommand — same
-              # subcommand-position rule as price (the id + name that follow are free).
-              if action == "platform" && Pito::FollowUp::Registry.actions_for(target).include?("platform")
-                at_subcommand = (after_words.length == 1 && ends_with_space) ||
-                                (after_words.length == 2 && !ends_with_space)
-                if at_subcommand
-                  result = hashtag_platform_arg_completions(partial)
-                  return result.merge(stage: :arg) if result
-                end
-              end
-
-              # Arg stage: for visit (channel_detail), surface `channel`/`studio`
-              # destination — same subcommand-position rule as price/platform.
-              if action == "visit" && Pito::FollowUp::Registry.actions_for(target).include?("visit")
-                at_subcommand = (after_words.length == 1 && ends_with_space) ||
-                                (after_words.length == 2 && !ends_with_space)
-                if at_subcommand
-                  result = hashtag_visit_arg_completions(partial)
-                  return result.merge(stage: :arg) if result
-                end
-              end
-
-              # Fallback: offer --help ghost when the partial starts with "-".
-              return hashtag_arg_help_completions(partial).merge(stage: :arg)
-            end
+            # Verb stage → the reply-verb PALETTE. Arg stage → nothing (owner
+            # 2026-06-29: inline arg suggestions/ghosts removed; the palette is the
+            # only follow-up suggestion surface).
+            return at_verb_stage ? follow_up_action_completions(actions, partial) : { menu_items: [], ghost: EMPTY_GHOST, stage: :arg }
           end
 
           return hashtag_verb_completions(partial) if at_verb_stage
 
           # Metric stage (legacy hashtag-metric feature).
           hashtag_metric_completions(partial)
-        end
-
-        # Returns the declared action words for a live follow-up event carrying
-        # `handle` in its reply_handle, or nil when the handle isn't a live
-        # follow-up (so the caller falls back to the legacy hashtag path).
-        def follow_up_actions(handle, conversation)
-          actions, _target = follow_up_actions_with_target(handle, conversation)
-          actions
         end
 
         # Returns [actions, reply_target] for a live follow-up event, or [nil, nil].
@@ -527,9 +414,9 @@ module Pito
           target           = event.payload["reply_target"].to_s
           specific_actions = Pito::FollowUp::Registry.actions_for(target)
 
-          # share is always available; revoke/unshare only when a Share row exists.
-          share_verbs = Pito::Share::UniversalActions::ALWAYS_AVAILABLE +
-            (::Share.exists?(event_id: event.id) ? Pito::Share::UniversalActions::SHARE_REQUIRED : [])
+          # Universal share verbs for this event — none for a :confirmation message
+          # (confirm/cancel only); else share always, + revoke/unshare when shared.
+          share_verbs = Pito::Share::UniversalActions.verbs_for(event)
 
           all_actions = (specific_actions + share_verbs).uniq
 
@@ -537,20 +424,6 @@ module Pito
 
           filtered = specific_actions.present? ? filter_link_unlink(all_actions, event) : all_actions
           [ filtered, target ]
-        end
-
-        # Returns the list_columns array from the live follow-up event payload for
-        # the given handle, or [] when the event cannot be found or has no list_columns.
-        def follow_up_event_list_columns(handle, conversation)
-          return [] if handle.blank? || conversation.nil?
-
-          event = conversation.events
-            .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
-            .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
-            .last
-          return [] unless event
-
-          Array(event.payload["list_columns"])
         end
 
         # Always offer both link and unlink for any target that declares them.
@@ -562,149 +435,15 @@ module Pito
           actions
         end
 
-        # Build completions for a follow-up handle's actions: a palette of all
-        # actions plus an inline ghost (the first action, or the unique prefix
-        # completion of the partial) so TAB accepts it.
-        # When the partial starts with "-" and prefixes "--help", returns the
-        # --help ghost/menu item instead of action completions (mirrors free-mode
-        # engine.rb:563-566).
+        # Build the reply-verb PALETTE for a follow-up handle's actions: all
+        # actions, filtered by the typed verb prefix (so `wi` narrows to
+        # with/without). stage: :verb → the client surfaces the whole list as a
+        # selectable palette. (Inline ghost removed — owner 2026-06-29.)
         def follow_up_action_completions(actions, partial)
-          # --help ghost: any partial starting with "-" that prefixes "--help".
-          if partial.start_with?("-") && "--help".start_with?(partial.downcase)
-            return hashtag_arg_help_completions(partial).merge(stage: :arg)
-          end
-
-          # Filter the palette by the typed verb prefix (mirrors the slash verb
-          # palette) so the menu narrows as the user types `wi` → with/without.
           matches    = partial.empty? ? actions : actions.select { |a| a.to_s.start_with?(partial.downcase) }
           menu_items = matches.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
 
-          ghost = if partial.empty?
-                    { complete_current: actions.first.to_s, next_hint: "" }
-          else
-                    completion = matches.size == 1 ? matches.first.to_s[partial.length..] : ""
-                    { complete_current: completion, next_hint: "" }
-          end
-
-          # :verb → the client surfaces ALL menu_items as a selectable palette
-          # (with/without/shinies/schedule/show/…), not just the top ghost.
-          { menu_items: menu_items, ghost: ghost, stage: :verb }
-        end
-
-        # Arg-stage completions for `#<handle> schedule …`: surface the `slate`
-        # keyword (the next-open-slot alternative to an explicit <when>) from the
-        # :schedule_whens vocab, mirroring hashtag_metric_completions. Returns nil
-        # when the partial prefixes no schedule keyword so the caller can fall
-        # through to the --help ghost.
-        def hashtag_schedule_arg_completions(partial)
-          vocab = Pito::Grammar::Registry.vocabulary(:schedule_whens)
-          return nil unless vocab
-
-          members = prefix_filter(vocab.canonical, partial)
-          return nil if members.empty?
-
-          menu_items = members.map do |member|
-            { label: member, insert: "#{member} ", description: "", masked: false }
-          end
-
-          ghost =
-            if partial.empty?
-              { complete_current: members.first.to_s, next_hint: "" }
-            elsif members.size == 1
-              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
-            else
-              EMPTY_GHOST
-            end
-
-          { menu_items: menu_items, ghost: ghost }
-        end
-
-        # `set`/`unset` subcommand completions for `#<handle> price …` — mirrors
-        # hashtag_schedule_arg_completions but over the price_subcommands vocab.
-        def hashtag_price_arg_completions(partial)
-          vocab = Pito::Grammar::Registry.vocabulary(:price_subcommands)
-          return nil unless vocab
-
-          members = prefix_filter(vocab.canonical, partial)
-          return nil if members.empty?
-
-          menu_items = members.map do |member|
-            { label: member, insert: "#{member} ", description: "", masked: false }
-          end
-
-          ghost =
-            if partial.empty?
-              { complete_current: members.first.to_s, next_hint: "" }
-            elsif members.size == 1
-              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
-            else
-              EMPTY_GHOST
-            end
-
-          { menu_items: menu_items, ghost: ghost }
-        end
-
-        # `channel`/`studio` destination completions for `#<handle> visit …` (channel_detail
-        # cards) — mirrors hashtag_price_arg_completions over the visit_destinations vocab.
-        def hashtag_visit_arg_completions(partial)
-          vocab = Pito::Grammar::Registry.vocabulary(:visit_destinations)
-          return nil unless vocab
-
-          members = prefix_filter(vocab.canonical, partial)
-          return nil if members.empty?
-
-          menu_items = members.map do |member|
-            { label: member, insert: "#{member} ", description: "", masked: false }
-          end
-
-          ghost =
-            if partial.empty?
-              { complete_current: members.first.to_s, next_hint: "" }
-            elsif members.size == 1
-              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
-            else
-              EMPTY_GHOST
-            end
-
-          { menu_items: menu_items, ghost: ghost }
-        end
-
-        # `set`/`unset` subcommand completions for `#<handle> platform …` — mirrors
-        # hashtag_price_arg_completions over the platform_subcommands vocab.
-        def hashtag_platform_arg_completions(partial)
-          vocab = Pito::Grammar::Registry.vocabulary(:platform_subcommands)
-          return nil unless vocab
-
-          members = prefix_filter(vocab.canonical, partial)
-          return nil if members.empty?
-
-          menu_items = members.map do |member|
-            { label: member, insert: "#{member} ", description: "", masked: false }
-          end
-
-          ghost =
-            if partial.empty?
-              { complete_current: members.first.to_s, next_hint: "" }
-            elsif members.size == 1
-              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
-            else
-              EMPTY_GHOST
-            end
-
-          { menu_items: menu_items, ghost: ghost }
-        end
-
-        # Returns a --help ghost + menu item when `partial` starts with "-" and
-        # prefixes "--help".  Used in both verb-stage and arg-stage hashtag paths.
-        # Returns EMPTY_GHOST when the partial doesn't qualify.
-        def hashtag_arg_help_completions(partial)
-          if partial.start_with?("-") && "--help".start_with?(partial.downcase)
-            completion = "--help"[partial.length..]
-            help_item  = { label: "--help", insert: "--help ", description: "Print this help message", masked: false }
-            { menu_items: [ help_item ], ghost: { complete_current: completion, next_hint: "" } }
-          else
-            { menu_items: [], ghost: EMPTY_GHOST }
-          end
+          { menu_items: menu_items, ghost: EMPTY_GHOST, stage: :verb }
         end
 
         def hashtag_verb_completions(partial)
@@ -732,172 +471,14 @@ module Pito
           { menu_items: items, ghost: EMPTY_GHOST, stage: :arg }
         end
 
-        # ── FREE mode (ghost text, no palette) ───────────────────────────────
+        # ── FREE mode ────────────────────────────────────────────────────────
 
-        def free_completions(text, authenticated:)
-          tokens = Pito::Lex::Lexer.call(text)
-          word_tokens = tokens.select { |t| t.type == :word }
-
-          first_word = word_tokens.first&.value&.downcase&.to_sym
-          return { menu_items: [], ghost: EMPTY_GHOST } unless first_word
-
-          spec = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: first_word)
-          unless spec
-            # Verb stage: the first word doesn't resolve to a chat verb yet —
-            # ghost-complete it to the unique verb it prefixes (`sy` → `sync`).
-            return { menu_items: [], ghost: free_verb_ghost(text, word_tokens) }
-          end
-
-          if spec.name == :list && (g = Pito::Suggestions::ListClauseGhost.ghost(text))
-            return { menu_items: [], ghost: g }
-          end
-
-          if spec.name == :sync && (g = Pito::Suggestions::SyncClauseGhost.ghost(text))
-            return { menu_items: [], ghost: g }
-          end
-
-          ghost = compute_ghost(text, spec, tokens, authenticated:)
-          { menu_items: [], ghost: ghost }
-        end
-
-        # Verb-stage ghost for free (non-slash) input. When the user is still
-        # typing the first word (single token, no trailing space) and it doesn't
-        # resolve to a chat verb, complete it to the unique chat verb it prefixes.
-        # Mirrors the slash verb-stage prefix match (`verb_stage_completions`),
-        # expressed as ghost text instead of a palette. Stays silent when the
-        # prefix is ambiguous (matches more than one verb).
-        def free_verb_ghost(text, word_tokens)
-          return EMPTY_GHOST if text.end_with?(" ")
-          return EMPTY_GHOST unless word_tokens.size == 1
-
-          partial = word_tokens.first.value.to_s.downcase
-          return EMPTY_GHOST if partial.empty?
-
-          names = Pito::Grammar::Registry.specs(namespace: :chat)
-            .map { |spec| spec.name.to_s }
-            .select { |name| name.start_with?(partial) && name != partial }
-            .uniq
-
-          return EMPTY_GHOST unless names.size == 1
-
-          { complete_current: names.first[partial.length..], next_hint: "" }
-        end
-
-        # Compute ghost text for a matched chat spec.
-        # complete_current: remaining chars if current partial uniquely prefixes a vocab member.
-        # next_hint: slot-name hint when the cursor is at an empty token (trailing space).
-        def compute_ghost(text, spec, tokens, authenticated:)
-          ends_with_space = text.end_with?(" ")
-          word_tokens     = tokens.select { |t| t.type == :word }
-
-          # Slots that can provide completions.
-          enum_slots = spec.slots.select { |s| s.kind == :enum }
-
-          # Words typed so far (excluding the verb).
-          typed_words = word_tokens.drop(1).map(&:value)
-
-          # The current partial: last typed word (if not ending with space).
-          current_partial = ends_with_space ? "" : typed_words.last.to_s
-
-          # Track which slots have been consumed by the typed words.
-          already_filled = {}
-          # `[0...-1]` (drop the current partial word) is safe when empty — a bare
-          # complete verb like "list"/"ls" has zero typed_words, and `.first(-1)`
-          # would raise "negative array size" (crashed the chat-verb suggestion).
-          words_to_consume = ends_with_space ? typed_words : typed_words[0...-1]
-          words_to_consume.each do |word|
-            enum_slots.each do |slot|
-              next if already_filled[slot.name] && !slot.repeatable?
-              next unless slot.source.is_a?(Symbol)
-              vocab = Pito::Grammar::Registry.vocabulary(slot.source)
-              next unless vocab
-              resolved = vocab.resolve(word.to_s.downcase)
-              if resolved
-                already_filled[slot.name] = true
-                break
-              end
-            end
-          end
-
-          # Find the active slot — the first enum slot not yet fully consumed.
-          active_slot = enum_slots.find do |s|
-            !already_filled[s.name] || s.repeatable?
-          end
-
-          if ends_with_space
-            # At a fresh slot: for a static enum slot, ghost the FIRST value as a
-            # real (TAB-completable) completion — not a `<bracketed>` placeholder
-            # the user can't accept. Fall back to the slot-name hint only for
-            # dynamic / valueless slots.
-            completion = default_enum_completion(active_slot)
-            if completion.empty?
-              { complete_current: "", next_hint: next_hint_for_slot(active_slot) }
-            else
-              { complete_current: completion, next_hint: "" }
-            end
-          else
-            # `--help` ghost: any partial starting with "-" that prefixes "--help".
-            if current_partial.start_with?("-") && "--help".start_with?(current_partial.downcase)
-              return { complete_current: "--help"[current_partial.length..], next_hint: "" }
-            end
-
-            # complete_current: if current partial uniquely prefixes one vocab member.
-            completion = compute_current_completion(active_slot, current_partial, authenticated:)
-            { complete_current: completion, next_hint: "" }
-          end
-        end
-
-        # First canonical value of a static enum slot — used as the default
-        # TAB-completable ghost when the cursor sits at a fresh slot. Returns ""
-        # for dynamic slots (fetched separately) or non-enum/valueless slots.
-        def default_enum_completion(slot)
-          return "" unless slot&.source.is_a?(Symbol)
-
-          vocab = Pito::Grammar::Registry.vocabulary(slot.source)
-          return "" unless vocab && !vocab.dynamic? && vocab.canonical.any?
-
-          vocab.canonical.first.to_s
-        end
-
-        def compute_current_completion(slot, partial, authenticated:)
-          return "" if partial.empty? || slot.nil?
-          return "" unless slot.source.is_a?(Symbol)
-
-          vocab = Pito::Grammar::Registry.vocabulary(slot.source)
-          return "" unless vocab
-
-          candidates = if vocab.dynamic?
-                         return "" if AUTH_GATED_VOCABS.include?(slot.source) && !authenticated
-
-                         begin
-                           vocab.members(context: partial)
-                         rescue StandardError
-                           []
-                         end
-          else
-                         vocab.canonical
-          end
-
-          matches = candidates.select { |m| m.to_s.downcase.start_with?(partial.downcase) }
-
-          # Only complete if exactly one match.
-          return "" unless matches.size == 1
-
-          matches.first.to_s[partial.length..]
-        end
-
-        def next_hint_for_slot(slot)
-          return "" unless slot
-
-          # Use a sample member if static, otherwise the slot name.
-          if slot.source.is_a?(Symbol)
-            vocab = Pito::Grammar::Registry.vocabulary(slot.source)
-            if vocab && !vocab.dynamic? && vocab.canonical.any?
-              return "<#{vocab.canonical.first}>"
-            end
-          end
-
-          "<#{slot.name}>"
+        # Free (natural-language) input gets NO suggestions (owner 2026-06-29:
+        # inline free-chat typeahead removed — the `/slash` + `#hashtag` palettes
+        # are the only suggestion surfaces). Kept as an explicit no-op so the
+        # mode dispatch in `call` stays symmetric.
+        def free_completions(_text, authenticated: false)
+          { menu_items: [], ghost: EMPTY_GHOST }
         end
 
         # ── Helpers ───────────────────────────────────────────────────────────

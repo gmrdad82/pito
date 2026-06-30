@@ -264,9 +264,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # ── FREE MODE — ghost text ───────────────────────────────────────────────────
+  # ── FREE MODE ────────────────────────────────────────────────────────────────
 
-  describe "free mode — ghost text" do
+  describe "free mode" do
     it "returns :free mode for non-slash, non-hash, non-empty input" do
       result = call(input: "list upc", cursor: 8, authenticated: true)
       expect(result[:mode]).to eq(:free)
@@ -277,227 +277,24 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:menu_items]).to eq([])
     end
 
-    describe "complete_current" do
-      it "completes 'upc' → 'oming' for the :status slot in 'find upc'" do
-        result = call(input: "find upc", cursor: 8, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("oming")
-      end
-
-      it "completes the unambiguous :status partial in 'find u'" do
-        # :status vocab has 'released', 'upcoming', 'tba'. "u" matches only
-        # "upcoming" → complete "pcoming". (`find` keeps the release-status slot;
-        # `list` now ghosts nouns instead.)
-        result = call(input: "find u", cursor: 6, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("pcoming")
-      end
-
-      it "completes the :noun slot for the list verb ('list cha' → 'nnels')" do
-        result = call(input: "list cha", cursor: 8, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("nnels")
-      end
-
-      it "completes the video :noun slot to the canonical short form ('list v' → 'ids')" do
-        result = call(input: "list v", cursor: 6, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("ids")
-      end
-
-      it "returns '' when no chat spec matches the first word" do
-        result = call(input: "frobnicate x", cursor: 12, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("")
-      end
-
-      # Regression (VB2): a bare COMPLETE chat verb with no trailing space (zero
-      # typed arg words) used to crash compute_ghost via `[].first(-1)` →
-      # "negative array size", so `list`/`ls` (and every verb) failed to suggest.
-      it "does not crash on a bare complete chat verb (list / ls / show / sync)" do
-        %w[list ls show sync delete].each do |verb|
-          expect { call(input: verb, cursor: verb.length, authenticated: true) }
-            .not_to raise_error
-        end
-      end
-
-      it "still ghosts the canonical verb from an unambiguous prefix ('lis' → 't')" do
-        result = call(input: "lis", cursor: 3, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("t")
-      end
-
-      it "returns '' when no vocab member matches the partial" do
-        result = call(input: "list zzz", cursor: 8, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("")
-      end
-    end
-
-    describe "next_hint / default completion at a fresh slot" do
-      it "ghosts the first enum value (TAB-completable) at a trailing space, no <brackets>" do
-        result = call(input: "list ", cursor: 5, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("channels")
-        expect(result[:ghost][:next_hint]).to eq("")
-        expect(result[:ghost][:next_hint]).not_to include("<")
-      end
-
-      it "next_hint is a string" do
-        result = call(input: "list ", cursor: 5, authenticated: true)
-        expect(result[:ghost][:next_hint]).to be_a(String)
-      end
-
-      it "next_hint is empty when complete_current is active" do
-        result = call(input: "list cha", cursor: 8, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("nnels")
-        expect(result[:ghost][:next_hint]).to eq("")
-      end
-
-      it "returns empty ghost for unknown first word" do
-        result = call(input: "frobnicate x", cursor: 12, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("")
-        expect(result[:ghost][:next_hint]).to eq("")
-      end
-    end
-  end
-
-  describe "free mode — verb stage prefix completion" do
-    it "completes a unique verb prefix ('sy' → 'nc' for 'sync')" do
-      result = call(input: "sy", cursor: 2, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("nc")
-    end
-
-    it "completes 'syn' → 'c' for 'sync'" do
-      result = call(input: "syn", cursor: 3, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("c")
-    end
-
-    it "stays silent for an ambiguous verb prefix ('s' matches show and sync)" do
-      result = call(input: "s", cursor: 1, authenticated: true)
+    it "always returns EMPTY_GHOST in free mode (no inline completions)" do
+      result = call(input: "find upc", cursor: 8, authenticated: true)
       expect(result[:ghost][:complete_current]).to eq("")
+      expect(result[:ghost][:next_hint]).to eq("")
     end
 
-    it "does not verb-complete once a trailing space follows the partial" do
-      result = call(input: "sy ", cursor: 3, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("")
-    end
-  end
-
-  describe "free mode — sync target slot" do
-    it "ghosts the first sync target at a trailing space ('sync ' → 'channels')" do
-      result = call(input: "sync ", cursor: 5, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("channels")
-    end
-
-    it "completes 'sync c' → 'hannels'" do
-      result = call(input: "sync c", cursor: 6, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("hannels")
-    end
-
-    it "completes 'sync v' → 'ids' (canonical short noun)" do
-      result = call(input: "sync v", cursor: 6, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ids")
-    end
-
-    it "completes 'sync vi' → 'ds' (canonical short noun)" do
-      result = call(input: "sync vi", cursor: 7, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ds")
-    end
-  end
-
-  describe "free mode — sync clause ghost (SyncClauseGhost integration)" do
-    it "ghosts 'with' after 'sync channels '" do
-      result = call(input: "sync channels ", cursor: 14, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("with")
-    end
-
-    it "completes 'sync channels w' → 'ith'" do
-      result = call(input: "sync channels w", cursor: 15, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ith")
-    end
-
-    it "ghosts 'vids' after 'sync channels with '" do
-      result = call(input: "sync channels with ", cursor: 19, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("vids")
-    end
-
-    it "completes 'sync channels with v' → 'ids'" do
-      result = call(input: "sync channels with v", cursor: 20, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ids")
-    end
-  end
-
-  # `schedule <id> <when|slate>` — the trailing enum slot (:schedule_whens)
-  # surfaces `slate` as a TAB-completable ghost alongside an explicit date.
-  describe "free mode — schedule slate slot" do
-    it "ghosts 'slate' at a trailing space ('schedule ' → 'slate')" do
-      result = call(input: "schedule ", cursor: 9, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("slate")
-    end
-
-    it "ghosts 'slate' after the id ('schedule 5 ' → 'slate')" do
-      result = call(input: "schedule 5 ", cursor: 11, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("slate")
-    end
-
-    it "completes 'schedule 5 sl' → 'ate'" do
-      result = call(input: "schedule 5 sl", cursor: 13, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ate")
-    end
-
-    it "stays silent while typing an explicit <when> ('schedule 5 tomorrow')" do
-      result = call(input: "schedule 5 tomorrow", cursor: 19, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("")
-    end
-  end
-
-  # `price set <id> <amount>` / `price unset <id>` — the leading enum slot
-  # (:price_subcommands) surfaces `set`/`unset` as a TAB-completable ghost.
-  describe "free mode — price subcommand slot" do
-    it "ghosts 'set' at a trailing space ('price ' → 'set')" do
-      result = call(input: "price ", cursor: 6, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("set")
-    end
-
-    it "completes 'price u' → 'nset'" do
-      result = call(input: "price u", cursor: 7, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("nset")
-    end
-
-    it "stays silent past the subcommand ('price set 5 ' — id/amount are free)" do
-      result = call(input: "price set 5 ", cursor: 12, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("")
-    end
-  end
-
-  describe "free mode — import noun slot" do
-    it "ghosts 'game' at a trailing space ('import ' → 'game')" do
-      result = call(input: "import ", cursor: 7, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("game")
-    end
-
-    it "completes 'import g' → 'ame'" do
-      result = call(input: "import g", cursor: 8, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ame")
-    end
-  end
-
-  describe "free mode — analyze noun slot" do
-    it "ghosts 'channels' at a trailing space ('analyze ' → 'channels')" do
-      result = call(input: "analyze ", cursor: 8, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("channels")
-    end
-
-    it "completes 'analyze v' → 'ids'" do
-      result = call(input: "analyze v", cursor: 9, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ids")
+    it "does not crash on any free-mode verb input" do
+      %w[list ls show sync delete].each do |verb|
+        expect { call(input: verb, cursor: verb.length, authenticated: true) }
+          .not_to raise_error
+      end
     end
   end
 
   describe "free mode — footage dynamic game_titles slot", :db do
     let!(:game) { create(:game, title: "Zelda") }
 
-    it "ghost-completes toward a matching game title for 'footage zel'" do
-      result = call(input: "footage zel", cursor: 11, authenticated: true)
-      # dynamic slot: resolver finds "Zelda", partial "zel" (length 3) →
-      # remaining = "Zelda"[3..] = "da"
-      expect(result[:ghost][:complete_current]).to eq("da")
-    end
-
-    it "returns empty menu_items (free mode uses ghost path, not palette)" do
+    it "returns empty menu_items (free mode suggests nothing)" do
       result = call(input: "footage zel", cursor: 11, authenticated: true)
       expect(result[:menu_items]).to eq([])
     end
@@ -506,21 +303,16 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
   describe "free mode — reindex dynamic game_titles slot", :db do
     let!(:game) { create(:game, title: "Zelda") }
 
-    it "ghost-completes toward a matching game title for 'reindex zel'" do
-      result = call(input: "reindex zel", cursor: 11, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("da")
-    end
-
-    it "returns empty menu_items (free mode uses ghost path, not palette)" do
+    it "returns empty menu_items (free mode suggests nothing)" do
       result = call(input: "reindex zel", cursor: 11, authenticated: true)
       expect(result[:menu_items]).to eq([])
     end
   end
 
-  # ── FREE MODE — ghost text (P31.0.al required cases) ────────────────────────
+  # ── FREE MODE — fixed ghost cases ────────────────────────────────────────────
 
   describe "free-mode ghost" do
-    # Case 1: fully-resolved command — no spurious complete_current
+    # Fully-resolved command — no spurious complete_current
     it "returns empty complete_current for a fully-typed command 'list upcoming RPG games for PS5'" do
       input = "list upcoming RPG games for PS5"
       result = call(input: input, cursor: input.length, authenticated: true)
@@ -528,7 +320,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("")
     end
 
-    # Case 2: multi-genre + platform — all tokens resolve, no completion needed
+    # Multi-genre + platform — all tokens resolve, no completion needed
     it "returns empty complete_current for 'list upcoming racing and rpg games for playstation'" do
       input = "list upcoming racing and rpg games for playstation"
       result = call(input: input, cursor: input.length, authenticated: true)
@@ -536,22 +328,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("")
     end
 
-    # Case 3: partial token — unique prefix completion
-    it "returns 'oming' for complete_current when input is 'find upc'" do
-      input = "find upc"
-      result = call(input: input, cursor: input.length, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("oming")
-    end
-
-    # Case 4: trailing space — first enum value ghosted (TAB-completable)
-    it "ghosts the first noun (TAB-completable) when input is 'list '" do
-      input = "list "
-      result = call(input: input, cursor: input.length, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("channels")
-      expect(result[:ghost][:next_hint]).to eq("")
-    end
-
-    # Case 5: unmatched verb — empty ghost
+    # Unmatched verb — empty ghost
     it "returns empty ghost for unmatched verb 'frobnicate stuff'" do
       input = "frobnicate stuff"
       result = call(input: input, cursor: input.length, authenticated: true)
@@ -599,9 +376,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to include("show", "delete", "rm", "with", "without")
     end
 
-    it "ghosts the first action so TAB completes it (no <brackets>)" do
+    it "returns EMPTY_GHOST in the reply-verb position (no inline ghost)" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("show")
+      expect(result[:ghost][:complete_current]).to eq("")
       expect(result[:ghost][:next_hint]).to eq("")
     end
 
@@ -693,281 +470,6 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       items = call(input: "#vl-6 ", cursor: 6, conversation:)[:menu_items]
       schedule = items.find { |i| i[:label] == "schedule" }
       expect(schedule[:insert]).to eq("schedule ")
-    end
-
-    # `#<handle> price …` (game_list / game_detail) ghosts set/unset at the
-    # subcommand position, then stays silent over the free id/amount.
-    it "ghosts 'set' after '#<handle> price ' (game_list reply)" do
-      stamp("gl-7", "game_list")
-      result = call(input: "#gl-7 price ", cursor: 12, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("set")
-      expect(result[:stage]).to eq(:arg)
-    end
-
-    it "completes '#<handle> price u' → 'nset'" do
-      stamp("gl-8", "game_list")
-      result = call(input: "#gl-8 price u", cursor: 13, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("nset")
-    end
-
-    it "stays silent past the subcommand ('#<handle> price set 5 ')" do
-      stamp("gl-9", "game_list")
-      result = call(input: "#gl-9 price set 5 ", cursor: 18, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("")
-    end
-  end
-
-  # hashtag column ghost for game_list/video_list with/without actions
-  describe "hashtag follow-up: column ghost for game_list with/without", :db do
-    let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
-
-    before do
-      Pito::FollowUp::Registry.register_all!
-      Event.create_with_position!(
-        conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "glist-4444", "reply_target" => "game_list", "body" => "games" }
-      )
-    end
-
-    it "ghosts the first game column token when '#<handle> with ' (trailing space)" do
-      result = call(input: "#glist-4444 with ", cursor: 17, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("platform")
-      expect(result[:ghost][:next_hint]).to eq("")
-    end
-
-    it "excludes already-typed platform and ghosts the next column for '#<handle> with platform, '" do
-      result = call(input: "#glist-4444 with platform, ", cursor: 27, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("genre")
-    end
-
-    it "completes a partial token: 'gen' → 're'" do
-      result = call(input: "#glist-4444 with platform, gen", cursor: 30, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("re")
-    end
-
-    it "without behaves the same as with (ghosts first column)" do
-      result = call(input: "#glist-4444 without ", cursor: 20, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("platform")
-    end
-
-    it "offers a column menu palette for with/without" do
-      result = call(input: "#glist-4444 with ", cursor: 17, conversation:)
-      expect(result[:menu_items].map { |i| i[:label] }).to include("platform", "genre", "release")
-    end
-  end
-
-  describe "hashtag follow-up: column ghost for video_list with/without", :db do
-    let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
-
-    before do
-      Pito::FollowUp::Registry.register_all!
-      Event.create_with_position!(
-        conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "vlist-5555", "reply_target" => "video_list", "body" => "videos" }
-      )
-    end
-
-    it "ghosts the first video column token when '#<handle> with ' (trailing space)" do
-      result = call(input: "#vlist-5555 with ", cursor: 17, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("channel")
-    end
-
-    it "excludes already-typed game and ghosts channel for '#<handle> with game, '" do
-      result = call(input: "#vlist-5555 with game, ", cursor: 23, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("channel")
-    end
-
-    it "without behaves the same as with (ghosts first video column)" do
-      result = call(input: "#vlist-5555 without ", cursor: 20, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("channel")
-    end
-
-    it "ghosts the next column (visibility) after channel is already typed" do
-      result = call(input: "#vlist-5555 with channel, ", cursor: 26, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("visibility")
-    end
-
-    it "channel is offered — partial 'ch' completes to 'annel'" do
-      result = call(input: "#vlist-5555 with ch", cursor: 19, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("annel")
-    end
-
-    it "visibility column is offered — partial 'vis' completes to 'ibility'" do
-      result = call(input: "#vlist-5555 with vis", cursor: 20, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("ibility")
-    end
-  end
-
-  describe "hashtag follow-up: sort/order ghost for game_list", :db do
-    let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
-
-    before do
-      Pito::FollowUp::Registry.register_all!
-      Event.create_with_position!(
-        conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "gsort-1111", "reply_target" => "game_list",
-                   "list_columns" => [], "body" => "games" }
-      )
-    end
-
-    it "suggests sort and order in the action palette" do
-      result = call(input: "#gsort-1111 ", cursor: 12, conversation:)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("sort", "order")
-    end
-
-    it "ghosts 'by' when nothing is typed after the verb" do
-      result = call(input: "#gsort-1111 sort ", cursor: 17, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("by")
-    end
-
-    it "ghosts 'y' when 'b' is typed after the verb" do
-      result = call(input: "#gsort-1111 sort b", cursor: 18, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("y")
-    end
-
-    it "ghosts the first sort column after 'sort by '" do
-      result = call(input: "#gsort-1111 sort by ", cursor: 20, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("id")
-    end
-
-    it "completes 'tle' after 'sort by ti'" do
-      result = call(input: "#gsort-1111 sort by ti", cursor: 22, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("tle")
-    end
-
-    it "ghosts 'by' for 'order ' (alias)" do
-      result = call(input: "#gsort-1111 order ", cursor: 18, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("by")
-    end
-
-    it "returns empty menu_items (sort ghost has no palette)" do
-      result = call(input: "#gsort-1111 sort by ", cursor: 20, conversation:)
-      expect(result[:menu_items]).to be_empty
-    end
-  end
-
-  describe "hashtag follow-up: sort ghost for video_list with views column", :db do
-    let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
-
-    before do
-      Pito::FollowUp::Registry.register_all!
-      Event.create_with_position!(
-        conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "vsort-2222", "reply_target" => "video_list",
-                   "list_columns" => [ "views" ], "body" => "videos" }
-      )
-    end
-
-    it "ghosts 'by' when nothing after the verb" do
-      result = call(input: "#vsort-2222 sort ", cursor: 17, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("by")
-    end
-
-    it "completes 'iews' after 'sort by v' when views is a present column" do
-      result = call(input: "#vsort-2222 sort by v", cursor: 21, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("iews")
-    end
-
-    it "ghosts first column after 'sort by '" do
-      result = call(input: "#vsort-2222 sort by ", cursor: 20, conversation:)
-      # Base tokens: id, title; then views (present with-col, requires_with: true)
-      expect(result[:ghost][:complete_current]).to eq("id")
-    end
-  end
-
-  # hashtag --help ghost: when the partial starts with "-" and prefixes
-  # "--help", the engine returns a --help ghost + menu item.
-  describe "hashtag follow-up: --help ghost", :db do
-    let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
-
-    before do
-      Pito::FollowUp::Registry.register_all!
-      Event.create_with_position!(
-        conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "glist-5555", "reply_target" => "game_list", "body" => "games" }
-      )
-    end
-
-    context "verb-stage partial: -" do
-      subject(:result) { call(input: "#glist-5555 -", cursor: 13, conversation:) }
-
-      it "returns :hashtag mode" do
-        expect(result[:mode]).to eq(:hashtag)
-      end
-
-      it "ghost completes toward --help ('-help' remaining)" do
-        expect(result[:ghost][:complete_current]).to eq("-help")
-      end
-
-      it "menu includes --help item" do
-        expect(result[:menu_items].map { |i| i[:label] }).to include("--help")
-      end
-    end
-
-    context "verb-stage partial: --" do
-      subject(:result) { call(input: "#glist-5555 --", cursor: 14, conversation:) }
-
-      it "ghost completes 'help'" do
-        expect(result[:ghost][:complete_current]).to eq("help")
-      end
-    end
-
-    context "verb-stage partial: --h" do
-      subject(:result) { call(input: "#glist-5555 --h", cursor: 15, conversation:) }
-
-      it "ghost completes 'elp'" do
-        expect(result[:ghost][:complete_current]).to eq("elp")
-      end
-    end
-
-    context "verb-stage partial: --help (fully typed)" do
-      subject(:result) { call(input: "#glist-5555 --help", cursor: 18, conversation:) }
-
-      it "ghost complete_current is empty (exact match)" do
-        expect(result[:ghost][:complete_current]).to eq("")
-      end
-    end
-
-    context "arg-stage: #handle show -" do
-      subject(:result) { call(input: "#glist-5555 show -", cursor: 18, conversation:) }
-
-      it "returns :hashtag mode" do
-        expect(result[:mode]).to eq(:hashtag)
-      end
-
-      it "ghost completes toward --help ('-help' remaining)" do
-        expect(result[:ghost][:complete_current]).to eq("-help")
-      end
-
-      it "menu includes --help item" do
-        expect(result[:menu_items].map { |i| i[:label] }).to include("--help")
-      end
-    end
-
-    context "arg-stage: #handle show --" do
-      subject(:result) { call(input: "#glist-5555 show --", cursor: 19, conversation:) }
-
-      it "ghost completes 'help'" do
-        expect(result[:ghost][:complete_current]).to eq("help")
-      end
-    end
-
-    context "normal verb-stage partial with no dash (no change)" do
-      subject(:result) { call(input: "#glist-5555 sho", cursor: 15, conversation:) }
-
-      it "ghost completes 'w' (prefix match on show)" do
-        expect(result[:ghost][:complete_current]).to eq("w")
-      end
-
-      it "does NOT include --help in menu" do
-        expect(result[:menu_items].map { |i| i[:label] }).not_to include("--help")
-      end
     end
   end
 
@@ -1061,8 +563,8 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
   end
 
   # `schedule` is a declared video_list reply action, so it must appear in the
-  # reply-verb palette, and `slate` must be offered for its argument slot.
-  describe "hashtag follow-up: schedule verb + slate arg for video_list", :db do
+  # reply-verb palette.
+  describe "hashtag follow-up: schedule verb for video_list", :db do
     let(:conversation) { Conversation.create! }
     let(:turn)         { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
 
@@ -1078,18 +580,6 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result = call(input: "#vsched-7777 ", cursor: 13, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("schedule")
-    end
-
-    it "offers slate for the schedule argument ('#<handle> schedule ')" do
-      result = call(input: "#vsched-7777 schedule ", cursor: 22, conversation:)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("slate")
-      expect(result[:ghost][:complete_current]).to eq("slate")
-    end
-
-    it "completes 'schedule sl' → 'ate' for the schedule argument" do
-      result = call(input: "#vsched-7777 schedule sl", cursor: 24, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("ate")
     end
   end
 
@@ -1121,26 +611,20 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
   describe "dynamic slot — :channels (/disconnect)", :db do
     let!(:channel) { create(:channel, handle: "@alpha") }
 
-    it "returns channel menu_items when authenticated" do
+    # Non-config slash args return empty menu_items (only /config offers a
+    # browsable palette; all other slash arg stages return nothing).
+    it "returns NO menu_items for non-config slash args (auth or not)" do
       result = call(input: "/disconnect @al", cursor: 15, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("@alpha")
+      expect(result[:menu_items]).to be_empty
     end
 
-    it "auth-gates :channels — returns NO menu_items when not authenticated" do
+    it "returns NO menu_items when not authenticated" do
       result = call(input: "/disconnect @al", cursor: 15, authenticated: false)
       expect(result[:menu_items]).to be_empty
     end
 
-    it "insert for a channel item ends with a space" do
-      result = call(input: "/disconnect @al", cursor: 15, authenticated: true)
-      result[:menu_items].each do |item|
-        expect(item[:insert]).to end_with(" ")
-      end
-    end
-
     # Scoping guard: only `/config` args become a palette. Other slash args (here
-    # the dynamic :channels slot) keep the inline-ghost arg treatment.
+    # the dynamic :channels slot) keep stage: :arg.
     it "keeps stage: :arg for non-config slash args (/disconnect)" do
       result = call(input: "/disconnect @al", cursor: 15, authenticated: true)
       expect(result[:stage]).to eq(:arg)
@@ -1239,37 +723,13 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # ── GHOST — cursor position variants ─────────────────────────────────────────
+  # ── GHOST — cursor position (valid cases only) ────────────────────────────────
 
   describe "ghost text — cursor position variants" do
-    context "cursor at end of a partial word" do
-      it "completes 'upc' at end-of-input → 'oming'" do
-        result = call(input: "find upc", cursor: 8, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("oming")
-      end
-    end
-
     context "cursor at end of a fully-typed word (no partial suffix)" do
       it "returns empty complete_current for 'list upcoming'" do
         result = call(input: "list upcoming", cursor: 13, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("")
-      end
-    end
-
-    context "cursor mid-word (user placed cursor inside a token)" do
-      # When cursor is at position 6 in "find upcoming" (after "upc" but before "oming"),
-      # the engine sees input[0..5] = "find u" — completes "pcoming"
-      it "completes using only text before cursor" do
-        result = call(input: "find upcoming", cursor: 6, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("pcoming")
-      end
-    end
-
-    context "no partial word typed (cursor at trailing space)" do
-      it "ghosts the first enum value as a TAB-completable completion" do
-        result = call(input: "list ", cursor: 5, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("channels")
-        expect(result[:ghost][:next_hint]).to eq("")
       end
     end
 
@@ -1309,9 +769,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to include("google")
     end
 
-    it "slash arg-stage ghost is empty (ghost is server-side in arg stage)" do
-      # Engine does not compute ghost locally for slash arg-stage; the debounced
-      # /suggestions fetch fills this after the response arrives.
+    it "slash arg-stage ghost is empty" do
       result = call(input: "/config goo", cursor: 11, authenticated: true)
       expect(result[:ghost][:complete_current]).to eq("")
     end
@@ -1323,44 +781,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # ── GHOST — kv-key ghost from Engine (already covered above + cursor tests) ──
-
-  describe "slash mode — kv-key ghost (/config igdb client_s → ecret)" do
-    it "ghost complete_current is 'ecret' for '/config igdb client_s'" do
-      result = call(input: "/config igdb client_s", cursor: 21, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ecret")
-    end
-  end
-
-  # ── Partial kv-key ghost completion ──────────────────────────────────────────
+  # ── Partial kv-key: palette menu items still scoped; ghost is always empty ───
 
   describe "slash mode — partial kv-key ghost completion" do
-    context "unique prefix" do
-      it "returns ghost 'ecret' for '/config igdb client_s'" do
-        result = call(input: "/config igdb client_s", cursor: 21, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("ecret")
-        expect(result[:ghost][:next_hint]).to eq("")
-      end
-
-      it "returns ghost 'irect_uri' for '/config google redi'" do
-        result = call(input: "/config google redi", cursor: 19, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("rect_uri")
-        expect(result[:ghost][:next_hint]).to eq("")
-      end
-
-      it "returns ghost '_key' for '/config voyage api'" do
-        result = call(input: "/config voyage api", cursor: 18, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("_key")
-        expect(result[:ghost][:next_hint]).to eq("")
-      end
-
-      it "returns ghost 'cord' for '/config webhook dis'" do
-        result = call(input: "/config webhook dis", cursor: 19, authenticated: true)
-        expect(result[:ghost][:complete_current]).to eq("cord")
-        expect(result[:ghost][:next_hint]).to eq("")
-      end
-    end
-
     context "ambiguous prefix (matches >1 key)" do
       it "returns empty ghost for '/config igdb cl' (client_id and client_secret both match)" do
         result = call(input: "/config igdb cl", cursor: 15, authenticated: true)
@@ -1408,30 +831,6 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(labels).to include("client_id", "client_secret")
         expect(labels).not_to include("redirect_uri", "api_key", "slack", "discord")
       end
-    end
-  end
-
-  # ── FREE MODE — list clause ghost (integration) ──────────────────────────────
-
-  describe "free mode — list clause ghost integration" do
-    it "returns 'platform' as complete_current for 'list games with '" do
-      result = call(input: "list games with ", cursor: 16)
-      expect(result[:ghost][:complete_current]).to eq("platform")
-    end
-
-    it "returns 'gth' as complete_current for 'list videos with len'" do
-      result = call(input: "list videos with len", cursor: 20)
-      expect(result[:ghost][:complete_current]).to eq("gth")
-    end
-
-    it "returns 'with' as complete_current for 'list games ' (connector branch)" do
-      result = call(input: "list games ", cursor: 11)
-      expect(result[:ghost][:complete_current]).to eq("with")
-    end
-
-    it "still ghosts 'channels' (first noun) for bare 'list '" do
-      result = call(input: "list ", cursor: 5)
-      expect(result[:ghost][:complete_current]).to eq("channels")
     end
   end
 

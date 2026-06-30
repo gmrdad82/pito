@@ -31,7 +31,7 @@ RSpec.describe Pito::Chat::Handlers::Delete do
   end
 
   it "resolves by #id and stamps the confirmation follow-up-able" do
-    payload = handler_for("##{game.id}").call.events.first[:payload]
+    payload = handler_for("game", "##{game.id}").call.events.first[:payload]
     expect(Pito::FollowUp.followupable?(payload)).to be(true)
     expect(payload["reply_target"]).to eq("confirmation")
   end
@@ -43,7 +43,7 @@ RSpec.describe Pito::Chat::Handlers::Delete do
   end
 
   it "does NOT delete the game yet (confirmation only)" do
-    expect { handler_for("##{game.id}").call }.not_to change(Game, :count)
+    expect { handler_for("game", "##{game.id}").call }.not_to change(Game, :count)
   end
 
   it "returns a witty not-found for an unknown game reference" do
@@ -51,8 +51,18 @@ RSpec.describe Pito::Chat::Handlers::Delete do
     expect(result.events.first[:payload]["text"]).to include("nope")
   end
 
-  it "returns a usage hint when no reference is given" do
-    expect(handler_for.call).to be_a(Pito::Chat::Result::Error)
+  # No-guess (owner 2026-06-29): a bare `rm`/`delete` (no entity noun) or a bare id
+  # is no longer treated as a game — it returns the generic `pito.copy.huh` error.
+  it "bare `delete` (no entity) → unknown_entity error (pito.copy.huh)" do
+    result = handler_for.call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(I18n.t("pito.copy.huh")).to include(result.message_key)
+  end
+
+  it "bare id (no noun) → unknown_entity error (pito.copy.huh), not a game" do
+    result = handler_for(game.id.to_s).call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(I18n.t("pito.copy.huh")).to include(result.message_key)
   end
 
   # ── Video branch ──────────────────────────────────────────────────────────────

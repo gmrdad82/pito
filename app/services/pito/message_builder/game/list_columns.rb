@@ -131,12 +131,6 @@ module Pito
           }
         }.freeze
 
-        # Display tokens in COLUMNS order — the primary alias for each column.
-        # Used by ListClauseGhost to build autocomplete candidates.
-        def suggestion_tokens
-          COLUMNS.keys.map { |canonical| DISPLAY_TOKEN_MAP[canonical] }
-        end
-
         # Returns the display token String for a canonical Symbol.
         #   display_token(:release_date) # => "release date"
         def display_token(canonical)

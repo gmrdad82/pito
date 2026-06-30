@@ -7,8 +7,8 @@
 //
 // Architecture:
 //   • A `.pito-type-layer` div mirrors the textarea's font/padding/width
-//     exactly (same technique as terminal_caret_controller.js) and sits above
-//     the transparent textarea at z-index:1.
+//     exactly (same mirror technique pito--suggestions uses for the ghost) and
+//     sits above the transparent textarea at z-index:1.
 //   • The textarea gets `.is-fx` → `color:transparent` so only the overlay
 //     is visible, but the native selection highlight still renders.
 //   • Each code-point is wrapped in a `<span class="pito-type-char">`.
@@ -33,15 +33,16 @@
 //   re-shows native text and hides the layer as a belt-and-suspenders guard.
 //
 // Coexistence (F1.5):
-//   z-order: textarea (auto) < .pito-type-layer (1) < .terminal-caret / .pito-ghost (higher)
-//   The terminal-caret and suggestions controllers are unmodified.
+//   z-order: textarea (auto) < .pito-type-layer (1) < .pito-ghost (2)
+//   The caret is the browser's native block caret (CSS .pito-block-caret); the
+//   suggestions controller's ghost layer is unmodified.
 
 import { Controller } from "@hotwired/stimulus"
 import { fxEnabled } from "pito/settings"
 import { TICK_MS } from "pito/typing"  // shared cadence reference (animation itself is CSS-driven)
 
 // Computed styles to copy onto the overlay so wrapping matches the textarea.
-// Identical list to terminal_caret_controller.js — keep in sync.
+// Same list as the caret mirror in suggestions_controller.js — keep in sync.
 const MIRRORED_STYLES = [
   "boxSizing", "width",
   "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",

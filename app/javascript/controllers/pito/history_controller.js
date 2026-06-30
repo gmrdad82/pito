@@ -27,7 +27,7 @@
 //         caret > 0). For ↓: caret is NOT on the last visual line.
 //   - On applying an entry: sets textarea.value, moves caret to end, and
 //     dispatches a synthetic `input` event so other controllers (type-fx,
-//     terminal-caret, draft) re-render. That synthetic event is flagged so it does
+//     autosize, draft) re-render. That synthetic event is flagged so it does
 //     NOT count as a user edit (which would end the recall session).
 //
 // Auto-registered via eagerLoadControllersFrom.
@@ -189,7 +189,7 @@ export default class extends Controller {
     field.value = text
     // Move caret to end.
     field.selectionStart = field.selectionEnd = text.length
-    // Notify other controllers (type-fx overlay, terminal-caret, draft autosave).
+    // Notify other controllers (type-fx overlay, autosize, draft autosave).
     // detail.historyRecall=true lets the suggestions controller skip reopening the
     // palette — a recalled slash entry ("/games") is in verb-stage and would
     // otherwise cause the palette to open, blocking the next ↑/↓ from reaching

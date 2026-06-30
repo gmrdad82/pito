@@ -275,7 +275,7 @@ html {
   animation: pito-shimmer-sweep 1.4s linear infinite;
 }
 
-/* ── Analytics trend number (Pito::Analytics::TrendNumberComponent) ──
+/* ── Analytics trend number (Pito::Analytics::Support::TrendNumber) ──
    A bare metric number tinted by its trend vs the previous interval: a
    rising value shimmers green upward, a falling value shimmers red
    downward, steady / no-baseline (incl. lifetime) stays foreground.
@@ -583,6 +583,35 @@ html {
 .pito-comet .dot:nth-child(7) { animation: pito-c7 1.423s linear infinite; }
 .pito-comet .dot:nth-child(8) { animation: pito-c8 1.423s linear infinite; }
 
+/* ── Small loading dots (Pito::Analytics::Support::LoadingDots) ──────────────────
+   ~50% of .pito-comet (4px dots / 2px gap), SAME comet keyframes + speed. A metric's
+   scalar-slot placeholder while its value loads (item 5). The --dN buckets shift the
+   whole loader's start so several on screen never pulse in sync. */
+.pito-loading-dots {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.pito-loading-dots .dot {
+  position: relative;
+  width: 4px;
+  height: 4px;
+  background: var(--fg-faded);
+  flex-shrink: 0;
+}
+.pito-loading-dots .dot:nth-child(1) { animation: pito-c1 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(2) { animation: pito-c2 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(3) { animation: pito-c3 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(4) { animation: pito-c4 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(5) { animation: pito-c5 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(6) { animation: pito-c6 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(7) { animation: pito-c7 1.423s linear infinite; }
+.pito-loading-dots .dot:nth-child(8) { animation: pito-c8 1.423s linear infinite; }
+.pito-loading-dots--d1 .dot { animation-delay: -0.28s; }
+.pito-loading-dots--d2 .dot { animation-delay: -0.57s; }
+.pito-loading-dots--d3 .dot { animation-delay: -0.85s; }
+.pito-loading-dots--d4 .dot { animation-delay: -1.14s; }
+
 @keyframes pito-c1 {
   0%             { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
   15.74%         { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
@@ -665,12 +694,6 @@ html {
   85.5%            { background: var(--brand-pito);    opacity: .4; }
   90.75%, 100%     { background: var(--brand-pito);    opacity: .15; }
 }
-@keyframes terminal-caret-pulse {
-  0%   { opacity: 1; }
-  75%  { opacity: 0.15; } /* slow fade-out over ~3/4 of the cycle */
-  100% { opacity: 1; }    /* rapid fade-in over the last ~1/4 */
-}
-
 /* ── Command palette selected item ──────────────────────────── */
 
 .pito-palette-selected {
@@ -823,13 +846,22 @@ html {
 /* ── Chatbox component ──────────────────────────────────────── */
 
 .pito-chatbox__input {
-  caret-color: transparent; /* native caret hidden — the terminal block caret replaces it */
   font-family: inherit;
   font-size: inherit;
   resize: none;
   overflow: hidden;
-  display: block; /* avoid inline-block baseline gap (text drifts up; caret mirror misaligns) */
-  line-height: 20px; /* caret block height syncs to this (see #syncBlockMetrics) */
+  display: block; /* avoid inline-block baseline gap (text drifts up) */
+  line-height: 20px;
+}
+
+/* Native block caret — replaces the bespoke JS caret overlay everywhere
+   (chatbox textarea + every search/rename input). `caret-shape: block` turns the
+   browser's own caret into a solid block, and the native blink IS the "phasing"
+   the owner asked for. Graceful fallback: browsers without `caret-shape` support
+   simply render a native line caret in `caret-color`, which is acceptable. */
+.pito-block-caret {
+  caret-shape: block;
+  caret-color: var(--fg-default);
 }
 
 /* ── Type-fx: per-character phase-in (Pito::TypeFxController) ── */
@@ -845,7 +877,7 @@ html {
 /* The visible character overlay: absolutely positioned on top of the
    textarea, same content-box, same font metrics (copied by JS).
    z-index: 1  →  above the transparent textarea (z-index auto)
-             but below .terminal-caret and .pito-ghost (z-index higher).
+             but below the suggestion ghost .pito-ghost (z-index 2).
    pointer-events:none so clicks/selections fall through to the textarea. */
 .pito-type-layer {
   position: absolute;
@@ -889,8 +921,10 @@ html {
   }
 }
 
-/* ── Terminal block caret (Pito::TerminalCaretController) ─────── */
+/* ── Chatbox field-wrap ──────────────────────────────────────── */
 
+/* Positioning context for the suggestion ghost (.pito-ghost) + its hidden
+   caret-measuring mirror. */
 .pito-chatbox__field-wrap {
   position: relative;
 }
@@ -898,82 +932,9 @@ html {
 /* Taller chatbox: grow ONLY the vertical padding. Horizontal is left at the
    segment default so the 22px text invariant holds — keeping the input aligned
    with the scrollback segments and the Channel line. Padding is on the segment
-   content (the visible box), not the field-wrap, so the caret geometry stays put. */
+   content (the visible box), not the field-wrap, so the ghost geometry stays put. */
 .chatbox-wrapper .pito-segment__content {
   padding-block: 20px;
-}
-
-/* Caret color via token/class */
-.terminal-caret {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1ch;
-  overflow: hidden;
-  white-space: pre;
-  pointer-events: none;
-  user-select: none;
-  background: var(--brand-pito);   /* pito-blue caret block (all instances) */
-  color: var(--bg-root);
-  /* Top of the field-wrap stack — the live block is ALWAYS visible:
-     type-fx layer (1) < trail ghosts (2) = suggestion ghost (2) < block (3).
-     Trail ghosts sit above the typed text so the comet streaks over the glyphs;
-     the block still outranks everything so the caret cell is never occluded. */
-  z-index: 3;
-  animation: terminal-caret-pulse 1.4s ease-in-out infinite;
-}
-
-/* Solid (no blink) while the field is focused; blinks only when unfocused. */
-.terminal-caret[data-focused] {
-  animation: none;
-}
-
-/* Motion off (/config fx off): solid block, no blink — set by the controller so
-   it tracks the live data-fx toggle (the media query below covers reduced-motion). */
-.terminal-caret[data-no-blink] {
-  animation: none;
-}
-
-/* Single-line sidebar / palette / rename inputs adopt the block caret: hide the
-   native I-beam and force monospace so the 1ch block has a real glyph advance. */
-.pito-caret-input {
-  caret-color: transparent;
-  font-family: var(--font-mono);
-}
-
-/* ── Cursor trail (Pito::CursorTrailController) ──────────────── */
-/* kitty cursor_trail: faded ghost blocks left behind a moving caret, decaying
-   fast so the block appears to catch up. The controller POOLS a fixed ring of
-   reused nodes (no per-keystroke alloc) and drives the decay via a single rAF
-   loop touching only `opacity` + `transform` (compositor-friendly) — so this
-   class carries no CSS @keyframes; it starts hidden (opacity:0) and `will-change`
-   primes the GPU layer. */
-.pito-cursor-ghost {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1ch;
-  height: 1.4em; /* fallback; JS copies the caret block's exact height */
-  pointer-events: none;
-  user-select: none;
-  background: var(--brand-pito);   /* pito-blue trail, matching the caret block */
-  opacity: 0;    /* pooled + idle by default; the rAF loop fades it 1 → 0 (solid trail) */
-  /* ABOVE the typed-text layer (1) so the trail streaks OVER the characters it
-     passes (kitty-style), but below the live block caret (3) so the block at the
-     caret cell is never occluded. */
-  z-index: 2;
-  will-change: transform, opacity;
-}
-
-/* Reduced motion: no blink, no trail. (fx-off is handled live via data-no-blink
-   on the block and the controller gate on the trail.) */
-@media (prefers-reduced-motion: reduce) {
-  .terminal-caret {
-    animation: none;
-  }
-  .pito-cursor-ghost {
-    display: none;
-  }
 }
 
 .pito-chatbox__filter {
@@ -992,34 +953,13 @@ html {
   vertical-align: bottom;
 }
 
-/* Mobile: the meta line (name · shift+tab · shift+space · tab) overflows a narrow
-   viewport. Reflow it: drop the middot separators (gaps replace them), promote the
-   shift+tab / shift+space cyclers to independent flex items, and STACK each chip's
-   shortcut key OVER its caption (2 rows per pair) so the whole bar reads as compact
-   key/value columns instead of one overflowing line. */
-@media (max-width: 540px) {
-  .pito-chatbox__filter {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    row-gap: 6px;
-    column-gap: 12px;
-  }
-  .pito-chatbox__filter .mx-2 { display: none; }
-  .pito-chatbox__filter [data-pito--chatbox-hints-target="filterHints"]:not(.hidden) {
-    display: contents;
-  }
-  /* Each shortcut chip: key on top, caption underneath (split on 2 rows). */
-  .pito-chatbox__filter .pito-hint-pair {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0;
-  }
-  /* MB2: the conversation name is single-row; center it vertically so it aligns
-     with the 2-row stacked shift+tab @handle chip in the same flex row. */
-  .pito-chatbox__filter .pito-chatbox__name {
-    align-self: center;
-  }
+/* The meta line stays a SINGLE row on Desktop AND Mobile (owner 2026-06-29, item
+   11). It never wraps; on a narrow viewport it scrolls horizontally rather than
+   stacking the shortcut chips onto multiple rows. */
+.pito-chatbox__filter {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 /* ── Autocomplete palette — floats above the chatbox ────────── */
@@ -1110,42 +1050,6 @@ html {
 .pito-ghost {
   color: var(--fg-faded);
   pointer-events: none;
-}
-
-/* ── Chatbox showcase ghost (pito--chat-showcase) ───────────── */
-
-/* Cycling command ghost shown in the EMPTY + idle chatbox.
- * Absolutely positioned inside .pito-chatbox__field-wrap (position:relative),
- * same font/line-height metrics as the textarea so it sits on the same baseline.
- * Hidden by default; the controller shows/hides via the .is-visible modifier.
- * Sits at z-index 2 (above type-fx layer, below terminal caret) — matching the
- * existing .pito-ghost layer for visual consistency.
- * Not interactive: pointer-events:none lets clicks fall through to the textarea. */
-.pito-showcase-ghost {
-  position: absolute;
-  top: 0;
-  left: 0;
-  white-space: pre;
-  pointer-events: none;
-  user-select: none;
-  color: var(--fg-faded);
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 80ms ease-out;
-}
-
-.pito-showcase-ghost.is-visible {
-  opacity: 1;
-}
-
-/* The comet reveal (.pito-comet-reveal) sets `position: relative` so its ::after
- * comet anchors to the host — but that rule is defined LATER in this file, so on
- * the cycling ghost it OVERRODE our `position: absolute`, dropping the ghost into
- * normal flow: it rendered a row BELOW the caret and pushed the chatbox up while
- * the sweep ran. Pin it absolute during the comet; an absolute box is still a
- * containing block for the ::after, so the reveal animation is unaffected. */
-.pito-showcase-ghost.pito-comet-reveal {
-  position: absolute;
 }
 
 /* ── Modal overlay backdrop ─────────────────────────────────── */
@@ -2176,6 +2080,36 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   border: 1px solid var(--fg-default);
 }
 
+/* Left column is fixed to the banner = vid-thumbnail width (374px, our backend
+   resize) — it must NOT flex wider to fit the Shinies/stats (owner 2026-06-30).
+   The right kv-table (flex-1) takes the rest; on a narrow viewport max-width caps it. */
+.pito-channel-detail__left {
+  flex: 0 0 auto;
+  width: 374px;
+  max-width: 100%;
+}
+
+/* show-channel BANNER (our cached 374x210 16:9 copy) — the same box as a video
+   thumbnail; square corners (terminal aesthetic), scales down on a narrow column. */
+.pito-channel-detail__banner img {
+  display: block;
+  width: 374px;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  border: 1px solid var(--border-faded);
+}
+
+/* Inline (kv-table) avatar — half-size (60px) circle + theme-contrast ring,
+   matching the list-channels avatar; sits after the Handle row. */
+.pito-channel-detail__avatar-inline {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--fg-default);
+}
+
 /* Title: trimmed to a single row (…) so it never wraps. */
 .pito-channel-item__title {
   max-width: 100%;
@@ -2295,13 +2229,19 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   row-gap: 1.6rem;    /* ANALYTICS-GAP: more breathing room between rows (no hairline — too busy with the dot grids); rem = mobile-safe */
 }
 
+/* Each metric cell wrapper — carries the stable per-message dom-id
+   ("<token>__metric_<key>") used by Turbo Stream per-metric fills.
+   display:contents makes it layout-transparent so the flex children
+   (charted or bare pair) sit directly in the scalars flex container. */
+.pito-analytics-scalars__cell { display: contents; }
+
 .pito-analytics-scalars__pair {
   display: flex;
   align-items: baseline;
   column-gap: 1ch;    /* breathing room between the label and the value */
 }
 
-/* A charted glance cell = a SparklineComponent (chart-width, ~COLS=45ch) stacked
+/* A charted glance cell = a Visualizers::Sparkline (chart-width, ~COLS=45ch) stacked
    over its label/value pair. The cell takes the sparkline's width so it matches
    the analyze chart wrappers; the pair spans that full width (label left, value
    right) instead of the fixed label/value columns a bare pair uses. */
@@ -2752,7 +2692,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    too — clicking prefills the chatbox. Behaviour-only; no colour/underline. */
 [data-controller~="pito--chat-prefill"] { cursor: pointer; }
 
-/* ── Analytics metric chart (Pito::Analytics::Metric::*) ───────────────────────
+/* ── Analytics metric chart (Pito::Analytics::Visualizers::*) ───────────────────────
    A bespoke metric widget: a braille area chart in a ~thumbnail-wide box near
    16:9 at the 14px base (45 cols ≈ thumbnail wide; 11 rows ≈ 16:9 tall).
 
@@ -2794,7 +2734,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   );
 }
 
-/* Glance sparkline (Metric::SparklineComponent): NO health gradient — a FLAT
+/* Glance sparkline (Visualizers::Sparkline): NO health gradient — a FLAT
    fg-default base under the shared pito-blue chart-viz shimmer. Override the
    --pito-health var the row layers over, so the band stays and the base is one
    calm colour (owner: "color = fg-default, no gradient on this for now"). */
@@ -2836,6 +2776,21 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   animation-duration: 5.5s;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+}
+
+/* No-data canvas: same 135° pito-blue sweep + animation as the area chart rows,
+   but there's no data → swap the --pito-health base layer for a faint solid so the
+   dotted braille stays VISIBLE and shimmers in place (the dots carry ink; a blank
+   row would have nothing to clip the gradient to). Overrides only the base layer;
+   the sweep gradient, clip:text, sizing, position and animation come from
+   .pito-metric__row above. (owner 2026-06-30, item 5) */
+.pito-metric--nodata .pito-metric__row {
+  background-image:
+    linear-gradient(var(--pito-shimmer-angle),
+      transparent calc(var(--pito-bar-sweep) - 14%),
+      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      transparent calc(var(--pito-bar-sweep) + 14%)),
+    linear-gradient(var(--fg-faded), var(--fg-faded));
 }
 
 /* Discrete tick VALUES (no rotation). y: overlaid inside-left at the data
@@ -2887,7 +2842,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   .pito-metric__brow .pito-bar-fill { animation: none; }
 }
 
-/* ── Likes hearts (HeartChartComponent) — the heart analogue of the area chart.
+/* ── Likes hearts (Pito::Analytics::Visualizers::Heart) — the heart analogue of the area chart.
    The widget reuses .pito-metric / .pito-metric__chart / .pito-metric__plot
    verbatim (so it flows portrait/landscape exactly like a chart); only these
    heart-specific bits differ from a chart's rows: a flat FILL colour
@@ -2965,7 +2920,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
 }
 
-/* ── Horizontal bar group (BarChartComponent) — 1–5 braille ⣿ bars centred
+/* ── Horizontal bar group (Pito::Analytics::Visualizers::Bar) — 1–5 braille ⣿ bars centred
    vertically on the full area-chart canvas (COLS=45, ROWS=11). Each bar is
    2 identical glyph rows; 1-row gaps for n≤4. Reuses .pito-metric chrome +
    pito--area-chart-reveal controller verbatim. */

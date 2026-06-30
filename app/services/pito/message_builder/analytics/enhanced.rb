@@ -32,12 +32,16 @@ module Pito
         end
 
         def pending(scope, period: nil, conversation: nil)
+          # The glance always shows lifetime data — force "lifetime" regardless of
+          # the period arg (which may come from the user's `show` context).
+          glance_period = "lifetime"
+          token         = SecureRandom.hex(4)
           intro = Pito::Copy.render_html("pito.copy.analytics.intro", { title: scope.title }, shimmer: [ :title ])
           payload = {
-            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, pending: true)),
+            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, pending: true, token: token)),
             "html"      => true,
             "anchor"    => true, # stable event_<id> DOM id for replace_event + the handle
-            "analytics" => marker("pending", scope: scope, period: period, intro: intro)
+            "analytics" => marker("pending", scope: scope, period: glance_period, intro: intro, token: token)
           }
           # Followupable: replying `with`/`without` to the glance spawns a NEW analyze
           # pair on this entity (handled by FollowUp::Handlers::AnalyticsGlance).
@@ -46,9 +50,9 @@ module Pito
           Pito::FollowUp.make_followupable!(payload, target: "analytics_glance", conversation:)
         end
 
-        def ready_payload(scope:, period:, result:, intro:, series: {})
+        def ready_payload(scope:, period:, result:, intro:, series: {}, token: nil)
           {
-            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result, nudge: nudge_for(scope), series: series)),
+            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result, nudge: nudge_for(scope), series: series, token: token)),
             "html"      => true,
             "anchor"    => true,
             "analytics" => marker("ready", scope: scope, period: period, intro: intro)
@@ -65,14 +69,16 @@ module Pito
           end
         end
 
-        def marker(status, scope:, period:, intro:)
+        def marker(status, scope:, period:, intro:, token: nil)
           {
-            "status"     => status,
-            "scope_type" => scope&.class&.name,
-            "scope_id"   => scope&.id,
-            "period"     => period,
-            "intro"      => intro
-          }
+            "status"      => status,
+            "scope_type"  => scope&.class&.name,
+            "scope_id"    => scope&.id,
+            "period"      => period,
+            "intro"       => intro,
+            "token"       => token,
+            "metric_keys" => token ? Pito::Analytics::ScalarsTableComponent::GLANCE_METRICS.map { |m| m[:key].to_s } : nil
+          }.compact
         end
       end
     end

@@ -272,17 +272,22 @@ RSpec.describe Pito::Chat::GameListFilter do
 
   # ── Allowlist: arbitrary filler is dropped, recognized tokens kept ─────────
 
-  describe "allowlist tokenisation" do
+  # The SERVICE-level allowlist: GameListFilter.call drops unrecognised tokens and
+  # applies the recognised filters. (The list HANDLER, separately, now rejects a
+  # genuinely-unknown word with a `huh` error — owner 2026-06-29's no-guess rule;
+  # that handler behaviour is covered in list_spec. These assert the filter engine
+  # itself, called directly, still tolerates filler when handed a raw string.)
+  describe "allowlist tokenisation (service-level)" do
     it "drops conversational filler and still applies the recognized filter" do
       # 'thanks'/'please'/'yo' are not vocabulary → dropped; 'ps' still filters.
-      titles = result_titles("list games ps please thanks yo")
+      titles = described_class.call("list games ps please thanks yo").map(&:title)
       expect(titles).to include(ps5_game.title, ps4_game.title)
       expect(titles).not_to include(pc_game.title)
     end
 
-    it "drops a truly-unknown token (close to nothing) and lists the full set" do
+    it "drops a truly-unknown token (close to nothing) and keeps the full set" do
       # 'garbled' is not fuzzy-close to any term → pure filler, not a rejection.
-      expect(result_titles("list games garbled")).to include(ps5_game.title, pc_game.title)
+      expect(described_class.call("list games garbled").map(&:title)).to include(ps5_game.title, pc_game.title)
     end
   end
 

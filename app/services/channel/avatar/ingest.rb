@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "stringio"
+require "digest"
 
 class Channel
   module Avatar
@@ -25,6 +26,12 @@ class Channel
         return nil if @source_url.blank?
 
         bytes = Pito::Image::Normalizer.new(url: @source_url, width: SIZE, height: SIZE).call
+
+        # Digest-gate: re-attach ONLY when the normalized image actually changed
+        # (owner 2026-06-29). A sync that returns the same avatar leaves the blob —
+        # and its derived variants — untouched, avoiding needless churn.
+        return @channel.avatar if attached_matches?(bytes)
+
         @channel.avatar.attach(
           io:           StringIO.new(bytes),
           # Channel-unique filename (NOT a shared "avatar.jpg"): the ActiveStorage
@@ -40,6 +47,15 @@ class Channel
       rescue Pito::Error::ExternalFetchFailed, Vips::Error => e
         Rails.logger.warn("[Channel::Avatar::Ingest] failed for channel id=#{@channel.id}: #{e.class}: #{e.message}")
         nil
+      end
+
+      private
+
+      # True when an avatar is already attached and its blob checksum matches the
+      # new bytes (ActiveStorage stores a base64 MD5 checksum per blob).
+      def attached_matches?(bytes)
+        @channel.avatar.attached? &&
+          @channel.avatar.blob.checksum == Digest::MD5.base64digest(bytes)
       end
     end
   end

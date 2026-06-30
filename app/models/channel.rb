@@ -18,6 +18,26 @@ class Channel < ApplicationRecord
     Pito::ImagePath.call(avatar, variant: { resize_to_limit: [ 240, 240 ] })
   end
 
+  # Host-less proxy path for the SMALL (50%) avatar variant — a real 120×120
+  # ActiveStorage variant (displayed at 60px) used in the show-channel kv-table,
+  # NOT a CSS-scaled full image. Derived from the attached avatar, so it is
+  # available for any channel with an avatar (no sync needed) and auto-recomputes
+  # when the avatar blob changes on a later sync.
+  def avatar_inline_variant_url
+    Pito::ImagePath.call(avatar, variant: { resize_to_limit: [ 120, 120 ] })
+  end
+
+  # Locally-cached channel BANNER (374x210 JPEG, 16:9 — the same box as a video
+  # thumbnail). We attach OUR copy during sync via Channel::Banner::Ingest from
+  # brandingSettings.image.banner_external_url, instead of hotlinking YouTube.
+  has_one_attached :banner
+
+  # Host-less ActiveStorage proxy path for the banner variant, or nil when none
+  # is attached (the detail card falls back to the avatar in the banner spot).
+  def banner_variant_url
+    Pito::ImagePath.call(banner, variant: { resize_to_limit: [ 374, 210 ] })
+  end
+
   # Stat readers — sourced from the polymorphic `stats` table via the
   # `Pito::Stats` facade. Return nil when no stat row exists.
   def subscriber_count

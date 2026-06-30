@@ -67,6 +67,12 @@ RSpec.describe ChannelInfoJob do
     }.to have_enqueued_job(ChannelAvatarJob).with(channel.id, "https://example.com/avatar.jpg")
   end
 
+  it "enqueues a ChannelBannerJob to cache the banner locally (from brandingSettings)" do
+    expect {
+      described_class.new.perform(connection.id, turn.id)
+    }.to have_enqueued_job(ChannelBannerJob).with(channel.id, "https://example.com/banner.jpg")
+  end
+
   it "emits an enhanced event with formatted stats" do
     expect {
       described_class.new.perform(connection.id, turn.id)

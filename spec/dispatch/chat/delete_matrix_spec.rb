@@ -153,42 +153,37 @@ RSpec.describe "Dispatch matrix — delete (recognition, DB mocked)", type: :dis
     end
   end
 
-  # ── No noun → game branch (default) ──────────────────────────────────────────
+  # ── No entity noun in free chat → NO GUESS → unknown_entity (huh) ─────────────
   #
-  # When no noun filler appears in body_tokens, video_target? is false → game
-  # branch. The ref (`#5` or `5`) is still extracted from raw and resolved.
+  # Owner 2026-06-29: in free chat the 2nd token IS the entity — a bare id
+  # (`rm 5`), a hash id (`rm #5`), or an unknown word (`rm foo`) is NEVER silently
+  # treated as a game. With neither video_target? nor an EXPLICIT game_noun? (and
+  # not a follow-up), the handler returns a Result::Error rendering the generic
+  # `pito.copy.huh` dictionary (NOT the game branch, NOT pito.chat.delete.needs_ref).
 
-  describe "no noun → defaults to game branch" do
-    {
-      "delete #5" => GAME_STUB_ID,
-      "delete 5"  => GAME_STUB_ID,
-      "rm #5"     => GAME_STUB_ID,
-      "rm 5"      => GAME_STUB_ID,
-      "del #5"    => GAME_STUB_ID,
-      "del 5"     => GAME_STUB_ID
-    }.each do |raw, expected_id|
-      it "#{raw.inspect} → :confirmation, command: 'game_delete' (no noun = game default)" do
+  describe "no entity noun (bare id / hash id / unknown word) → unknown_entity (huh), no guess" do
+    [ "delete #5", "delete 5", "rm #5", "rm 5", "del #5", "del 5", "rm foo", "delete lies-of-p" ].each do |raw|
+      it "#{raw.inspect} → Result::Error rendering a pito.copy.huh variant (not the game branch)" do
         result = call(raw)
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        event  = result.events.first
-        expect(event[:kind]).to eq(:confirmation)
-        expect(event[:payload]["command"]).to eq("game_delete")
-        expect(event[:payload]["game_id"]).to eq(expected_id)
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.message_key).not_to eq("pito.chat.delete.needs_ref")
+        expect(I18n.t("pito.copy.huh")).to include(result.message_key)
       end
     end
   end
 
-  # ── Bare verb (no ref, no noun) → Result::Error ───────────────────────────────
+  # ── Bare verb (no ref, no noun) → NO GUESS → unknown_entity (huh) ─────────────
   #
-  # extract_ref_from strips the verb, then strip_noun returns "", which is blank
-  # → :needs_ref → needs_ref → Result::Error.
+  # A bare `rm`/`delete`/`del` names no entity → the generic `pito.copy.huh` error
+  # (owner 2026-06-29: no entity noun ⇒ never the game picker / needs_ref).
 
-  describe "bare verb, no ref → Result::Error (needs_ref)" do
+  describe "bare verb, no entity → unknown_entity (huh)" do
     [ "delete", "rm", "del", "delete   ", "rm   ", "del   " ].each do |raw|
-      it "#{raw.inspect} → Result::Error (message_key: pito.chat.delete.needs_ref)" do
+      it "#{raw.inspect} → Result::Error rendering a pito.copy.huh variant" do
         result = call(raw)
         expect(result).to be_a(Pito::Chat::Result::Error)
-        expect(result.message_key).to eq("pito.chat.delete.needs_ref")
+        expect(result.message_key).not_to eq("pito.chat.delete.needs_ref")
+        expect(I18n.t("pito.copy.huh")).to include(result.message_key)
       end
     end
   end
@@ -267,10 +262,7 @@ RSpec.describe "Dispatch matrix — delete (recognition, DB mocked)", type: :dis
         "rm game #99"      => nil,
         "rm games #99"     => nil,
         "del game #99"     => nil,
-        "del games #99"    => nil,
-        "delete #99"       => nil,
-        "rm #99"           => nil,
-        "del #99"          => nil
+        "del games #99"    => nil
       }.each do |raw, _|
         it "#{raw.inspect} → :system event (game not found, no command key)" do
           result = call(raw)

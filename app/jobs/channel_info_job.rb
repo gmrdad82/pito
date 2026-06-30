@@ -112,6 +112,11 @@ class ChannelInfoJob < ApplicationJob
           ChannelAvatarJob.perform_later(channel.id, normalized[:avatar_url])
         end
 
+        # Same for the channel banner (our own 374x210 copy from brandingSettings).
+        if normalized[:banner_url].present?
+          ChannelBannerJob.perform_later(channel.id, normalized[:banner_url])
+        end
+
         stats << {
           title:         normalized[:title] || channel.title,
           handle:        normalized[:handle] || channel.handle,
@@ -142,12 +147,15 @@ class ChannelInfoJob < ApplicationJob
     # Prefer the highest-res avatar available (high=800, medium=240, default=88)
     # — we normalize down to 240, so a larger source keeps it crisp.
     avatar_thumb = thumbnails[:high] || thumbnails[:medium] || thumbnails[:default] || {}
+    # Channel banner from brandingSettings (we cache + serve our own 374x210 copy).
+    branding_image = (item[:branding_settings] || {})[:image] || {}
 
     {
       title: snippet[:title],
       handle: snippet[:custom_url],
       description: snippet[:description],
       avatar_url: avatar_thumb[:url],
+      banner_url: branding_image[:banner_external_url],
       subscriber_count: stats[:subscriber_count]&.to_i,
       view_count: stats[:view_count]&.to_i,
       video_count: stats[:video_count]&.to_i

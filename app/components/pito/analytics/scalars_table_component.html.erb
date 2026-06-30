@@ -1,5 +1,15 @@
 <div class="pito-analytics-scalars">
-  <% cells.each do |cell| %>
-    <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value], series: cell[:series])) %>
+  <% if loading? %>
+    <% GLANCE_METRICS.each do |metric| %>
+      <div class="pito-analytics-scalars__cell"<% if token %> id="<%= token %>__metric_<%= metric[:key] %>"<% end %>>
+        <%= render(Pito::Analytics::Slots::Compact.new(name: metric_label(metric[:label]), loading: true)) %>
+      </div>
+    <% end %>
+  <% else %>
+    <% cells.each do |cell| %>
+      <div class="pito-analytics-scalars__cell"<% if token && cell[:key] %> id="<%= token %>__metric_<%= cell[:key] %>"<% end %>>
+        <%= render(Pito::Analytics::Slots::Compact.new(name: cell[:label], series: cell[:series])) { |c| c.with_scalar { raw(cell[:value].to_s) } } %>
+      </div>
+    <% end %>
   <% end %>
 </div>

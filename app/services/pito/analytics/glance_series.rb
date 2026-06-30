@@ -4,7 +4,7 @@ module Pito
   module Analytics
     # Day-series for the glance's four charted metrics — views, watched_hours (÷60),
     # net subs (gained − lost), likes — over a period window. Feeds the 2-row
-    # braille sparklines in Metric::CompactComponent (ADDITIVE: the scalar totals
+    # braille sparklines in Slots::Compact (ADDITIVE: the scalar totals
     # from Pito::Analytics::Scalars stay separate). Reuses Scalars' channel grouping
     # and Pito::Analytics::DailySeries' daily-primitive fold (the daily report now
     # carries `likes` via AnalyticsClient::METRIC_NAMES). Caching is 0.9.0 scope.

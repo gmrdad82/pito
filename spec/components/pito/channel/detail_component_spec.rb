@@ -47,8 +47,41 @@ RSpec.describe Pito::Channel::DetailComponent, type: :component do
     expect(node.text).to include("—")
   end
 
-  it "shows the no-avatar placeholder when no avatar is attached" do
-    expect(render_card.text).to include("No avatar")
+  it "shows no avatar anywhere when none is attached (no left spot, no kv-table row)" do
+    node = render_card
+    expect(node.at_css(".pito-channel-detail__avatar img")).to be_nil
+    expect(node.at_css("img.pito-channel-detail__avatar-inline")).to be_nil
+  end
+
+  describe "banner + avatar placement" do
+    let(:jpeg) { Vips::Image.black(8, 8).cast(:uchar).bandjoin([ 0, 0 ]).jpegsave_buffer }
+
+    def attach_avatar
+      channel.avatar.attach(io: StringIO.new(jpeg), filename: "avatar-#{channel.id}.jpg", content_type: "image/jpeg")
+    end
+
+    def attach_banner
+      channel.banner.attach(io: StringIO.new(jpeg), filename: "banner-#{channel.id}.jpg", content_type: "image/jpeg")
+    end
+
+    it "puts the banner in the top spot and the avatar in the kv-table (inline) when a banner is attached" do
+      attach_avatar
+      attach_banner
+      node = render_card
+      expect(node.at_css(".pito-channel-detail__banner")).to be_present
+      expect(node.at_css("img.pito-channel-detail__avatar-inline")).to be_present
+      expect(node.text).to include("Avatar")
+    end
+
+    it "leaves the banner spot EMPTY and STILL shows the avatar in the kv-table when there is no banner" do
+      attach_avatar
+      node = render_card
+      # No banner element, and the avatar is NOT in the left/top spot anymore…
+      expect(node.at_css(".pito-channel-detail__banner")).to be_nil
+      expect(node.at_css(".pito-channel-detail__avatar img")).to be_nil
+      # …it lives in the kv-table (always present when an avatar is attached).
+      expect(node.at_css("img.pito-channel-detail__avatar-inline")).to be_present
+    end
   end
 
   describe "YouTube Channel link row" do

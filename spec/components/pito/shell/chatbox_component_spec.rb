@@ -17,20 +17,20 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(textarea.first["placeholder"]).to include("/login")
       end
 
-      # SHOWCASE-NODEFAULT: when suggestions are present the showcase comet IS
-      # the hint — suppress the native placeholder so the block caret at position
-      # 0 never sits on top of placeholder text before the first comet pass.
-      context "suggestions present (authenticated showcase active)" do
+      # The placeholder is always a real sampled hint — it is the field's initial
+      # native placeholder, which pito--placeholder-rotate then cycles through the
+      # command suggestions. (The native block caret is fine over placeholder text.)
+      context "suggestions present (placeholder-rotate active)" do
         let(:suggestions) { %w[list\ games show\ last\ vid list\ vids] }
 
-        it "renders an empty placeholder when suggestions are non-empty" do
+        it "still renders the sampled hint placeholder (unauthenticated → login)" do
           node = render_inline(described_class.new(suggestions: suggestions))
-          expect(node.css("textarea").first["placeholder"]).to eq("")
+          expect(node.css("textarea").first["placeholder"]).to include("/login")
         end
 
-        it "still renders empty placeholder even with an explicit authenticated: true" do
+        it "renders a non-empty sampled placeholder with authenticated: true" do
           node = render_inline(described_class.new(authenticated: true, suggestions: suggestions))
-          expect(node.css("textarea").first["placeholder"]).to eq("")
+          expect(node.css("textarea").first["placeholder"]).to be_present
         end
       end
 
@@ -84,20 +84,25 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(red.text).to eq("none")
       end
 
-      it "renders a muted separator dot between channel and period groups" do
+      it "drops the middot separators from the meta row (owner 2026-06-29, item 10)" do
         node = render_inline(described_class.new(
           filter: { channel: "@gaming", period: "7d" }
         ))
         dot_spans = node.css("span.text-fg-faded").select { |s| s.text.strip == "·" }
-        expect(dot_spans).not_to be_empty
+        expect(dot_spans).to be_empty
       end
 
-      it "does NOT render the visible filter line when state is :start" do
+      it "renders the `m to start chatting` hint (not the cyclers) when state is :start" do
         node = render_inline(described_class.new(
           state: :start,
           filter: { channel: "@gaming", period: "7d" }
         ))
-        expect(node.css(".pito-chatbox__filter")).to be_empty
+        row = node.css(".pito-chatbox__filter")
+        expect(row).not_to be_empty
+        expect(node.to_html).to include("m")
+        # No channel/period cyclers on the start row.
+        expect(node.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
+        expect(node.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
       end
 
       it "does NOT render the filter line when filter is nil" do
@@ -149,17 +154,6 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(period_display.css("span.pito-token-shimmer").first).not_to be_nil
       end
 
-      it "renders the suggestHint target wrapper hidden by default" do
-        node = render_inline(described_class.new(
-          filter: { channel: "@all", period: "7d" }
-        ))
-        suggest = node.css('[data-pito--chatbox-hints-target="suggestHint"]').first
-        expect(suggest).not_to be_nil
-        expect(suggest["class"]).to include("hidden")
-        expect(suggest.to_html).to include("tab")
-        expect(suggest.to_html).to include("suggest")
-      end
-
       it "renders the chatHint target wrapper hidden by default" do
         node = render_inline(described_class.new(
           filter: { channel: "@all", period: "7d" }
@@ -199,20 +193,15 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(node.css("span.text-purple")).to be_empty
       end
 
-      it "renders a separator after the title and before the channel display" do
+      it "renders NO separator after the title (middots dropped — owner 2026-06-29, item 10)" do
         node = render_inline(described_class.new(
           filter:             { channel: "@all", period: "7d" },
           conversation_title: "My Chat"
         ))
         html = node.to_html
-        title_idx    = html.index("My Chat")
-        channel_idx  = html.index("channelDisplay")
-        expect(title_idx).not_to be_nil
-        expect(channel_idx).not_to be_nil
-        # Separator (·) must appear between title and channel display
-        separator_idx = html.index("·", title_idx)
-        expect(separator_idx).not_to be_nil
-        expect(separator_idx).to be < channel_idx
+        expect(html).to include("My Chat")
+        expect(html).to include("channelDisplay")
+        expect(html).not_to include("·")
       end
     end
 
@@ -263,11 +252,12 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(node.css("div.flex.flex-col")).not_to be_empty
       end
 
-      it "renders the field-wrap div with the terminal-caret Stimulus controller" do
+      it "renders the field-wrap div with the autosize Stimulus controller (+ autofocus)" do
         node = render_inline(described_class.new)
         field_wrap = node.css("div.pito-chatbox__field-wrap").first
         expect(field_wrap).not_to be_nil
-        expect(field_wrap["data-controller"]).to include("pito--terminal-caret")
+        expect(field_wrap["data-controller"]).to include("pito--autosize")
+        expect(field_wrap["data-pito--autosize-autofocus-value"]).to eq("true")
       end
 
       it "renders the field-wrap div with the type-fx Stimulus controller" do
@@ -283,20 +273,24 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(textarea).not_to be_nil
       end
 
-      it "renders the textarea with the terminal-caret field target" do
+      it "renders the textarea with the autosize field target" do
         node = render_inline(described_class.new)
-        textarea = node.css("textarea[data-pito--terminal-caret-target='field']").first
+        textarea = node.css("textarea[data-pito--autosize-target='field']").first
         expect(textarea).not_to be_nil
       end
 
-      it "renders the terminal-caret span with the block target" do
+      it "styles the textarea with the native block caret (.pito-block-caret)" do
         node = render_inline(described_class.new)
-        caret = node.css("span.terminal-caret[data-pito--terminal-caret-target='block']").first
-        expect(caret).not_to be_nil
+        textarea = node.css("textarea.pito-block-caret").first
+        expect(textarea).not_to be_nil
       end
 
-      it "does not render a pito-cursor span in the chatbox" do
+      it "renders no bespoke caret/trail machinery in the chatbox" do
         node = render_inline(described_class.new)
+        expect(node.css("[data-controller~='pito--terminal-caret']")).to be_empty
+        expect(node.css("[data-controller~='pito--cursor-trail']")).to be_empty
+        expect(node.css("span.terminal-caret")).to be_empty
+        expect(node.css("[data-pito--terminal-caret-target]")).to be_empty
         expect(node.css("span.pito-cursor")).to be_empty
       end
     end
@@ -450,9 +444,9 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(wrapper["data-controller"]).not_to include("pito--history")
       end
 
-      it "does NOT include pito--chat-showcase in the chatbox controller list" do
+      it "does NOT include pito--placeholder-rotate in the chatbox controller list" do
         wrapper = node.css("div#pito-chatbox").first
-        expect(wrapper["data-controller"]).not_to include("pito--chat-showcase")
+        expect(wrapper["data-controller"].to_s).not_to include("pito--placeholder-rotate")
       end
 
       it "does NOT include pito--draft in the chatbox controller list (even if draft_uuid were passed)" do
@@ -461,9 +455,9 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(wrapper["data-controller"]).not_to include("pito--draft")
       end
 
-      it "includes pito--terminal-caret in the chatbox field-wrap controller list" do
+      it "includes pito--autosize in the chatbox field-wrap controller list" do
         field_wrap = node.css("div.pito-chatbox__field-wrap").first
-        expect(field_wrap["data-controller"]).to include("pito--terminal-caret")
+        expect(field_wrap["data-controller"]).to include("pito--autosize")
       end
 
       it "includes pito--type-fx in the chatbox field-wrap controller list" do
@@ -471,18 +465,22 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(field_wrap["data-controller"]).to include("pito--type-fx")
       end
 
-      it "includes pito--cursor-trail in the chatbox field-wrap controller list" do
-        field_wrap = node.css("div.pito-chatbox__field-wrap").first
-        expect(field_wrap["data-controller"]).to include("pito--cursor-trail")
+      it "renders no bespoke caret/trail machinery" do
+        expect(node.css("[data-controller~='pito--terminal-caret']")).to be_empty
+        expect(node.css("[data-controller~='pito--cursor-trail']")).to be_empty
+        expect(node.css("span.terminal-caret")).to be_empty
       end
 
       it "does NOT render the showcase ghost div" do
         expect(node.css("div.pito-showcase-ghost")).to be_empty
       end
 
-      it "does NOT render the filter row even when filter is passed" do
+      it "renders the `m to start chatting` hint (not the channel/period cyclers) in reduced mode" do
         node2 = render_inline(described_class.new(reduced: true, filter: { channel: "@all", period: "7d" }))
-        expect(node2.css(".pito-chatbox__filter")).to be_empty
+        # The reduced/share row shows only the always-on m hint — no cyclers.
+        expect(node2.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
+        expect(node2.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
+        expect(node2.css("span.pito-token-shimmer")).to be_empty
       end
 
       it "does NOT carry suggestions-related data actions on the textarea" do
@@ -491,8 +489,8 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(action.to_s).not_to include("pito--suggestions")
       end
 
-      it "still renders the terminal-caret target on the textarea" do
-        textarea = node.css("textarea[data-pito--terminal-caret-target='field']").first
+      it "still renders the autosize target on the textarea" do
+        textarea = node.css("textarea[data-pito--autosize-target='field']").first
         expect(textarea).not_to be_nil
       end
 
@@ -522,8 +520,13 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(wrapper["data-controller"]).to include("pito--suggestions")
       end
 
-      it "renders the showcase ghost div" do
-        expect(node.css("div.pito-showcase-ghost")).not_to be_empty
+      it "renders the placeholder-rotate hints data script" do
+        expect(node.css("script#pito-showcase-data[data-pito--placeholder-rotate-target='data']")).not_to be_empty
+      end
+
+      it "includes pito--placeholder-rotate in the chatbox controller list" do
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).to include("pito--placeholder-rotate")
       end
     end
 

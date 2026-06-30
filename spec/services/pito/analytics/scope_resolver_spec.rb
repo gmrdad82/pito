@@ -19,6 +19,21 @@ RSpec.describe Pito::Analytics::ScopeResolver do
     it "also suggests for a bare alias (`stats`)" do
       expect(described_class.call(raw: "stats", channel_scope:)).to be_suggest
     end
+
+    # No-guess parity (owner 2026-06-29): analyze NEVER defaults to game. An
+    # unknown entity word or a bare id resolves to :suggest (show options), never
+    # a silent game analysis — the else branch is :suggest, not a game guess.
+    it "an unknown entity word (`analyze foobar`) → suggest, never a game" do
+      r = described_class.call(raw: "analyze foobar", channel_scope:)
+      expect(r).to be_suggest
+      expect(r.level).to be_nil
+    end
+
+    it "a bare id (`analyze 123`) → suggest, never a game" do
+      r = described_class.call(raw: "analyze 123", channel_scope:)
+      expect(r).to be_suggest
+      expect(r.level).to be_nil
+    end
   end
 
   describe "analyze channel — bare (6a)" do

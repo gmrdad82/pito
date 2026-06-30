@@ -5,15 +5,15 @@
       <div class="pito-analytics-scalars">
         <% @cells.each do |cell| %>
           <% if cell[:heart].present? %>
-            <%= render(Pito::Analytics::Metric::HeartChartComponent.new(hearts: cell[:heart], caption: cell[:caption])) %>
+            <%= render(Pito::Analytics::Visualizers::Heart.new(hearts: cell[:heart], caption: cell[:caption])) %>
           <% elsif cell[:chart].present? %>
-            <%= render(Pito::Analytics::Metric::AreaChartComponent.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: cell[:caption], trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) %>
+            <%= render(Pito::Analytics::Visualizers::Area.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: cell[:caption], trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) %>
           <% elsif cell[:bars].present? %>
-            <%= render(Pito::Analytics::Metric::BarChartComponent.new(bars: cell[:bars], caption: cell[:caption])) %>
+            <%= render(Pito::Analytics::Visualizers::Bar.new(bars: cell[:bars], caption: cell[:caption])) %>
           <% elsif cell[:no_data] %>
-            <%= render(Pito::Analytics::Metric::NoDataComponent.new(caption: cell[:caption])) %>
+            <%= render(Pito::Analytics::Visualizers::NoData.new(caption: cell[:caption])) %>
           <% else %>
-            <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value])) %>
+            <%= render(Pito::Analytics::Slots::Compact.new(name: cell[:label])) { |c| c.with_scalar { raw(cell[:value].to_s) } } %>
           <% end %>
         <% end %>
       </div>

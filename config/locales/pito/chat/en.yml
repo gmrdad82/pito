@@ -14,6 +14,7 @@ en:
         descriptions:
           show: "Show a game's details (by id)"
         needs_ref: "Which game? Use `list games` to see ids, then `show game <id>`."
+        channel_needs_ref: "Which channel? Use `list channels` to see them, then `show channel @handle` (or set a channel scope with shift+tab)."
       import:
         descriptions:
           import: "Import a game from IGDB (`import vids` is an alias of `sync vids`)"

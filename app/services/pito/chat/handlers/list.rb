@@ -107,6 +107,14 @@ module Pito
           game_suggestions = Pito::Chat::GameListFilter.suggestions(head)
           return did_you_mean(game_suggestions) if game_suggestions.any?
 
+          # No-guess (owner 2026-06-29): a head token that is neither the verb, an
+          # entity noun, nor a recognised game filter (genre / platform / `upcoming`)
+          # is genuinely unknown. Near-miss typos were already caught by
+          # `suggestions`/did_you_mean above, so anything left is gibberish → the
+          # generic `pito.copy.huh` error instead of silently listing ALL games.
+          # Bare `list` and valid filters (`list rpg`, `list upcoming`) are unaffected.
+          return unknown_entity if unrecognized_head_token?(head)
+
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           columns  = Pito::Chat::WithColumns.parse(
             message.raw,
@@ -463,6 +471,22 @@ module Pito
             suggestions: suggestions.map { |s| "`#{s}`" }.join(", ")
           )
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
+        end
+
+        # True when the (clause-stripped) head carries a token outside the known
+        # list vocabulary — see `unrecognized_head_token?` callsite for the no-guess
+        # rationale.
+        def unrecognized_head_token?(head)
+          head.to_s.downcase.split(/\s+/).reject(&:blank?).any? do |token|
+            !Pito::Chat::GameListFilter.recognized?(token)
+          end
+        end
+
+        # Free-chat with a genuinely unknown word — no guessing (owner 2026-06-29).
+        # Render the generic "I don't get it" dictionary (`pito.copy.huh`, reused per
+        # owner). Pre-rendered so the finalizer routes it to `text:` (keeps :error chrome).
+        def unknown_entity
+          Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
         end
       end
     end

@@ -235,7 +235,7 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
   describe "lifetime (no baseline)" do
     it "renders the comparable-gated metrics as neutral when not comparable" do
       node = render_for(result(comparable: false))
-      # Comparable-gated TrendNumberComponents now: views, watched_hours,
+      # Comparable-gated Pito::Analytics::Support::TrendNumber now: views, watched_hours,
       # avg_view_duration = 3 (avg_viewed_pct + comments removed from the glance).
       # The subs and likes cells are always sign/side-coloured, never neutral.
       expect(node.css("span.pito-trend-number[data-trend='neutral']").size).to eq(3)

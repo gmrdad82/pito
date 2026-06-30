@@ -68,8 +68,8 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
         expect(payload.dig("analytics", "scope_id")).to eq(game.id)
       end
 
-      it "sets analytics.period" do
-        expect(payload.dig("analytics", "period")).to eq("28d")
+      it "forces analytics.period to 'lifetime' regardless of the period arg" do
+        expect(payload.dig("analytics", "period")).to eq("lifetime")
       end
 
       it "stores a non-blank intro in the analytics marker" do
@@ -101,8 +101,18 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
         expect(payload["body"]).to include("data-pito-ts-slot")
       end
 
-      it "body does NOT include the scalars table marker" do
-        expect(payload["body"]).not_to include("pito-analytics-scalars")
+      it "body INCLUDES the scalars table in loading state" do
+        expect(payload["body"]).to include("pito-analytics-scalars")
+      end
+
+      it "marker stores a token (8-char hex string)" do
+        expect(payload.dig("analytics", "token")).to match(/\A[0-9a-f]{8}\z/)
+      end
+
+      it "marker stores metric_keys with the 5 glance metric keys in order" do
+        expect(payload.dig("analytics", "metric_keys")).to eq(
+          %w[views watched_hours avg_view_duration subs_net likes]
+        )
       end
 
       it "body does NOT include the unavailable note marker" do
@@ -127,9 +137,9 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
     end
 
     context "with period nil" do
-      it "stores nil in the analytics marker" do
+      it "still forces the analytics marker period to 'lifetime'" do
         payload = described_class.pending(game)
-        expect(payload.dig("analytics", "period")).to be_nil
+        expect(payload.dig("analytics", "period")).to eq("lifetime")
       end
     end
   end

@@ -24,7 +24,7 @@ RSpec.describe "Chat ≡ #hashtag parity", type: :service do
   end
 
   it "`show game` → same kinds + same game (free-chat vs game_list reply)" do
-    free  = free_events("show #{game.id}")
+    free  = free_events("show game #{game.id}")
     reply = reply_events("game_list", "show #{game.id}")
 
     # Game with no linked videos: detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced).
@@ -44,7 +44,7 @@ RSpec.describe "Chat ≡ #hashtag parity", type: :service do
   end
 
   it "`delete` → same single confirmation event (free-chat vs game_list reply)" do
-    free  = free_events("delete #{game.id}")
+    free  = free_events("delete game #{game.id}")
     reply = reply_events("game_list", "delete #{game.id}")
 
     expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :confirmation ])

@@ -1,54 +1,61 @@
 // pito--chatbox-hints
 //
-// Toggles the hint filter-row spans inside #pito-chatbox:
-//   suggestHint  visible  ⟺  a suggestion/hint is active (ghost OR palette)  [pito:suggest]
-//   chatHint     visible  ⟺  the chatbox is NOT focused
-//   filterHints  visible  ⟺  the chatbox IS focused  (inverse of chatHint: the
-//                            shift+tab / shift+space cyclers are only actionable
-//                            while focused, so they swap with the `m` chat hint)
+// Drives the single-row meta-line hints inside #pito-chatbox (item 10, owner
+// 2026-06-29). Exactly ONE hint shows at a time, chosen from the chatbox focus
+// state AND the leading verb/noun the owner is typing:
 //
-// Focus tracking is belt-and-suspenders: this controller is on #pito-chatbox
-// (the PARENT) and connects BEFORE terminal-caret (a CHILD) runs its autofocus,
-// so the focus event can fire before we are listening. We therefore: (1) read
-// activeElement on connect, (2) listen to native bubbling focusin/focusout,
-// (3) re-check on the next animation frame, and (4) accept the custom pito:focus
-// event from terminal-caret.
+//   unfocused                                   → chatHint      (`m to start chatting`)
+//   focused + `list` + a vids/games noun        → shiftTabHint  (channel cycler)
+//   focused + `analyze`                          → shiftSpaceHint (period cycler)
+//   focused + anything else (empty / other verb) → nothing
 //
-// Visibility note: the hint wrappers must NOT carry a persistent `inline-flex`
-// class, because Tailwind's `.inline-flex` and `.hidden` are both display
-// utilities with equal specificity — whichever is later in the stylesheet wins,
-// and `.inline-flex` was overriding `.hidden`. So we SWAP the display class:
-// add `inline-flex` only when visible, `hidden` only when hidden.
+// Focus alone NO LONGER reveals the cyclers — shift+tab only makes sense for
+// `list vids/games` and shift+space only for `analyze`; chat-form gates the
+// keystrokes and the form submission on the same visibility.
+//
+// The controller only manages the default-state row (which carries all three
+// targets). The start-screen / 404 / /share rows render a static always-on
+// `m` hint with no targets, so `_apply` no-ops there (hasXTarget == false).
+//
+// Visibility note: `.inline-flex` and `.hidden` are both display utilities with
+// equal specificity, so we SWAP the class (add one, remove the other) rather than
+// rely on one overriding the other.
 
 import { Controller } from "@hotwired/stimulus"
 
+// Leading-verb / noun vocabulary, mirroring the server grammar aliases. Kept
+// small + local: these four sets are stable and only gate which hint shows.
+const LIST_VERBS    = [ "list", "ls" ]
+const ANALYZE_VERBS = [ "analyze", "analytics", "stats" ]
+const VID_NOUNS     = [ "vid", "vids", "video", "videos" ]
+const GAME_NOUNS    = [ "game", "games", "gamez" ]
+
 export default class extends Controller {
-  static targets = ["suggestHint", "chatHint", "filterHints"]
+  static targets = ["chatHint", "shiftTabHint", "shiftSpaceHint"]
 
   connect() {
-    this._suggestActive = false
     this._focused = this.#computeFocused()
 
-    this._onSuggest  = (e) => { this._suggestActive = !!(e.detail && e.detail.active); this._apply() }
     this._onFocus    = (e) => { this._focused = !!(e.detail && e.detail.focused); this._apply() }
     this._onFocusIn  = () => this.#recheck()
     this._onFocusOut = () => this.#recheck()
+    this._onInput    = () => this._apply()
 
-    document.addEventListener("pito:suggest", this._onSuggest)
-    document.addEventListener("pito:focus",   this._onFocus)
-    document.addEventListener("focusin",      this._onFocusIn)
-    document.addEventListener("focusout",     this._onFocusOut)
+    document.addEventListener("pito:focus", this._onFocus)
+    document.addEventListener("focusin",    this._onFocusIn)
+    document.addEventListener("focusout",   this._onFocusOut)
+    this.element.addEventListener("input",  this._onInput)
 
     this._apply()
-    // Catch the child terminal-caret autofocus that fires right after this connects.
+    // Catch the child pito--autosize autofocus that fires right after connect.
     requestAnimationFrame(() => this.#recheck())
   }
 
   disconnect() {
-    document.removeEventListener("pito:suggest", this._onSuggest)
-    document.removeEventListener("pito:focus",   this._onFocus)
-    document.removeEventListener("focusin",      this._onFocusIn)
-    document.removeEventListener("focusout",     this._onFocusOut)
+    document.removeEventListener("pito:focus", this._onFocus)
+    document.removeEventListener("focusin",    this._onFocusIn)
+    document.removeEventListener("focusout",   this._onFocusOut)
+    this.element.removeEventListener("input",  this._onInput)
   }
 
   // ── Private ──────────────────────────────────────────────────────────────────
@@ -66,10 +73,33 @@ export default class extends Controller {
     }
   }
 
+  // Which hint to show: "m" | "shiftTab" | "shiftSpace" | "none".
+  #mode() {
+    if (!this._focused) return "m"
+
+    const field = this.element.querySelector("textarea")
+    const text  = (field ? field.value : "").trim().toLowerCase()
+    if (text === "") return "none"
+
+    const tokens = text.split(/\s+/)
+    const verb   = tokens[0]
+
+    if (ANALYZE_VERBS.includes(verb)) return "shiftSpace"
+    if (LIST_VERBS.includes(verb) &&
+        tokens.slice(1).some((t) => VID_NOUNS.includes(t) || GAME_NOUNS.includes(t))) {
+      return "shiftTab"
+    }
+    return "none"
+  }
+
   _apply() {
-    if (this.hasSuggestHintTarget) this.#setVisible(this.suggestHintTarget, this._suggestActive)
-    if (this.hasChatHintTarget)    this.#setVisible(this.chatHintTarget, !this._focused)
-    if (this.hasFilterHintsTarget) this.#setVisible(this.filterHintsTarget, this._focused)
+    // No-op on rows without the targets (start screen / 404 / share static hint).
+    if (!this.hasChatHintTarget && !this.hasShiftTabHintTarget && !this.hasShiftSpaceHintTarget) return
+
+    const mode = this.#mode()
+    if (this.hasChatHintTarget)       this.#setVisible(this.chatHintTarget,       mode === "m")
+    if (this.hasShiftTabHintTarget)   this.#setVisible(this.shiftTabHintTarget,   mode === "shiftTab")
+    if (this.hasShiftSpaceHintTarget) this.#setVisible(this.shiftSpaceHintTarget, mode === "shiftSpace")
   }
 
   // Swap display classes (never leave inline-flex + hidden fighting).

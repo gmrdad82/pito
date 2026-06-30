@@ -33,6 +33,31 @@ RSpec.describe Pito::Share::UniversalActions do
     end
   end
 
+  # Regression (owner 2026-06-29): a :confirmation message gets NO share verbs in
+  # its reply menu — sharing an ephemeral confirm/cancel prompt makes no sense.
+  describe ".verbs_for" do
+    it "offers `share` for a non-shared :system / :enhanced message" do
+      expect(described_class.verbs_for(event)).to eq(%w[share])
+    end
+
+    it "adds revoke/unshare once the event has a Share" do
+      Share.find_or_create_by!(event:) { |s| s.conversation = conversation }
+      expect(described_class.verbs_for(event)).to match_array(%w[share revoke unshare])
+    end
+
+    it "offers NOTHING for a :confirmation message (no share/revoke/unshare)" do
+      confirmation = Event.create_with_position!(
+        conversation:, turn:, kind: :confirmation,
+        payload: { "text" => "Sync @x?", "reply_handle" => "conf-handle" }
+      )
+      expect(described_class.verbs_for(confirmation)).to eq([])
+    end
+
+    it "offers `share` for a nil event (the generic event-less help page)" do
+      expect(described_class.verbs_for(nil)).to eq(%w[share])
+    end
+  end
+
   describe "#call — share verb" do
     it "mints a Share record" do
       expect {
