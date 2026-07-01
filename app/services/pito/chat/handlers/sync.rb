@@ -47,6 +47,8 @@ module Pito
             handle_channels(raw)
           elsif videos_form?(raw)
             handle_videos(raw)
+          elsif games_form?(raw)
+            handle_games(raw)
           else
             # Fuzzy fallback: try near-miss match against SYNC_TARGETS vocab.
             noun, correction = detect_sync_noun_fuzzy(raw)
@@ -107,6 +109,14 @@ module Pito
           raw.match?(/(?<!-)\b(?:vid|video)s?\b/i)
         end
 
+        # `sync game #id[,#id…]` — direct, id-based game sync (mirrors the
+        # `sync vid #id` form and the `show game #id` open). Without an `#id`
+        # this still falls through to needs_ref, so bare `sync game` /
+        # `sync games` / `sync game 5` (no hash) stay reply-only.
+        def games_form?(raw)
+          raw.match?(/(?<!-)\bgames?\b/i)
+        end
+
         # ── sync videos [only <ids>] ─────────────────────────────────────────────
 
         def handle_videos(raw)
@@ -149,6 +159,22 @@ module Pito
           Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
+        # ── sync game #id ────────────────────────────────────────────────────────
+
+        # Direct id-based game sync: `sync game #id` re-syncs that one game from
+        # IGDB (the same confirmation the `#<handle> sync` reply on a game card
+        # builds). Only the FIRST id is used — a game sync is single-target.
+        # No id → needs_ref (game sync without a ref is ambiguous in free chat).
+        def handle_games(raw)
+          game_ids = parse_game_ids(raw)
+          return needs_ref if game_ids.empty?
+
+          game = ::Game.find_by(id: game_ids.first)
+          return needs_ref unless game
+
+          confirmation(Pito::MessageBuilder::Sync::GameConfirmation.call(game, conversation:))
+        end
+
         # ── Clause parsers ───────────────────────────────────────────────────────
 
         # Parses video ids from the raw input. Prefers `#id[,#id…]` (the canonical
@@ -161,6 +187,12 @@ module Pito
           return hashed if hashed.any?
 
           parse_only_ids(raw)
+        end
+
+        # Parses game ids from `#id[,#id…]`. Unlike videos there is no legacy
+        # `only <ids>` clause — game sync is always id-explicit.
+        def parse_game_ids(raw)
+          raw.to_s.scan(HASH_ID_RE).flatten.map(&:to_i).select(&:positive?).uniq
         end
 
         # Parses `only <id>[,<id>…]` → Array<Integer> of local video ids.
@@ -222,11 +254,27 @@ module Pito
         end
 
         # Returns the handle string for a specific channel, or nil for @all/blank.
+        # An `@handle` typed directly in the command (e.g. `sync channel @pito`)
+        # wins over the shift+tab scope, so a `sync channel @handle` click is
+        # self-contained — mirrors `show channel @handle`. `@all` inline is not a
+        # specific channel; it falls through to the all-channels path.
         def resolved_channel_handle
-          ch = channel.to_s.strip
+          ch = (inline_channel_handle || channel).to_s.strip
           return nil if ch.blank? || ch.casecmp("@all").zero?
 
           ch
+        end
+
+        # First `@handle` token in the raw input, or nil. `@all` is treated as
+        # "no specific handle" so it doesn't override the scope to a single
+        # (non-existent) channel named "all".
+        INLINE_HANDLE_RE = /@[A-Za-z0-9_.-]+/
+
+        def inline_channel_handle
+          handle = message.raw.to_s[INLINE_HANDLE_RE]
+          return nil if handle.nil? || handle.casecmp("@all").zero?
+
+          handle
         end
 
         def normalized_handle(handle)

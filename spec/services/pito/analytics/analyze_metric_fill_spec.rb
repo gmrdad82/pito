@@ -101,40 +101,63 @@ RSpec.describe Pito::Analytics::AnalyzeMetricFill do
     end
   end
 
-  # ── comments scalar ───────────────────────────────────────────────────────────
+  # ── comments (area chart) ─────────────────────────────────────────────────────
 
-  describe "comments scalar" do
+  describe "comments (area chart)" do
     before do
-      allow(Pito::Analytics::Primitives).to receive(:fetch).and_return(
-        "UC1" => { "comments" => 42 }
+      allow(Pito::Analytics::DailySeries).to receive(:for).and_return(daily_result)
+      allow(Pito::Analytics::DailySeries).to receive(:for)
+        .with(hash_including(metric: "comments")).and_return(daily_result(series: [ 3, 4, 5 ], total: 12))
+    end
+
+    it "returns a comments area-chart cell (daily series folded from the comments column)" do
+      result = call(metric: :comments)
+
+      expect(result[:chart]).to eq(:comments)
+      expect(result[:series]).to eq([ 3, 4, 5 ])
+      expect(result[:caption]).to be_present
+    end
+  end
+
+  # ── retention (area chart, Item 25) ───────────────────────────────────────────
+
+  describe "retention (area chart)" do
+    before do
+      allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
+        Pito::Analytics::RetentionSeries::Result.new(series: [ 80.0, 60.0, 40.0 ], total_pct: 27.9, rel_performance: 0.6)
       )
     end
 
-    it "returns label + string value summed from scalars primitives" do
-      result = call(metric: :comments)
-
-      expect(result[:label]).to eq("Comments")
-      expect(result[:value]).to eq("42")
-    end
-  end
-
-  # ── stub metrics (no_data, components not built) ──────────────────────────────
-
-  describe "retention (stub)" do
-    it "returns no_data without making any YouTube request" do
+    it "returns a retention area-chart cell (series + own caption), lifetime, no trend" do
       result = call(metric: :retention, level: "vid")
 
-      expect(result[:no_data]).to be true
-      expect(result[:caption]).to eq("Retention")
+      expect(result[:chart]).to eq(:retention)
+      expect(result[:series]).to eq([ 80.0, 60.0, 40.0 ])
+      expect(result[:caption]).to be_present
+      expect(result[:trend]).to be false
+      expect(result[:reference_token]).to eq("lifetime")
     end
   end
 
-  describe "day_of_week_heatmap (stub)" do
-    it "returns no_data without making any YouTube request" do
+  # ── day-of-week heatmap (Item 30) ─────────────────────────────────────────────
+
+  describe "day_of_week_heatmap" do
+    it "returns a heatmap cell with the 7-weekday values + caption" do
+      allow(Pito::Analytics::WeekdaySeries).to receive(:for).and_return(
+        Pito::Analytics::WeekdaySeries::Result.new(values: [ 10.0, 20.0, 5.0, 30.0, 25.0, 40.0, 15.0 ])
+      )
       result = call(metric: :day_of_week_heatmap)
 
-      expect(result[:no_data]).to be true
+      expect(result[:heatmap]).to eq(:day_of_week_heatmap)
+      expect(result[:values]).to eq([ 10.0, 20.0, 5.0, 30.0, 25.0, 40.0, 15.0 ])
       expect(result[:caption]).to be_present
+    end
+
+    it "returns no_data when the week is empty (all zero)" do
+      allow(Pito::Analytics::WeekdaySeries).to receive(:for).and_return(
+        Pito::Analytics::WeekdaySeries::Result.new(values: Array.new(7, 0.0))
+      )
+      expect(call(metric: :day_of_week_heatmap)[:no_data]).to be true
     end
   end
 

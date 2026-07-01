@@ -15,21 +15,21 @@
 #       after steps 3–5, followupable with reply_target "game_imported".
 # Both land inside the job's Turn so they get the normal timestamp + follow-up chrome.
 #
-# Two thinking indicators bracket the two phases:
-#   thinking #1 (:importing) — emitted before step 1, resolved after the announce.
-#   thinking #2 (:syncing)   — emitted before step 3, resolved after the done.
+# ONE thinking indicator spans the whole import (19.1): emitted before step 1,
+# resolved once after the done message. (The old per-phase importing/syncing pair
+# left orphan thinking blocks — leftovers from when the flow emitted extra
+# :enhanced messages.)
 #
 # Flow:
 #   1. Find/create the open import turn.
-#   2. Emit thinking #1 (:importing).
+#   2. Emit the import thinking indicator (:importing).
 #   3. Sidebar step 1 shimmers; run SyncGame (IGDB main info + genres + companies + cover art).
 #   4. Mark sidebar step 1 done; mark step 2 done (cover already fetched).
-#   5. Emit :system announce to main chat; resolve thinking #1.
-#   6. Emit thinking #2 (:syncing).
+#   5. Emit :system announce to main chat (thinking stays live).
 #   7. Shimmer step 3; run ScoreCalculator; mark step 3 done.
 #   8. Shimmer step 4; run VoyageIndexer (digest-gated); mark step 4 done.
 #   9. Shimmer step 5; call Pito::Recommendations; mark step 5 done.
-#  10. Emit :enhanced done to main chat; resolve thinking #2.
+#  10. Emit :enhanced done to main chat; resolve the thinking indicator.
 #  11. Complete the turn.
 #
 # All 5 stages run inline (synchronous orchestration — no sub-job fan-out).
@@ -76,9 +76,6 @@ class GameImportJob < ApplicationJob
     # Find or create the open import turn (idempotent on retry).
     turn = import_turn(@conversation, title)
 
-    # Thinking #1 — importing phase (before steps 1–2).
-    @broadcaster.emit_thinking(turn: turn, dictionary: :importing)
-
     # Step 1 — Resolve/create Game + fetch IGDB main info (shimmer shown by JS).
     broadcast_step_pending(@broadcaster, step: 1)
 
@@ -105,11 +102,12 @@ class GameImportJob < ApplicationJob
     # back-to-back pending+done raced over the cable and left the shimmer stuck.
     broadcast_step_done(@broadcaster, step: 2)
 
-    # Announce — :system message after steps 1–2.
+    # Announce — :system "importing…" status message (steps 1–2 done). NO thinking
+    # precedes it. Then a SINGLE thinking indicator spans the remaining work and
+    # resolves when the :enhanced done message lands (19.1 — the old flow emitted
+    # extra thinking blocks for the since-removed similar-games / recommended-
+    # channels messages; only this one, resolving into `done`, remains).
     emit_announce_once(@broadcaster, turn: turn, game: @game.reload, conversation: @conversation)
-    @broadcaster.resolve_thinking(turn: turn)
-
-    # Thinking #2 — syncing phase (before steps 3–5).
     @broadcaster.emit_thinking(turn: turn, dictionary: :syncing)
 
     # Step 3 — Score

@@ -21,7 +21,7 @@
 </head>
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
-  <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-fx="<%= AppSetting.fx_enabled? %>" data-fx-effect="<%= AppSetting.fx_effect %>" data-theme="<%= AppSetting.theme %>"></div>
+  <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
   <%# Global Turbo Stream subscription: receives mini-status and row
       replacements that must propagate to every open browser instance
       (unread-count sync after notification toggle, sidebar row sync after rename). %>
@@ -33,7 +33,7 @@
       desktop (managed by pito--resume). %>
   <div class="flex h-screen overflow-hidden">
     <main class="flex-1 min-w-0"><%= yield %></main>
-    <div id="pito-sidebar" data-controller="pito--resume pito--sidebar-fx"
+    <div id="pito-sidebar" data-controller="pito--resume"
          class="shrink-0 overflow-hidden transition-[width] duration-200 fixed inset-y-0 right-0 z-40 w-0 has-[aside]:w-full md:w-0 md:has-[aside]:w-[480px]"></div>
   </div>
   <%# Desktop sidebar overlay backdrop — semi-transparent scrim behind the

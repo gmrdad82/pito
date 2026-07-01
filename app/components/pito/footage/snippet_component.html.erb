@@ -1,9 +1,10 @@
-<div class="pito-footage-snippet" data-controller="pito--clipboard" data-pito--clipboard-text-value="<%= command %>">
+<div class="pito-footage-snippet">
   <div class="pito-footage-snippet__hint text-fg-dim"><span data-pito-ts-slot></span><%= hint %></div>
   <div class="pito-footage-snippet__bar">
-    <pre class="pito-footage-snippet__code"><%= command %></pre>
-    <button type="button" class="pito-footage-snippet__copy text-cyan" data-action="click->pito--clipboard#copy" aria-label="<%= aria_label %>">
-      <span data-pito--clipboard-target="feedback"><%= copy_label %></span>
-    </button>
+    <%# A <code> block, NOT <pre>: pito--ascii-fit only scales <pre> descendants, and
+        it was shrinking this one-liner to scale(0.41). As <code> with pre-wrap it
+        renders full-size and WRAPS to fit (no h-scroll, readable ≤450px on mobile). %>
+    <code class="pito-footage-snippet__code"><%= command %></code>
+    <%= render(Pito::CopyButtonComponent.new(text: command, aria_label:)) %>
   </div>
 </div>

@@ -114,25 +114,25 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
-  describe "typewriter — initial (pending) reveal only" do
-    it "mounts the typewriter controller + body target in the pending state" do
+  describe "instant render (item 18: no typewriter in any state)" do
+    it "never mounts a typewriter controller / body target (pending)" do
       node = render_inline(described_class.new(payload: pending_payload))
-      expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
-      expect(node.css("[data-pito--typewriter-target='body']")).not_to be_empty
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
     end
 
-    it "does NOT mount the typewriter in the processing state (no re-type on transition)" do
+    it "never mounts a typewriter (processing state)" do
       payload = pending_payload.merge(processing: true, processing_word_index: 0)
       node = render_inline(described_class.new(payload:))
       expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
-      expect(node.css("[data-pito--typewriter-target='body']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
     end
 
-    it "does NOT mount the typewriter in the resolved state (no re-type on transition)" do
+    it "never mounts a typewriter (resolved state)" do
       payload = pending_payload.merge(resolved: true, outcome: "confirmed", outcome_text: "Done.")
       node = render_inline(described_class.new(payload:))
       expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
-      expect(node.css("[data-pito--typewriter-target='body']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
     end
   end
 

@@ -8,23 +8,15 @@
           )) %>
     <% end %>
 
-    <%# Body + stats detail (shown while pending; hidden once resolved).
-        Wrapped in a div so the timestamp + body stay inline — a bare
-        BodyComponent would let flex-col row-split its two spans.
-
-        Typewriter is mounted ONLY in the pending (initial) state — its skip
-        guards (!__pitoReady / reduced-motion / fx off) still make a pending
-        prompt already in scrollback render instant, so only a freshly-broadcast
-        prompt types. The processing / resolved renders (Turbo replace_event
-        swaps) carry NO typewriter controller, so a state transition shows the
-        new content instantly and never re-types. %>
+    <%# Body + stats detail (shown while pending; hidden once resolved). Wrapped
+        in a div so the timestamp + body stay inline — a bare BodyComponent would
+        let flex-col row-split its two spans. Renders instantly (item 18). %>
     <div>
       <%= render(Pito::Event::BodyComponent.new(
-            body:       body,
-            html:       html?,
-            detail:     expandable? ? expand_detail : [],
-            typewriter: pending?,
-            timestamp:  @timestamp
+            body:      body,
+            html:      html?,
+            detail:    expandable? ? expand_detail : [],
+            timestamp: @timestamp
           )) %>
     </div>
 

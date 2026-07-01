@@ -1,14 +1,11 @@
 // spec/javascript/logo_reveal_controller.test.js
 //
-// pito--logo-reveal — the PITO logo's broken-neon reveal. Motion off → solid
-// logo (no is-revealing). Motion on → arms `.is-revealing` and lights every cell
-// (each at a random time). Timers are cleared on disconnect.
+// pito--logo-reveal — the PITO logo's broken-neon reveal. Always plays (item 18:
+// no motion gate): arms `.is-revealing` and lights every cell (each at a random
+// time). Timers are cleared on disconnect.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
-
-const mockState = { motion: false }
-vi.mock("pito/settings", () => ({ motionDisabled: () => mockState.motion }))
 
 import LogoRevealController from "controllers/pito/logo_reveal_controller"
 
@@ -39,7 +36,6 @@ describe("LogoRevealController", () => {
   let app
 
   beforeEach(() => {
-    mockState.motion = false
     app = Application.start()
     app.register("pito--logo-reveal", LogoRevealController)
   })
@@ -55,14 +51,6 @@ describe("LogoRevealController", () => {
     expect(pre.classList.contains("is-revealing")).toBe(true)
     await tick(1000) // > REVEAL_WINDOW_MS (900)
     expect(lit(pre)).toBe(12) // all cells lit
-  })
-
-  it("does nothing when motion is disabled (logo stays solid)", async () => {
-    mockState.motion = true
-    const pre = build()
-    await tick()
-    expect(pre.classList.contains("is-revealing")).toBe(false)
-    expect(lit(pre)).toBe(0)
   })
 
   it("clears timers on disconnect (no cells light after teardown)", async () => {

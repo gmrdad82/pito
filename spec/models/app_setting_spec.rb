@@ -33,73 +33,8 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  describe ".fx_enabled?" do
-    it "returns true by default (no row stored)" do
-      AppSetting.where(key: AppSetting::FX_ENABLED_KEY).delete_all
-      expect(AppSetting.fx_enabled?).to be true
-    end
-
-    it "returns false when the stored value is 'false'" do
-      AppSetting.fx_enabled = false
-      expect(AppSetting.fx_enabled?).to be false
-    end
-
-    it "returns true when the stored value is 'true'" do
-      AppSetting.fx_enabled = false
-      AppSetting.fx_enabled = true
-      expect(AppSetting.fx_enabled?).to be true
-    end
-  end
-
-  describe ".fx_enabled=" do
-    it "persists the value as a string" do
-      AppSetting.fx_enabled = false
-      expect(AppSetting.get(AppSetting::FX_ENABLED_KEY)).to eq("false")
-    end
-
-    it "coerces truthy to 'true'" do
-      AppSetting.fx_enabled = true
-      expect(AppSetting.get(AppSetting::FX_ENABLED_KEY)).to eq("true")
-    end
-  end
-
-  describe ".fx_effect" do
-    it "returns the default 'typewriter' when no row is stored" do
-      AppSetting.where(key: AppSetting::FX_EFFECT_KEY).delete_all
-      expect(AppSetting.fx_effect).to eq("typewriter")
-    end
-
-    it "returns the stored effect after assignment" do
-      AppSetting.fx_effect = "scramble"
-      expect(AppSetting.fx_effect).to eq("scramble")
-    end
-
-    it "round-trips back to the default after re-assignment" do
-      AppSetting.fx_effect = "comet"
-      AppSetting.fx_effect = "typewriter"
-      expect(AppSetting.fx_effect).to eq("typewriter")
-    end
-  end
-
-  describe ".fx_effect=" do
-    it "persists a valid effect as a string" do
-      AppSetting.fx_effect = "comet"
-      expect(AppSetting.get(AppSetting::FX_EFFECT_KEY)).to eq("comet")
-    end
-
-    it "accepts every member of FX_EFFECTS" do
-      AppSetting::FX_EFFECTS.each do |effect|
-        AppSetting.fx_effect = effect
-        expect(AppSetting.fx_effect).to eq(effect)
-      end
-    end
-
-    it "raises ArgumentError for an unknown effect and persists nothing" do
-      AppSetting.where(key: AppSetting::FX_EFFECT_KEY).delete_all
-      expect { AppSetting.fx_effect = "wobble" }.to raise_error(ArgumentError)
-      expect(AppSetting.get(AppSetting::FX_EFFECT_KEY)).to be_nil
-    end
-  end
+  # (fx_enabled / fx_effect were removed in item 18 — content motion + the
+  # /config motion|fx settings are gone.)
 
   describe ".theme" do
     it "returns the default slug when no row is stored" do

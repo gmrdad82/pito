@@ -54,6 +54,18 @@ module Pito
           [ @series.max.to_f, @target_daily, 1.0 ].max
         end
 
+        # Ceiling for the GRADIENT anchor ONLY — the higher of the peak and the
+        # target, WITHOUT the 1.0 plot-scale floor. The floor would distort the
+        # anchor for metrics whose daily target is a fraction (watched_hours, subs
+        # on a small channel): flooring the ceiling to 1.0 dropped the anchor to
+        # target/1.0 ≈ a few %, painting an empty chart green from the baseline up.
+        # Anchoring against max(peak, target) instead keeps the target at the top of
+        # the range when there's no data → a RED baseline, consistent with views /
+        # avg_view_duration / avg_viewed_pct (owner 2026-07-01).
+        def anchor_ceiling
+          [ @series.max.to_f, @target_daily ].max
+        end
+
         # The braille area as one string per CELL row (top→bottom). The template
         # renders each as its own `.pito-metric__row` span so the reveal can wipe
         # them in bottom→up and each can carry the per-row gradient slice.
@@ -95,9 +107,11 @@ module Pito
         end
 
         # Where full-green sits within the y-range (0..100) — the data-driven
-        # gradient stop, passed as the `--pito-green-anchor` CSS var.
+        # gradient stop, passed as the `--pito-green-anchor` CSS var. Uses
+        # anchor_ceiling (no 1.0 floor) so a fractional target isn't dragged down
+        # to the baseline — an empty chart stays red at the bottom.
         def green_anchor_pct
-          (Pito::Analytics::Thresholds.green_anchor_fraction(target: @target_daily, ceiling:) * 100).round
+          (Pito::Analytics::Thresholds.green_anchor_fraction(target: @target_daily, ceiling: anchor_ceiling) * 100).round
         end
 
         # Shared staggered shimmer-delay bucket, SEEDED PER (metric, series) so

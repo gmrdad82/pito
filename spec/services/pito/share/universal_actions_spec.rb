@@ -58,6 +58,55 @@ RSpec.describe Pito::Share::UniversalActions do
     end
   end
 
+  # Regression (owner 2026-07-01): a message whose thinking indicator is still
+  # spinning is NOT shareable — sharing it would capture a half-loaded state.
+  describe "resolution gate (unresolved messages are not shareable)" do
+    def thinking_for(event, resolved:)
+      Event.create_with_position!(
+        conversation:, turn:, kind: :thinking,
+        payload: { "for_event_id" => event.id.to_s, "resolved" => resolved }
+      )
+    end
+
+    it ".resolved? is true when the message has no linked thinking indicator" do
+      expect(described_class.resolved?(event)).to be(true)
+    end
+
+    it ".resolved? is false while the linked thinking indicator is unresolved" do
+      thinking_for(event, resolved: false)
+      expect(described_class.resolved?(event)).to be(false)
+    end
+
+    it ".resolved? is true once the linked thinking indicator is resolved" do
+      thinking_for(event, resolved: true)
+      expect(described_class.resolved?(event)).to be(true)
+    end
+
+    it ".verbs_for offers NOTHING while the message is unresolved" do
+      thinking_for(event, resolved: false)
+      expect(described_class.verbs_for(event)).to eq([])
+    end
+
+    it ".verbs_for offers `share` once the message resolves" do
+      thinking_for(event, resolved: true)
+      expect(described_class.verbs_for(event)).to eq(%w[share])
+    end
+
+    it "#call refuses `share` with the not_resolved error while unresolved" do
+      thinking_for(event, resolved: false)
+      result = handler.call(source_event: event, rest: "share", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.copy.share.not_resolved")
+    end
+
+    it "#call does NOT create a Share for an unresolved message" do
+      thinking_for(event, resolved: false)
+      expect {
+        handler.call(source_event: event, rest: "share", conversation:)
+      }.not_to change(Share, :count)
+    end
+  end
+
   describe "#call — share verb" do
     it "mints a Share record" do
       expect {
@@ -71,31 +120,38 @@ RSpec.describe Pito::Share::UniversalActions do
       expect(result.consume).to eq(false)
     end
 
-    it "returns a :system event with the share URL" do
+    # The share message is now an html payload: the witty line with the URL as a
+    # clickable <a target="_blank"> (action class) + a copy affordance.
+    def share_body(result) = result.events.first[:payload]["body"].to_s
+    def share_href(result) = share_body(result)[/href="([^"]+)"/, 1]
+
+    it "returns an html :system event with the share URL as a clickable action-class link + copy widget" do
       result = handler.call(source_event: event, rest: "share", conversation:)
       expect(result.events.length).to eq(1)
       expect(result.events.first[:kind]).to eq(:system)
       payload = result.events.first[:payload]
-      expect(payload["text"]).to include("/share/")
+      expect(payload["html"]).to be(true)
+      expect(payload["body"]).to include("/share/")
+      expect(payload["body"]).to include('target="_blank"')
+      expect(payload["body"]).to include("pito-action-shimmer")
+      expect(payload["body"]).to include("pito--clipboard")
     end
 
     it "mints the URL on the request origin when one is threaded through" do
       result = handler.call(source_event: event, rest: "share", conversation:, origin: "https://dev.pitomd.com")
-      expect(result.events.first[:payload]["text"]).to include("https://dev.pitomd.com/share/")
+      expect(share_body(result)).to include("https://dev.pitomd.com/share/")
     end
 
     it "falls back to PublicHosts.app_base when no origin is given" do
       allow(Pito::PublicHosts).to receive(:app_base).and_return("http://localhost:3027")
       result = handler.call(source_event: event, rest: "share", conversation:)
-      expect(result.events.first[:payload]["text"]).to include("http://localhost:3027/share/")
+      expect(share_body(result)).to include("http://localhost:3027/share/")
     end
 
-    it "is idempotent — calling share twice returns the same Share" do
+    it "is idempotent — calling share twice returns the same Share URL" do
       result1 = handler.call(source_event: event, rest: "share", conversation:)
       result2 = handler.call(source_event: event, rest: "share", conversation:)
-      url1 = result1.events.first[:payload]["text"]
-      url2 = result2.events.first[:payload]["text"]
-      expect(url1).to eq(url2)
+      expect(share_href(result1)).to eq(share_href(result2))
       expect(Share.where(event:).count).to eq(1)
     end
 

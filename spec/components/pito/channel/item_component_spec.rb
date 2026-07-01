@@ -105,11 +105,13 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(img["src"]).to include("/rails/active_storage/blobs/avatar.jpg")
     end
 
-    it "renders the placeholder when show_avatar: true and none is attached" do
-      channel = build_channel
+    it "renders the click-to-sync image placeholder when show_avatar: true and none is attached" do
+      channel = build_channel(handle: "@pito")
       allow(channel).to receive(:avatar_variant_url).and_return(nil)
       node = render_inline(described_class.new(channel: channel, show_avatar: true))
-      expect(node.at_css(".pito-channel-item__avatar--placeholder")).to be_present
+      box  = node.at_css(".pito-image-fallback.pito-image-fallback--circle.pito-channel-item__avatar")
+      expect(box).to be_present
+      expect(box["data-pito--chat-prefill-text-value"]).to eq("sync channel @pito")
       expect(node.css("img")).to be_empty
     end
 

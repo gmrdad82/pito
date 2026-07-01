@@ -155,6 +155,18 @@ RSpec.describe "Shares requests", type: :request do
       expect(response.body).not_to include("SECRET TITLE")
     end
 
+    it "does NOT render the shared message's #hashtag reply handle (read-only page)" do
+      repliable = Event.create_with_position!(
+        conversation: secret_conversation, turn: secret_turn,
+        kind: :system, payload: { body: "repliable body", reply_handle: "xy-9999", reply_target: "game_detail" }
+      )
+      sh = create(:share, conversation: secret_conversation, event: repliable)
+      get "/share/#{sh.uuid}"
+
+      expect(response.body).to include("repliable body")
+      expect(response.body).not_to include("xy-9999")
+    end
+
     it "excludes thinking events from the before_count (before_count = 1, not 2)" do
       # The before_count should be 1 (before_event only; thinking_event excluded).
       # We verify this by checking the intro body includes "1" somewhere close
@@ -177,12 +189,20 @@ RSpec.describe "Shares requests", type: :request do
       expect(response.body).to include("pito-scrollback")
     end
 
-    it "renders the reduced chatbox (unfold affordance)" do
+    it "renders the reduced chatbox prefilled with 'unfold'" do
       expect(response.body).to include("pito-chatbox")
+      expect(response.body).to include("unfold</textarea>")
     end
 
-    it "renders the unfold form pointing to the unfold route" do
-      expect(response.body).to include("/share/#{share.uuid}/unfold")
+    it "wires the pito--share-unfold affordance with an Enter link to the conversation" do
+      expect(response.body).to include("pito--share-unfold")
+      expect(response.body).to include(%(href="/chat/#{secret_conversation.uuid}"))
+    end
+
+    it "strips the chrome — no auth mini-status on the share page (item 44)" do
+      # The anonymous auth indicator ("● tarnished") used to render on the share
+      # page; item 44 removes all chrome, so it must be gone.
+      expect(response.body).not_to include(I18n.t("pito.shell.mini_status.anonymous"))
     end
   end
 end

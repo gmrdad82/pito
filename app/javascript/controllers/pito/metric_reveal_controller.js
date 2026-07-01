@@ -23,14 +23,12 @@
 // through its concrete subclasses (no element uses `pito--metric-reveal`).
 
 import { Controller } from "@hotwired/stimulus"
-import { motionDisabled } from "pito/settings"
 
 export default class extends Controller {
   static targets = ["plot", "row"]
 
   connect() {
     this._timers = []
-    if (motionDisabled()) return // fx off / reduced motion → leave it whole
 
     this.element.classList.add("is-revealing")
     this._raf = requestAnimationFrame(() => this.animate())

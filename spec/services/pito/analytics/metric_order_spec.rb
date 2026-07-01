@@ -4,27 +4,26 @@ require "rails_helper"
 
 RSpec.describe Pito::Analytics::MetricOrder do
   describe ".for" do
-    it "returns the :system order for a vid (area charts first, then heart + scalars; NO subscribed_status)" do
+    it "returns the :system order for a vid (area charts first, then heart; comments moved to :enhanced)" do
       expect(described_class.for(role: :system, level: :vid)).to eq(
-        %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments]
+        %i[views watched_hours subs avg_view_duration avg_viewed_pct likes]
       )
     end
 
-    it "returns the :enhanced order for a vid (bars first in owner order, retention available)" do
+    it "returns the :enhanced order for a vid (heatmap first, bars, retention, comments last)" do
       expect(described_class.for(role: :enhanced, level: :vid)).to eq(
-        %i[subscribed_status devices geography demographics_age demographics_gender retention day_of_week_heatmap]
+        %i[day_of_week_heatmap subscribed_status devices geography demographics_age demographics_gender retention comments]
       )
     end
 
-    it "skips retention (vid-only) for a game" do
-      expect(described_class.for(role: :enhanced, level: :game)).not_to include(:retention)
+    it "includes retention for a game (channel/game aggregate the vids' curves)" do
       expect(described_class.for(role: :enhanced, level: :game)).to eq(
-        %i[subscribed_status devices geography demographics_age demographics_gender day_of_week_heatmap]
+        %i[day_of_week_heatmap subscribed_status devices geography demographics_age demographics_gender retention comments]
       )
     end
 
-    it "skips retention (vid-only) for a channel" do
-      expect(described_class.for(role: :enhanced, level: :channel)).not_to include(:retention)
+    it "includes retention for a channel" do
+      expect(described_class.for(role: :enhanced, level: :channel)).to include(:retention)
     end
 
     it "keeps :system identical across levels, with subscribed_status moved to :enhanced" do
@@ -37,10 +36,10 @@ RSpec.describe Pito::Analytics::MetricOrder do
   end
 
   describe ".available?" do
-    it "is vid-only for retention" do
+    it "is available at every level for retention (channel/game aggregate the vids)" do
       expect(described_class.available?(:retention, :vid)).to be(true)
-      expect(described_class.available?(:retention, :game)).to be(false)
-      expect(described_class.available?(:retention, :channel)).to be(false)
+      expect(described_class.available?(:retention, :game)).to be(true)
+      expect(described_class.available?(:retention, :channel)).to be(true)
     end
 
     it "is available everywhere for non-restricted metrics" do
@@ -75,8 +74,8 @@ RSpec.describe Pito::Analytics::MetricOrder do
       expect(described_class.reports(role: :enhanced, level: :vid)).to match_array(
         %w[subscribed_status device country demographics retention daily]
       )
-      # :enhanced game → no retention
-      expect(described_class.reports(role: :enhanced, level: :game)).not_to include("retention")
+      # :enhanced game → now includes retention (channel/game aggregate the vids)
+      expect(described_class.reports(role: :enhanced, level: :game)).to include("retention")
     end
   end
 end

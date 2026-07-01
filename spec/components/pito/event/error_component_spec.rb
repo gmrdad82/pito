@@ -71,16 +71,13 @@ RSpec.describe Pito::Event::ErrorComponent do
     end
   end
 
-  describe "typewriter reveal" do
+  describe "instant render (item 18: no typewriter)" do
     subject(:node) { render_inline(described_class.new(payload: { text: "Boom" })) }
 
-    it "mounts the typewriter controller so the error reveals in sequence" do
-      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
-    end
-
-    it "tags the error content as an htmlProse target (visibility-toggle reveal)" do
-      wrapper = node.css("div[data-controller~='pito--typewriter']").first
-      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
+    it "renders the error instantly with no typewriter wiring" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.text).to include("Boom")
     end
   end
 end

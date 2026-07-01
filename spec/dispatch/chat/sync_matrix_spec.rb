@@ -14,7 +14,8 @@ require "rails_helper"
 # Branches:
 #   channels branch  — CHANNEL_NOUN_FILLERS in raw (channel/channels, no leading -)
 #   video branch     — VIDEO_NOUN_FILLERS in raw (vid/vids/video/videos, no leading -)
-#   needs_ref        — bare sync, --flag forms, sync game <ref> (game is reply-only)
+#   game branch      — `game(s)` in raw WITH an #id → direct id-based game sync
+#   needs_ref        — bare sync, --flag forms, `sync game` WITHOUT an #id
 #
 # Video branch sub-cases:
 #   #id(s) present           → ids win; scope ignored; video_ids: [ids], channel_ids: []
@@ -386,6 +387,30 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
     end
   end
 
+  # ── 11b. Channels — inline @handle scopes to that channel ────────────────────
+  #
+  # `sync channel @handle` typed directly scopes to that one channel (overriding
+  # the shift+tab scope) so an image-fallback click is self-contained. `@all`
+  # inline is not a specific handle → all channels.
+
+  describe "channel noun — inline @handle overrides shift+tab scope" do
+    it "sync channel @pito (no shift+tab) → channel_ids: [#{SYNC_CHAN_ID}]" do
+      p = payload_of("sync channel @pito")
+      expect(p["command"]).to eq("sync_channel")
+      expect(p["channel_ids"]).to eq([ SYNC_CHAN_ID ])
+    end
+
+    it "inline @pito beats a shift+tab @all scope" do
+      p = payload_of("sync channel @pito", channel: "@all")
+      expect(p["channel_ids"]).to eq([ SYNC_CHAN_ID ])
+    end
+
+    it "@all inline is not a specific handle → all channels ([])" do
+      p = payload_of("sync channel @all")
+      expect(p["channel_ids"]).to eq([])
+    end
+  end
+
   # ── 12. --flag forms — NOT recognized nouns ───────────────────────────────────
   #
   # Negative lookbehind (?<!-) in both channels_form? and videos_form? prevents
@@ -403,8 +428,9 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
 
   # ── 13. Bare sync / unrecognized noun → needs_ref Error ──────────────────────
   #
-  # `sync game <ref>` → game sync is reply-only in free chat (no games_form?
-  # predicate exists). All these inputs fall through to the else → needs_ref.
+  # `sync game` WITHOUT an `#id` is still ambiguous in free chat — game sync is
+  # id-explicit (`sync game #id`, tested below) or reply-only (`#<handle> sync`
+  # on a game card). Everything here falls through to needs_ref.
 
   describe "bare / unrecognized noun → needs_ref Error" do
     [
@@ -422,6 +448,39 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
         expect(result).to be_a(Pito::Chat::Result::Error)
         expect(result.message_key).to eq("pito.chat.sync.needs_ref")
       end
+    end
+  end
+
+  # ── 13b. Direct game sync by id (sync game #id) ──────────────────────────────
+  #
+  # `sync game #id` re-syncs that one game from IGDB — the same confirmation the
+  # `#<handle> sync` reply on a game card builds. Only the FIRST id is used
+  # (game sync is single-target). No id → needs_ref (covered above).
+
+  describe "game noun — direct id sync (sync game #id)" do
+    it "sync game #3 → sync_game, game_id: #{SYNC_GAME_ID}" do
+      p = payload_of("sync game #3")
+      expect(p["command"]).to eq("sync_game")
+      expect(p["game_id"]).to eq(SYNC_GAME_ID)
+    end
+
+    it "sync games #3 (plural noun) also syncs by id" do
+      p = payload_of("sync games #3")
+      expect(p["command"]).to eq("sync_game")
+      expect(p["game_id"]).to eq(SYNC_GAME_ID)
+    end
+
+    it "uses only the FIRST id when several are given" do
+      allow(::Game).to receive(:find_by).with(id: 3).and_return(game_double)
+      call("sync game #3 #4")
+      expect(::Game).to have_received(:find_by).with(id: 3)
+    end
+
+    it "returns needs_ref when the game id does not resolve" do
+      allow(::Game).to receive(:find_by).and_return(nil)
+      result = call("sync game #999")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.sync.needs_ref")
     end
   end
 

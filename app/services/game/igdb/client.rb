@@ -127,6 +127,7 @@ class Game
         alternative_names.id
         alternative_names.name
         release_dates.category release_dates.y release_dates.m release_dates.d release_dates.date
+        release_dates.platform.id release_dates.platform.name
       ].freeze
 
       def initialize(token_cache: TokenCache.new, rate_limiter: RateLimiter.shared, http: Net::HTTP)
@@ -337,6 +338,12 @@ class Game
       # do not carry this pattern and are dropped by filter_search_hits.
       COMBO_NAME = / \+ /
 
+      # Bundle-name ALLOWLIST (owner 2026-07-01): keep bundle (gt3) rows whose
+      # name is a legit standalone release the owner wants — GOTY / Game of the
+      # Year / Anniversary editions (e.g. "Rayman: 30th Anniversary Edition") —
+      # in addition to combo bundles. Case-insensitive (goty/GOTY/GoTY, etc.).
+      BUNDLE_KEEP_NAME = /\b(goty|game of the year|anniversary)\b/i
+
       # Drop edition/DLC/bundle rows by name. Skipped when the user's query
       # itself names an edition term (an explicit edition search should return
       # the editions). Called only for gt0/8/9/null rows by filter_search_hits.
@@ -352,10 +359,12 @@ class Game
       #   standalone titles even when the name contains "Edition" or a colon
       #   prefix (e.g. "Kirby and the Forgotten Land: Nintendo Switch 2
       #   Edition + Star-Crossed World"). Name filters must not touch them.
-      # Rule 3: game_type 3 (bundle) — keep only combo bundles whose name
-      #   contains " + " (e.g. "Super Mario 3D World + Bowser's Fury").
-      #   Non-combo gt3 rows (Deluxe/Collector editions, packs, season passes)
-      #   are dropped here regardless of EDITION_NOISE.
+      # Rule 3: game_type 3 (bundle) — keep combo bundles whose name contains
+      #   " + " (e.g. "Super Mario 3D World + Bowser's Fury") OR bundles on the
+      #   BUNDLE_KEEP_NAME allowlist (GOTY / Game of the Year / Anniversary
+      #   editions the owner imports as standalone titles). Other non-combo gt3
+      #   rows (Deluxe/Collector editions, packs, season passes) are dropped here
+      #   regardless of EDITION_NOISE.
       # Rule 4: all other types (gt0/8/9/null) — apply the existing colon-
       #   prefix denoise + EDITION_NOISE name safety net (query bypass intact).
       #
@@ -375,7 +384,8 @@ class Game
           when GAME_TYPE_EXPANDED_GAME
             true
           when GAME_TYPE_BUNDLE
-            row["name"].to_s.match?(COMBO_NAME)
+            name = row["name"].to_s
+            name.match?(COMBO_NAME) || name.match?(BUNDLE_KEEP_NAME)
           else
             colon_noise   = !row.equal?(top) && !top_name.empty? && row["name"].to_s.start_with?("#{top_name}:")
             edition_noise = !query_is_edition && row["name"].to_s.match?(EDITION_NOISE)

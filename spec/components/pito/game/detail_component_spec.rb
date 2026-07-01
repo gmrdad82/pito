@@ -185,11 +185,21 @@ RSpec.describe Pito::Game::DetailComponent do
   end
 
   describe "release label" do
-    it "renders the release label" do
+    it "renders the release label (single, no per-platform rows)" do
       released_game = create(:game, release_year: 2023, release_month: 3, release_day: 15,
                                     release_date: Date.new(2023, 3, 15))
       node = render_inline(described_class.new(game: released_game))
       expect(node.text).to include("2023")
+    end
+
+    it "renders the per-platform release rows with logos when present (Item 24)" do
+      g = create(:game, release_year: 2026, release_month: 7, release_day: 31)
+      create(:game_platform_release, game: g, platform_token: "ps",     release_year: 2026, release_month: 7, release_day: 31)
+      create(:game_platform_release, game: g, platform_token: "switch", release_year: 2026, release_month: nil, release_day: nil, release_quarter: 3)
+      node = render_inline(described_class.new(game: g))
+      rows = node.css(".pito-platform-release__row")
+      expect(rows.length).to eq(2)
+      expect(node.css("img.pito-platform-icon").map { |i| i["src"] }).to include("/platforms/playstation.svg", "/platforms/switch.svg")
     end
   end
 
@@ -233,14 +243,14 @@ RSpec.describe Pito::Game::DetailComponent do
   # ── Platform icons ──────────────────────────────────────────────────────────
 
   describe "available platforms (SVG logo icons)" do
-    it "renders <img> platform icons for 'PlayStation 4' and 'PC (Microsoft Windows)' (Xbox dropped)" do
+    it "renders <img> platform icons for PlayStation, Steam, and Xbox (Item 24)" do
       g = create(:game, platforms: [ "PlayStation 4", "PC (Microsoft Windows)", "Xbox One" ])
       node = render_inline(described_class.new(game: g))
-      expect(node.css("img.pito-platform-icon").map { |i| i["src"] }).to include("/platforms/playstation.svg")
-      expect(node.css("img.pito-platform-icon").map { |i| i["src"] }).to include("/platforms/steam.svg")
-      # Xbox One has no matching token — no Xbox icon
-      xbox_icons = node.css("img.pito-platform-icon").select { |i| i["src"].include?("xbox") }
-      expect(xbox_icons).to be_empty
+      srcs = node.css("img.pito-platform-icon").map { |i| i["src"] }
+      expect(srcs).to include("/platforms/playstation.svg")
+      expect(srcs).to include("/platforms/steam.svg")
+      # Xbox now has a token — its icon renders (Item 24)
+      expect(srcs).to include("/platforms/xbox.svg")
       # No bordered chips
       expect(node.css("span.border")).to be_empty
     end
@@ -384,9 +394,13 @@ RSpec.describe Pito::Game::DetailComponent do
 
   describe "cover art" do
     context "when no cover art is attached" do
-      it "renders the no_cover placeholder" do
-        node = render_inline(described_class.new(game: game))
-        expect(node.text).to include(I18n.t("pito.game.detail.no_cover"))
+      it "renders the click-to-sync image placeholder (rect) in the cover box (item 22)" do
+        node     = render_inline(described_class.new(game: game))
+        fallback = node.at_css(".pito-game-detail__cover .pito-image-fallback")
+        expect(fallback).to be_present
+        expect(fallback.at_css(".pito-image-fallback--circle")).to be_nil
+        expect(fallback["data-pito--chat-prefill-text-value"]).to eq("sync game ##{game.id}")
+        expect(fallback["data-pito--chat-prefill-submit-value"]).to eq("true")
       end
     end
 
@@ -412,11 +426,7 @@ RSpec.describe Pito::Game::DetailComponent do
   #     (same footprint as the show-video thumbnail). CSS sets width/height/overflow.
   #   - When cover art is attached the <img> carries class `pito-cover-pan`,
   #     which CSS animates with a slow vertical translateY ping-pong.
-  #   - When /config fx is off OR prefers-reduced-motion is set, CSS disables
-  #     the animation and locks the image at translateY(0) (top-anchored).
-  #     There is no separate DOM class for the static state — CSS handles it via
-  #     @media (prefers-reduced-motion: reduce) and
-  #     html:has(#pito-settings[data-fx="false"]) .pito-cover-pan { animation: none }.
+  #   - The Ken-Burns pan always animates (item 18 removed the fx/motion gate).
   #   - When no cover art is attached the placeholder <div> carries neither
   #     `pito-cover-pan` nor any animation class.
 
@@ -454,11 +464,11 @@ RSpec.describe Pito::Game::DetailComponent do
         expect(node.css(".pito-cover-pan")).to be_empty
       end
 
-      it "the cover container still renders (holds the placeholder text)" do
+      it "the cover container still renders (holds the image placeholder)" do
         node = render_inline(described_class.new(game: game))
         cover = node.css(".pito-game-detail__cover").first
         expect(cover).not_to be_nil
-        expect(cover.text).to include(I18n.t("pito.game.detail.no_cover"))
+        expect(cover.at_css(".pito-image-fallback")).to be_present
       end
     end
   end

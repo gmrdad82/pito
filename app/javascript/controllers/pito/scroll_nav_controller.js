@@ -37,20 +37,19 @@
 
 import { Controller } from "@hotwired/stimulus"
 
-// Tailwind's `hidden` class — added to hide a pill, removed to show it.
-// The base .pito-scroll-nav__pill CSS sets display:flex so removing `hidden`
-// is all that is needed to reveal it.
-const HIDDEN = "hidden"
-
 export default class extends Controller {
-  static targets = ["topPill", "bottomPill", "topCount", "bottomCount"]
+  static targets = ["topTemplate", "bottomTemplate"]
   static values  = { variants: Array }
 
   connect() {
     this.scrollback = document.getElementById("pito-scrollback")
     if (!this.scrollback) return
 
-    // Variant index currently shown for each pill (-1 = pill is hidden).
+    // The live pill element for each side (null = not in the DOM) and the variant
+    // index currently rendered (-1 = no pill). Pills are CREATED and REMOVED from
+    // the DOM — never show/hidden — so their presence alone is the "shown" state.
+    this._topEl     = null
+    this._bottomEl  = null
     this._topIdx    = -1
     this._bottomIdx = -1
 
@@ -74,6 +73,16 @@ export default class extends Controller {
     // either opens and reappear when both close.
     this.#watchOverlays()
 
+    // Re-count when the scrollback CONTENT changes size/shape — a Turbo append or
+    // an fx reveal (typewriter / comet) can grow a message's height AFTER the
+    // auto-scroll settled, with NO further scroll event to refresh the pills. That
+    // left a stale "1 below" lit while already at the bottom (17.15). The rAF
+    // throttle in #onScroll coalesces bursts to one #update per frame.
+    this._contentObserver = new MutationObserver(this.#onScroll.bind(this))
+    this._contentObserver.observe(this.scrollback, {
+      childList: true, subtree: true, characterData: true,
+    })
+
     // Initial count — needed for pages where the user loads mid-scroll.
     this.#update()
   }
@@ -81,6 +90,9 @@ export default class extends Controller {
   disconnect() {
     this._abort?.abort()
     this._overlayObserver?.disconnect()
+    this._contentObserver?.disconnect()
+    this._topEl?.remove()
+    this._bottomEl?.remove()
   }
 
   // ── Public actions (wired via data-action on yellow tokens) ───────────────
@@ -119,11 +131,11 @@ export default class extends Controller {
     }
   }
 
-  // Count messages fully outside the viewport; show/hide pills accordingly.
+  // Count messages fully outside the viewport; create/remove pills accordingly.
   #update() {
     if (this.#overlaysOpen()) {
-      this.#hidePill("top")
-      this.#hidePill("bottom")
+      this.#removePill("top")
+      this.#removePill("bottom")
       return
     }
 
@@ -135,10 +147,10 @@ export default class extends Controller {
     const EPS = 4
 
     // Not scrollable — every message fits in the viewport → nothing is above or
-    // below; hide BOTH pills (17.2: a short 4-message convo must show neither).
+    // below; remove BOTH pills (17.2: a short 4-message convo must show neither).
     if (scrollHeight <= clientHeight + EPS) {
-      this.#hidePill("top")
-      this.#hidePill("bottom")
+      this.#removePill("top")
+      this.#removePill("bottom")
       return
     }
 
@@ -155,61 +167,54 @@ export default class extends Controller {
       else if (r.top >= containerRect.bottom - EPS) below++
     }
 
-    // Authoritative extremes (17.3/17.6): at the very top nothing is above; at
-    // the very bottom nothing is below. FORCE the count to 0 there so a sub-pixel
-    // straddle or the scrollback's trailing padding spacer can never keep a pill
-    // lit at the edge — the count, not just the show-condition, drops to 0.
+    // Authoritative extremes: at the very top nothing is above; at the very bottom
+    // nothing is below. FORCE the count to 0 there so a sub-pixel straddle or the
+    // trailing padding spacer can never leave a pill at the edge. At true max
+    // scroll `scrollTop + clientHeight === scrollHeight`, so atBottom is reliably
+    // true — the stale case is cured by the content MutationObserver re-running.
     const atTop    = scrollTop <= EPS
     const atBottom = scrollTop + clientHeight >= scrollHeight - EPS
     if (atTop) above = 0
     if (atBottom) below = 0
 
-    if (above > 0) {
-      this.#showPill("top", above)
-    } else {
-      this.#hidePill("top")
-    }
+    if (above > 0) this.#ensurePill("top", above)
+    else this.#removePill("top")
 
-    if (below > 0) {
-      // 17.2c: anchor the bottom pill flush to the BOTTOM of the scrollback —
-      // which is the TOP of the context bar directly beneath it — so it touches
-      // the context bar with no gap. documentElement.clientHeight is the stable
-      // layout viewport (unaffected by mobile browser chrome).
-      const viewportH = document.documentElement.clientHeight
-      this.bottomPillTarget.style.bottom = `${Math.max(0, viewportH - containerRect.bottom)}px`
-      this.#showPill("bottom", below)
-    } else {
-      this.#hidePill("bottom")
-    }
+    if (below > 0) this.#ensurePill("bottom", below)
+    else this.#removePill("bottom")
   }
 
-  // Show a pill: pick a new variant on hidden→visible, then interpolate + render.
-  #showPill(side, count) {
-    const pill     = side === "top" ? this.topPillTarget    : this.bottomPillTarget
-    const countEl  = side === "top" ? this.topCountTarget   : this.bottomCountTarget
-    const isHidden = side === "top" ? this._topIdx === -1   : this._bottomIdx === -1
+  // Ensure the pill for `side` exists in the DOM — CREATE it (clone the matching
+  // <template>, pick a fresh variant, append into the controller root) on first
+  // need — then update its count text. The element's presence IS the shown state;
+  // there is no show/hide toggle.
+  #ensurePill(side, count) {
+    let el = side === "top" ? this._topEl : this._bottomEl
 
-    if (isHidden) {
-      // Pick a new variant; must not duplicate the opposite pill's current index.
+    if (!el) {
+      // Pick a variant distinct from the opposite pill's current one.
       const oppositeIdx = side === "top" ? this._bottomIdx : this._topIdx
-      const newIdx      = this.#pickVariant(oppositeIdx)
-      if (side === "top") this._topIdx = newIdx
-      else this._bottomIdx = newIdx
+      const idx         = this.#pickVariant(oppositeIdx)
+      const template    = side === "top" ? this.topTemplateTarget : this.bottomTemplateTarget
+      el = template.content.firstElementChild.cloneNode(true)
+      this.element.appendChild(el)
+      if (side === "top") { this._topEl = el; this._topIdx = idx }
+      else { this._bottomEl = el; this._bottomIdx = idx }
     }
 
-    const idx       = side === "top" ? this._topIdx    : this._bottomIdx
-    const direction = side === "top" ? "above"         : "below"
-    countEl.textContent = this.#format(idx, count, direction)
-
-    pill.classList.remove(HIDDEN)
+    const idx       = side === "top" ? this._topIdx : this._bottomIdx
+    const direction = side === "top" ? "above" : "below"
+    const countEl   = el.querySelector("[data-scroll-nav-count]")
+    if (countEl) countEl.textContent = this.#format(idx, count, direction)
   }
 
-  // Hide a pill and reset its variant slot so the next show picks a fresh one.
-  #hidePill(side) {
-    const pill = side === "top" ? this.topPillTarget : this.bottomPillTarget
-    pill.classList.add(HIDDEN)
-    if (side === "top") this._topIdx = -1
-    else this._bottomIdx = -1
+  // Remove the pill for `side` from the DOM entirely and reset its slot so the
+  // next create picks a fresh variant.
+  #removePill(side) {
+    const el = side === "top" ? this._topEl : this._bottomEl
+    if (el) el.remove()
+    if (side === "top") { this._topEl = null; this._topIdx = -1 }
+    else { this._bottomEl = null; this._bottomIdx = -1 }
   }
 
   // Interpolate %{count} / %{direction} and resolve {singular|plural} nouns into

@@ -20,9 +20,9 @@ module Pito
         watched_hours:       { label: "watch_hours",          report: "scalars" },
         avg_view_duration:   { label: "avg_view_duration",    report: "scalars" },
         avg_viewed_pct:      { label: "avg_viewed_pct",       report: "scalars" },
-        comments:            { label: "comments",             report: "scalars" },
+        comments:            { label: "comments",             report: "daily" },
         subscribed_status:   { label: "subscribed_status",    report: "subscribed_status" },
-        retention:           { label: "retention",            report: "retention", vid_only: true },
+        retention:           { label: "retention",            report: "retention" },
         devices:             { label: "devices",              report: "device" },
         geography:           { label: "geography",            report: "country" },
         day_of_week_heatmap: { label: "day_of_week_heatmap",  report: "daily" },
@@ -32,11 +32,13 @@ module Pito
 
       # Owner-defined order. :system groups the area-chart metrics first (the visual
       # charts together at the top), then the likes heart + remaining scalars.
-      # :enhanced leads with the lifetime audience-composition BARS in the owner's
-      # order — subscribers, device, country(geography), age, gender — then the rest
-      # (retention, weekday heatmap). (subscribers moved :system → :enhanced 2026-06-29.)
-      SYSTEM   = %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments].freeze
-      ENHANCED = %i[subscribed_status devices geography demographics_age demographics_gender retention day_of_week_heatmap].freeze
+      # :enhanced LEADS with the day-of-week heatmap (owner 2026-07-01), then the
+      # lifetime audience-composition BARS (subscribers, device, country/geography,
+      # age, gender), retention (now on channel + game too, not vid-only), and
+      # finally comments as an Area chart in the LAST position (moved :system →
+      # :enhanced 2026-07-01). (subscribers moved :system → :enhanced 2026-06-29.)
+      SYSTEM   = %i[views watched_hours subs avg_view_duration avg_viewed_pct likes].freeze
+      ENHANCED = %i[day_of_week_heatmap subscribed_status devices geography demographics_age demographics_gender retention comments].freeze
       ROLE_METRICS = { system: SYSTEM, enhanced: ENHANCED }.freeze
 
       module_function

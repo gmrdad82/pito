@@ -10,10 +10,14 @@ RSpec.describe Pito::Analytics::Scaffold do
   describe ".for" do
     it "is true for metrics whose report returned data, false otherwise" do
       # subscribed_status moved to :enhanced; check its own (empty) report there
-      # alongside devices (own report, has data). :channel avoids the retention path.
+      # alongside devices (own report, has data). Retention is now available at
+      # channel level too, so stub its single-video probe to return no rows.
       allow(Pito::Analytics::Primitives).to receive(:fetch) do |report:, **|
         report == "device" ? { "v1" => [ { "device_type" => "MOBILE", "views" => 10 } ] } : {}
       end
+      allow(Channel::Youtube::AnalyticsClient).to receive(:new).and_return(
+        instance_double(Channel::Youtube::AnalyticsClient, retention: [])
+      )
 
       result = described_class.for(groups:, window:, role: :enhanced, level: :channel)
 
@@ -24,8 +28,10 @@ RSpec.describe Pito::Analytics::Scaffold do
     it "gives metrics sharing one report the same flag" do
       allow(Pito::Analytics::Primitives).to receive(:fetch).and_return({})
 
+      # views/subs/likes all share the scalars report in :system (comments moved to
+      # :enhanced as an area chart).
       result = described_class.for(groups:, window:, role: :system, level: :vid)
-      expect(result.values_at(:views, :subs, :likes, :comments)).to all(be(false))
+      expect(result.values_at(:views, :subs, :likes)).to all(be(false))
     end
 
     it "treats a report that errors as not-pulled (rescued)" do
@@ -42,7 +48,7 @@ RSpec.describe Pito::Analytics::Scaffold do
     end
   end
 
-  describe "retention (vid-only, special single-video path)" do
+  describe "retention (special single-video probe path)" do
     it "probes the first video and is true when retention rows return" do
       allow(Pito::Analytics::Primitives).to receive(:fetch).and_return({})
       client = instance_double(Channel::Youtube::AnalyticsClient, retention: [ { elapsed_video_time_ratio: 0.0 } ])

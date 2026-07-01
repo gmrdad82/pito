@@ -66,22 +66,12 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
 
   # ── diff-reveal controller wiring ────────────────────────────────────────────
 
-  describe "pito--diff-reveal controller wiring" do
+  describe "instant render (item 18: no diff-reveal morph)" do
     subject(:node) { render_inline(described_class.new(payload: preview_payload, event: base_event)) }
 
-    it "wraps content in a div with data-controller='pito--diff-reveal'" do
-      wrapper = node.css("[data-controller='pito--diff-reveal']").first
-      expect(wrapper).not_to be_nil
-    end
-
-    it "sets data-pito--diff-reveal-granularity-value" do
-      wrapper = node.css("[data-controller='pito--diff-reveal']").first
-      expect(wrapper["data-pito--diff-reveal-granularity-value"]).to eq("char")
-    end
-
-    it "sets data-pito--diff-reveal-phase-value" do
-      wrapper = node.css("[data-controller='pito--diff-reveal']").first
-      expect(wrapper["data-pito--diff-reveal-phase-value"]).to eq("preview")
+    it "has no diff-reveal controller or cell wiring" do
+      expect(node.css("[data-controller~='pito--diff-reveal']")).to be_empty
+      expect(node.css("[data-pito--diff-reveal-target]")).to be_empty
     end
   end
 
@@ -108,25 +98,9 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
       expect(bordered).not_to be_nil
     end
 
-    it "renders a diff cell span for the previewed row's marker" do
-      cells = node.css("span[data-pito--diff-reveal-target='cell']")
-      expect(cells).not_to be_empty
-    end
-
-    it "diff cell textContent includes the '‹preview›' marker" do
-      cell = node.css("span[data-pito--diff-reveal-target='cell']").first
-      expect(cell.text).to include("‹preview›")
-    end
-
-    it "diff cell data-from is the row's original text (without preview marker)" do
-      cell = node.css("span[data-pito--diff-reveal-target='cell']").first
-      expect(cell["data-from"]).to eq("  dracula")
-    end
-
-    it "non-previewed rows do NOT have diff cell markup" do
-      # Count all diff cells — should only be 1 (the previewed row)
-      cells = node.css("span[data-pito--diff-reveal-target='cell']")
-      expect(cells.size).to eq(1)
+    it "shows the '‹preview›' marker as plain text (no diff cell)" do
+      expect(node.css("span[data-pito--diff-reveal-target='cell']")).to be_empty
+      expect(node.text).to include("‹preview›")
     end
   end
 
@@ -135,25 +109,9 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
   describe "apply phase rendering" do
     subject(:node) { render_inline(described_class.new(payload: apply_payload, event: base_event)) }
 
-    it "sets phase value to 'apply' on the controller wrapper" do
-      wrapper = node.css("[data-controller='pito--diff-reveal']").first
-      expect(wrapper["data-pito--diff-reveal-phase-value"]).to eq("apply")
-    end
-
-    it "sets granularity to 'line'" do
-      wrapper = node.css("[data-controller='pito--diff-reveal']").first
-      expect(wrapper["data-pito--diff-reveal-granularity-value"]).to eq("line")
-    end
-
-    it "renders ONE diff cell with the quip as textContent (final state)" do
-      cells = node.css("span[data-pito--diff-reveal-target='cell']")
-      expect(cells.size).to eq(1)
-      expect(cells.first.text).to eq("Your eyes are now glazed by Dracula.")
-    end
-
-    it "diff cell data-from is the old list's plain text" do
-      cell = node.css("span[data-pito--diff-reveal-target='cell']").first
-      expect(cell["data-from"]).to include("Pick a theme")
+    it "renders the quip as plain text instantly (no diff cell)" do
+      expect(node.css("span[data-pito--diff-reveal-target='cell']")).to be_empty
+      expect(node.text).to include("Your eyes are now glazed by Dracula.")
     end
 
     it "does NOT render section rows (apply phase is a single confirmation)" do

@@ -6,13 +6,11 @@
 // faulty neon sign warming up. The flicker visuals live in CSS
 // (`.pito-logo.is-revealing`); this controller only schedules the random timing.
 //
-// fx-INDEPENDENT (ignores the /config fx EFFECT) but motion-aware: with motion
-// off / prefers-reduced-motion it does nothing and the logo renders solid.
+// Always plays (item 18: no fx toggle / reduced-motion respect).
 //
 // Auto-registered via eagerLoadControllersFrom.
 
 import { Controller } from "@hotwired/stimulus"
-import { motionDisabled } from "pito/settings"
 
 const REVEAL_WINDOW_MS = 900  // all cells lit within this window (random per cell)
 const FLICKER_LEAD_MS  = 800  // gap after the reveal before the first rare flicker
@@ -23,8 +21,6 @@ const FLICKER_HOLD_MS  = 280
 export default class extends Controller {
   connect() {
     this._timers = []
-    if (motionDisabled()) return // fx off / reduced motion → solid logo
-
     this.cells = [...this.element.querySelectorAll(".pito-logo__cell")]
     if (this.cells.length === 0) return
 

@@ -49,13 +49,11 @@ module Pito
 
       def accent         = :surface
 
-      # Transparent by default; a reply that MUTATES this segment in place
-      # (a `:mutate` follow-up — sort / add column / re-render) stamps
-      # `surface: true` on the rebuilt payload so the updated segment lifts onto
-      # the surface background as a "this was just changed by your reply" cue.
-      def background
-        "var(--bg-surface)" if @payload[:surface] == true || @payload[:surface] == "true"
-      end
+      # Always transparent (left bar only). Replies/follow-ups no longer elevate a
+      # message onto the surface background — the payload[:surface] "just changed by
+      # your reply" lift was removed (owner 2026-07-01). Messages that come surfaced
+      # do so via their own component (e.g. *_follow_up), not via this flag.
+      def background = nil
 
       # True when this system message has a follow-up handle and is not yet consumed.
       def followupable?
@@ -112,13 +110,10 @@ module Pito
       end
 
       # Renders one data-grid cell <span>. Carries any per-cell `data:` (the
-      # chat-prefill seam for clickable `#id` cells) plus, when +typewriter+ is
-      # set, the typewriter reveal target (htmlProse for html cells, prose
-      # otherwise — matching the non-html body path). HTML cells render their
-      # text raw; plain cells are escaped.
-      def render_cell_span(cell, typewriter: false)
-        data = cell[:data].present? ? cell[:data].to_h.dup : {}
-        data["pito--typewriter-target"] = cell[:html] ? "htmlProse" : "prose" if typewriter
+      # chat-prefill seam for clickable `#id` cells). HTML cells render their
+      # text raw; plain cells are escaped. (Renders instantly — item 18.)
+      def render_cell_span(cell)
+        data    = cell[:data].present? ? cell[:data].to_h.dup : {}
         content = cell[:html] ? raw(cell[:text].to_s) : cell[:text].to_s
         tag.span(content, class: cell[:class], data: data.presence)
       end

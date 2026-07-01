@@ -11,10 +11,10 @@ module Pito
     # Rules:
     #   * `with` is a magic word (case-insensitive, on a word boundary).
     #   * Columns are comma-separated — split on /\s*,\s*/ so both `,` and `, `
-    #     work and multi-word columns like "release date" stay intact.
+    #     work and any multi-word column token stays intact.
     #   * The clause ends at the sort clause (sort/sorted/order/ordered, with an
-    #     optional `by`) or at end-of-input, so both `with platform sorted by year`
-    #     and `with platform sort by year` yield just [:platform].
+    #     optional `by`) or at end-of-input, so both `with platform sorted by price`
+    #     and `with platform sort by price` yield just [:platform].
     #   * Each token is stripped + downcased, mapped through +vocabulary+
     #     (alias → canonical Symbol); unknown tokens are dropped; canonical
     #     values are de-duplicated preserving first-seen order.

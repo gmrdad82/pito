@@ -1,9 +1,5 @@
 <% if body %>
-  <% if typewriter? %>
-    <%= leading_prefix %><span class="text-fg"<% if owns_controller? %> data-controller="pito--typewriter"<% end %> data-pito--typewriter-target="body"><%= body %></span>
-  <% else %>
-    <%= leading_prefix %><span class="text-fg"><%= html? ? raw(filled_body) : body %></span>
-  <% end %>
+  <%= leading_prefix %><span class="text-fg"><%= html? ? raw(filled_body) : body %></span>
 <% end %>
 <% if detail.any? %>
   <div class="mt-1.5 border-t border-line-default pt-1.5">

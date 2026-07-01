@@ -37,16 +37,14 @@
       <% similar_game_results.each do |result| %>
         <div class="pito-game-enhanced-message__similar-game-card"
              data-game-id="<%= result.game.id %>">
-          <% url = cover_art_url_for(result.game) %>
-          <% if url %>
-            <%= image_tag url,
-                          alt: result.game.title,
-                          class: "pito-game-enhanced-message__similar-game-cover block" %>
-          <% else %>
-            <div class="pito-game-enhanced-message__similar-game-cover pito-game-enhanced-message__similar-game-cover--placeholder text-fg-faded">
-              ?
-            </div>
-          <% end %>
+          <%= render Pito::ImageRender.call(
+                url:            cover_art_url_for(result.game),
+                shape:          :rect,
+                sync_command:   "sync game ##{result.game.id}",
+                alt:            result.game.title.to_s,
+                html_class:     "pito-game-enhanced-message__similar-game-cover block",
+                fallback_class: "pito-game-enhanced-message__similar-game-cover"
+              ) %>
           <%# id and title on one line: "#12 Elden Ring". Flex keeps the id
               fixed while the title truncates; gap provides the single-space
               separation (flex suppresses the monospace inter-element whitespace). %>

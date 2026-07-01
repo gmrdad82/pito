@@ -12,7 +12,7 @@ require "rails_helper"
 # ── What is mocked ──────────────────────────────────────────────────────────
 # • AppSetting.singleton_row.update! (google client_id/secret, voyage api_key)
 # • All AppSetting class-level writer methods (redirect_uri=, igdb_client_id=, …)
-# • All AppSetting class-level reader methods (sound_enabled?, fx_effect, …)
+# • All AppSetting class-level reader methods (sound_enabled?, nickname, …)
 #   → deterministic defaults so getter paths return predictable text
 # • Pito::Credentials.* reader methods (for provider status display)
 # • Pito::Credentials.invalidate!
@@ -21,7 +21,6 @@ require "rails_helper"
 #
 # ── What is NOT mocked ───────────────────────────────────────────────────────
 # • ActiveSupport::TimeZone lookups (pure library, no DB)
-# • AppSetting::FX_EFFECTS constant
 # • I18n (uses real locale files — spec fails fast if a copy key is missing)
 # • Pito::Copy.render (real, uses I18n)
 # • Pito::MessageBuilder::ManPage.render (real, produces HTML strings)
@@ -52,7 +51,7 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     allow(singleton_row).to receive(:update!)
     allow(AppSetting).to receive(:singleton_row).and_return(singleton_row)
 
-    # ── AppSetting class-level writers (igdb, webhook, sound, motion, fx, me, tz)
+    # ── AppSetting class-level writers (igdb, webhook, sound, me, tz)
     allow(AppSetting).to receive(:google_oauth_redirect_uri=)
     allow(AppSetting).to receive(:google_api_key=)
     allow(AppSetting).to receive(:igdb_client_id=)
@@ -60,8 +59,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     allow(AppSetting).to receive(:slack_webhook_url=)
     allow(AppSetting).to receive(:discord_webhook_url=)
     allow(AppSetting).to receive(:sound_enabled=)
-    allow(AppSetting).to receive(:fx_enabled=)
-    allow(AppSetting).to receive(:fx_effect=)
     allow(AppSetting).to receive(:nickname=)
     allow(AppSetting).to receive(:timezone=)
 
@@ -70,8 +67,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
 
     # ── AppSetting readers: deterministic defaults
     allow(AppSetting).to receive(:sound_enabled?).and_return(true)
-    allow(AppSetting).to receive(:fx_enabled?).and_return(false)
-    allow(AppSetting).to receive(:fx_effect).and_return("typewriter")
     allow(AppSetting).to receive(:nickname).and_return("testuser")
     allow(AppSetting).to receive(:timezone).and_return("UTC")
 
@@ -115,10 +110,10 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(payload["body"]).to include("pito-help-block")
     end
 
-    it "lists all providers in the overview body" do
+    it "lists all providers in the overview body (motion/fx removed — item 18)" do
       result = build_handler(raw: "/config").call
       body = result.events.first[:payload]["body"]
-      %w[google voyage igdb webhook me sound motion fx timezone].each do |p|
+      %w[google voyage igdb webhook me sound timezone].each do |p|
         expect(body).to include(p), "expected overview to include provider '#{p}'"
       end
     end
@@ -139,8 +134,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       "/config igdb --help"               => [ %w[igdb],    "/config igdb --help" ],
       "/config webhook --help"             => [ %w[webhook], "/config webhook --help" ],
       "/config me --help"                  => [ %w[me],      "/config me --help" ],
-      "/config fx --help"                  => [ %w[fx],      "/config fx --help" ],
-      "/config motion --help"              => [ %w[motion],  "/config motion --help" ],
       "/config timezone --help"            => [ %w[timezone], "/config timezone --help" ]
     }.each do |label, (args, raw)|
       it "#{label} → Result::Ok (HTML man-page)" do
@@ -167,21 +160,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(body).to include("nickname=")
     end
 
-    it "/config fx --help body contains all three effect tokens with live showcase rows" do
-      result = build_handler(args: %w[fx], raw: "/config fx --help").call
-      body = result.events.first[:payload]["body"]
-      AppSetting::FX_EFFECTS.each { |fx| expect(body).to include(fx) }
-      showcases = body.scan(/data-pito--fx-demo-effect-value="(\w+)"/).flatten
-      expect(showcases).to eq(AppSetting::FX_EFFECTS)
-    end
-
-    it "/config motion --help body contains on and off state tokens" do
-      result = build_handler(args: %w[motion], raw: "/config motion --help").call
-      body = result.events.first[:payload]["body"]
-      expect(body).to include("on")
-      expect(body).to include("off")
-    end
-
     it "/config timezone --help body contains /config timezone usage" do
       result = build_handler(args: %w[timezone], raw: "/config timezone --help").call
       body = result.events.first[:payload]["body"]
@@ -198,7 +176,8 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
 
   # ── Unknown provider (no --help) ─────────────────────────────────────────────
   describe "unknown provider" do
-    %w[bogus youtube twitch openai unknown_service 123 foobar].each do |provider|
+    # motion + fx were removed (item 18) — they are now unknown providers.
+    %w[bogus youtube twitch openai unknown_service 123 foobar motion fx].each do |provider|
       it "/config #{provider} → unknown_provider error" do
         result = build_handler(args: [ provider ]).call
         expect(result).to be_a(Pito::Slash::Result::Error)
@@ -207,61 +186,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       end
     end
   end
-
-  # ── FX enum provider ─────────────────────────────────────────────────────────
-  describe "fx provider" do
-    it "/config fx (getter, no arg) → Result::Ok" do
-      result = build_handler(args: %w[fx], raw: "/config fx").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    AppSetting::FX_EFFECTS.each do |effect|
-      it "/config fx #{effect} → Result::Ok (setter, valid effect)" do
-        result = build_handler(args: [ "fx", effect ], raw: "/config fx #{effect}").call
-        expect(result).to be_a(Pito::Slash::Result::Ok)
-      end
-    end
-
-    it "/config fx TYPEWRITER (uppercased) → Result::Ok (handler downcases before matching)" do
-      result = build_handler(args: %w[fx TYPEWRITER], raw: "/config fx TYPEWRITER").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    it "/config fx SCRAMBLE (uppercased) → Result::Ok" do
-      result = build_handler(args: %w[fx SCRAMBLE], raw: "/config fx SCRAMBLE").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    it "/config fx bogus → invalid_fx_effect error" do
-      result = build_handler(args: %w[fx bogus], raw: "/config fx bogus").call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.invalid_fx_effect")
-      expect(result.message_args[:value]).to eq("bogus")
-    end
-
-    it "/config fx neon → invalid_fx_effect error (not a registered effect)" do
-      result = build_handler(args: %w[fx neon], raw: "/config fx neon").call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.invalid_fx_effect")
-    end
-
-    it "/config fx scramble calls AppSetting.fx_effect= with the chosen effect" do
-      expect(AppSetting).to receive(:fx_effect=).with("scramble")
-      build_handler(args: %w[fx scramble], raw: "/config fx scramble").call
-    end
-
-    it "/config fx comet broadcasts a settings-update event" do
-      expect(broadcaster).to receive(:broadcast_settings_update)
-      build_handler(args: %w[fx comet], raw: "/config fx comet").call
-    end
-
-    it "/config fx bogus does NOT write or broadcast (error short-circuits)" do
-      expect(AppSetting).not_to receive(:fx_effect=)
-      expect(Pito::Stream::Broadcaster).not_to receive(:new)
-      build_handler(args: %w[fx bogus], raw: "/config fx bogus").call
-    end
-  end
-
   # ── Sound toggle ──────────────────────────────────────────────────────────────
   describe "sound toggle" do
     it "/config sound (getter, no arg) → Result::Ok" do
@@ -305,55 +229,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       build_handler(args: %w[sound], raw: "/config sound").call
     end
   end
-
-  # ── Motion toggle ─────────────────────────────────────────────────────────────
-  #
-  # `/config motion` is the user-facing name for the fx_enabled toggle.
-  # The underlying storage key and client data-fx attribute are unchanged —
-  # only the user-visible verb word changes to "motion".
-  describe "motion toggle (writes AppSetting.fx_enabled under the hood)" do
-    it "/config motion (getter, no arg) → Result::Ok" do
-      result = build_handler(args: %w[motion], raw: "/config motion").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    {
-      "on"       => true,
-      "off"      => false,
-      "true"     => true,
-      "false"    => false,
-      "enable"   => true,
-      "disable"  => false,
-      "enabled"  => true,
-      "disabled" => false
-    }.each do |value, expected_bool|
-      it "/config motion #{value} → Result::Ok (writes fx_enabled=#{expected_bool}, NOT sound_enabled)" do
-        expect(AppSetting).to receive(:fx_enabled=).with(expected_bool)
-        expect(AppSetting).not_to receive(:sound_enabled=)
-        result = build_handler(args: [ "motion", value ], raw: "/config motion #{value}").call
-        expect(result).to be_a(Pito::Slash::Result::Ok)
-      end
-    end
-
-    %w[bogus invalid 2 maybe flip].each do |invalid|
-      it "/config motion #{invalid} → invalid_toggle_value error" do
-        result = build_handler(args: [ "motion", invalid ], raw: "/config motion #{invalid}").call
-        expect(result).to be_a(Pito::Slash::Result::Error)
-        expect(result.message_key).to eq("pito.slash.config.errors.invalid_toggle_value")
-      end
-    end
-
-    it "/config motion off broadcasts a settings-update event" do
-      expect(broadcaster).to receive(:broadcast_settings_update)
-      build_handler(args: %w[motion off], raw: "/config motion off").call
-    end
-
-    it "/config motion (getter) does NOT write fx_enabled" do
-      expect(AppSetting).not_to receive(:fx_enabled=)
-      build_handler(args: %w[motion], raw: "/config motion").call
-    end
-  end
-
   # ── Google credential provider ─────────────────────────────────────────────
   describe "google provider" do
     it "/config google (getter, no kwargs) → Result::Ok with table_rows array" do

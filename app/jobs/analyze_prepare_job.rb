@@ -18,11 +18,11 @@
 class AnalyzePrepareJob < ApplicationJob
   queue_as :default
 
-  # Metrics that render as AreaChart cells in the :system role.
-  # Computed in this order; each gets its own chart hash in the marker.
-  # avg_viewed_pct reads avg_view_duration's result (for the M:SS caption),
-  # so avg_view_duration MUST come first.
-  CHART_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct].freeze
+  # Metrics that render as AreaChart cells. views/watched_hours/subs/avg_view_duration/
+  # avg_viewed_pct are :system; retention + comments are :enhanced (comments is the
+  # LAST enhanced metric). Each gets its own chart hash in the marker. Only the
+  # chart-metrics the message's role+level lists are computed.
+  CHART_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct retention comments day_of_week_heatmap].freeze
 
   # Metrics that render as bespoke BarChart cells (share breakdowns) → the
   # `Pito::Analytics::Breakdown` metric they map to. subscribed_status sits in the
@@ -87,20 +87,25 @@ class AnalyzePrepareJob < ApplicationJob
     groups   = groups_for(level, ids)
     scaffold = Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: level.to_sym)
 
+    # Chart metrics THIS role+level actually lists (system: views…avg_viewed_pct;
+    # enhanced: retention). `&` preserves CHART_METRICS order (avg_view_duration
+    # before avg_viewed_pct).
+    role_metrics = Pito::Analytics::MetricOrder.for(role: marker["role"].to_sym, level: level.to_sym)
+    chart_keys   = CHART_METRICS & role_metrics
+
     charts = nil
-    likes  = nil
-    if marker["role"] == "system"
+    if chart_keys.any? && groups.any?
       subs = Pito::Analytics::Thresholds.subs_for(level:, entity_ids: ids)
       # Accumulate results so later metrics can reference earlier ones.
-      # avg_viewed_pct reads avg_view_duration's total for the M:SS caption.
       computed = {}
-      CHART_METRICS.each do |metric|
+      chart_keys.each do |metric|
         computed[metric] = compute_chart(metric:, groups:, window:, subs:, computed_charts: computed)
       end
       charts = computed
-      # Likes HEARTS — ALWAYS lifetime (independent of the message's period).
-      likes = Pito::Analytics::LikesHearts.for(groups:, level:)
     end
+
+    # Likes HEARTS — ALWAYS lifetime, :system role only.
+    likes = marker["role"] == "system" ? Pito::Analytics::LikesHearts.for(groups:, level:) : nil
 
     # Bar breakdowns (all LIFETIME) for whatever bar-metrics this role+level lists.
     bars = compute_bars(groups:, role: marker["role"], level:)
@@ -148,13 +153,33 @@ class AnalyzePrepareJob < ApplicationJob
     when :avg_view_duration
       compute_avg_view_duration(groups:, window:, target:)
     when :avg_viewed_pct
-      compute_avg_viewed_pct(groups:, window:, target:, computed_charts:)
+      compute_avg_viewed_pct(groups:, window:, target:)
+    when :retention
+      compute_retention(groups:, window:, target:)
+    when :day_of_week_heatmap
+      compute_heatmap(groups:)
     else
       compute_daily_chart(metric:, groups:, window:, target:)
     end
   rescue StandardError => e
     Rails.logger.warn("[AnalyzePrepareJob#compute_chart:#{metric}] #{e.class}: #{e.message}")
     nil
+  end
+
+  # Lifetime audience-retention CURVE chart — its OWN metric (distinct from
+  # avg_viewed_pct). Views-weighted, lifetime, no trend. benchmark_word feeds
+  # the witty caption. Mirrors AnalyzeMetricFill#compute_retention.
+  def compute_retention(groups:, window:, target:)
+    result = Pito::Analytics::RetentionSeries.for(groups:, window:)
+    {
+      "series"          => result.series,
+      "total_pct"       => result.total_pct,
+      "previous"        => nil,
+      "target_daily"    => target,
+      "trend"           => false,
+      "reference_token" => "lifetime",
+      "benchmark_word"  => Pito::Analytics::RetentionSeries.benchmark_word(result.rel_performance)
+    }
   end
 
   # Adaptive-bucketed avg view duration chart (no trend — always nil previous).
@@ -172,27 +197,32 @@ class AnalyzePrepareJob < ApplicationJob
     }
   end
 
-  # Lifetime retention chart (always lifetime window, views-weighted, no trend).
-  # avg_duration_seconds is taken from the already-computed avg_view_duration
-  # chart (period total) for the "M:SS (XX.X%)" caption.
-  def compute_avg_viewed_pct(groups:, window:, target:, computed_charts:)
-    result          = Pito::Analytics::RetentionSeries.for(groups:, window:)
-    avg_dur_seconds = computed_charts.dig(:avg_view_duration, "total")
-
-    at_mark   = Pito::Analytics::RetentionSeries.at_mark_pct(result.series, result.total_pct)
-    benchmark = Pito::Analytics::RetentionSeries.benchmark_word(result.rel_performance)
-
+  # Avg percentage viewed — PULLED from YouTube's per-day averageViewPercentage
+  # (views-weighted across the scope's vids), over the message period. Same shape
+  # as avg_view_duration (owner: pull YT's value, don't derive from the retention
+  # curve). Mirrors AnalyzeMetricFill#compute_avg_viewed_pct.
+  def compute_avg_viewed_pct(groups:, window:, target:)
+    result = Pito::Analytics::AdaptiveSeries.for(groups:, window:, value_key: :average_view_percentage)
     {
-      "series"               => result.series,
-      "total_pct"            => result.total_pct,
-      "avg_duration_seconds" => avg_dur_seconds,
-      "previous"             => nil,
-      "target_daily"         => target,
-      "trend"                => false,
-      "reference_token"      => "lifetime",
-      "at_mark_pct"          => at_mark,
-      "benchmark_word"       => benchmark
+      "series"       => result.series,
+      "total_pct"    => result.total,
+      "previous"     => nil,
+      "target_daily" => target,
+      "trend"        => false,
+      "dates"        => result.dates.map(&:iso8601)
     }
+  end
+
+  # Day-of-week heatmap — ALWAYS lifetime (owner). avg-views-per-weekday vector
+  # (Mon..Sun) from the scope's cached daily views; the Heatmap visualizer colours
+  # each bar on the green→red ramp. nil when the week is empty. Mirrors
+  # AnalyzeMetricFill#heatmap_cell.
+  def compute_heatmap(groups:)
+    lifetime = Pito::Analytics::Window.for("lifetime", reference_date: Date.current)
+    result   = Pito::Analytics::WeekdaySeries.for(groups:, window: lifetime)
+    return nil if result.values.sum <= 0
+
+    { "values" => result.values }
   end
 
   # Standard daily-series chart (views / watched_hours / subs) with trend.
@@ -233,6 +263,8 @@ class AnalyzePrepareJob < ApplicationJob
       lost   = Pito::Analytics::DailySeries.for(groups:, window:, metric: "subscribers_lost")
       series = gained.series.zip(lost.series).map { |g, l| g - l }
       Pito::Analytics::DailySeries::Result.new(dates: gained.dates, series:, total: series.sum)
+    when :comments
+      Pito::Analytics::DailySeries.for(groups:, window:, metric: "comments")
     else
       Pito::Analytics::DailySeries.for(groups:, window:)
     end

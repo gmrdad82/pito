@@ -5,12 +5,14 @@
     <% results.each do |r| %>
       <div class="pito-game-channels__reco-row">
         <span class="pito-game-channels__reco-avatar">
-          <% if avatar_url(r.channel) %>
-            <%= image_tag avatar_url(r.channel), alt: r.channel.handle,
-                          class: "pito-game-channels__reco-avatar-img block" %>
-          <% else %>
-            <span class="pito-game-channels__reco-avatar-img pito-game-channels__reco-avatar--placeholder text-fg-faded">?</span>
-          <% end %>
+          <%= render Pito::ImageRender.call(
+                url:            avatar_url(r.channel),
+                shape:          :circle,
+                sync_command:   "sync channel #{r.channel.at_handle}",
+                alt:            r.channel.handle.to_s,
+                html_class:     "pito-game-channels__reco-avatar-img block",
+                fallback_class: "pito-game-channels__reco-avatar-img"
+              ) %>
         </span>
         <span class="pito-game-channels__reco-score">
           <%= render(Pito::ScoreBarComponent.new(score: r.score, show_label: false)) %>

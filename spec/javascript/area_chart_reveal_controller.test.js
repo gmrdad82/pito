@@ -1,18 +1,14 @@
 // spec/javascript/area_chart_reveal_controller.test.js
 //
 // The area-chart metric reveal (variant "D", extends the base metric-reveal
-// engine). Fail-open: when motion is disabled (fx off / reduced-motion) it
-// leaves the chart whole; otherwise it arms `.is-revealing` and, after a lead-in,
-// wipes the braille rows in BOTTOM→UP by adding `.on` to each row span in turn
-// (the wipe + trailing glow ride CSS transitions on `.on`).
+// engine). Always plays (item 18: no motion gate): arms `.is-revealing` and,
+// after a lead-in, wipes the braille rows BOTTOM→UP by adding `.on` to each row
+// span in turn (the wipe + trailing glow ride CSS transitions on `.on`).
 //
 // Shared by Views, Watched Hours, and Subs charts — all use pito--area-chart-reveal.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
-
-const mockState = { motion: false }
-vi.mock("pito/settings", () => ({ motionDisabled: () => mockState.motion }))
 
 import AreaChartRevealController from "controllers/pito/area_chart_reveal_controller"
 
@@ -42,7 +38,6 @@ describe("AreaChartRevealController", () => {
   let app
 
   beforeEach(() => {
-    mockState.motion = false
     vi.stubGlobal("requestAnimationFrame", (cb) => { cb(); return 1 })
     app = Application.start()
     app.register("pito--area-chart-reveal", AreaChartRevealController)
@@ -68,15 +63,6 @@ describe("AreaChartRevealController", () => {
 
     await tick(ROWS * 130 + 100) // all cadence steps elapse
     expect(onRows(el).length).toBe(ROWS) // every row revealed
-  })
-
-  it("does nothing when motion is disabled (chart stays whole)", async () => {
-    mockState.motion = true
-    const el = buildDOM()
-    await tick()
-
-    expect(el.classList.contains("is-revealing")).toBe(false)
-    expect(onRows(el).length).toBe(0)
   })
 
   it("clears pending row timers on disconnect (no reveal after teardown)", async () => {

@@ -1,7 +1,5 @@
 <%= render(Pito::Segment::Component.new(accent:, background:, id: segment_id, scrollback_message: true)) do %>
-  <div data-controller="pito--diff-reveal"
-       data-pito--diff-reveal-granularity-value="<%= @granularity %>"
-       data-pito--diff-reveal-phase-value="<%= @phase %>">
+  <div>
 
     <% if preview? %>
       <%# Preview phase: render the full themes list (Dark/Light sections).
@@ -20,8 +18,7 @@
                 <%# Highlighted row: border + surface background, marker as diff cell %>
                 <div class="flex gap-4 border border-line-default bg-surface rounded px-1">
                   <span class="text-cyan whitespace-nowrap shrink-0 w-44">
-                    <span data-pito--diff-reveal-target="cell"
-                          data-from="<%= row[:key] %>"><%= row[:key] %> ‹preview›</span>
+                    <span><%= row[:key] %> ‹preview›</span>
                   </span>
                   <span class="text-fg-dim"><%= row[:value] %></span>
                 </div>
@@ -38,11 +35,8 @@
       </div>
 
     <% elsif apply? %>
-      <%# Apply phase: single confirmation line as one diff cell.
-          data-from = the old list's plain text; textContent = the quip. %>
-      <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @event&.created_at)) %><span class="text-fg"
-            data-pito--diff-reveal-target="cell"
-            data-from="<%= @from_text %>"><%= @body %></span>
+      <%# Apply phase: single confirmation line (final quip), rendered instantly. %>
+      <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @event&.created_at)) %><span class="text-fg"><%= @body %></span>
 
     <% else %>
       <%# Fallback: render body as plain text if phase is unrecognized %>

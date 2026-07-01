@@ -32,6 +32,7 @@ module Pito
       def heart?   = @cell.present? && @cell[:heart].present?
       def chart?   = @cell.present? && @cell[:chart].present?
       def bars?    = @cell.present? && @cell[:bars].present?
+      def heatmap? = @cell.present? && @cell[:heatmap].present?
 
       def caption = @cell && @cell[:caption]
 

@@ -1,14 +1,11 @@
 // spec/javascript/bar_reveal_controller.test.js
 //
-// pito--bar-reveal — the score-bar / TTB `=` fill's own reveal (fx-independent).
-// Motion off → leaves the fill whole. Motion on → arms `.is-revealing`, then adds
-// `.on` after a lead-in + a per-bucket stagger (from the fill's pito-shimmer-dN).
+// pito--bar-reveal — the score-bar / TTB `=` fill's own reveal. Always plays
+// (item 18: no motion gate). Arms `.is-revealing`, then adds `.on` after a
+// lead-in + a per-bucket stagger (from the fill's pito-shimmer-dN).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
-
-const mockState = { motion: false }
-vi.mock("pito/settings", () => ({ motionDisabled: () => mockState.motion }))
 
 import BarRevealController from "controllers/pito/bar_reveal_controller"
 
@@ -27,7 +24,6 @@ describe("BarRevealController", () => {
   let app
 
   beforeEach(() => {
-    mockState.motion = false
     vi.stubGlobal("requestAnimationFrame", (cb) => { cb(); return 1 })
     app = Application.start()
     app.register("pito--bar-reveal", BarRevealController)
@@ -55,14 +51,6 @@ describe("BarRevealController", () => {
     expect(el.classList.contains("on")).toBe(false) // not yet (well before 430ms)
     await tick(400)
     expect(el.classList.contains("on")).toBe(true)
-  })
-
-  it("does nothing when motion is disabled (fill stays whole)", async () => {
-    mockState.motion = true
-    const el = build("pito-shimmer-d0")
-    await tick()
-    expect(el.classList.contains("is-revealing")).toBe(false)
-    expect(el.classList.contains("on")).toBe(false)
   })
 
   it("clears the pending timer on disconnect (no reveal after teardown)", async () => {

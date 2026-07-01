@@ -234,10 +234,10 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("sort")
         end
 
-        it "body includes sortable column names" do
+        it "body includes sortable column names (release date removed — item 24)" do
           expect(result["body"]).to include("title")
           expect(result["body"]).to include("platform")
-          expect(result["body"]).to include("release date")
+          expect(result["body"]).not_to include("release date")
         end
 
         it "body mentions [desc] option" do

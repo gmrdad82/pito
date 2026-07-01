@@ -138,13 +138,6 @@ html {
   padding: 2px 0;
 }
 
-/* Sidebar with `/config fx` off (or prefers-reduced-motion): snap open/closed
-   instead of animating the 200ms width transition. Toggled by the
-   pito--sidebar-fx Stimulus controller. */
-.pito-sidebar--no-anim {
-  transition: none !important;
-}
-
 /* ── Desktop sidebar overlay backdrop ───────────────────────
  *
  * On desktop (md:, ≥ 768px) the sidebar is a FIXED OVERLAY — it never
@@ -216,8 +209,8 @@ html {
   background: var(--bg-root);
   color: var(--fg-dim);
   border: 1px solid var(--border-faded);
-  /* Minimal chrome (13.36b/13.37b): 1px top/bottom, 2px left/right padding. */
-  padding: 1px 2px;
+  /* Minimal chrome: 1px top/bottom, 4px left/right padding (owner 20.1: +2px L/R). */
+  padding: 1px 4px;
   max-width: min(964px, calc(100vw - 20px));
   white-space: nowrap;
 }
@@ -228,11 +221,14 @@ html {
   border-top: none;
 }
 
-/* BOTTOM pill: the controller sets `bottom` dynamically each update to the
-   scrollback's bottom edge so it "literally touches" the context bar regardless
-   of the chatbox height (13.37b). This 200px is only a pre-JS fallback. */
+/* BOTTOM pill: sits 116px up from the viewport bottom so its bottom edge TOUCHES
+   the top of the context bar (owner measured this exact value). No bottom border —
+   mirrors the TOP pill's missing top border, so each pill is borderless on the
+   edge it hugs (owner 2026-07-01). Static — the controller no longer overrides
+   `bottom`. */
 .pito-scroll-nav__pill--bottom {
-  bottom: 200px;
+  bottom: 116px;
+  border-bottom: none;
 }
 
 @media (max-width: 767px) {
@@ -389,10 +385,6 @@ html {
   animation: pito-action-shimmer-sweep var(--pito-shimmer-speed) linear infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pito-network-shimmer { animation: none; }
-}
-
 /* ── Analytics trend number (Pito::Analytics::Support::TrendNumber) ──
    A bare metric number tinted by its trend vs the previous interval: a
    rising value shimmers green upward, a falling value shimmers red
@@ -519,14 +511,6 @@ html {
 /* The trend triangle rides snug after its value token (e.g. `841K▲`). */
 .pito-metric__trend { margin-left: 0.15ch; }
 
-@media (prefers-reduced-motion: reduce) {
-  .pito-trend-number--up,
-  .pito-trend-number--down,
-  .pito-trend-number--steady,
-  .pito-trend-number--up .pito-icon,
-  .pito-trend-number--down .pito-icon { animation: none; }
-}
-
 /* ── Keyboard-shortcut shimmer (Pito::Keybinding::ShortcutComponent) ──
    Every yellow shortcut token gets a slow diagonal (top-left → bottom-right)
    shimmer: yellow text with an orange band sweeping through. Staggered
@@ -555,10 +539,6 @@ html {
   animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pito-action-shimmer { animation: none; }
 }
 
 /* Decorative identifier tokens — channel @handles, @all / period scope chips,
@@ -594,10 +574,6 @@ html {
   animation-iteration-count: infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pito-reference-shimmer { animation: none; }
-}
-
 /* (Hashtag reply tokens are now MUTED text — see Pito::Shimmer::HashtagTokenComponent;
    the old .pito-hashtag-shimmer was removed in the item-7 shimmer revisit.) */
 
@@ -629,10 +605,6 @@ html {
   animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pito-subject-shimmer { animation: none; }
 }
 
 /* ── Shared staggered animation-delay buckets (Pito::Shimmer.offset_class) ──
@@ -896,9 +868,6 @@ html {
   35%      { opacity: 0.2; }
   65%      { opacity: 0.85; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .pito-logo.is-revealing .pito-logo__cell { opacity: 1; animation: none; }
-}
 
 /* ── ASCII fit-to-width (pito--ascii-fit) ─────────────────────────
    A fixed-width `white-space: pre` ASCII block has an intrinsic pixel width that
@@ -952,6 +921,12 @@ html {
   color: var(--fg-faded);
 }
 
+/* Resolved ASCII face ("( •_•)>⌐■-■") matches the resolved MESSAGE colour
+   (fg-faded), not the default fg — one calm dim unit (owner 2026-07-01). */
+.pito-thinking__glyph {
+  color: var(--fg-faded);
+}
+
 .pito-thinking__message {
   color: var(--fg-faded);
 }
@@ -965,68 +940,8 @@ html {
   overflow: hidden;
   display: block; /* avoid inline-block baseline gap (text drifts up) */
   line-height: 20px;
-  /* The type-fx overlay sets the textarea text to `color: transparent` (.is-fx),
-     which would make the NATIVE caret transparent too. Pin an explicit caret-color
-     so the normal caret stays visible while the per-char overlay shows the text.
-     (Search boxes need no override — their text isn't transparent.) (13.15 fix) */
+  /* Explicit caret colour so the textarea caret is always visible. */
   caret-color: var(--fg-default);
-}
-
-/* ── Type-fx: per-character phase-in (Pito::TypeFxController) ── */
-
-/* When JS activates the overlay the native text is hidden; the visible
-   character layer above the textarea carries all readable content.
-   The native selection highlight still shows because it renders below
-   the transparent text. */
-.pito-chatbox__input.is-fx {
-  color: transparent;
-}
-
-/* The visible character overlay: absolutely positioned on top of the
-   textarea, same content-box, same font metrics (copied by JS).
-   z-index: 1  →  above the transparent textarea (z-index auto)
-             but below the suggestion ghost .pito-ghost (z-index 2).
-   pointer-events:none so clicks/selections fall through to the textarea. */
-.pito-type-layer {
-  position: absolute;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  pointer-events: none;
-  z-index: 1;
-  overflow: hidden;
-}
-
-/* Each character in the overlay. inline keeps them flowing with
-   line wrapping identical to the textarea text. */
-.pito-type-char {
-  display: inline;
-}
-
-/* New characters animate in: fade up from slightly below. */
-@keyframes pito-char-in {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.pito-type-char--new {
-  animation: pito-char-in 70ms ease-out both;
-}
-
-/* Reduced-motion: skip all overlay theatrics entirely and keep
-   the textarea text directly visible. */
-@media (prefers-reduced-motion: reduce) {
-  .pito-chatbox__input.is-fx {
-    color: inherit;
-  }
-  .pito-type-layer {
-    display: none;
-  }
 }
 
 /* ── Chatbox field-wrap ──────────────────────────────────────── */
@@ -1043,8 +958,11 @@ html {
    (right:0 of the field-wrap) is the SAME inset from the purple edge as the text
    (left:0) is on the left. The 22px left keeps the text invariant with the
    scrollback segments. */
+/* Chatbox padding (owner 20.2/20.3): LESS L/R, and the LEFT visual gap (bar 4 +
+   gap 6 + padding-left) equals the RIGHT gap (padding-right). padding-left =
+   padding-right − 10 makes both = 16px (was 32 left / 22 right). */
 .chatbox-wrapper .pito-segment__content {
-  padding: 12px 22px;
+  padding: 12px 16px 12px 6px;
 }
 
 /* Absolute-right hint slot on the textarea's line (13.39): vertically centered;
@@ -1643,14 +1561,6 @@ html {
   to   { --pito-bar-sweep: 120%; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pito-bar-shimmer {
-    animation: none;
-    /* Drop the band entirely → static heat ramp only. */
-    --pito-bar-band: linear-gradient(transparent, transparent);
-  }
-}
-
 /* ── Bar fill reveal (Pito::BarRevealController) ───────────────────────────────
    The score-bar / TTB `=` fill's OWN one-shot reveal (the rest of the component
    pops at once). Independent of the message fx EFFECT; driven by the
@@ -1812,11 +1722,6 @@ html {
   transition: left 0.6s ease-out;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pito-context-meter__fill { transition: none; }
-  .pito-context-meter__comet { display: none; }
-}
-
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
  *
  * Rich recommendations message rendered after Voyage indexing.
@@ -1875,6 +1780,15 @@ html {
   }
 }
 
+/* The distribution chart is a surface panel (.pito-metric) — make it FILL its
+   column (was max-content, which overflowed into the recommendation column and
+   overlapped it). The recommendation column (.pito-game-channels__reco) is NOT a
+   .pito-metric, so it stays surface-less, as intended (owner 2026-07-01, item 46). */
+.pito-game-channels__col .pito-metric {
+  width: 100%;
+  min-width: 0;
+}
+
 /* Col 2 — recommendation kv-table: avatar (key) + score bar (value), one row each.
    17.9: ROW-FOR-ROW alignment with col 1's braille bars. When 5 channels render,
    the Bar visualizer packs 5 contiguous bars (gap 0, top_pad 0), each 2 braille
@@ -1907,19 +1821,12 @@ html {
   border: 1px solid var(--border-faded);
 }
 
-.pito-game-channels__reco-avatar-img,
-.pito-game-channels__reco-avatar--placeholder {
+.pito-game-channels__reco-avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   border-radius: 50%;
-}
-
-.pito-game-channels__reco-avatar--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* The score bar fills the rest of the row. */
@@ -2003,115 +1910,25 @@ html {
   animation: pito-cover-pan 16s ease-in-out infinite alternate;
 }
 
-/* Static top-anchor fallback: prefers-reduced-motion matches. */
-@media (prefers-reduced-motion: reduce) {
-  .pito-cover-pan {
-    animation: none;
-    transform: translateY(0);
-  }
-}
-
-/* Static top-anchor fallback: /config fx is off (data-fx="false" on
-   #pito-settings — the same node fxEnabled() reads in JS controllers). */
-html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
-  animation: none;
-  transform: translateY(0);
-}
-
-/* ── Comet reveal (L3 reveal effect) ───────────────────────────────────────
- *
- * pito--typewriter applies .pito-comet-reveal to each text/atomic host when the
- * resolved effect is "comet". The host starts HIDDEN (JS dims it to ~0.01); the
- * instant this class lands JS lifts the dim and a CSS MASK reveals the text
- * left→right — text BEHIND the sweep is shown, text AHEAD is masked out, so each
- * glyph appears only as/after the comet passes over it. A bright blurred "comet"
- * (the ::after) rides in lock-step at the leading edge (same geometry + timing as
- * the mask), with its trail flowing back over the freshly revealed text. JS sets
- * the per-host --pito-comet-ms (so the sweep matches the JS settle timing) and
- * removes the class when that duration elapses, leaving the host at full opacity
- * with its correct content. Tokens only (brand pito blue + accent cyan) so the
- * highlight survives the Tailwind purge.
- *
- * Always-pop elements (bars / covers / thumbnails / avatars) are NEVER given
- * this class — the JS excludes them from the reveal entirely. */
-.pito-comet-reveal {
-  position: relative;
-  /* Reveal WIPE (not a band): one opaque→transparent EDGE. The opaque (#000,
-     visible) half trails the comet all the way back to the row START; only the
-     region AHEAD of the comet's leading edge is transparent (hidden). The
-     300% image is wide enough that it always fully covers the host, so the
-     opaque region only GROWS as the edge sweeps left→right — text the comet has
-     passed STAYS revealed, never re-masked — and the final frame leaves the
-     whole host opaque (fully revealed), so the JS `mask:none` clear at settle
-     has nothing left to pop in (no end flash). Rides in lock-step with the
-     ::after comet below (matching size/timing) so the bright head sits at the
-     opaque→transparent frontier. */
-  -webkit-mask-image: linear-gradient(100deg, #000 0%, #000 50%, transparent 64%, transparent 100%);
-          mask-image: linear-gradient(100deg, #000 0%, #000 50%, transparent 64%, transparent 100%);
-  -webkit-mask-size: 300% 100%;
-          mask-size: 300% 100%;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  animation-name: pito-comet-mask;
-  animation-duration: var(--pito-comet-ms, 900ms);
-  animation-timing-function: ease-in-out;
-  animation-fill-mode: both;
-}
-
-/* The comet itself: a blurred bright point + trail swept across the host via a
-   gradient. A pseudo-element keeps it non-interactive and clipped to the host. */
-.pito-comet-reveal::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    100deg,
-    transparent 46%,
-    color-mix(in oklch, var(--brand-pito) 85%, transparent) 56%,
-    color-mix(in oklch, var(--accent-cyan) 80%, transparent) 60%,
-    transparent 70%
-  );
-  background-size: 300% 100%;
-  background-repeat: no-repeat;
-  filter: blur(6px);
-  mix-blend-mode: screen;
-  animation-name: pito-comet-sweep;
-  animation-duration: var(--pito-comet-ms, 900ms);
-  animation-timing-function: ease-in-out;
-  animation-fill-mode: both;
-}
-
-/* The opaque (revealed) half sweeps across the host: at 100% the host shows only
-   the transparent LEAD (fully hidden); at 0% only the opaque BACK (FULLY
-   revealed). Because the 300% image always covers the host, the opaque region
-   only grows — revealed text is never re-hidden — and the held end frame (0%,
-   fill-mode both) leaves the whole host visible, so there is no end flash. */
-@keyframes pito-comet-mask {
-  from { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
-  to   { -webkit-mask-position: 0% 0;   mask-position: 0% 0;   }
-}
-
-@keyframes pito-comet-sweep {
-  from { background-position: 100% 0; }
-  to   { background-position: 0% 0; }
-}
-
-/* Reduced-motion: no sweep. JS skips the comet entirely under reduced-motion,
-   but if the class ever lingers a frame the host must be fully visible AND
-   unmasked (a stuck mask would hide part of the host). */
-@media (prefers-reduced-motion: reduce) {
-  .pito-comet-reveal        { animation: none; opacity: 1; -webkit-mask: none; mask: none; }
-  .pito-comet-reveal::after  { display: none; }
-}
-
-/* Motion off in /config (data-fx="false" on #pito-settings): same static safety. */
-html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal       { animation: none; opacity: 1; -webkit-mask: none; mask: none; }
-html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: none; }
+/* (The comet text-reveal CSS was removed in item 18 along with the typewriter/
+   text-reveal engine — messages render instantly now.) */
 
 /* Detail-card hairline spacing: a plain 10px top/bottom gap. */
 .pito-detail-hairline {
   margin: 10px 0;
+}
+
+/* Detail-card Stats + Shinies as a kv-table (owner 2026-07-01, items 48/49): the
+   heading is the KEY column (max-content), the value column (1fr) holds the
+   one-line counters / freely-wrapping shinies badges. A dedicated class (NOT the
+   Tailwind `grid grid-cols-[...]` utility) so it doesn't collide with the
+   right-column kv-table that specs detect by that utility class. */
+.pito-detail-stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.75rem;
+  row-gap: 0.35rem;
+  align-items: baseline;
 }
 
 /* Video linked-game card: a two-column card (big cover left, kv-table right)
@@ -2145,15 +1962,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 }
 
 /* Description column — fills the rest; min-width:0 (utility) lets it wrap. */
-
-/* Placeholder when no cover art is attached. */
-.pito-game-enhanced-message__similar-game-cover--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-faded);
-  background: var(--bg-elevated);
-}
 
 /* id + title share one line ("#12 Elden Ring"), spanning the card width. Gap
    provides a single-character-width space between the shimmer id and the title
@@ -2285,12 +2093,57 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   border: 1px solid var(--fg-default);
 }
 
-.pito-channel-item__avatar--placeholder {
+/* ── Missing-image placeholder (Pito::ImageFallbackComponent) ──────────────────
+   A muted shape that fills the box the image would occupy. Sizing (width/height,
+   ring) comes from the host sizing class passed as extra_class — this rule owns
+   only the muted fill, the max-contrast copy, and the container-query that
+   auto-hides the copy on boxes too small to read it (small avatars). The WHOLE
+   box is click-to-sync (pito--chat-prefill). */
+.pito-image-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-faded);
-  background: var(--bg-elevated);
+  text-align: center;
+  background-color: var(--fg-muted);
+  color: var(--bg-root);
+  cursor: pointer;
+  overflow: hidden;
+  container-type: size;
+}
+
+.pito-image-fallback--circle {
+  border-radius: 50%;
+}
+
+/* Shared 450×253 (16:9) sizing box for rect placeholders (banner / thumbnail /
+   cover) — passed as fallback_class so the placeholder occupies the same box the
+   image would. Scales down within a narrow column. */
+.pito-image-box--rect169 {
+  width: 450px;
+  height: 253px;
+  max-width: 100%;
+}
+
+.pito-image-fallback__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.15;
+  padding: 2px;
+}
+
+.pito-image-fallback__sync {
+  text-decoration: underline;
+}
+
+/* Auto-hide the copy when the box is too small to read it (e.g. 60px avatars).
+   450px rects and 120px avatars are large enough and keep the copy. */
+@container (max-width: 110px) {
+  .pito-image-fallback__copy { display: none; }
+}
+@container (max-height: 72px) {
+  .pito-image-fallback__copy { display: none; }
 }
 
 /* show-channel detail avatar: circular + theme-contrast ring, matching the list. */
@@ -2474,8 +2327,33 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 /* A charted glance cell = a Visualizers::Sparkline (chart-width, ~COLS=45ch) stacked
    over its label/value pair. The cell takes the sparkline's width so it matches
    the analyze chart wrappers; the pair spans that full width (label left, value
-   right) instead of the fixed label/value columns a bare pair uses. */
-.pito-analytics-scalars__charted { display: flex; flex-direction: column; width: max-content; }
+   right) instead of the fixed label/value columns a bare pair uses.
+   The frame lives on THIS wrapper (not the inner sparkline) so it ENCAPSULATES
+   the caption/value pair too — matching the analyze .pito-metric wrapper. Trying
+   a SURFACE BACKGROUND instead of the dashed border (owner 2026-07-01): the
+   wrapper lifts onto --bg-surface; the inner sparkline .pito-metric stays
+   transparent + unpadded so the tint reads as one panel around chart + caption. */
+.pito-analytics-scalars__charted {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  /* FILL the 450 grid column (was max-content, which overflowed a narrower column
+     and made adjacent surface panels touch/overlap). The chart/pair inside keep
+     their natural width, left-aligned; min-width:0 lets the panel shrink with the
+     column (owner 2026-07-01, item 46). */
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  background: var(--bg-surface);
+}
+.pito-analytics-scalars__charted .pito-metric { background: transparent; padding: 0; width: 100%; }
+
+/* Every analyze/glance surface panel fills exactly ONE 450 grid column so the two
+   columns keep their 16px gap and never touch/overlap (owner 2026-07-01, item 46). */
+.pito-analytics-scalars .pito-metric {
+  width: 100%;
+  min-width: 0;
+}
 .pito-analytics-scalars__pair--charted { width: 100%; justify-content: space-between; }
 .pito-analytics-scalars__pair--charted .pito-analytics-scalars__label,
 .pito-analytics-scalars__pair--charted .pito-analytics-scalars__value { width: auto; }
@@ -2505,6 +2383,10 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 .pito-platform-icons { display: inline-flex; align-items: center; gap: 0.35rem; vertical-align: middle; }
 .pito-platform-icon  { height: 16px; width: auto; display: inline-block; vertical-align: middle; }
 
+/* Per-platform release rows (Item 24) — logos + date, one line per distinct date. */
+.pito-platform-release__row { display: flex; align-items: center; gap: 0.4rem; }
+.pito-platform-release__row + .pito-platform-release__row { margin-top: 2px; }
+
 /* Pito::Coin — price-as-coin-tiers (Pito::Game::PriceGlyphs). The coins prefix the
    number; the FREE star is its own, slightly larger glyph. The gifs are tight
    (coin ~91% of its canvas), so the run reads ~1–2px between coins at gap 0.
@@ -2528,11 +2410,29 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  overflow-x: auto;
-  white-space: pre;
+  display: block;
+  /* WRAP the one-liner instead of scaling/scrolling it: pre-wrap keeps its spacing
+     but lets it flow to multiple lines; overflow-wrap:anywhere breaks the long
+     token-less runs (paths/pipes) so it fits a 450px mobile column. No h-scroll,
+     no transform (owner 2026-07-01, Item 45 — the 3rd revisit; the real cause was
+     pito--ascii-fit scaling the old <pre>). */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   border-radius: 0;
+  /* Explicit base size + mono family: the browser "monospace" keyword shrink
+     renders ~13px; anchor it to the 14px base so it matches the hint above. */
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
 }
-.pito-footage-snippet__copy {
+/* ── Copy-to-clipboard widget (Pito::CopyButtonComponent) — the SHARED copy
+   affordance used by the share-link message AND the footage snippet, so the copy
+   icon is styled in ONE place (owner 2026-07-01). The lucide copy ICON wears the
+   ACTION shimmer (pito-blue↔purple), matching every clickable link/token — NOT the
+   old cyan. Since the icon is an SVG (stroke:currentColor), the gradient-clip text
+   shimmer can't apply, so we animate `color` between the action base/band. No
+   hover, border-radius 0. */
+.pito-copy { display: inline-flex; align-items: center; margin-left: 0.5ch; }
+.pito-copy__btn {
   flex: 0 0 auto;
   background: transparent;
   border: 0;
@@ -2540,6 +2440,20 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   padding: 0;
   cursor: pointer;
   font: inherit;
+  line-height: 0;                       /* trim the button box to the glyph */
+  color: var(--shimmer-action-base);
+  animation-name: pito-action-icon-shimmer;
+  animation-duration: var(--pito-shimmer-speed);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.pito-copy__feedback { margin-left: 0.5ch; }
+
+/* Icon shimmer: pulse currentColor between the action base (pito-blue) and band
+   (purple) — the SVG-stroke analogue of .pito-action-shimmer's text sweep. */
+@keyframes pito-action-icon-shimmer {
+  0%, 100% { color: var(--shimmer-action-base); }
+  50%      { color: var(--shimmer-action-band); }
 }
 
 /* ── Pito::Achievement::BadgeComponent ───────────────────────
@@ -2625,10 +2539,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   animation: pito-badge-spin var(--pito-shimmer-speed) linear infinite;
   animation-delay: inherit;
   pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pito-achievement-badge::before { animation: none; }
 }
 
 /* Tier border/text colour + the per-tier CONTRASTING perimeter-shimmer accent
@@ -2776,12 +2686,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   animation-iteration-count: infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pito-achievement-track__dot--reached,
-  .pito-achievement-track__connector--reached,
-  .pito-achievement-track__ellipsis--reached { animation: none; }
-}
-
 /* ── Icons (Lucide, vendored in public/icons/) ─────────────────
  *
  * .pito-icon is applied by Pito::IconComponent to every inline SVG and is the
@@ -2846,10 +2750,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
  * Guarded by `(max-width: 767px) and (pointer: coarse)` so the button and
  * slide never appear on desktop. Reveal width is shared with the JS
  * constant REVEAL (96px) — keep them in sync.
- *
- * The snap animation is tied to the sidebar's `/config fx` + reduced-motion
- * gate: pito--sidebar-fx puts .pito-sidebar--no-anim on the #pito-sidebar
- * mount (an ancestor), which kills the transition so the row snaps instantly.
  */
 
 /* Desktop default: no Delete button, no slide. */
@@ -2884,12 +2784,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   /* Snapped-open resting position (set on touchend past the threshold). */
   .pito-conversation-row.pito-row-swipe-open .pito-conversation-row__content {
     transform: translateX(calc(-1 * var(--pito-swipe-reveal, 96px)));
-  }
-
-  /* fx off / prefers-reduced-motion: snap instead of animate. The class
-     lives on the #pito-sidebar ancestor (pito--sidebar-fx). */
-  .pito-sidebar--no-anim .pito-conversation-row__content {
-    transition: none;
   }
 
   /* CDEL1: delete button height + alignment fix (mobile only).
@@ -2949,7 +2843,19 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 /* ACL1: width:max-content makes the column flex hug the braille chart; the
    caption then fills that width (min-width:100%; width:0 avoids expanding the
    container) and wraps normally within the chart area. */
-.pito-metric { display: flex; flex-direction: column; gap: 0.4rem; width: max-content; }
+/* Every analyze chart cell is a SURFACE PANEL — the wrapper lifts onto --bg-surface
+   and pads chart + caption together, so the two 450px columns read as distinct
+   without a border (owner 2026-07-01: trying surface-bg in place of the dashed
+   frame from Item 35). ENCAPSULATES the caption because it's on the .pito-metric
+   CONTAINER (which holds both the chart and the caption). */
+.pito-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: max-content;
+  padding: 4px 6px;
+  background: var(--bg-surface);
+}
 .pito-metric__caption { width: 0; min-width: 100%; white-space: normal; overflow-wrap: break-word; }
 
 /* width:max-content hugs the braille so the x-ticks span exactly the plot. */
@@ -3061,6 +2967,65 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   margin-top: 0.15em;
 }
 
+/* ── Day-of-week heatmap (Visualizers::Heatmap) — 7 equal-width, full-height
+   braille bars (Mon→Sun). Value is encoded by COLOUR only: each bar's --pito-heat
+   (0..1, worst→best) samples the SAME green→red health tokens as the area ramp,
+   with the shared pito-blue diagonal shimmer swept over it. Reuses .pito-metric /
+   __chart chrome; only the plot (bars) + xtick alignment differ. */
+.pito-heatmap__bars {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  --pito-rh: 1.25em;                                  /* per-row height (matches __plot) */
+  height: calc(var(--pito-rh) * var(--pito-rows, 11));
+}
+.pito-heatmap__bar {
+  white-space: pre;
+  line-height: var(--pito-rh);
+  /* Flat heat tint sampled from the green→red ramp at this bar's --pito-heat, with
+     the SAME 135° pito-blue sweep the area rows wear layered over it, both clipped
+     to the braille ink. LONGHAND animation props (the shorthand resets delay).
+     CRITICAL: the shimmer band spans the FULL plot width (--pito-plot-w) and each
+     bar is shifted left by its --pito-bar-offset, so the 135° sweep is computed
+     over the whole heatmap and reads as ONE continuous diagonal across every
+     weekday — not a separate near-vertical sweep per bar (owner 2026-07-01). The
+     flat health layer stays local to the bar (100% width, no offset). */
+  --pito-heat-color: color-mix(in oklch, var(--color-green) calc(var(--pito-heat, 0.5) * 100%), var(--color-red));
+  background-image:
+    linear-gradient(var(--pito-shimmer-angle),
+      transparent calc(var(--pito-bar-sweep) - 14%),
+      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      transparent calc(var(--pito-bar-sweep) + 14%)),
+    linear-gradient(var(--pito-heat-color), var(--pito-heat-color));
+  background-repeat: no-repeat;
+  background-size: var(--pito-plot-w) 100%, 100% 100%;
+  background-position: calc(-1 * var(--pito-bar-offset, 0ch)) 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation-name: pito-bar-glyph-sweep;
+  animation-duration: var(--pito-shimmer-speed);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+/* x-ticks: a 7-col grid so each Mo…Su label centres under its bar (the generic
+   __xticks space-between would push the first/last to the edges). */
+.pito-heatmap__xticks {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+/* Reveal: each bar wipes in bottom→up under .is-revealing (fail-open — with no JS
+   the bars render whole). Rides `transition` so it never clobbers the shimmer
+   animation-delay stagger. JS adds `.on` per bar. */
+.pito-metric--heatmap.is-revealing .pito-heatmap__bar {
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 0.45s ease-out;
+}
+.pito-metric--heatmap.is-revealing .pito-heatmap__bar.on {
+  clip-path: inset(0 0 0 0);
+}
+
 /* ── Reveal (variant "D"): rows wipe in bottom→up, each a left→right clip wipe
    with a STRONG trailing cyan glow that fades as it sweeps. Fail-open: applies
    ONLY under `.is-revealing` (added by the controller when motion is enabled), so
@@ -3079,12 +3044,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 .pito-metric.is-revealing .pito-metric__row.on {
   clip-path: inset(0 0 0 0);
   text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pito-metric__row,
-  .pito-metric__hrow .pito-hfill,
-  .pito-metric__brow .pito-bar-fill { animation: none; }
 }
 
 /* ── Likes hearts (Pito::Analytics::Visualizers::Heart) — the heart analogue of the area chart.

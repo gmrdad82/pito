@@ -3,9 +3,9 @@
 // Tests for pito--dots, pito--done-dispatch, and pito--turn-complete
 // Stimulus controllers.
 //
-// pito--dots: shows on pito:submitted, hides on pito:echo-typed OR
-// pito:result-appended OR pito:comet-clear (class toggle); pito:done no longer
-// drives it.
+// pito--dots: shows on pito:submitted, hides on pito:result-appended OR
+// pito:comet-clear (class toggle). (echo-typed was removed in item 18 —
+// messages render instantly, so there is no echo-typing phase.)
 // pito--done-dispatch: dispatches its configured event name on connect.
 // pito--turn-complete: dispatches "pito:turn-complete" on connect.
 //
@@ -62,18 +62,6 @@ describe("pito--dots controller", () => {
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
   })
 
-  it("hides dots (adds pito-dots--hidden) on pito:echo-typed", async () => {
-    const el = buildDots()
-    await tick()
-
-    // Show first, then hide when the echo finishes typing.
-    document.dispatchEvent(new CustomEvent("pito:submitted"))
-    expect(el.classList.contains("pito-dots--hidden")).toBe(false)
-
-    document.dispatchEvent(new CustomEvent("pito:echo-typed"))
-    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
-  })
-
   it("hides dots on pito:result-appended (no-echo error fast path)", async () => {
     const el = buildDots()
     await tick()
@@ -101,15 +89,15 @@ describe("pito--dots controller", () => {
     expect(el.classList.contains("pito-dots--hidden")).toBe(true)
   })
 
-  it("normal command still shows then clears on echo-typed (comet-clear listener does not regress H5.11)", async () => {
+  it("normal command shows then clears on pito:result-appended", async () => {
     const el = buildDots()
     await tick()
 
     document.dispatchEvent(new CustomEvent("pito:submitted"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
 
-    // No comet-clear for a real chat command — the echo typing clears it.
-    document.dispatchEvent(new CustomEvent("pito:echo-typed"))
+    // A real chat command clears the comet when its result lands.
+    document.dispatchEvent(new CustomEvent("pito:result-appended"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(true)
   })
 
@@ -131,7 +119,7 @@ describe("pito--dots controller", () => {
     document.dispatchEvent(new CustomEvent("pito:submitted"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
 
-    document.dispatchEvent(new CustomEvent("pito:echo-typed"))
+    document.dispatchEvent(new CustomEvent("pito:result-appended"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(true)
 
     document.dispatchEvent(new CustomEvent("pito:submitted"))

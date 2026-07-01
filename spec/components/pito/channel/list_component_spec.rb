@@ -20,11 +20,11 @@ RSpec.describe Pito::Channel::ListComponent do
       expect(html).to include("/rails/active_storage/blobs/avatar.jpg")
     end
 
-    it "renders a placeholder when no avatar is attached" do
+    it "renders the click-to-sync image placeholder when no avatar is attached (item 22)" do
       channel = build_channel
       allow(channel).to receive(:avatar_variant_url).and_return(nil)
       html = render_inline(described_class.new(channels: [ channel ])).to_html
-      expect(html).to include("pito-channel-item__avatar--placeholder")
+      expect(html).to include("pito-image-fallback")
       expect(html).not_to include("<img")
     end
   end

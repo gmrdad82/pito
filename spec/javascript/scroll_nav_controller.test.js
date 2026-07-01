@@ -2,30 +2,33 @@
 //
 // Vitest suite for pito--scroll-nav Stimulus controller.
 //
+// The controller CREATES a pill (a clone of the matching <template>) and appends
+// it to the DOM when there are messages above / below, and REMOVES it entirely
+// when there are none. There is NO show/hide toggle — a pill's PRESENCE in the
+// DOM is the "shown" state (owner spec). Tests therefore assert on presence, not
+// on a `hidden` class.
+//
 // Covers:
 //   • Counting [data-scrollback-message] elements fully above / below viewport
-//   • Shows top pill when above > 0; bottom pill when below > 0
-//   • Hides pills when counts drop to 0
+//   • Creates the top pill when above > 0; the bottom pill when below > 0
+//   • Removes pills when counts drop to 0 / at the extremes / not scrollable
+//   • Count text interpolation + singular/plural
 //   • Picks different top/bottom variant indices simultaneously
-//   • Hides both pills when sidebar is open (#pito-sidebar has <aside>)
-//   • Hides both pills when palette is open (#pito-command-palette lacks .hidden)
-//   • Reappears when overlays close (MutationObserver)
-//   • ctrl+Home scrolls to top, ctrl+End scrolls to bottom
-//   • Click on jumpTop / jumpBottom tokens scrolls accordingly
+//   • Removes both pills when sidebar / palette open; recreates when they close
+//   • ctrl+Home / ctrl+End + token clicks scroll accordingly
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import ScrollNavController from "controllers/pito/scroll_nav_controller"
 
 // jsdom does not implement scrollTo on elements — stub it globally so the
-// controller's `this.scrollback?.scrollTo(...)` calls don't throw.  Individual
-// tests that need to capture the arguments replace scrollTo on the specific
-// element via stubScrollTo().
+// controller's `this.scrollback?.scrollTo(...)` calls don't throw. Tests that
+// capture args replace scrollTo on the specific element via stubScrollTo().
 if (!Element.prototype.scrollTo) {
   Element.prototype.scrollTo = function () {}
 }
 
-// ── Shared variants fixture (2 entries to keep tests deterministic enough) ──
+// ── Shared variants fixture ──────────────────────────────────────────────────
 
 const VARIANTS = [
   "%{count} messages %{direction}",
@@ -35,93 +38,70 @@ const VARIANTS = [
 
 // ── DOM scaffold ─────────────────────────────────────────────────────────────
 
-function buildScaffold({ variants = VARIANTS } = {}) {
-  // #pito-scrollback
-  const scrollback = document.createElement("div")
-  scrollback.id = "pito-scrollback"
-  // jsdom has no layout engine — BoundingClientRect returns all-zero by default.
-  // Tests set getBoundingClientRect on each element individually.
-  document.body.appendChild(scrollback)
-
-  // Controller wrapper + pills
-  const wrapper = document.createElement("div")
-  wrapper.setAttribute("data-controller", "pito--scroll-nav")
-  wrapper.setAttribute(
-    "data-pito--scroll-nav-variants-value",
-    JSON.stringify(variants)
-  )
-
-  const topPill = document.createElement("div")
-  topPill.setAttribute("data-pito--scroll-nav-target", "topPill")
-  topPill.classList.add("pito-scroll-nav__pill--top", "hidden")
-
-  const topCount = document.createElement("span")
-  topCount.setAttribute("data-pito--scroll-nav-target", "topCount")
-  topPill.appendChild(topCount)
-
-  const topToken = document.createElement("span")
-  topToken.setAttribute("data-action", "click->pito--scroll-nav#jumpTop")
-  topPill.appendChild(topToken)
-
-  wrapper.appendChild(topPill)
-
-  const bottomPill = document.createElement("div")
-  bottomPill.setAttribute("data-pito--scroll-nav-target", "bottomPill")
-  bottomPill.classList.add("pito-scroll-nav__pill--bottom", "hidden")
-
-  const bottomCount = document.createElement("span")
-  bottomCount.setAttribute("data-pito--scroll-nav-target", "bottomCount")
-  bottomPill.appendChild(bottomCount)
-
-  const bottomToken = document.createElement("span")
-  bottomToken.setAttribute("data-action", "click->pito--scroll-nav#jumpBottom")
-  bottomPill.appendChild(bottomToken)
-
-  wrapper.appendChild(bottomPill)
-  document.body.appendChild(wrapper)
-
-  return { wrapper, scrollback, topPill, bottomPill, topCount, bottomCount, topToken, bottomToken }
+// A <template> matching the component: a pill with a count span + a jump token.
+function makeTemplate(side) {
+  const tmpl = document.createElement("template")
+  tmpl.setAttribute("data-pito--scroll-nav-target", `${side}Template`)
+  const action = side === "top" ? "jumpTop" : "jumpBottom"
+  const keys   = side === "top" ? "ctrl+home" : "ctrl+end"
+  tmpl.innerHTML =
+    `<div class="pito-scroll-nav__pill pito-scroll-nav__pill--${side}">` +
+    `<span data-scroll-nav-count></span>` +
+    `<span data-action="click->pito--scroll-nav#${action}">${keys}</span>` +
+    `</div>`
+  return tmpl
 }
 
-// Mock the scrollback container's visible rect (represents viewport window into scroll content).
-// Also stubs scrollTop/clientHeight/scrollHeight — the controller's at-top/at-bottom guards
-// (13.36a/13.37a) read them. Defaults put the container MID-SCROLL (not at either extreme) so
-// the geometry-based pill tests behave as before; pass scrollTop/scrollHeight to test the extremes.
+function buildScaffold({ variants = VARIANTS } = {}) {
+  const scrollback = document.createElement("div")
+  scrollback.id = "pito-scrollback"
+  // jsdom has no layout engine — getBoundingClientRect returns all-zero by
+  // default. Tests set it per element via setContainerRect / addMessage.
+  document.body.appendChild(scrollback)
+
+  const wrapper = document.createElement("div")
+  wrapper.setAttribute("data-controller", "pito--scroll-nav")
+  wrapper.setAttribute("data-pito--scroll-nav-variants-value", JSON.stringify(variants))
+  wrapper.appendChild(makeTemplate("top"))
+  wrapper.appendChild(makeTemplate("bottom"))
+  document.body.appendChild(wrapper)
+
+  return { wrapper, scrollback }
+}
+
+// The live pill element for a side, or null when it is not in the DOM.
+const pillEl = (wrapper, side) =>
+  wrapper.querySelector(`.pito-scroll-nav__pill--${side}`)
+
+// The rendered count text for a side (undefined when the pill is absent).
+const countText = (wrapper, side) =>
+  pillEl(wrapper, side)?.querySelector("[data-scroll-nav-count]")?.textContent
+
+// Mock the scrollback container's rect + scroll geometry. Defaults put it
+// MID-SCROLL (not at either extreme); pass scrollTop/scrollHeight for extremes.
 function setContainerRect(
   scrollback,
   { top = 0, height = 600, scrollTop = 500, scrollHeight = 4000 } = {}
 ) {
   scrollback.getBoundingClientRect = () => ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 800,
-    width: 800,
-    height,
+    top, bottom: top + height, left: 0, right: 800, width: 800, height,
   })
   Object.defineProperty(scrollback, "scrollTop", { get: () => scrollTop, configurable: true })
   Object.defineProperty(scrollback, "clientHeight", { get: () => height, configurable: true })
   Object.defineProperty(scrollback, "scrollHeight", { get: () => scrollHeight, configurable: true })
 }
 
-// Stub scrollTo on the scrollback element; returns a spy array.
 function stubScrollTo(scrollback) {
   const calls = []
   scrollback.scrollTo = (opts) => calls.push(opts)
   return calls
 }
 
-// Add a [data-scrollback-message] element with a given bounding rect.
 function addMessage(scrollback, { top, height = 50 } = {}) {
   const el = document.createElement("div")
   el.setAttribute("data-scrollback-message", "")
   el.getBoundingClientRect = () => ({
-    top,
-    bottom: top + height,
-    left: 0,
-    right: 800,
-    width: 800,
-    height,
+    top, bottom: top + height, left: 0, right: 800, width: 800, height,
   })
   scrollback.appendChild(el)
   return el
@@ -143,63 +123,56 @@ describe("pito--scroll-nav controller", () => {
     vi.restoreAllMocks()
   })
 
-  // Wait for Stimulus to connect (10ms is sufficient in jsdom).
   function tick(ms = 20) {
     return new Promise((r) => setTimeout(r, ms))
   }
 
-  // ── T14.1: counting above / below ───────────────────────────────────────────
+  // ── counting above / below → create / remove ────────────────────────────────
 
-  it("shows top pill when a message is fully above the viewport", async () => {
-    const { scrollback, topPill } = buildScaffold()
+  it("creates the top pill when a message is fully above the viewport", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
-
-    // Message fully above (bottom = -10, which is <= containerRect.top = 0).
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(false)
+    expect(pillEl(wrapper, "top")).not.toBeNull()
   })
 
-  it("shows bottom pill when a message is fully below the viewport", async () => {
-    const { scrollback, bottomPill } = buildScaffold()
+  it("creates the bottom pill when a message is fully below the viewport", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
-
-    // Message fully below (top = 700, which is >= containerRect.bottom = 600).
     addMessage(scrollback, { top: 700, height: 50 })
 
     await tick()
 
-    expect(bottomPill.classList.contains("hidden")).toBe(false)
+    expect(pillEl(wrapper, "bottom")).not.toBeNull()
   })
 
-  it("shows NEITHER pill for a brand-new conversation with zero messages (13.43)", async () => {
-    const { scrollback, topPill, bottomPill } = buildScaffold()
-    // Empty, non-scrollable scrollback: no [data-scrollback-message] elements.
+  it("creates NEITHER pill for a brand-new conversation with zero messages", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 600 })
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
-    expect(bottomPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
+    expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
-  it("hides BOTH pills when the content fits the viewport / not scrollable (17.2)", async () => {
-    const { scrollback, topPill, bottomPill } = buildScaffold()
-    // scrollHeight === clientHeight → all messages visible, nothing to jump to.
+  it("creates NEITHER pill when the content fits the viewport / not scrollable", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 600 })
     addMessage(scrollback, { top: 10, height: 50 })
     addMessage(scrollback, { top: 70, height: 50 })
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
-    expect(bottomPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
+    expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
-  it("renders the SINGULAR noun when exactly one message is out of view (17.3 pluralization)", async () => {
-    const { scrollback, topCount } = buildScaffold({
+  it("renders the SINGULAR noun when exactly one message is out of view", async () => {
+    const { wrapper, scrollback } = buildScaffold({
       variants: [ "%{count} {message|messages} %{direction}" ],
     })
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
@@ -207,11 +180,11 @@ describe("pito--scroll-nav controller", () => {
 
     await tick()
 
-    expect(topCount.textContent).toBe("1 message above")
+    expect(countText(wrapper, "top")).toBe("1 message above")
   })
 
-  it("renders the PLURAL noun when several messages are out of view (17.3 pluralization)", async () => {
-    const { scrollback, topCount } = buildScaffold({
+  it("renders the PLURAL noun when several messages are out of view", async () => {
+    const { wrapper, scrollback } = buildScaffold({
       variants: [ "%{count} {message|messages} %{direction}" ],
     })
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
@@ -220,55 +193,52 @@ describe("pito--scroll-nav controller", () => {
 
     await tick()
 
-    expect(topCount.textContent).toBe("2 messages above")
+    expect(countText(wrapper, "top")).toBe("2 messages above")
   })
 
-  it("hides top pill when scrolled to the very top, even if a message reads above (13.36a)", async () => {
-    const { scrollback, topPill } = buildScaffold()
+  it("removes the top pill when scrolled to the very top, even if a message reads above", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 4000 })
     addMessage(scrollback, { top: -60, height: 50 }) // would otherwise count as "above"
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
   })
 
-  it("hides bottom pill when scrolled to the very bottom, even if a message reads below (13.37a)", async () => {
-    const { scrollback, bottomPill } = buildScaffold()
+  it("removes the bottom pill when scrolled to the very bottom, even if a message reads below", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     // scrollTop + clientHeight (3400 + 600 = 4000) === scrollHeight → at the bottom.
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 3400, scrollHeight: 4000 })
     addMessage(scrollback, { top: 700, height: 50 }) // would otherwise count as "below"
 
     await tick()
 
-    expect(bottomPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
-  it("hides top pill when no message is above the viewport", async () => {
-    const { scrollback, topPill } = buildScaffold()
+  it("creates no top pill when no message is above the viewport", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
+    addMessage(scrollback, { top: 100, height: 50 }) // inside viewport
 
-    // Message inside viewport (top = 100, bottom = 150 — neither above nor below).
+    await tick()
+
+    expect(pillEl(wrapper, "top")).toBeNull()
+  })
+
+  it("creates no bottom pill when no message is below the viewport", async () => {
+    const { wrapper, scrollback } = buildScaffold()
+    setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: 100, height: 50 })
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
-  })
-
-  it("hides bottom pill when no message is below the viewport", async () => {
-    const { scrollback, bottomPill } = buildScaffold()
-    setContainerRect(scrollback, { top: 0, height: 600 })
-
-    addMessage(scrollback, { top: 100, height: 50 })
-
-    await tick()
-
-    expect(bottomPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
   it("counts multiple messages above and below independently", async () => {
-    const { scrollback, topPill, bottomPill, topCount, bottomCount } = buildScaffold()
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
 
     addMessage(scrollback, { top: -100, height: 50 }) // above
@@ -277,50 +247,39 @@ describe("pito--scroll-nav controller", () => {
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(false)
-    expect(bottomPill.classList.contains("hidden")).toBe(false)
-
-    // Count text contains "2" for above and "1" for below.
-    expect(topCount.textContent).toMatch(/2/)
-    expect(bottomCount.textContent).toMatch(/1/)
+    expect(pillEl(wrapper, "top")).not.toBeNull()
+    expect(pillEl(wrapper, "bottom")).not.toBeNull()
+    expect(countText(wrapper, "top")).toMatch(/2/)
+    expect(countText(wrapper, "bottom")).toMatch(/1/)
   })
 
-  // ── T14.2: count text interpolation ────────────────────────────────────────
+  // ── count text interpolation ────────────────────────────────────────────────
 
   it("interpolates %{count} and %{direction} in the count text (top pill)", async () => {
-    const { scrollback, topCount } = buildScaffold({
-      variants: ["%{count} messages %{direction}"],
-    })
+    const { wrapper, scrollback } = buildScaffold({ variants: ["%{count} messages %{direction}"] })
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    expect(topCount.textContent).toBe("1 messages above")
+    expect(countText(wrapper, "top")).toBe("1 messages above")
   })
 
   it("interpolates %{count} and %{direction} in the count text (bottom pill)", async () => {
-    const { scrollback, bottomCount } = buildScaffold({
-      variants: ["%{count} messages %{direction}"],
-    })
+    const { wrapper, scrollback } = buildScaffold({ variants: ["%{count} messages %{direction}"] })
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: 700, height: 50 })
 
     await tick()
 
-    expect(bottomCount.textContent).toBe("1 messages below")
+    expect(countText(wrapper, "bottom")).toBe("1 messages below")
   })
 
-  // ── T14.3: variant uniqueness (top ≠ bottom simultaneously) ────────────────
+  // ── variant uniqueness (top ≠ bottom simultaneously) ────────────────────────
 
-  it("top and bottom pills use different variant indices when both visible", async () => {
-    // 20 distinctly-prefixed templates so we can detect which one is in use.
-    const manyVariants = Array.from(
-      { length: 20 },
-      (_, i) => `V${i} %{count} %{direction}`
-    )
-
-    const { scrollback, topCount, bottomCount } = buildScaffold({ variants: manyVariants })
+  it("top and bottom pills use different variant indices when both present", async () => {
+    const manyVariants = Array.from({ length: 20 }, (_, i) => `V${i} %{count} %{direction}`)
+    const { wrapper, scrollback } = buildScaffold({ variants: manyVariants })
     setContainerRect(scrollback, { top: 0, height: 600 })
 
     const above = addMessage(scrollback, { top: -60, height: 50 })
@@ -330,168 +289,145 @@ describe("pito--scroll-nav controller", () => {
     const RUNS = 10
 
     for (let i = 0; i < RUNS; i++) {
-      // Hide both pills by moving messages into viewport.
+      // Move both into view → both pills removed.
       above.getBoundingClientRect = () => ({ top: 100, bottom: 150, left: 0, right: 800, width: 800, height: 50 })
       below.getBoundingClientRect = () => ({ top: 200, bottom: 250, left: 0, right: 800, width: 800, height: 50 })
       scrollback.dispatchEvent(new Event("scroll"))
       await tick()
 
-      // Re-expose both messages outside the viewport — new variant picks happen on hidden→visible.
+      // Re-expose both outside the viewport → both pills re-created with fresh variants.
       above.getBoundingClientRect = () => ({ top: -60, bottom: -10, left: 0, right: 800, width: 800, height: 50 })
       below.getBoundingClientRect = () => ({ top: 700, bottom: 750, left: 0, right: 800, width: 800, height: 50 })
       scrollback.dispatchEvent(new Event("scroll"))
       await tick()
 
-      if (topCount.textContent === bottomCount.textContent) sameCount++
+      if (countText(wrapper, "top") === countText(wrapper, "bottom")) sameCount++
     }
 
-    // With 20 variants the collision probability per round is 1/20.
-    // In 10 rounds we expect at most ~1 collision; threshold is 3.
     expect(sameCount).toBeLessThanOrEqual(3)
   })
 
-  // ── T14.4: variant locked until pill hides again ────────────────────────────
+  // ── variant locked while the pill stays in the DOM (count changes) ───────────
 
-  it("keeps the same variant text while the pill stays visible (count changes)", async () => {
-    const { scrollback, topCount } = buildScaffold({
-      variants: ["%{count} messages %{direction}"],
-    })
+  it("keeps the same variant text while the pill stays in the DOM (count changes)", async () => {
+    const { wrapper, scrollback } = buildScaffold({ variants: ["%{count} messages %{direction}"] })
     setContainerRect(scrollback, { top: 0, height: 600 })
 
     const msg1 = addMessage(scrollback, { top: -60, height: 50 })
     addMessage(scrollback, { top: -120, height: 50 })
     await tick()
 
-    // Both messages above → count = 2; variant index is locked.
-    const text1 = topCount.textContent
+    const text1 = countText(wrapper, "top") // 2 above
 
-    // Simulate scroll: one message moves into view — now only 1 above.
+    // One message moves into view — still 1 above, so the pill stays (not removed).
     msg1.getBoundingClientRect = () => ({ top: 100, bottom: 150, left: 0, right: 800, width: 800, height: 50 })
     scrollback.dispatchEvent(new Event("scroll"))
     await tick()
 
-    const text2 = topCount.textContent
+    const text2 = countText(wrapper, "top") // 1 above
 
-    // Same template, only count changed (1 vs 2).
     expect(text1).toMatch(/2/)
     expect(text2).toMatch(/1/)
-    // Both start with the same pattern prefix (same template).
     expect(text1.replace(/\d+/, "N")).toBe(text2.replace(/\d+/, "N"))
   })
 
-  // ── T14.5: hides on sidebar open ───────────────────────────────────────────
-  // The sidebar and palette elements must exist BEFORE the controller connects
-  // so that #watchOverlays() can register MutationObserver callbacks on them.
-  // (In the real app, application.html.erb always renders both in the layout.)
+  // ── overlays: remove on open, recreate on close ─────────────────────────────
 
-  it("hides both pills when the sidebar has an <aside> (sidebar open)", async () => {
-    // Create #pito-sidebar (empty = closed) BEFORE scaffold so connect() finds it.
+  it("removes both pills when the sidebar has an <aside> (sidebar open)", async () => {
     const sidebar = document.createElement("div")
     sidebar.id = "pito-sidebar"
     document.body.appendChild(sidebar)
 
-    const { scrollback, topPill, bottomPill } = buildScaffold()
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: -60, height: 50 })
     addMessage(scrollback, { top: 700, height: 50 })
 
     await tick()
 
-    // Pills visible before sidebar opens.
-    expect(topPill.classList.contains("hidden")).toBe(false)
-    expect(bottomPill.classList.contains("hidden")).toBe(false)
+    expect(pillEl(wrapper, "top")).not.toBeNull()
+    expect(pillEl(wrapper, "bottom")).not.toBeNull()
 
-    // Open sidebar → inject <aside>.
     const aside = document.createElement("aside")
     sidebar.appendChild(aside)
     await tick(50)
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
-    expect(bottomPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
+    expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
-  it("reappears when sidebar closes (<aside> removed)", async () => {
+  it("recreates a pill when the sidebar closes (<aside> removed)", async () => {
     const sidebar = document.createElement("div")
     sidebar.id = "pito-sidebar"
     const aside = document.createElement("aside")
-    sidebar.appendChild(aside) // sidebar starts OPEN
+    sidebar.appendChild(aside) // starts OPEN
     document.body.appendChild(sidebar)
 
-    const { scrollback, topPill } = buildScaffold()
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    // Sidebar open → pill hidden.
-    expect(topPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
 
-    // Close sidebar.
     sidebar.removeChild(aside)
     await tick(50)
 
-    expect(topPill.classList.contains("hidden")).toBe(false)
+    expect(pillEl(wrapper, "top")).not.toBeNull()
   })
 
-  // ── T14.6: hides when command palette is open ───────────────────────────────
-
-  it("hides both pills when the palette lacks .hidden (palette open)", async () => {
-    // Palette present without .hidden → open. Must exist BEFORE connect().
+  it("removes both pills when the palette lacks .hidden (palette open)", async () => {
     const palette = document.createElement("div")
     palette.id = "pito-command-palette"
     palette.classList.add("hidden") // start closed
     document.body.appendChild(palette)
 
-    const { scrollback, topPill, bottomPill } = buildScaffold()
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: -60, height: 50 })
     addMessage(scrollback, { top: 700, height: 50 })
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(false)
+    expect(pillEl(wrapper, "top")).not.toBeNull()
 
-    // Open palette → remove .hidden.
     palette.classList.remove("hidden")
     await tick(50)
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
-    expect(bottomPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
+    expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
-  it("reappears when palette closes (.hidden re-added)", async () => {
+  it("recreates a pill when the palette closes (.hidden re-added)", async () => {
     const palette = document.createElement("div")
     palette.id = "pito-command-palette"
-    // No .hidden = starts open.
-    document.body.appendChild(palette)
+    document.body.appendChild(palette) // no .hidden = open
 
-    const { scrollback, topPill } = buildScaffold()
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    expect(topPill.classList.contains("hidden")).toBe(true)
+    expect(pillEl(wrapper, "top")).toBeNull()
 
     palette.classList.add("hidden")
     await tick(50)
 
-    expect(topPill.classList.contains("hidden")).toBe(false)
+    expect(pillEl(wrapper, "top")).not.toBeNull()
   })
 
-  // ── T14.7: keyboard — ctrl+Home / ctrl+End ──────────────────────────────────
+  // ── keyboard — ctrl+Home / ctrl+End ─────────────────────────────────────────
 
   it("ctrl+Home scrolls #pito-scrollback to top", async () => {
     const { scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     const calls = stubScrollTo(scrollback)
-    // jumpTop calls scrollTo({ top: 0 }) — no need to mock scrollHeight.
 
     await tick()
 
-    document.dispatchEvent(new KeyboardEvent("keydown", {
-      key: "Home", ctrlKey: true, bubbles: true, cancelable: true,
-    }))
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", ctrlKey: true, bubbles: true, cancelable: true }))
     await tick()
 
     expect(calls.length).toBeGreaterThan(0)
@@ -506,62 +442,62 @@ describe("pito--scroll-nav controller", () => {
 
     await tick()
 
-    document.dispatchEvent(new KeyboardEvent("keydown", {
-      key: "End", ctrlKey: true, bubbles: true, cancelable: true,
-    }))
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "End", ctrlKey: true, bubbles: true, cancelable: true }))
     await tick()
 
     expect(calls.length).toBeGreaterThan(0)
     expect(calls.at(-1)).toMatchObject({ top: 2000, behavior: "smooth" })
   })
 
-  it("plain Home (without ctrl) does NOT trigger scroll nav jump", async () => {
+  it("plain Home (without ctrl) does NOT trigger a scroll-nav jump", async () => {
     const { scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     const calls = stubScrollTo(scrollback)
 
     await tick()
 
-    document.dispatchEvent(new KeyboardEvent("keydown", {
-      key: "Home", ctrlKey: false, bubbles: true, cancelable: true,
-    }))
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", ctrlKey: false, bubbles: true, cancelable: true }))
     await tick()
 
     expect(calls.length).toBe(0)
   })
 
-  // ── T14.8: click tokens ─────────────────────────────────────────────────────
+  // ── click tokens (inside the created pill) ──────────────────────────────────
 
-  it("clicking the jumpTop token scrolls to top", async () => {
-    const { scrollback, topToken } = buildScaffold()
+  it("clicking the created top pill's token scrolls to top", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
+    addMessage(scrollback, { top: -60, height: 50 }) // create the top pill
     const calls = stubScrollTo(scrollback)
 
-    await tick()
+    await tick(40)
 
-    topToken.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    const token = pillEl(wrapper, "top").querySelector("[data-action]")
+    token.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     await tick()
 
     expect(calls.length).toBeGreaterThan(0)
     expect(calls.at(-1)).toMatchObject({ top: 0, behavior: "smooth" })
   })
 
-  it("clicking the jumpBottom token scrolls to bottom", async () => {
-    const { scrollback, bottomToken } = buildScaffold()
+  it("clicking the created bottom pill's token scrolls to bottom", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     Object.defineProperty(scrollback, "scrollHeight", { get: () => 3000, configurable: true })
+    addMessage(scrollback, { top: 700, height: 50 }) // create the bottom pill
     const calls = stubScrollTo(scrollback)
 
-    await tick()
+    await tick(40)
 
-    bottomToken.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    const token = pillEl(wrapper, "bottom").querySelector("[data-action]")
+    token.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     await tick()
 
     expect(calls.length).toBeGreaterThan(0)
     expect(calls.at(-1)).toMatchObject({ top: 3000, behavior: "smooth" })
   })
 
-  // ── T14.9: disconnect is clean ──────────────────────────────────────────────
+  // ── disconnect is clean ─────────────────────────────────────────────────────
 
   it("disconnects without throwing", async () => {
     buildScaffold()

@@ -22,7 +22,7 @@ A few rules thread through everything here:
 - **Some files are generated** (e.g. `app/assets/tailwind/themes.css`) — edit the
   source, run the rake task, never the artifact.
 
-> File/line references rot. Where a guide cites a constant (`AppSetting::FX_EFFECTS`)
+> File/line references rot. Where a guide cites a constant (`AppSetting::SOUND_ENABLED_KEY`)
 > or a path, trust the symbol over any line number — grep for it.
 
 ## Contents
@@ -219,7 +219,7 @@ decides its own chrome.**
 2. **Create a sub-ViewComponent** at
    `app/components/pito/<domain>/<verb>_component.rb` (+ `.html.erb`). For most
    content types you don't touch `SystemComponent` — it renders `html: true` payloads
-   via its typewriter `htmlProse` path. Design rules (full contract in
+   directly (instant, no reveal). Design rules (full contract in
    [`design.md`](design.md)): no arbitrary Tailwind from variables (JIT purges them);
    use `data-cols="N"` with the static `.pito-data-grid[data-cols="N"]` rules;
    `border-radius: 0`; no `style=`; no hover.
@@ -301,80 +301,3 @@ bundle exec rspec \
 - **`Pito::Stream::Broadcaster` is the only broadcast path** — never
   `ActionCable.server.broadcast` from a controller/model/builder.
 - **Text via `Pito::Copy` only**; run `rake pito:copy:audit`.
-
----
-
-## Adding a new fx
-
-The three reveal effects (typewriter / scramble / comet, chosen via `/config fx`)
-live in one file: `app/javascript/pito/reveal_engine.js`. The one invariant:
-**`AppSetting::FX_EFFECTS` is the authoritative allowed-effect list.** The slash
-handler, the `--help` man page, and the grammar vocabulary all mirror it — add a name
-elsewhere first and `/config fx <new>` rejects it.
-
-### Steps
-
-1. **Implement the effect in `reveal_engine.js`.** `RevealEngine` has two extension
-   points: `prime(effect)` (synchronous first frame — a box must never be an empty
-   shell before its reveal runs) and `run(effect)` (drives the animation, returns a
-   Promise). Add an `if (effect === "<new>")` branch in each, and a private
-   `#run<New>()` method. Three engine invariants:
-
-   - **Budget comes from `this.duration`** (`revealDuration(totalChars)`, clamped
-     400–2500 ms). Don't invent your own.
-   - **Register every `setTimeout` via `this._timers.push(…)`** — `finishInstant()`
-     and `cancel()` iterate them. Clean up inline CSS side-effects (opacity,
-     transition, classes) in the settle timer, idempotently (cancel can fire
-     mid-animation).
-   - **Always-pop elements (score bars, avatars, covers, thumbnails) are skipped by
-     `#collectUnits`** — they're never in `this.units`, so don't guard them.
-
-   If the effect needs a CSS class, add it in
-   `app/assets/tailwind/application.css` with the two motion-guard overrides the
-   comet uses (both `@media (prefers-reduced-motion: reduce)` and
-   `html:has(#pito-settings[data-fx="false"])` neutralise it). Pure JS-driven effects
-   that clean up on settle don't need a class.
-
-2. **Add the name to `AppSetting::FX_EFFECTS`** (`app/models/app_setting.rb`):
-   `%w[typewriter scramble comet fade]`. This gates `AppSetting.fx_effect=`, the
-   slash handler, and the `--help` showcase.
-
-3. **Mirror it in `Pito::Grammar::Vocabularies::FX_EFFECTS`**
-   (`lib/pito/grammar/vocabularies.rb`) — `vocabularies_spec.rb` asserts the two
-   constants `match_array`, and the vocabulary drives ghost-text after `/config fx `.
-
-4. **Add the help description** in `config/locales/pito/slash/en.yml` under
-   `pito.slash.config.help.providers.fx.effects`, and update the three prose strings
-   that hardcode the effect list (`errors.invalid_fx_effect`,
-   `help.general.providers.fx`, `help.providers.motion.states.on`).
-
-5. **Add ≥50 showcase one-liners** under `pito.copy.fx.<effect>` in
-   `config/locales/pito/copy/en.yml` — the `--help` man page samples one for the live
-   demo row. The config spec asserts ≥50, so fewer is a CI failure.
-
-6. **No importmap change** — `pito/reveal_engine` is already pinned; keep all effects
-   in the one engine file.
-
-### Verify
-
-```bash
-npx vitest run                      # add coverage in spec/javascript/reveal_engine.test.js
-bundle exec rspec spec/models/app_setting_spec.rb \
-  spec/lib/pito/grammar/vocabularies_spec.rb \
-  spec/services/pito/slash/handlers/config_spec.rb
-```
-
-### Gotchas
-
-- **Two Ruby lists, one truth** — `AppSetting::FX_EFFECTS` and
-  `Vocabularies::FX_EFFECTS` must stay identical (`match_array` enforced). The JS
-  engine keeps no list; it acts on whatever string it's handed.
-- **Reduced-motion / fx-off gates live in the controller, not the engine** — a new
-  effect inherits them via `TypewriterController#skipAnimation`. Add the CSS override
-  too if your effect animates via a class.
-- **Backpressure collapses everything to `finishInstant()`** (≥4 reveals in flight) →
-  `#restoreUnit` per unit. It handles text + `visibility`, not your custom
-  side-effects — clean those up in settle, idempotently.
-- **The copy dictionary needs ≥50 entries**, not ≥1 — CI fails on the count.
-- **`AppSetting.fx_effect=` broadcasts automatically** — `#pito-settings` re-renders
-  via Turbo Stream so every open tab gets the new `data-fx-effect` with no reload.

@@ -7,11 +7,11 @@ module Pito
     # particle is optional — so all of these are equivalent:
     #   `sort by views` · `sorted by views` · `sort views` · `order by views`
     #
-    #   SortClause.parse("list games sorted by year desc")
-    #   # => { token: "year", direction: :desc }
+    #   SortClause.parse("list games sorted by price desc")
+    #   # => { token: "price", direction: :desc }
     #
-    #   SortClause.parse("list games with platform order by release date")
-    #   # => { token: "release date", direction: :asc }
+    #   SortClause.parse("list games with genre order by genre")
+    #   # => { token: "genre", direction: :asc }
     #
     #   SortClause.parse("list games")          # => nil  (no sort verb)
     #   SortClause.parse("list games sort")     # => nil  (no column)
@@ -20,7 +20,8 @@ module Pito
     #   * Matches sort/sorted/order/ordered (case-insensitive), `\b`-bounded so it
     #     never trips on "resort"/"disorder"/"developer"/"sports".
     #   * The `by` particle is optional.
-    #   * Captures the column token (may be multi-word, e.g. "release date").
+    #   * Captures the column token (generic — multi-word tokens are preserved,
+    #     e.g. a two-word column name, though the game columns are single-word now).
     #   * Optional trailing asc/ascending/desc/descending; default is :asc.
     #   * Token is stripped and downcased; a blank token (bare `sort`) → nil.
     module SortClause

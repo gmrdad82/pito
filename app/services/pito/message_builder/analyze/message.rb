@@ -36,8 +36,10 @@ module Pito
         ROLES = INTRO_KEYS.keys.freeze
         ROLE_KINDS = { "system" => :system, "enhanced" => :enhanced }.freeze
 
-        # Metrics that render as bespoke AreaChart cells in the :system role.
-        CHART_METRIC_KEYS = %w[views watched_hours subs avg_view_duration avg_viewed_pct].freeze
+        # Metrics that render as bespoke AreaChart cells (persisted + re-rendered on
+        # mutate replies). views…avg_viewed_pct are :system; retention + comments are
+        # :enhanced (comments moved scalar → Area, LAST enhanced metric, 2026-07-01).
+        CHART_METRIC_KEYS = %w[views watched_hours subs avg_view_duration avg_viewed_pct retention comments day_of_week_heatmap].freeze
 
         # Metrics that render as bespoke BarChart cells (share breakdowns).
         BAR_METRIC_KEYS = %w[subscribed_status devices geography demographics_gender demographics_age].freeze
@@ -45,7 +47,7 @@ module Pito
         # Metrics that render as a bespoke chart (Area / Heart / Bar). When such a
         # metric has NO data, its cell becomes the NoData placeholder instead of the
         # "0"/compact scalar (owner: NoData covers every empty Area/Heart/Bar). Pure
-        # scalar metrics (comments, day_of_week_heatmap, retention) stay 0/1.
+        # scalar metrics (day_of_week_heatmap) stay 0/1.
         NO_DATA_METRICS = (CHART_METRIC_KEYS.map(&:to_sym) + %i[likes] + BAR_METRIC_KEYS.map(&:to_sym)).freeze
 
         # Fixed key→colour token maps for the categorical bar metrics (the
@@ -202,6 +204,8 @@ module Pito
             chart = charts[metric]
             if metric == :likes && likes_hearts?(likes)
               heart_cell(likes)
+            elsif metric == :day_of_week_heatmap && chart.present?
+              { heatmap: metric, values: Array(chart["values"]), caption: chart_captions[metric] }
             elsif chart.present?
               {
                 chart:           metric,
@@ -358,6 +362,9 @@ module Pito
         # @param metric [Symbol]
         # @param chart  [Hash]   string-keyed chart data
         def render_chart_caption(metric:, chart:)
+          return render_retention_caption(chart:) if metric.to_sym == :retention
+          return render_heatmap_caption(values: chart["values"] || chart[:values]) if metric.to_sym == :day_of_week_heatmap
+
           caption = Pito::Copy.render_html(
             "pito.copy.analyze.metric_caption",
             {
@@ -367,12 +374,37 @@ module Pito
             shimmer: [ :metric ]
           )
 
-          if metric.to_sym == :avg_viewed_pct
-            insight = render_retention_insight(chart:)
-            caption = (caption + "<br>".html_safe + insight).html_safe if insight
-          end
-
           caption
+        end
+
+        # Retention's OWN witty/ironic caption (distinct from the generic chart
+        # caption) — the mean retention %% as a cyan SUBJECT token + the benchmark
+        # word in its trend colour. 50-variant pool. html-safe; persisted + re-rendered raw.
+        def render_retention_caption(chart:)
+          pct       = (chart["total_pct"] || chart[:total_pct]).to_f
+          benchmark = chart["benchmark_word"] || chart[:benchmark_word] || "typical"
+          Pito::Copy.render_html(
+            "pito.copy.analyze.retention_caption",
+            { value: "#{pct.round}%", benchmark: benchmark_word_html(benchmark) },
+            shimmer: [ :value ]
+          )
+        end
+
+        # Full weekday names (Mon..Sun) parallel to WeekdaySeries#values, for the
+        # heatmap caption's "best day" subject.
+        DAY_NAMES = %w[Monday Tuesday Wednesday Thursday Friday Saturday Sunday].freeze
+
+        # The day-of-week heatmap's witty caption — names the BUSIEST weekday (the
+        # green bar) as the blue→purple SUBJECT token, from the 50-variant pool.
+        # html-safe; persisted in the marker and re-rendered raw.
+        def render_heatmap_caption(values:)
+          vals   = Array(values).map(&:to_f)
+          best_i = (0...vals.size).max_by { |i| vals[i] } || 0
+          Pito::Copy.render_html(
+            "pito.copy.analyze.day_of_week_caption",
+            { day: DAY_NAMES[best_i] || DAY_NAMES.first },
+            shimmer: [ :day ]
+          )
         end
 
         # The witty caption under the likes-hearts (Pito::Analytics::Visualizers::Heart) — the
@@ -426,28 +458,6 @@ module Pito
           end
 
           token + triangle + ref
-        end
-
-        # Second caption row for avg_viewed_pct: Studio-style retention insight.
-        # "X% of viewers are still watching at around the M:SS mark, which is <benchmark>."
-        # Returns nil when required data is missing (safe no-op).
-        def render_retention_insight(chart:)
-          at_mark_pct = chart["at_mark_pct"]
-          benchmark_w = chart["benchmark_word"]
-          return nil if at_mark_pct.nil? || benchmark_w.nil?
-
-          mark           = Pito::Formatter::Duration.call(chart["avg_duration_seconds"].to_f) || "0:00"
-          benchmark_html = benchmark_word_html(benchmark_w)
-
-          # The "X%" reads as the SUBJECT here (owner) — wrap it in the subject
-          # shimmer (purple→blue), like the metric subject token. The "%" is part
-          # of the shimmered value (templates use bare %{pct}); benchmark stays its
-          # own trend-coloured span.
-          Pito::Copy.render_html(
-            "pito.copy.analyze.retention_insight",
-            { pct: "#{at_mark_pct.to_i}%", mark:, benchmark: benchmark_html },
-            shimmer: [ :pct ]
-          )
         end
 
         # Wrap the benchmark word in a colored span matching the trend-arrow CSS.
@@ -512,9 +522,10 @@ module Pito
           when :avg_view_duration
             Pito::Formatter::Duration.call(chart["total"].to_f) || "0:00"
           when :avg_viewed_pct
-            dur_s = Pito::Formatter::Duration.call(chart["avg_duration_seconds"].to_f) || "0:00"
-            pct   = format("%.2f%%", chart["total_pct"].to_f)
-            "#{dur_s} (#{pct})"
+            # PULLED from YouTube's averageViewPercentage (views-weighted) — just the
+            # percentage; no paired M:SS (owner: don't derive; avg_view_duration is
+            # its own metric). total_pct is the views-weighted overall %.
+            format("%.1f%%", chart["total_pct"].to_f)
           else
             Pito::Formatter::CompactCount.call(chart["total"].to_i)
           end

@@ -11,35 +11,39 @@
       <div class="pito-channel-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
     <% end %>
 
-    <%# Banner (our cached 374x210 16:9 copy) in the top-left spot. When the channel
-        has NO banner, the spot is EMPTY — the avatar is NOT shown here; it lives in
-        the kv-table on the right (owner 2026-06-29). %>
-    <% if banner_attached? && (burl = banner_url) %>
-      <div class="pito-channel-detail__banner">
-        <%= image_tag burl, alt: @channel.title, class: "block" %>
-      </div>
-    <% end %>
+    <%# Banner (our cached 450×253 16:9 copy) in the top-left spot. When the
+        channel has NO banner, the shared click-to-sync placeholder (rect) fills
+        the spot (item 22 — supersedes the earlier empty-spot behaviour). The
+        avatar still lives in the kv-table on the right. %>
+    <div class="pito-channel-detail__banner">
+      <%= render Pito::ImageRender.call(
+            url:            banner_url,
+            shape:          :rect,
+            sync_command:   "sync channel #{@channel.at_handle}",
+            alt:            @channel.title.to_s,
+            html_class:     "block",
+            fallback_class: "pito-image-box--rect169"
+          ) %>
+    </div>
 
     <%# Hairline separating the banner (when present) from the stats %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
-    <%# Stats — bold heading (Pito::Copy) + one-line word counters, left. %>
-    <div class="pito-channel-detail__stats flex flex-col gap-1">
+    <%# Stats + Shinies as kv-table rows (owner 2026-07-01, items 48/49): the heading
+        is the KEY column, the value is the one-line counters / freely-wrapping badges. %>
+    <div class="pito-channel-detail__stats pito-detail-stats">
       <div class="pito-channel-detail__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
-      <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %>
-    </div>
+      <div><%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %></div>
 
-    <%# Shinies — only when the channel has at least one achievement. %>
-    <% if @channel.achievements.any? %>
-      <div class="flex flex-col gap-1">
+      <% if @channel.achievements.any? %>
         <div class="pito-channel-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
         <div class="pito-channel-detail__shinies flex flex-wrap gap-2">
           <% top_shinies_per_metric.each do |a| %>
             <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
           <% end %>
         </div>
-      </div>
-    <% end %>
+      <% end %>
+    </div>
   </div>
 
   <%# Mobile-only hairline between the stacked columns (hidden at md: and up). %>
@@ -54,10 +58,15 @@
           avatar, ALWAYS shown when the channel has an avatar (independent of the
           banner), as the FIRST kv-row above Handle. Two bare grid children (key +
           value) to match KeyValueRowComponent's output. %>
-      <% if avatar_attached? && (inline_avatar = avatar_inline_url) %>
-        <span class="text-fg-dim whitespace-nowrap self-center"><%= t("pito.channel.detail.avatar") %></span>
-        <span><%= image_tag inline_avatar, alt: @channel.title, class: "pito-channel-detail__avatar-inline block" %></span>
-      <% end %>
+      <span class="text-fg-dim whitespace-nowrap self-center"><%= t("pito.channel.detail.avatar") %></span>
+      <span><%= render Pito::ImageRender.call(
+            url:            avatar_inline_url,
+            shape:          :circle,
+            sync_command:   "sync channel #{@channel.at_handle}",
+            alt:            @channel.title.to_s,
+            html_class:     "pito-channel-detail__avatar-inline block",
+            fallback_class: "pito-channel-detail__avatar-inline"
+          ) %></span>
 
       <%# Handle — clickable yellow-shimmer token: prefills `show channel @handle`
           and submits, same affordance as the #id click in show vid/game. %>

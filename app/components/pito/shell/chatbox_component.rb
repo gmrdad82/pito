@@ -27,7 +27,7 @@ module Pito
       #   script tags (catalog, placeholder hints, suggestions palette, filter row, history,
       #   draft). Used on /share pages where the chatbox is a lightweight unfold
       #   affordance only, not a full-featured input.
-      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil, history: [], suggestions: [], reduced: false)
+      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil, history: [], suggestions: [], reduced: false, unfold_url: nil)
         @state = state
         @placeholder_key = placeholder_key
         @filter = filter
@@ -39,7 +39,13 @@ module Pito
         @history = Array(history)
         @suggestions = Array(suggestions)
         @reduced = reduced
+        # When set (the public /share/:uuid page), the reduced chatbox becomes an
+        # "unfold" decoy: prefilled + wired to pito--share-unfold, its hint slot
+        # shows the "c to chat" ⇄ "Enter to unfold" affordance linking here.
+        @unfold_url = unfold_url.presence
       end
+
+      attr_reader :unfold_url
 
       # The placeholder hint. An explicit `placeholder_key` wins (static override);
       # otherwise it is sampled per auth state (see Pito::Shell::ChatboxHint).

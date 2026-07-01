@@ -211,169 +211,6 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
     end
   end
 
-  # The motion toggle is the renamed fx on/off switch. It MUST still write the
-  # unchanged AppSetting.fx_enabled flag (storage key + client data-fx unchanged).
-  describe "#call — /config motion off (setter)" do
-    it "disables fx_enabled and broadcasts a settings update" do
-      AppSetting.fx_enabled = true
-      broadcaster_double = instance_double(Pito::Stream::Broadcaster, broadcast_settings_update: nil)
-      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster_double)
-
-      result = build_handler(args: [ "motion", "off" ]).call
-
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(AppSetting.fx_enabled?).to be false
-      expect(broadcaster_double).to have_received(:broadcast_settings_update)
-      AppSetting.fx_enabled = true # restore
-    end
-  end
-
-  describe "#call — /config motion on (setter)" do
-    it "enables fx_enabled and broadcasts a settings update" do
-      AppSetting.fx_enabled = false
-      broadcaster_double = instance_double(Pito::Stream::Broadcaster, broadcast_settings_update: nil)
-      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster_double)
-
-      result = build_handler(args: [ "motion", "on" ]).call
-
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(AppSetting.fx_enabled?).to be true
-      expect(broadcaster_double).to have_received(:broadcast_settings_update)
-    end
-
-    it "labels the confirmation 'Motion'" do
-      allow_any_instance_of(Pito::Stream::Broadcaster).to receive(:broadcast_settings_update)
-      result = build_handler(args: [ "motion", "on" ]).call
-      expect(result.events.first[:payload][:text]).to include("Motion")
-    end
-  end
-
-  # ── FX reveal-effect enum path ──────────────────────────────────────────────
-
-  describe "#call — /config fx scramble (enum setter)" do
-    it "sets AppSetting.fx_effect and broadcasts a settings update" do
-      AppSetting.fx_effect = "typewriter"
-      broadcaster_double = instance_double(Pito::Stream::Broadcaster, broadcast_settings_update: nil)
-      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster_double)
-
-      result = build_handler(args: [ "fx", "scramble" ]).call
-
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(AppSetting.fx_effect).to eq("scramble")
-      expect(broadcaster_double).to have_received(:broadcast_settings_update)
-      AppSetting.fx_effect = "typewriter" # restore
-    end
-
-    it "confirms the chosen effect in the text" do
-      allow_any_instance_of(Pito::Stream::Broadcaster).to receive(:broadcast_settings_update)
-      result = build_handler(args: [ "fx", "comet" ]).call
-      expect(result.events.first[:payload][:text]).to include("comet")
-      AppSetting.fx_effect = "typewriter" # restore
-    end
-  end
-
-  describe "#call — /config fx (enum getter, no arg)" do
-    it "shows the current reveal effect" do
-      AppSetting.fx_effect = "scramble"
-      result = build_handler(args: [ "fx" ]).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload][:text]).to include("scramble")
-      AppSetting.fx_effect = "typewriter" # restore
-    end
-  end
-
-  describe "#call — /config fx --help (live showcase man page)" do
-    subject(:body) do
-      build_handler(args: [ "fx" ], raw: "/config fx --help").call
-        .events.first[:payload]["body"]
-    end
-
-    it "returns a man-page system event (html payload), not the generic help" do
-      result = build_handler(args: [ "fx" ], raw: "/config fx --help").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      payload = result.events.first[:payload]
-      expect(payload["html"]).to be true
-      expect(payload["body"]).to include("pito-help-block")
-    end
-
-    it "uses the fx-specific usage line, not the generic /config <provider> form" do
-      expect(body).to include("/config fx &lt;typewriter|scramble|comet&gt;")
-      expect(body).not_to include("/config &lt;provider&gt;")
-    end
-
-    it "lists all three effects as tokens, in canonical order" do
-      AppSetting::FX_EFFECTS.each { |fx| expect(body).to include(%(<span class="text-cyan">#{fx}</span>)) }
-      positions = AppSetting::FX_EFFECTS.map { |fx| body.index(%(<span class="text-cyan">#{fx}</span>)) }
-      expect(positions).to eq(positions.sort)
-    end
-
-    it "renders one looping showcase row per effect, in effect order" do
-      showcases = body.scan(/data-pito--fx-demo-effect-value="(\w+)"/).flatten
-      expect(showcases).to eq(AppSetting::FX_EFFECTS)
-    end
-
-    AppSetting::FX_EFFECTS.each do |effect|
-      it "wires the #{effect} showcase row to the fx-demo loop controller with its own effect value and a non-empty line" do
-        row = body[/<div data-controller="pito--fx-demo" data-pito--fx-demo-effect-value="#{effect}">.*?<\/div>/m]
-        expect(row).to be_present
-        expect(row).to include('data-controller="pito--fx-demo"')
-        expect(row).to include(%(data-pito--fx-demo-effect-value="#{effect}"))
-        # the row carries a non-empty witty line
-        text = row[/<span class="text-fg-dim">(.*?)<\/span>/m, 1]
-        expect(text.to_s.strip).not_to be_empty
-      end
-    end
-
-    it "escapes the showcase copy (no smuggled markup)" do
-      # With the deterministic sampler (first variant) the scramble line contains
-      # an ellipsis only — assert generally that no stray unescaped angle brackets
-      # appear inside a showcase row's text node.
-      body.scan(/<span class="text-fg-dim">(.*?)<\/span>/m).flatten.each do |text|
-        expect(text).not_to include("<")
-      end
-    end
-  end
-
-  describe "#call — /config motion --help (on/off man page)" do
-    subject(:body) do
-      build_handler(args: [ "motion" ], raw: "/config motion --help").call
-        .events.first[:payload]["body"]
-    end
-
-    it "returns an html man-page event listing on and off states" do
-      result = build_handler(args: [ "motion" ], raw: "/config motion --help").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload]["html"]).to be true
-      expect(body).to include("pito-help-block")
-      expect(body).to include(%(<span class="text-cyan">on</span>))
-      expect(body).to include(%(<span class="text-cyan">off</span>))
-    end
-  end
-
-  describe "fx showcase copy dictionary" do
-    AppSetting::FX_EFFECTS.each do |effect|
-      it "pito.copy.fx.#{effect} has at least 50 variants" do
-        variants = I18n.t("pito.copy.fx.#{effect}")
-        expect(variants).to be_an(Array)
-        expect(variants.length).to be >= 50
-        expect(variants).to all(be_present)
-      end
-    end
-  end
-
-  describe "#call — /config fx bogus (invalid effect)" do
-    it "returns an error and does not broadcast" do
-      AppSetting.fx_effect = "typewriter"
-      expect(Pito::Stream::Broadcaster).not_to receive(:new)
-
-      result = build_handler(args: [ "fx", "bogus" ]).call
-
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.invalid_fx_effect")
-      expect(AppSetting.fx_effect).to eq("typewriter")
-    end
-  end
-
   describe "#call — credential path still works (non-toggle provider)" do
     it "/config google client_id=x still uses credential path unchanged" do
       result = build_handler(args: [ "google" ], kwargs: { client_id: "new-id" }).call
@@ -382,12 +219,13 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
     end
   end
 
-  describe "#call — general help lists sound and fx" do
-    it "includes sound and fx in the help body" do
+  describe "#call — general help lists sound (motion/fx removed — item 18)" do
+    it "includes sound in the help body, not motion/fx" do
       result = build_handler(raw: "/config --help").call
       body = result.events.first[:payload]["body"]
       expect(body).to include("sound")
-      expect(body).to include("fx")
+      expect(body).not_to include("motion")
+      expect(body).not_to match(/\bfx\b/)
     end
   end
 

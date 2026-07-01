@@ -256,9 +256,6 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "publisher"    => :publisher,
       "channel"      => :channels,
       "channels"     => :channels,
-      "release"      => :release_date,
-      "release date" => :release_date,
-      "year"         => :year,
       "footage"      => :footage,
       "price"        => :price,
       "prices"       => :price
@@ -287,8 +284,8 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       expect(parse_game_columns("list games with channel, channels")).to eq([ :channels ])
     end
 
-    it "release + release date → de-duplicated to [:release_date]" do
-      expect(parse_game_columns("list games with release, release date")).to eq([ :release_date ])
+    it "the removed release/year columns are dropped from a with clause (item 24)" do
+      expect(parse_game_columns("list games with release date, year")).to eq([])
     end
 
     it "price + prices → de-duplicated to [:price]" do
@@ -302,10 +299,10 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       )
     end
 
-    it "all game columns in one with clause → all 9 canonicals" do
-      raw = "list games with platform, genre, developer, publisher, channels, release date, year, footage, price"
+    it "all game columns in one with clause → all 7 canonicals (release/year removed — item 24)" do
+      raw = "list games with platform, genre, developer, publisher, channels, footage, price"
       expect(parse_game_columns(raw)).to eq(
-        [ :platform, :genre, :developer, :publisher, :channels, :release_date, :year, :footage, :price ]
+        [ :platform, :genre, :developer, :publisher, :channels, :footage, :price ]
       )
     end
 
@@ -443,8 +440,6 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "developer"    => :developer,
       "dev"          => :developer,
       "publisher"    => :publisher,
-      "release date" => :release_date,
-      "year"         => :year,
       "channel"      => :channels,
       "channels"     => :channels,
       "footage"      => :footage,
@@ -458,6 +453,11 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
 
     it "unknown token absent from game SORT_VOCAB" do
       expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["foobar"]).to be_nil
+    end
+
+    it "the removed 'release date' / 'year' sort tokens are gone (item 24)" do
+      expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["release date"]).to be_nil
+      expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["year"]).to be_nil
     end
   end
 
@@ -530,8 +530,6 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "developer"    => :developer,
       "dev"          => :developer,
       "publisher"    => :publisher,
-      "release date" => :release_date,
-      "year"         => :year,
       "channel"      => :channels,
       "channels"     => :channels,
       "footage"      => :footage,
@@ -574,12 +572,12 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       expect(sort).to eq({ token: "genre", direction: :desc })
     end
 
-    it "game: with + sort multi-word release date" do
-      raw  = "list games with platform, release date order by release date asc"
+    it "game: with + sort on a still-valid column (footage)" do
+      raw  = "list games with platform, footage order by footage asc"
       cols = parse_game_columns(raw)
       sort = parse_sort(raw)
-      expect(cols).to include(:release_date)
-      expect(sort[:token]).to eq("release date")
+      expect(cols).to include(:footage)
+      expect(sort[:token]).to eq("footage")
       expect(sort[:direction]).to eq(:asc)
     end
 
@@ -905,9 +903,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
   # ── A15. Bare list / auto-fill ────────────────────────────────────────────────
 
   describe "A15. Bare list — auto-fill column order" do
-    it "game COLUMNS canonical order is [:platform, :genre, :developer, :publisher, :channels, :release_date, :year, :footage, :price]" do
+    it "game COLUMNS canonical order is [:platform, :genre, :developer, :publisher, :channels, :footage, :price] (release/year removed — item 24)" do
       expect(Pito::MessageBuilder::Game::ListColumns::COLUMNS.keys).to eq(
-        [ :platform, :genre, :developer, :publisher, :channels, :release_date, :year, :footage, :price ]
+        [ :platform, :genre, :developer, :publisher, :channels, :footage, :price ]
       )
     end
 
@@ -929,7 +927,7 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
     it "game auto-fill first 6 canonical columns when viewport wide enough" do
       all_cols   = Pito::MessageBuilder::Game::ListColumns::COLUMNS.keys
       autofill_6 = all_cols.first(6)
-      expect(autofill_6).to eq([ :platform, :genre, :developer, :publisher, :channels, :release_date ])
+      expect(autofill_6).to eq([ :platform, :genre, :developer, :publisher, :channels, :footage ])
     end
 
     it "video auto-fill first 6 canonical columns when viewport wide enough" do

@@ -1,0 +1,3 @@
+<%# Two hints, one shown at a time (pito--share-unfold toggles `hidden`):
+    unfocused → "c to chat"; focused → "Enter to unfold" (Enter = action-shimmer
+    link to the conversation). No inter-span whitespace so the slot stays tight. %><span data-pito--share-unfold-target="chatHint"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: to_chat)) %></span><span data-pito--share-unfold-target="unfoldHint" class="hidden"><a href="<%= conversation_url %>" class="pito-action-shimmer" data-pito--share-unfold-target="link">Enter</a> <span class="text-fg-dim"><%= to_unfold %></span></span>

@@ -8,10 +8,11 @@ module Pito
     # ([[channel, video_ids|:channel], …]) and sums likes/dislikes via the same
     # AnalyticsClient.scalars call Pito::Analytics::Scalars uses.
     #
-    # Layout (per the locked LIKES spec):
-    #   vid / game → SUBJECT heart (the scope's combined ratio, red) + CHANNEL heart
-    #                (the whole channel(s)' combined ratio, purple)
-    #   channel    → CHANNEL heart only (purple)
+    # Layout (owner 2026-07-01) — ONE heart per level, except vid:
+    #   vid     → SUBJECT (the vid's own ratio, red) + CHANNEL heart (purple)
+    #   game    → SUBJECT heart only (the linked vids' combined ratio, red) — NO
+    #             channel heart (a game spans channels, so it's meaningless here)
+    #   channel → CHANNEL heart only (purple)
     #
     # Score = likes / (likes + dislikes) × 100 (YouTube "Likes vs dislikes" %).
     # Returns an Array of heart hashes { score:, color:, likes:, dislikes: } (1 or
@@ -32,9 +33,16 @@ module Pito
         subject = ratio(groups, window)
         return nil unless subject
 
-        if level.to_s == "channel"
+        case level.to_s
+        when "channel"
+          # Channel: ONE channel heart only.
           [ heart(subject, :purple) ]
+        when "game"
+          # Game: ONE heart from the game's linked vids — no channel heart (a game
+          # spans channels, so a channel heart is meaningless here) (owner).
+          [ heart(subject, :red) ]
         else
+          # Vid: TWO hearts — the vid's own ratio + its channel's ratio.
           channel = ratio(whole_channel_groups(groups), window)
           [ heart(subject, :red), (heart(channel, :purple) if channel) ].compact
         end

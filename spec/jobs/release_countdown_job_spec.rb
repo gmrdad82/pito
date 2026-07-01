@@ -7,73 +7,84 @@ RSpec.describe ReleaseCountdownJob, type: :job do
     described_class.new.perform
   end
 
-  # Builds a game whose derived release_date lands `days` from today by setting
-  # its year/month/day components (release_date is recomputed before_save).
-  def game_releasing_in(days, **attrs)
+  # Attaches a DAY-precision per-platform release landing `days` from today.
+  def release_in(days, token: "ps", game: create(:game))
     target = Date.current + days
-    create(:game,
+    create(:game_platform_release,
+           game:          game,
+           platform_token: token,
            release_year:  target.year,
            release_month: target.month,
-           release_day:   target.day,
-           **attrs)
+           release_day:   target.day)
+    game
   end
 
   describe "#perform" do
-    it "creates exactly one countdown notification for a game releasing within 30 days" do
-      game_releasing_in(10)
+    it "creates one countdown for a day-precision release within 30 days" do
+      release_in(10)
       expect { run! }.to change(Notification, :count).by(1)
     end
 
-    it "creates no notification for a date-less (TBA, nil release_date) game" do
-      tba = create(:game, :tba)
-      expect(tba.release_date).to be_nil
-
+    it "creates no notification for a TBA game (no dated release)" do
+      create(:game, :tba)
       expect { run! }.not_to change(Notification, :count)
     end
 
-    it "creates no notification for a game releasing beyond the 30-day window" do
-      game_releasing_in(45)
+    it "creates no notification for a QUARTER-precision release (not a real day)" do
+      g = create(:game)
+      create(:game_platform_release, game: g, platform_token: "switch",
+             release_year: Date.current.year, release_quarter: 3, release_month: nil, release_day: nil)
       expect { run! }.not_to change(Notification, :count)
     end
 
-    it "creates no notification for an already-released (past) game" do
-      create(:game, release_year: 2020, release_month: 3, release_day: 15)
+    it "creates no notification beyond the 30-day window" do
+      release_in(45)
       expect { run! }.not_to change(Notification, :count)
     end
 
-    it "embeds the days-remaining count and the title in the message" do
-      game = game_releasing_in(7, title: "Hollow Knight: Silksong")
+    it "creates no notification for a past release" do
+      release_in(-5)
+      expect { run! }.not_to change(Notification, :count)
+    end
+
+    it "names the platform(s), days-remaining, and title in the message" do
+      g = create(:game, title: "Hollow Knight: Silksong")
+      release_in(7, token: "ps", game: g)
+      release_in(7, token: "steam", game: g)
       run!
       msg = Notification.last.message
-      expect(msg).to include("7")
-      expect(msg).to include("Hollow Knight: Silksong")
+      expect(msg).to include("7").and include("Hollow Knight: Silksong")
+      expect(msg).to include("PlayStation + Steam")
     end
 
-    it "does not create a duplicate when run twice on the same day" do
-      game_releasing_in(10)
+    it "fires SEPARATE notifications when platforms have different dates" do
+      g = create(:game)
+      release_in(5, token: "ps", game: g)
+      release_in(12, token: "switch", game: g)
+      expect { run! }.to change(Notification, :count).by(2)
+    end
+
+    it "does not duplicate on a same-day re-run" do
+      release_in(10)
       run!
       expect { run! }.not_to change(Notification, :count)
     end
 
     it "still reminds a different game on a same-day re-run" do
-      game_releasing_in(10, title: "Game One")
+      release_in(10, game: create(:game, title: "Game One"))
       run!
-      game_releasing_in(12, title: "Game Two")
+      release_in(12, game: create(:game, title: "Game Two"))
       expect { run! }.to change(Notification, :count).by(1)
     end
 
-    it "creates a notification for a game releasing exactly 30 days from today (inclusive upper bound)" do
-      game_releasing_in(30)
-      expect { run! }.to change(Notification, :count).by(1)
+    it "includes 30 days out (inclusive) and today (0 days)" do
+      release_in(30)
+      release_in(0)
+      expect { run! }.to change(Notification, :count).by(2)
     end
 
-    it "creates a notification for a game releasing today (0 days remaining)" do
-      game_releasing_in(0)
-      expect { run! }.to change(Notification, :count).by(1)
-    end
-
-    it "creates no notification for a game releasing exactly 31 days out (just past the window)" do
-      game_releasing_in(31)
+    it "excludes 31 days out (just past the window)" do
+      release_in(31)
       expect { run! }.not_to change(Notification, :count)
     end
   end

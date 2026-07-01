@@ -55,7 +55,7 @@ RSpec.describe "Dispatch shape routing", type: :dispatch do
     end
 
     it "resolves a slash verb with its auth tier" do
-      intent = parsed_intent("/config fx on")
+      intent = parsed_intent("/config sound on")
       expect(intent[:verb]).to eq(:config)
       expect(intent[:auth]).to eq(:authenticated_only)
       expect(intent[:known]).to be(true)

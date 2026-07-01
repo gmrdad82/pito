@@ -53,8 +53,16 @@ module Pito
         ApplicationController.renderer.render(component, layout: false)
       end
 
-      def self.component_for(event)
-        build_component(event.kind, indifferent_payload(event), event:)
+      # @param suppress_reply [Boolean] when true, strip the reply affordances
+      #   (reply_handle / reply_target) from the payload so the rendered message
+      #   shows NO `#handle` and isn't presented as repliable. Used by the public
+      #   /share/:uuid page — a shared message is read-only, so its hashtag must not
+      #   appear (owner 2026-07-01). Components read reply_handle from the PAYLOAD,
+      #   so removing it here is enough.
+      def self.component_for(event, suppress_reply: false)
+        payload = indifferent_payload(event)
+        payload = payload.except("reply_handle", "reply_target") if suppress_reply && payload.is_a?(Hash)
+        build_component(event.kind, payload, event:)
       end
 
       def self.build_component(kind, payload, event: nil)

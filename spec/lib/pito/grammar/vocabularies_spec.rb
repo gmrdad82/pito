@@ -52,33 +52,16 @@ RSpec.describe Pito::Grammar::Vocabularies do
   describe ":config_providers" do
     subject(:config_providers) { vocab(:config_providers) }
 
-    it "includes sound and fx" do
-      expect(config_providers.canonical).to include("sound", "fx")
+    it "includes the sound toggle" do
+      expect(config_providers.canonical).to include("sound")
     end
 
-    it "includes the motion toggle provider" do
-      expect(config_providers.canonical).to include("motion")
+    it "no longer includes the removed motion/fx providers (item 18)" do
+      expect(config_providers.canonical).not_to include("motion", "fx")
     end
 
     it "still includes the credential providers" do
       expect(config_providers.canonical).to include("google", "voyage", "igdb", "webhook")
-    end
-  end
-
-  # ── Static vocab: :fx_effects ─────────────────────────────────────────────────
-  describe ":fx_effects" do
-    subject(:fx_effects) { vocab(:fx_effects) }
-
-    it "is not dynamic" do
-      expect(fx_effects.dynamic?).to be false
-    end
-
-    it "has the reveal effects as canonical values" do
-      expect(fx_effects.canonical).to contain_exactly("typewriter", "scramble", "comet")
-    end
-
-    it "mirrors AppSetting::FX_EFFECTS" do
-      expect(fx_effects.canonical).to match_array(AppSetting::FX_EFFECTS)
     end
   end
 

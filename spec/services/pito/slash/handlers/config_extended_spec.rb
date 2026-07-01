@@ -31,10 +31,10 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "renders a man-page listing all config providers (incl. sound and fx)" do
+    it "renders a man-page listing all config providers (sound; motion/fx removed)" do
       body = build_handler(raw: "/config").call.events.first[:payload]["body"]
       expect(body).to include("pito-help-block")
-      %w[google voyage igdb webhook me sound fx].each { |p| expect(body).to include(p) }
+      %w[google voyage igdb webhook me sound timezone].each { |p| expect(body).to include(p) }
     end
 
     it "renders a man-page help body" do
@@ -154,19 +154,6 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
       result = build_handler(args: [ "voyage" ]).call
       keys = result.events.first[:payload][:table_rows].map { |r| r[:key] }
       expect(keys).to include("API Key:")
-    end
-  end
-
-  # ── FX reveal-effect getter ────────────────────────────────────────────────────
-
-  describe "#call — /config fx (enum getter, no arg)" do
-    it "returns a system event showing the current reveal effect" do
-      AppSetting.fx_effect = "typewriter"
-      result = build_handler(args: [ "fx" ]).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      text = result.events.first[:payload][:text]
-      expect(text).to be_present
-      AppSetting.fx_effect = "typewriter" # restore
     end
   end
 

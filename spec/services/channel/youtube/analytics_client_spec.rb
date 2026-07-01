@@ -489,7 +489,7 @@ RSpec.describe Channel::Youtube::AnalyticsClient, type: :service do
         ids:        "channel==UCtest123",
         start_date: "2026-06-01",
         end_date:   "2026-06-21",
-        metrics:    "views,estimatedMinutesWatched",
+        metrics:    "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,subscribersLost,comments",
         dimensions: "day"
       ).and_return(daily_response)
 

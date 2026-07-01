@@ -47,14 +47,27 @@ module Pito
         gained.zip(lost).map { |g, l| g.to_i - l.to_i }
       end
 
-      # Average view duration per day (seconds) = watch-minutes ÷ views × 60,
-      # derived from the same cached daily primitives (the Analytics daily report
-      # has no per-day averageViewDuration, but emw + views are both daily). 0 on
-      # a no-view day.
+      # Average view duration per day (seconds) — PULLED from YouTube's per-day
+      # averageViewDuration, views-weighted across the scope's vids (owner: pull
+      # YT's value, never re-derive). YouTube gives one average per video per day;
+      # a multi-video scope has no single YT average, so we views-weight:
+      # Σ(averageViewDuration × views) / Σ(views) per day. 0 on a no-view day.
       def avg_view_duration(groups, window)
-        emw   = daily(groups, window, "estimated_minutes_watched")
-        views = daily(groups, window, "views")
-        emw.zip(views).map { |m, v| v.to_i.positive? ? ((m.to_f / v) * 60).round : 0 }
+        dates  = (window.start_date..window.end_date).to_a
+        by_day = Hash.new { |h, k| h[k] = { views: 0, weighted: 0.0 } }
+        Pito::Analytics::DailySeries.primitives_daily(groups:, window:).each_value do |rows|
+          Array(rows).each do |row|
+            next unless row.is_a?(Hash)
+
+            day = Pito::Analytics::DailySeries.parse_day(row["day"] || row[:day])
+            next unless day
+
+            v = (row["views"] || row[:views]).to_i
+            by_day[day][:views]    += v
+            by_day[day][:weighted] += (row["average_view_duration"] || row[:average_view_duration]).to_f * v
+          end
+        end
+        dates.map { |d| e = by_day[d]; e[:views].positive? ? (e[:weighted] / e[:views]).round : 0 }
       end
     end
   end

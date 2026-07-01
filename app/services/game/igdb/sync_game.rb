@@ -36,6 +36,7 @@ class Game
           sync_developers(game, game_json["involved_companies"])
           sync_publishers(game, game_json["involved_companies"])
           game.update!(igdb_synced_at: Time.current, last_sync_error: nil)
+          sync_platform_releases(game, game_json)
         end
 
         # Generate the normalized cover master after every IGDB sync. Idempotent — the
@@ -113,6 +114,38 @@ class Game
         records.each do |c|
           GamePublisher.where(game_id: game.id, company_id: c.id).first_or_create!
         end
+      end
+
+      # Item 24 — per-platform release dates. Upsert one GamePlatformRelease per
+      # recognised platform token, drop tokens no longer present, and re-derive
+      # games.release_* as the EARLIEST across platforms (a lower-bound for
+      # scopes/sorting; the countdown reads the per-platform rows directly).
+      # Runs after game.update! so the game is persisted (association needs an id).
+      def sync_platform_releases(game, game_json)
+        by_token = Game::Igdb::PlatformReleaseMapper.call(game_json)
+
+        by_token.each do |token, components|
+          rel = game.platform_releases.find_or_initialize_by(platform_token: token)
+          rel.assign_attributes(
+            release_year:    components[:year],
+            release_quarter: components[:quarter],
+            release_month:   components[:month],
+            release_day:     components[:day]
+          )
+          rel.save!
+        end
+
+        game.platform_releases.where.not(platform_token: by_token.keys).destroy_all
+
+        earliest = game.platform_releases.reload.min_by { |r| r.release_date || Date.new(9999, 12, 31) }
+        return if earliest.nil?
+
+        game.update!(
+          release_year:    earliest.release_year,
+          release_quarter: earliest.release_quarter,
+          release_month:   earliest.release_month,
+          release_day:     earliest.release_day
+        )
       end
 
       def upsert_genre(row)

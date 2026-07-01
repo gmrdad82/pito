@@ -2,13 +2,17 @@
     with optional ScoreBarComponent (score: N). The @handle always runs
     `show channel @handle` via the pito--chat-prefill controller. %>
 <div class="pito-channel-item">
-  <%# Avatar (our cached variant) — only when show_avatar: true %>
+  <%# Avatar (our cached variant) — only when show_avatar: true. Missing → the
+      shared click-to-sync placeholder (circle), sized by the avatar class. %>
   <% if show_avatar? %>
-    <% if (avatar = avatar_url) %>
-      <%= image_tag avatar, alt: channel.title.to_s, class: "pito-channel-item__avatar block" %>
-    <% else %>
-      <div class="pito-channel-item__avatar pito-channel-item__avatar--placeholder text-fg-faded">?</div>
-    <% end %>
+    <%= render Pito::ImageRender.call(
+          url:            avatar_url,
+          shape:          :circle,
+          sync_command:   "sync channel #{channel.at_handle}",
+          alt:            channel.title.to_s,
+          html_class:     "pito-channel-item__avatar block",
+          fallback_class: "pito-channel-item__avatar"
+        ) %>
   <% end %>
 
   <%# Handle — clickable prefill token that auto-runs `show channel @handle`. %>

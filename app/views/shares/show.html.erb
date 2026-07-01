@@ -17,8 +17,9 @@
           )) %>
     <% end %>
 
-    <%# The shared event itself. %>
-    <%= render(Pito::Stream::EventRenderer.component_for(@event)) %>
+    <%# The shared event itself. Read-only: suppress the reply affordance so the
+        public page shows no #hashtag (owner 2026-07-01). %>
+    <%= render(Pito::Stream::EventRenderer.component_for(@event, suppress_reply: true)) %>
 
     <%# Outro summary — how many non-thinking messages came after this one. %>
     <% if after_count > 0 %>
@@ -29,19 +30,17 @@
   </div>
 
   <div style="padding: 0 25px 32px;">
-    <%# Reduced chatbox — unfolds to the full conversation when submitted. %>
-    <%= form_with url: unfold_share_path(uuid: @share.uuid), method: :post, class: "chatbox-form" do |form| %>
-      <%= form.hidden_field :uuid, value: @share.uuid %>
-      <%= render(Pito::Shell::ChatboxComponent.new(
-            state: :default,
-            reduced: true,
-            placeholder_key: "pito.copy.share.unfold_hint"
-          )) %>
-    <% end %>
-
-    <%# Auth status only — no connection status, no notification count. %>
-    <div style="margin-left: auto; margin-top: 8px;">
-      <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: Current.session.present?)) %>
-    </div>
+    <%# Reduced chatbox — a decoy prefilled with "unfold". pito--share-unfold wires
+        Enter (and the "Enter" link) → open the full conversation, c → focus, and the
+        "c to chat" ⇄ "Enter to unfold" hint swap. No form/submit: the Enter link's
+        href navigates (works without JS). Minimal chrome — no mini-status, no comet,
+        no scroll-nav, no ctrl+k (owner 2026-07-01, items 42+44). %>
+    <%= render(Pito::Shell::ChatboxComponent.new(
+          state: :default,
+          reduced: true,
+          initial_value: "unfold",
+          unfold_url: conversation_path(@conversation),
+          placeholder_key: "pito.copy.share.unfold_hint"
+        )) %>
   </div>
 </div>

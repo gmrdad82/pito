@@ -2,12 +2,11 @@
 //
 // Tests for pito/settings.js
 //
-// soundEnabled() and fxEnabled() fail-open: missing element or attribute → true.
+// soundEnabled() fails open: missing element or attribute → true.
+// (fxEnabled/fxEffect/motionDisabled were removed in item 18.)
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
-import { soundEnabled, fxEnabled, fxEffect } from "pito/settings"
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
+import { soundEnabled } from "pito/settings"
 
 function ensureNoSettings() {
   document.getElementById("pito-settings")?.remove()
@@ -23,13 +22,9 @@ function addSettings(dataset = {}) {
   return el
 }
 
-// ── Suite ─────────────────────────────────────────────────────────────────────
-
 describe("pito/settings", () => {
   beforeEach(() => { ensureNoSettings() })
   afterEach(()  => { ensureNoSettings() })
-
-  // ── soundEnabled() ───────────────────────────────────────────────────────
 
   describe("soundEnabled()", () => {
     it("returns true when element is absent (fail-open)", () => {
@@ -54,57 +49,6 @@ describe("pito/settings", () => {
     it("returns true for any value that is not exactly 'false'", () => {
       addSettings({ sound: "1" })
       expect(soundEnabled()).toBe(true)
-    })
-  })
-
-  // ── fxEnabled() ─────────────────────────────────────────────────────────
-
-  describe("fxEnabled()", () => {
-    it("returns true when element is absent (fail-open)", () => {
-      expect(fxEnabled()).toBe(true)
-    })
-
-    it("returns true when data-fx attribute is absent", () => {
-      addSettings({})
-      expect(fxEnabled()).toBe(true)
-    })
-
-    it("returns true when data-fx is 'true'", () => {
-      addSettings({ fx: "true" })
-      expect(fxEnabled()).toBe(true)
-    })
-
-    it("returns false when data-fx is 'false'", () => {
-      addSettings({ fx: "false" })
-      expect(fxEnabled()).toBe(false)
-    })
-
-    it("returns true for any value that is not exactly 'false'", () => {
-      addSettings({ fx: "0" })
-      expect(fxEnabled()).toBe(true)
-    })
-  })
-
-  // ── fxEffect() ──────────────────────────────────────────────────────────
-
-  describe("fxEffect()", () => {
-    it("returns 'typewriter' when element is absent (fail-safe default)", () => {
-      expect(fxEffect()).toBe("typewriter")
-    })
-
-    it("returns 'typewriter' when data-fx-effect attribute is absent", () => {
-      addSettings({})
-      expect(fxEffect()).toBe("typewriter")
-    })
-
-    it("returns the stored effect (data-fx-effect maps to dataset.fxEffect)", () => {
-      addSettings({ fxEffect: "scramble" })
-      expect(fxEffect()).toBe("scramble")
-    })
-
-    it("returns 'comet' when data-fx-effect is 'comet'", () => {
-      addSettings({ fxEffect: "comet" })
-      expect(fxEffect()).toBe("comet")
     })
   })
 })

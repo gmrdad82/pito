@@ -99,8 +99,6 @@ module Pito
 
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          # Lift the re-rendered (mutated) segment onto the surface background.
-          new_payload["surface"]      = true
 
           Pito::FollowUp::Result::Mutation.new(
             kind:    event.kind.to_sym,
@@ -142,8 +140,6 @@ module Pito
           # Preserve the original handle so the same #<handle> keeps working.
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          # Lift the re-rendered (mutated) segment onto the surface background.
-          new_payload["surface"]      = true
 
           Pito::FollowUp::Result::Mutation.new(
             kind:    event.kind.to_sym,

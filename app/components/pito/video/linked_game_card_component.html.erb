@@ -4,16 +4,19 @@
     price. Two columns on desktop, stacking single-column on mobile (<768px). %>
 <div class="pito-video-linked-game-card flex flex-col md:flex-row gap-4 md:items-start">
 
-  <%# ── Left column: big cover bounded to the 374×210 16:9 box, panning
+  <%# ── Left column: big cover bounded to the 450×253 16:9 box, panning
       vertically (Ken-Burns) via pito-cover-pan. Shares the show-game cover CSS
-      (.pito-video-linked-game-card__cover + .pito-cover-pan); CSS disables the
-      animation when /config fx is off or prefers-reduced-motion is set. ───── %>
+      (.pito-video-linked-game-card__cover + .pito-cover-pan). Missing → the
+      shared click-to-sync placeholder (rect). ───── %>
   <div class="pito-video-linked-game-card__cover">
-    <% if cover_attached? && (url = cover_url) %>
-      <%= image_tag url, alt: title, class: "block pito-cover-pan" %>
-    <% else %>
-      <div class="text-fg-dim"><%= t("pito.game.detail.no_cover") %></div>
-    <% end %>
+    <%= render Pito::ImageRender.call(
+          url:            cover_url,
+          shape:          :rect,
+          sync_command:   "sync game ##{@game.id}",
+          alt:            title.to_s,
+          html_class:     "block pito-cover-pan",
+          fallback_class: "pito-image-box--rect169"
+        ) %>
   </div>
 
   <%# Mobile-only hairline between the stacked columns (hidden at md: and up,

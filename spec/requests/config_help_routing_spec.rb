@@ -32,40 +32,6 @@ RSpec.describe "POST /chat — /config <provider> --help routing", type: :reques
     event.payload["body"]
   end
 
-  describe "/config fx --help" do
-    subject(:body) { help_body("/config fx --help") }
-
-    it "is the dedicated fx man page, not the generic config description" do
-      expect(body).to include("pito-help-block")
-      expect(body).not_to include("Read or write install-wide credentials")
-      expect(body).to include("/config fx")
-    end
-
-    it "lists typewriter, scramble, and comet" do
-      AppSetting::FX_EFFECTS.each { |effect| expect(body).to include(effect) }
-    end
-
-    it "renders one pito--fx-demo showcase row per effect, carrying its effect value" do
-      AppSetting::FX_EFFECTS.each do |effect|
-        expect(body).to include('data-controller="pito--fx-demo"')
-        expect(body).to include(%(data-pito--fx-demo-effect-value="#{effect}"))
-      end
-      effects = body.scan(/data-pito--fx-demo-effect-value="(\w+)"/).flatten
-      expect(effects).to eq(AppSetting::FX_EFFECTS)
-    end
-  end
-
-  describe "/config motion --help" do
-    subject(:body) { help_body("/config motion --help") }
-
-    it "lists the on and off states, not the generic config description" do
-      expect(body).to include("pito-help-block")
-      expect(body).not_to include("Read or write install-wide credentials")
-      expect(body).to include("/config motion")
-      expect(body).to include(%(<span class="text-cyan">on</span>))
-      expect(body).to include(%(<span class="text-cyan">off</span>))
-    end
-  end
 
   describe "/config google --help (sanity — other providers still work)" do
     subject(:body) { help_body("/config google --help") }

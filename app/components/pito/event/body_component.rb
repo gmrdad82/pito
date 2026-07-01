@@ -3,29 +3,22 @@
 module Pito
   module Event
     # Renders a message body: an inline "HH:MM " timestamp prefix (or a filled
-    # `data-pito-ts-slot` placeholder inside the body), the body span (optionally
-    # revealed via the typewriter controller), and an always-visible `detail`
-    # block. There is no collapse/expand — messages render in full.
+    # `data-pito-ts-slot` placeholder inside the body), the body span, and an
+    # always-visible `detail` block. Messages render in full, INSTANTLY (the
+    # typewriter/text-reveal was removed in item 18).
     #
     # Params:
-    #   body             — the primary text (String|nil)
-    #   detail           — detail rows shown beneath, always visible (Array of String or
-    #                      { key:, value:, key_class:, value_class: } hashes)
-    #   html             — when true, `body` is pre-formatted HTML (no typewriter)
-    #   typewriter       — true to emit typewriter targets (plain-text bodies only)
-    #   owner_controller — when false and typewriter is true, emit the body target
-    #                      attribute but NOT the data-controller; the caller's outer
-    #                      div owns the typewriter controller.
-    #   timestamp        — event timestamp for the inline "HH:MM " prefix
+    #   body      — the primary text (String|nil)
+    #   detail    — detail rows shown beneath, always visible (Array of String or
+    #               { key:, value:, key_class:, value_class: } hashes)
+    #   html      — when true, `body` is pre-formatted HTML
+    #   timestamp — event timestamp for the inline "HH:MM " prefix
     class BodyComponent < ViewComponent::Base
-      def initialize(body: nil, detail: [], html: false, typewriter: false,
-                     owner_controller: true, timestamp: nil)
-        @body             = body
-        @html             = html == true || html == "true"
-        @typewriter       = typewriter && !@html
-        @owner_controller = owner_controller
-        @detail           = detail
-        @timestamp        = timestamp
+      def initialize(body: nil, detail: [], html: false, timestamp: nil)
+        @body      = body
+        @html      = html == true || html == "true"
+        @detail    = detail
+        @timestamp = timestamp
       end
 
       attr_reader :body, :detail
@@ -56,9 +49,7 @@ module Pito
         @body.to_s.sub(TS_SLOT, timestamp_prefix.to_s).html_safe
       end
 
-      def html?            = @html
-      def typewriter?      = @typewriter
-      def owns_controller? = @typewriter && @owner_controller
+      def html? = @html
     end
   end
 end

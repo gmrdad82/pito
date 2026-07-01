@@ -1,7 +1,7 @@
 <% if triggers_logout? %><div data-controller="pito--logout"><% end %>
 <%= render(Pito::Segment::Component.new(accent: :purple, background: "var(--bg-elevated)", scrollback_message: true)) do %>
-  <div data-controller="pito--typewriter" data-pito--typewriter-done-event-value="pito:echo-typed">
-    <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg" data-pito--typewriter-target="body"><%= @text %></span>
+  <div>
+    <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= @text %></span>
     <%= render(Pito::Event::MetaLineComponent.new) %>
   </div>
 <% end %>

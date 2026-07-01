@@ -146,9 +146,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(result.kind).to eq(:system)
     end
 
-    it "Mutation payload has surface: true" do
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
       result = handler.call(event:, rest: "with platform", conversation:)
-      expect(result.payload["surface"]).to be(true)
+      expect(result.payload).not_to have_key("surface")
     end
 
     it "Mutation payload preserves reply_handle from source event" do
@@ -211,9 +211,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
     end
 
-    it "Mutation payload has surface: true" do
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
       result = handler.call(event: event_with_cols, rest: "without platform", conversation:)
-      expect(result.payload["surface"]).to be(true)
+      expect(result.payload).not_to have_key("surface")
     end
 
     it "Mutation payload preserves reply_handle from source event" do
@@ -295,9 +295,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(result.kind).to eq(:system)
     end
 
-    it "Mutation payload has surface: true" do
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
       result = handler.call(event:, rest: "sort title", conversation:)
-      expect(result.payload["surface"]).to be(true)
+      expect(result.payload).not_to have_key("surface")
     end
 
     it "Mutation payload preserves reply_handle from source event" do
@@ -342,9 +342,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       end
     end
 
-    it "Mutation payload has surface: true" do
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
       result = handler.call(event:, rest: "order by title", conversation:)
-      expect(result.payload["surface"]).to be(true)
+      expect(result.payload).not_to have_key("surface")
     end
   end
 

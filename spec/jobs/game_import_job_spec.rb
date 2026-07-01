@@ -122,10 +122,17 @@ RSpec.describe GameImportJob, type: :job do
     expect(announce.payload["game_id"]).to eq(game.id)
   end
 
-  it "uses the verb 'imported' in the announce body for a new import" do
+  it "uses present-tense 'importing' (not 'imported') and no #id in the announce body (19.2)" do
     perform
     announce = conversation.events.find { |e| e.kind == "system" }
-    expect(announce.payload["body"]).to include("imported")
+    expect(announce.payload["body"]).to include("importing")
+    expect(announce.payload["body"]).not_to include("##{game.id}")
+  end
+
+  it "puts the timestamp inline on the announce (ts-slot on the copy row, 19.2)" do
+    perform
+    announce = conversation.events.find { |e| e.kind == "system" }
+    expect(announce.payload["body"]).to include("data-pito-ts-slot")
   end
 
   # ── :enhanced done — new flow ────────────────────────────────────────────────
@@ -154,11 +161,18 @@ RSpec.describe GameImportJob, type: :job do
     expect(done_event.payload["reply_handle"]).to be_present
   end
 
-  # ── Two thinking events emitted and resolved ──────────────────────────────────
+  # ── Single thinking event emitted and resolved (19.1) ────────────────────────
 
-  it "emits exactly two thinking events (one per phase)" do
+  it "emits exactly ONE thinking event for the whole import (19.1)" do
     perform
-    expect(conversation.events.where(kind: "thinking").count).to eq(2)
+    expect(conversation.events.where(kind: "thinking").count).to eq(1)
+  end
+
+  it "emits the thinking AFTER the announce (announce has no leading thinking)" do
+    perform
+    announce  = conversation.events.find { |e| e.kind == "system" }
+    thinking  = conversation.events.find { |e| e.kind == "thinking" }
+    expect(thinking.position).to be > announce.position
   end
 
   it "resolves all thinking events by the end of the job" do
@@ -219,12 +233,13 @@ RSpec.describe GameImportJob, type: :job do
       expect(turn.completed_at).to be_present
     end
 
-    it "resolves the thinking indicator even on error (no hung spinner)" do
+    it "leaves no hung spinner on a step-1 error (thinking is emitted only after the announce)" do
       perform
+      # The single thinking indicator is emitted AFTER the announce (post steps 1–2).
+      # A SyncGame ValidationError aborts in step 1, before any thinking exists — so
+      # there is nothing to hang. If one somehow exists, it must be resolved.
       thinking_events = conversation.events.where(kind: "thinking").to_a
-      expect(thinking_events).not_to be_empty
-      all_resolved = thinking_events.all? { |e| e.payload["resolved"] == true }
-      expect(all_resolved).to be(true)
+      expect(thinking_events.all? { |e| e.payload["resolved"] == true }).to be(true)
     end
   end
 

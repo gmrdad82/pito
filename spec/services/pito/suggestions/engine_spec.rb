@@ -207,12 +207,6 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to include("on", "off")
     end
 
-    it "suggests on and off after '/config motion '" do
-      result = call(input: "/config motion ", cursor: 15, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("on", "off")
-    end
-
     it "does NOT suggest kv keys after '/config sound '" do
       result = call(input: "/config sound ", cursor: 14, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
@@ -233,25 +227,12 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  describe "slash mode — arg stage (/config fx <effect> slot)" do
-    it "suggests the reveal effects after '/config fx '" do
-      result = call(input: "/config fx ", cursor: 11, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("typewriter", "scramble", "comet")
-    end
-
-    it "does NOT suggest on/off after '/config fx '" do
-      result = call(input: "/config fx ", cursor: 11, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).not_to include("on", "off")
-    end
-  end
-
   describe "slash mode — arg stage (/config provider slot)" do
-    it "suggests providers including sound, motion, and fx after '/config '" do
+    it "suggests providers including sound after '/config ' (motion/fx removed — item 18)" do
       result = call(input: "/config ", cursor: 8, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("sound", "motion", "fx")
+      expect(labels).to include("sound")
+      expect(labels).not_to include("motion", "fx")
     end
   end
 

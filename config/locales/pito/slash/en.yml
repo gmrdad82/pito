@@ -30,7 +30,7 @@ en:
           description: "Initiate Google OAuth to connect a YouTube channel."
       config:
         descriptions:
-          config: "Read or write install-wide credentials, toggle sound/motion, set the reveal effect, set the display time zone, or configure your nickname (/config google|voyage|igdb|webhook|me|sound|motion|fx|timezone)"
+          config: "Read or write install-wide credentials, toggle sound, set the display time zone, or configure your nickname (/config google|voyage|igdb|webhook|me|sound|timezone)"
         help:
           general:
             body: "/config <provider> [on|off | key=value …]"
@@ -41,8 +41,6 @@ en:
               webhook: "Slack / Discord incoming webhook URLs"
               me: "Set the authenticated display nickname"
               sound: "Toggle sound effects on or off"
-              motion: "Toggle visual motion on or off"
-              fx: "Set the reveal effect (typewriter / scramble / comet)"
               timezone: "Set the display time zone (timestamps + schedule input)"
             info_lines:
               - "`/config <provider> --help` for provider-level key reference."
@@ -75,17 +73,6 @@ en:
               omit_hint: "Omit the key to show the current nickname."
             sound:
               keys: {}
-            motion:
-              keys: {}
-              states:
-                "on": "Reveal effects animate (typewriter / scramble / comet)"
-                "off": "Everything renders instantly, no animation"
-            fx:
-              keys: {}
-              effects:
-                typewriter: "Types in character by character, like a terminal"
-                scramble: "Decodes from random glyphs into the final text"
-                comet: "Streaks in with a trailing comet cursor"
             timezone: "/config timezone <City> — set the display zone from a major city (e.g. /config timezone Madrid → Europe/Madrid). Times still store in UTC; only rendering and schedule input switch to local. `/config timezone` shows the current zone."
         me:
           nickname_updated: "Nickname set to %{nickname}."
@@ -103,24 +90,18 @@ en:
         toggle:
           sound:
             label: "Sound"
-          motion:
-            label: "Motion"
           state:
             "on": "on"
             "off": "off"
           status: "%{label}: %{state}"
           confirmed: "%{label} %{state}."
-        fx:
-          updated: "Reveal effect set to %{effect}."
-          status: "Reveal effect: %{effect}."
         timezone:
           updated: "Time zone set to %{zone}. Timestamps now read in local time; clocks stay UTC under the hood."
           status: "Time zone: %{zone}."
         errors:
-          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, me, sound, motion, fx, timezone."
+          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, me, sound, timezone."
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
           invalid_toggle_value: "Invalid value '%{value}'. Use on or off."
-          invalid_fx_effect: "Invalid effect '%{value}'. Use typewriter, scramble, or comet."
           unknown_timezone: "'%{city}'? No clock ticks there. Name a major city like Madrid, Tokyo, or London."
           blank_nickname: "Nickname can't be blank."
       notifications:

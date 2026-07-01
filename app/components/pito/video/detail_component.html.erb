@@ -10,36 +10,36 @@
       <div class="pito-video-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
     <% end %>
 
-    <%# Thumbnail or placeholder %>
+    <%# Thumbnail — or the shared click-to-sync placeholder (rect) when missing. %>
     <div class="pito-video-detail__thumbnail">
-      <% if thumbnail_attached? && (url = thumbnail_url) %>
-        <%= image_tag url, alt: @video.title, class: "block" %>
-      <% else %>
-        <div class="text-fg-dim"><%=t "pito.video.detail.no_thumbnail" %></div>
-      <% end %>
+      <%= render Pito::ImageRender.call(
+            url:            thumbnail_url,
+            shape:          :rect,
+            sync_command:   "sync vid ##{@video.id}",
+            alt:            @video.title.to_s,
+            html_class:     "block",
+            fallback_class: "pito-image-box--rect169"
+          ) %>
     </div>
 
     <%# Hairline separating the thumbnail from the stats %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
-    <%# Stats — bold heading (Pito::Copy) + one-line word/icon counters, left. %>
-    <div class="pito-video-detail__stats flex flex-col gap-1">
+    <%# Stats + Shinies as kv-table rows (owner 2026-07-01, items 48/49): the heading
+        is the KEY column, the value is the one-line counters / freely-wrapping badges. %>
+    <div class="pito-video-detail__stats pito-detail-stats">
       <div class="pito-video-detail__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
-      <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %>
-    </div>
+      <div><%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %></div>
 
-    <%# Shinies — only when the video has at least one achievement. Badges align
-        left (inner text stays centered). %>
-    <% if @video.achievements.any? %>
-      <div class="flex flex-col gap-1">
+      <% if @video.achievements.any? %>
         <div class="pito-video-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
         <div class="pito-video-detail__shinies flex flex-wrap gap-2">
           <% top_shinies_per_metric.each do |a| %>
             <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
           <% end %>
         </div>
-      </div>
-    <% end %>
+      <% end %>
+    </div>
   </div>
 
   <%# Mobile-only hairline between the stacked columns (hidden at md: and up,

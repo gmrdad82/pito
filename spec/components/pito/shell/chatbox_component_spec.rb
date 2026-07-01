@@ -244,17 +244,17 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(field_wrap["data-pito--autosize-autofocus-value"]).to eq("true")
       end
 
-      it "renders the field-wrap div with the type-fx Stimulus controller" do
+      it "renders the field-wrap div with the autosize controller (no type-fx — item 18)" do
         node = render_inline(described_class.new)
         field_wrap = node.css("div.pito-chatbox__field-wrap").first
         expect(field_wrap).not_to be_nil
-        expect(field_wrap["data-controller"]).to include("pito--type-fx")
+        expect(field_wrap["data-controller"]).to include("pito--autosize")
+        expect(field_wrap["data-controller"]).not_to include("pito--type-fx")
       end
 
-      it "renders the textarea with the type-fx field target" do
+      it "does not render a type-fx field target on the textarea (item 18)" do
         node = render_inline(described_class.new)
-        textarea = node.css("textarea[data-pito--type-fx-target='field']").first
-        expect(textarea).not_to be_nil
+        expect(node.css("textarea[data-pito--type-fx-target]")).to be_empty
       end
 
       it "renders the textarea with the autosize field target" do
@@ -444,9 +444,9 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(field_wrap["data-controller"]).to include("pito--autosize")
       end
 
-      it "includes pito--type-fx in the chatbox field-wrap controller list" do
+      it "does not include pito--type-fx in the field-wrap controller list (item 18)" do
         field_wrap = node.css("div.pito-chatbox__field-wrap").first
-        expect(field_wrap["data-controller"]).to include("pito--type-fx")
+        expect(field_wrap["data-controller"].to_s).not_to include("pito--type-fx")
       end
 
       it "renders no bespoke caret/trail machinery" do
@@ -478,13 +478,31 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(textarea).not_to be_nil
       end
 
-      it "still renders the type-fx target on the textarea" do
-        textarea = node.css("textarea[data-pito--type-fx-target='field']").first
-        expect(textarea).not_to be_nil
+      it "does not render a type-fx target on the textarea (item 18)" do
+        expect(node.css("textarea[data-pito--type-fx-target]")).to be_empty
       end
 
       it "still renders the chatbox-wrapper div" do
         expect(node.css("div.chatbox-wrapper")).not_to be_empty
+      end
+
+      context "with unfold_url (share page)" do
+        subject(:unfold_node) do
+          render_inline(described_class.new(reduced: true, initial_value: "unfold", unfold_url: "/chat/abc"))
+        end
+
+        it "attaches the pito--share-unfold controller to the wrapper" do
+          expect(unfold_node.at_css("#pito-chatbox[data-controller~='pito--share-unfold']")).to be_present
+        end
+
+        it "renders the unfold affordance (Enter link) instead of the plain c-to-chat hint" do
+          expect(unfold_node.at_css("a.pito-action-shimmer[data-pito--share-unfold-target='link']")).to be_present
+          expect(unfold_node.at_css("[data-pito--share-unfold-target='unfoldHint']")).to be_present
+        end
+
+        it "prefills the textarea with 'unfold'" do
+          expect(unfold_node.at_css("textarea").text).to include("unfold")
+        end
       end
     end
 

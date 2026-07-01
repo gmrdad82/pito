@@ -169,9 +169,13 @@ RSpec.describe Pito::Video::DetailComponent do
 
   describe "thumbnail" do
     context "when no thumbnail is attached" do
-      it "renders the no_thumbnail placeholder" do
-        node = render_inline(described_class.new(video: video))
-        expect(node.text).to include(I18n.t("pito.video.detail.no_thumbnail"))
+      it "renders the click-to-sync image placeholder (rect) in the thumbnail box (item 22)" do
+        node     = render_inline(described_class.new(video: video))
+        fallback = node.at_css(".pito-video-detail__thumbnail .pito-image-fallback")
+        expect(fallback).to be_present
+        expect(fallback.at_css(".pito-image-fallback--circle")).to be_nil
+        expect(fallback["data-pito--chat-prefill-text-value"]).to eq("sync vid ##{video.id}")
+        expect(fallback["data-pito--chat-prefill-submit-value"]).to eq("true")
       end
     end
   end
