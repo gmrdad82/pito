@@ -97,7 +97,7 @@ RSpec.describe "Dispatch matrix — /jobs (recognition, DB mocked)", type: :disp
 
     it "emits one system event" do
       expect(result.events.size).to eq(1)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload carries html: true (man-page flag)" do

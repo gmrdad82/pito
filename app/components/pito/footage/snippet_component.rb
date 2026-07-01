@@ -12,14 +12,20 @@ module Pito
     # affordance writes COMMAND to the clipboard and flips the feedback target to
     # "Copied!".
     class SnippetComponent < ViewComponent::Base
-      # The exact shell one-liner. Single-quoted heredoc → no interpolation and no
-      # escaping of the embedded quotes/braces/parens. `.chomp` drops the trailing
-      # newline so it copies as a single line.
+      # The exact shell script, formatted as a readable multi-line command with `\`
+      # line continuations (owner 2026-07-01: read pro, not a wrapped one-liner).
+      # Single-quoted heredoc → no interpolation and no escaping of the embedded
+      # quotes/braces/parens. `.chomp` drops the trailing newline. It copies + pastes
+      # as-is (backslash-newline continuations are valid bash).
       #
       # int(($1+1799)/1800) ceils each file's seconds to half-hour units; s/2 is
       # the total in hours with one decimal.
       COMMAND = <<~'CMD'.chomp.freeze
-        h=$(find . -maxdepth 1 -type f -print0 | xargs -0 -I{} ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 {} 2>/dev/null | awk '{s+=int(($1+1799)/1800)} END{printf "%.1f", s/2}'); echo "$h"; command -v wl-copy >/dev/null && printf %s "$h" | wl-copy
+        h=$(find . -maxdepth 1 -type f -print0 \
+          | xargs -0 -I{} ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 {} 2>/dev/null \
+          | awk '{s+=int(($1+1799)/1800)} END{printf "%.1f", s/2}')
+        echo "$h"
+        command -v wl-copy >/dev/null && printf %s "$h" | wl-copy
       CMD
 
       def command

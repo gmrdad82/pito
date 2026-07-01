@@ -51,7 +51,7 @@ module Pito
       # @param result  [Pito::Analytics::Scalars::Result, nil] — nil when loading:
       # @param series  [Hash{Symbol=>Array}] optional day-series per metric
       #   (views/watched_hours/avg_view_duration/subs/likes) from
-      #   Pito::Analytics::GlanceSeries — each renders a 2-row braille sparkline
+      #   Pito::Analytics::MetricFill#series_metrics — each renders a 2-row braille sparkline
       #   (Visualizers::Sparkline) above its scalar.
       # @param token   [String, nil] per-message hex token used to build stable
       #   dom-ids ("<token>__metric_<key>") for each cell — nil suppresses the id.
@@ -73,7 +73,7 @@ module Pito
       # Ordered flat array of all metric cells for the flex-wrap layout.
       # Canonical order: views → watched_hours → avg_view_duration → subs → likes.
       # (avg_viewed_pct + comments removed from the glance — owner 2026-06-29; the
-      # five remaining metrics all carry a GlanceSeries sparkline.)
+      # five remaining metrics all carry a MetricFill sparkline.)
       # Each element carries a :key for the dom-id, plus :label, :series, :value.
       def cells
         build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell ]

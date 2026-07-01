@@ -63,7 +63,7 @@ RSpec.describe Pito::Slash::Dispatcher do
     it "intercepts --help for unregistered verbs (no unknown_verb error)" do
       result = described_class.call(input: "/connect --help", conversation:)
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "intercepts -h shorthand" do
@@ -112,7 +112,7 @@ RSpec.describe Pito::Slash::Dispatcher do
 
       it "returns a system event" do
         result = described_class.call(input: "/config google --help", conversation:)
-        expect(result.events.first[:kind]).to eq("system")
+        expect(result.events.first[:kind]).to eq(:system)
       end
     end
 

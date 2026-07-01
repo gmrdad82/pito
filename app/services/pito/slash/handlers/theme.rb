@@ -34,7 +34,7 @@ module Pito
         def open_sidebar
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 sidebar_open: "theme",
                 text:         I18n.t("pito.slash.theme.sidebar.opening")

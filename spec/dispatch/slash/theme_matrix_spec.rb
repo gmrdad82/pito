@@ -70,7 +70,7 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
   def expect_sidebar_ok(result)
     expect(result).to be_a(Pito::Slash::Result::Ok)
     event = result.events.first
-    expect(event[:kind]).to eq("system")
+    expect(event[:kind]).to eq(:system)
     expect(event[:payload][:sidebar_open]).to eq("theme")
     expect(event[:payload][:text]).to eq(I18n.t("pito.slash.theme.sidebar.opening"))
   end

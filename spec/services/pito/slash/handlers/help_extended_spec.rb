@@ -48,7 +48,7 @@ RSpec.describe Pito::Slash::Handlers::Help, "extended coverage", type: :service 
   describe "#call — authenticated event kind" do
     it "is the string 'system' (not a symbol)" do
       event = build_handler.call.events.first
-      expect(event[:kind]).to eq("system")
+      expect(event[:kind]).to eq(:system)
     end
   end
 

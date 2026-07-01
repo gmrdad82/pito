@@ -51,7 +51,7 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
     it "returns a system event" do
       result = build_handler(args: [ "voyage" ], raw: "/config voyage --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
   end
 

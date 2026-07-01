@@ -28,7 +28,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
 
     it "resolves via LIKE match and returns confirmation" do
       result = build_handler(raw: "/disconnect plainchan").call
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind]).to eq(:confirmation)
       expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
     end
   end
@@ -41,7 +41,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
 
     it "matches on the first found channel (LIKE match)" do
       result = build_handler(raw: "/disconnect @alpha").call
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind]).to eq(:confirmation)
       # Either alpha or alpha2 — both are valid LIKE matches; just assert no error.
     end
   end
@@ -103,7 +103,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
   describe "#call — id 0 (never valid)" do
     it "returns an error event" do
       result = build_handler(raw: "/disconnect 0").call
-      expect(result.events.first[:kind]).to eq("error")
+      expect(result.events.first[:kind]).to eq(:error)
     end
   end
 end

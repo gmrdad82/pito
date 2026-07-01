@@ -92,7 +92,7 @@ RSpec.describe "Dispatch matrix — /help (recognition, zero DB)", type: :dispat
 
     it "emits exactly one system event" do
       expect(result.events.size).to eq(1)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload contains body: (non-blank rendered copy string)" do
@@ -163,7 +163,7 @@ RSpec.describe "Dispatch matrix — /help (recognition, zero DB)", type: :dispat
 
     it "emits exactly one system event" do
       expect(result.events.size).to eq(1)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload contains message_key: 'pito.slash.help.unauthenticated'" do

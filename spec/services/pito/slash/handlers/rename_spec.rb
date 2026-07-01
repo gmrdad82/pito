@@ -30,7 +30,7 @@ RSpec.describe Pito::Slash::Handlers::Rename, type: :service do
       result = build_handler("/rename Strategist").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       event = result.events.first
-      expect(event[:kind]).to eq("system")
+      expect(event[:kind]).to eq(:system)
       expect(event[:payload]["text"]).to include("Strategist")
     end
   end

@@ -49,7 +49,7 @@ module Pito
           destination = %w[studio channel].include?(dest_str) ? dest_str.to_sym : :channel
 
           Pito::FollowUp::Result::Mutation.new(
-            kind:    "system_follow_up",
+            kind:    :system_follow_up,
             payload: Pito::MessageBuilder::Channel::Visit.call(channel, state: :visited, destination:)
           )
         end

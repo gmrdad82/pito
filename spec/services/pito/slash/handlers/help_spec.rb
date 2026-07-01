@@ -22,7 +22,7 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
 
     it "event is system with a body payload" do
       event = build_handler.call.events.first
-      expect(event[:kind]).to eq("system")
+      expect(event[:kind]).to eq(:system)
       expect(event[:payload][:body]).to be_present
     end
 
@@ -76,7 +76,7 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
 
     it "renders exactly 1 system event" do
       expect(result.events.size).to eq(1)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload has html: true and a body" do

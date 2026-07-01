@@ -85,15 +85,15 @@ module Pito
         # as a neutral system progress line on confirm.
         def outcome_event(command, action, outcome_text)
           if action == "confirm" && SYSTEM_OUTCOME_ON_CONFIRM.include?(command)
-            return { kind: "system", payload: { "text" => outcome_text } }
+            return { kind: :system, payload: { "text" => outcome_text } }
           end
 
           if action == "confirm" && ENHANCED_OUTCOME_ON_CONFIRM.include?(command)
-            return { kind: "enhanced", payload: { "text" => outcome_text } }
+            return { kind: :enhanced, payload: { "text" => outcome_text } }
           end
 
           {
-            kind:    "confirmation_follow_up",
+            kind:    :confirmation_follow_up,
             payload: {
               command:      command,
               outcome:      action,

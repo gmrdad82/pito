@@ -39,7 +39,7 @@ module GameBroadcastHelpers
   # @param title       [String]
   # @param conversation [Conversation]
   def emit_echo_once(broadcaster, turn:, title:, conversation:)
-    return if turn.events.exists?(kind: "echo")
+    return if turn.events.exists?(kind: :echo)
 
     echo_event = Event.create_with_position!(
       conversation: conversation, turn: turn, kind: :echo,
@@ -56,7 +56,7 @@ module GameBroadcastHelpers
   # @param game        [::Game]
   # @param conversation [Conversation]
   def emit_detail_once(broadcaster, turn:, game:, conversation:)
-    return if turn.events.exists?(kind: "system")
+    return if turn.events.exists?(kind: :system)
 
     detail_payload = Pito::MessageBuilder::Game::Detail.call(game, conversation: conversation)
     detail_event   = Event.create_with_position!(
@@ -74,7 +74,7 @@ module GameBroadcastHelpers
   # @param game        [::Game]
   # @param conversation [Conversation]
   def emit_enhanced_once(broadcaster, turn:, game:, conversation:)
-    return if turn.events.exists?(kind: "enhanced")
+    return if turn.events.exists?(kind: :enhanced)
 
     enhanced_event = Event.create_with_position!(
       conversation: conversation, turn: turn, kind: :enhanced,

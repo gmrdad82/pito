@@ -230,7 +230,7 @@ module Pito
 
         def man_ok(body)
           Pito::Slash::Result::Ok.new(events: [ {
-            kind:    "system",
+            kind:    :system,
             payload: { "html" => true, "body" => body }
           } ])
         end
@@ -265,7 +265,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render(
                   "pito.slash.config.me.nickname_updated",
@@ -279,7 +279,7 @@ module Pito
         def show_me_status
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render(
                   "pito.slash.config.me.status",
@@ -317,7 +317,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render(
                   "pito.slash.config.toggle.confirmed",
@@ -335,7 +335,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render(
                   "pito.slash.config.toggle.status",
@@ -378,7 +378,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render(
                   "pito.slash.config.timezone.updated",
@@ -406,7 +406,7 @@ module Pito
         def show_timezone
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render(
                   "pito.slash.config.timezone.status",
@@ -458,7 +458,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 message_key:  "pito.slash.config.updated",
                 message_args: { provider: provider, keys: kwargs.keys.map(&:to_s).join(", ") }

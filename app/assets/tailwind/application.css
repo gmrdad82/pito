@@ -347,7 +347,7 @@ html {
  * Text shimmer: a horizontal sweep highlight on gradient text.
  *
  * Both keyframe sets are shared across Pito::Shell components
- * (InProgressComponent, PostCommandDotsComponent).
+ * (PostCommandDotsComponent).
  */
 
 @keyframes pito-braille-spin {
@@ -946,8 +946,7 @@ html {
 
 /* ── Chatbox field-wrap ──────────────────────────────────────── */
 
-/* Positioning context for the suggestion ghost (.pito-ghost) + its hidden
-   caret-measuring mirror. */
+/* Positioning context for absolutely-positioned children (e.g. the hint slot). */
 .pito-chatbox__field-wrap {
   position: relative;
 }
@@ -1085,11 +1084,6 @@ html {
   display: none;
 }
 
-/* Inline grammar-gated ghost text (free-form completion hint) */
-.pito-ghost {
-  color: var(--fg-faded);
-  pointer-events: none;
-}
 
 /* ── Modal overlay backdrop ─────────────────────────────────── */
 
@@ -2025,43 +2019,6 @@ html {
   min-width: 0;
 }
 
-/* Avatar image. */
-.pito-channel-list__avatar {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 50%;
-  /* Theme-contrast ring so the round avatar reads against the page bg.
-     --fg-default is the per-theme high-contrast color (opposite of --bg-root). */
-  border: 1px solid var(--fg-default);
-}
-
-/* Placeholder when no avatar is set. */
-.pito-channel-list__avatar--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-faded);
-  background: var(--bg-elevated);
-}
-
-/* Title: truncated to one line (ellipsis) so it never wraps. */
-.pito-channel-list__title {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Handle + view link on the same line; link follows handle inline. */
-.pito-channel-list__handle {
-  word-break: break-all;
-}
-
-.pito-channel-list__view-link {
-  display: inline-block;
-}
-
 /* ── Channel item (Pito::Channel::ItemComponent) ────────────────────────────
  *
  * Shared single-channel item: handle / title / id, with optional plain [view]
@@ -2089,7 +2046,7 @@ html {
   height: 120px;
   object-fit: cover;
   border-radius: 50%;
-  /* Theme-contrast ring (see .pito-channel-list__avatar). */
+  /* Theme-contrast ring so the round avatar reads against the page bg. */
   border: 1px solid var(--fg-default);
 }
 
@@ -2146,14 +2103,6 @@ html {
   .pito-image-fallback__copy { display: none; }
 }
 
-/* show-channel detail avatar: circular + theme-contrast ring, matching the list. */
-.pito-channel-detail__avatar img {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 50%;
-  border: 1px solid var(--fg-default);
-}
 
 /* Left column is fixed to the banner = vid-thumbnail width (450px, our backend
    resize) — it must NOT flex wider to fit the Shinies/stats (owner 2026-06-30).
@@ -2209,15 +2158,6 @@ html {
   align-items: center;
 }
 
-.pito-channel-item__stat {
-  text-align: center;
-}
-
-/* @handle rendered as a YouTube link (list channels) — suppress the browser
-   default underline; no hover effect (design: no hover). */
-.pito-channel-item__handle--link {
-  text-decoration: none;
-}
 
 /* ── Data table grid (Pito::Event::SystemComponent table_rows) ─────
    Column template is driven by the `data-cols` attribute (like data-accent) —
@@ -2419,6 +2359,10 @@ html {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   border-radius: 0;
+  /* Surface panel + snug padding so the script reads as a proper code block
+     (owner 2026-07-01, item 45.1). */
+  background: var(--bg-surface);
+  padding: 5px;
   /* Explicit base size + mono family: the browser "monospace" keyword shrink
      renders ~13px; anchor it to the 14px base so it matches the hint above. */
   font-size: var(--text-base);

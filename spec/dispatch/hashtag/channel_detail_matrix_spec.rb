@@ -140,7 +140,7 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
 
         it "appends one event with kind 'system'" do
           expect(result.events.size).to eq(1)
-          expect(result.events.first[:kind]).to eq("system")
+          expect(result.events.first[:kind]).to eq(:system)
         end
 
         it "event payload is the stubbed visit_payload" do

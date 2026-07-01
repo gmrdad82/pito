@@ -91,7 +91,7 @@ RSpec.describe "Dispatch matrix — /rename (recognition, DB mocked)", type: :di
 
         it "emits exactly one system event" do
           expect(result.events.size).to eq(1)
-          expect(result.events.first[:kind]).to eq("system")
+          expect(result.events.first[:kind]).to eq(:system)
         end
 
         it "payload carries html: true (man-page flag)" do
@@ -154,11 +154,11 @@ RSpec.describe "Dispatch matrix — /rename (recognition, DB mocked)", type: :di
 
         it "emits exactly one system event" do
           expect(result.events.size).to eq(1)
-          expect(result.events.first[:kind]).to eq("system")
+          expect(result.events.first[:kind]).to eq(:system)
         end
 
         it "event kind is 'system'" do
-          expect(result.events.first[:kind]).to eq("system")
+          expect(result.events.first[:kind]).to eq(:system)
         end
 
         it "payload uses the symbol key :text (needs_title code path)" do
@@ -228,7 +228,7 @@ RSpec.describe "Dispatch matrix — /rename (recognition, DB mocked)", type: :di
         end
 
         it "event kind is 'system'" do
-          expect(result.events.first[:kind]).to eq("system")
+          expect(result.events.first[:kind]).to eq(:system)
         end
 
         it "payload uses the string key 'text' (MessageBuilder::Text code path)" do

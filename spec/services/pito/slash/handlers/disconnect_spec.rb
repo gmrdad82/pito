@@ -19,7 +19,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
     it "returns an error event" do
       result = build_handler(raw: "/disconnect").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:kind]).to eq("error")
+      expect(result.events.first[:kind]).to eq(:error)
       expect(result.events.first[:payload]["text"]).to include("Usage")
     end
   end
@@ -27,7 +27,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
   describe "#call — @handle not found" do
     it "returns an error event" do
       result = build_handler(raw: "/disconnect @nobody").call
-      expect(result.events.first[:kind]).to eq("error")
+      expect(result.events.first[:kind]).to eq(:error)
       expect(result.events.first[:payload]["text"]).to include("@nobody")
     end
   end
@@ -35,7 +35,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
   describe "#call — numeric id not found" do
     it "returns an error event" do
       result = build_handler(raw: "/disconnect 99999").call
-      expect(result.events.first[:kind]).to eq("error")
+      expect(result.events.first[:kind]).to eq(:error)
       expect(result.events.first[:payload]["text"]).to include("99999")
     end
   end
@@ -45,12 +45,12 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
 
     it "matches the exact case" do
       result = build_handler(raw: "/disconnect @GamingChannel").call
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind]).to eq(:confirmation)
     end
 
     it "does not match a differently-cased handle" do
       result = build_handler(raw: "/disconnect @gamingchannel").call
-      expect(result.events.first[:kind]).to eq("error")
+      expect(result.events.first[:kind]).to eq(:error)
     end
   end
 
@@ -60,7 +60,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
     it "returns a confirmation event" do
       result = build_handler(raw: "/disconnect @gaming").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind]).to eq(:confirmation)
     end
 
     it "includes command: disconnect in the payload" do
@@ -138,7 +138,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
 
     it "resolves the channel by local id" do
       result = build_handler(raw: "/disconnect #{channel.id}").call
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind]).to eq(:confirmation)
       expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
     end
   end

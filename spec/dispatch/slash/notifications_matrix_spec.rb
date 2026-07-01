@@ -57,7 +57,7 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
   def expect_sidebar_ok(result)
     expect(result).to be_a(Pito::Slash::Result::Ok)
     event = result.events.first
-    expect(event[:kind]).to eq("system")
+    expect(event[:kind]).to eq(:system)
     expect(event[:payload][:sidebar_open]).to eq("notifications")
     expect(event[:payload][:text]).to be_present
   end

@@ -47,7 +47,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
 
     it "appends a single confirmation_follow_up event" do
       expect(result.events.size).to eq(1)
-      expect(result.events.first[:kind]).to eq("confirmation_follow_up")
+      expect(result.events.first[:kind]).to eq(:confirmation_follow_up)
     end
 
     it "includes outcome: 'confirm'" do
@@ -110,7 +110,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
 
     it "appends a confirmation_follow_up event" do
-      expect(result.events.first[:kind]).to eq("confirmation_follow_up")
+      expect(result.events.first[:kind]).to eq(:confirmation_follow_up)
     end
 
     it "includes outcome: 'cancel'" do
@@ -145,7 +145,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
 
     it "appends a :system event (not the orange confirmation_follow_up) on confirm" do
-      expect(call("confirm").events.first[:kind]).to eq("system")
+      expect(call("confirm").events.first[:kind]).to eq(:system)
     end
 
     it "carries the queued progress line as the system text" do
@@ -153,7 +153,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
 
     it "still renders the orange confirmation_follow_up on cancel" do
-      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+      expect(call("cancel").events.first[:kind]).to eq(:confirmation_follow_up)
     end
   end
 
@@ -179,7 +179,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
 
     it "appends an :enhanced event (not the orange confirmation_follow_up) on confirm" do
-      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+      expect(call("confirm").events.first[:kind]).to eq(:enhanced)
     end
 
     it "carries the scheduled outcome line as the enhanced text" do
@@ -187,7 +187,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
 
     it "still renders the orange confirmation_follow_up on cancel" do
-      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+      expect(call("cancel").events.first[:kind]).to eq(:confirmation_follow_up)
     end
   end
 
@@ -212,11 +212,11 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
 
     it "appends an :enhanced event (not the orange confirmation_follow_up) on confirm" do
-      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+      expect(call("confirm").events.first[:kind]).to eq(:enhanced)
     end
 
     it "still renders the orange confirmation_follow_up on cancel" do
-      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+      expect(call("cancel").events.first[:kind]).to eq(:confirmation_follow_up)
     end
   end
 
@@ -239,7 +239,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
 
     it "appends an :enhanced event on confirm" do
-      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+      expect(call("confirm").events.first[:kind]).to eq(:enhanced)
     end
   end
 
@@ -262,11 +262,11 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     before { allow(VideoRemoteDelete).to receive(:perform_later) }
 
     it "appends an :enhanced event on confirm" do
-      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+      expect(call("confirm").events.first[:kind]).to eq(:enhanced)
     end
 
     it "still renders the orange confirmation_follow_up on cancel" do
-      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+      expect(call("cancel").events.first[:kind]).to eq(:confirmation_follow_up)
     end
   end
 

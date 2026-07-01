@@ -128,7 +128,7 @@ RSpec.describe Pito::Slash::Handlers::Notifications, type: :service do
 
     it "returns exactly 1 system event" do
       expect(result.events.size).to eq(1)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload has html: true" do

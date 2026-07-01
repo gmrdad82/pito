@@ -116,7 +116,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
         end
 
         it "emits kind: 'error'" do
-          expect(first_event(raw)[:kind]).to eq("error")
+          expect(first_event(raw)[:kind]).to eq(:error)
         end
 
         it "payload text includes 'Usage'" do
@@ -153,7 +153,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
           end
 
           it "emits kind: 'confirmation'" do
-            expect(first_event(raw)[:kind]).to eq("confirmation")
+            expect(first_event(raw)[:kind]).to eq(:confirmation)
           end
 
           it "payload is the DisconnectConfirmation builder output" do
@@ -165,7 +165,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       it "@-only target (/disconnect @) → fragment '' → LIKE %% → matches first channel → confirmation" do
         allow(::Channel).to receive(:where).with("handle LIKE ?", "%%")
           .and_return(double("rel", first: channel_double))
-        expect(first_event("/disconnect @")[:kind]).to eq("confirmation")
+        expect(first_event("/disconnect @")[:kind]).to eq(:confirmation)
       end
     end
 
@@ -187,7 +187,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
           end
 
           it "emits kind: 'error' (not_found)" do
-            expect(first_event(raw)[:kind]).to eq("error")
+            expect(first_event(raw)[:kind]).to eq(:error)
           end
 
           it "payload text includes the target (@-prefixed)" do
@@ -203,19 +203,19 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       it "/disconnect @Gaming found (LIKE %Gaming% matches Gaming-cased handle) → confirmation" do
         allow(::Channel).to receive(:where).with("handle LIKE ?", "%Gaming%")
           .and_return(double("found", first: channel_double))
-        expect(first_event("/disconnect @Gaming")[:kind]).to eq("confirmation")
+        expect(first_event("/disconnect @Gaming")[:kind]).to eq(:confirmation)
       end
 
       it "/disconnect @gaming not found when handle is @Gaming (wrong case) → error" do
         allow(::Channel).to receive(:where).with("handle LIKE ?", "%gaming%")
           .and_return(double("not_found", first: nil))
-        expect(first_event("/disconnect @gaming")[:kind]).to eq("error")
+        expect(first_event("/disconnect @gaming")[:kind]).to eq(:error)
       end
 
       it "/disconnect @GAMING not found when handle is @gaming (all-caps mismatch) → error" do
         allow(::Channel).to receive(:where).with("handle LIKE ?", "%GAMING%")
           .and_return(double("not_found", first: nil))
-        expect(first_event("/disconnect @GAMING")[:kind]).to eq("error")
+        expect(first_event("/disconnect @GAMING")[:kind]).to eq(:error)
       end
     end
   end
@@ -236,7 +236,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       }.each do |label, raw|
         context "#{label} (#{raw.inspect})" do
           it "emits kind: 'confirmation'" do
-            expect(first_event(raw)[:kind]).to eq("confirmation")
+            expect(first_event(raw)[:kind]).to eq(:confirmation)
           end
 
           it "returns Result::Ok" do
@@ -262,7 +262,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       }.each do |label, raw|
         context "#{label} (#{raw.inspect})" do
           it "emits kind: 'error' (not_found)" do
-            expect(first_event(raw)[:kind]).to eq("error")
+            expect(first_event(raw)[:kind]).to eq(:error)
           end
 
           it "payload text includes the bare target" do
@@ -278,7 +278,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       it "/disconnect foo bar → target 'foo bar' → LIKE %foo bar% → not_found → error" do
         allow(::Channel).to receive(:where).with("handle LIKE ?", "%foo bar%")
           .and_return(double("nil_rel", first: nil))
-        expect(first_event("/disconnect foo bar")[:kind]).to eq("error")
+        expect(first_event("/disconnect foo bar")[:kind]).to eq(:error)
       end
 
       it "/disconnect foo bar → not-found payload includes the full 'foo bar' target" do
@@ -289,7 +289,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       it "/disconnect foo bar → found if LIKE matches → confirmation" do
         allow(::Channel).to receive(:where).with("handle LIKE ?", "%foo bar%")
           .and_return(double("found", first: channel_double))
-        expect(first_event("/disconnect foo bar")[:kind]).to eq("confirmation")
+        expect(first_event("/disconnect foo bar")[:kind]).to eq(:confirmation)
       end
     end
   end
@@ -310,7 +310,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
           end
 
           it "/disconnect #{id} → kind: 'confirmation'" do
-            expect(first_event("/disconnect #{id}")[:kind]).to eq("confirmation")
+            expect(first_event("/disconnect #{id}")[:kind]).to eq(:confirmation)
           end
 
           it "/disconnect #{id} → returns Result::Ok" do
@@ -333,7 +333,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       [ 99999, 12345 ].each do |id|
         context "id #{id} (not found)" do
           it "/disconnect #{id} → kind: 'error' (not_found)" do
-            expect(first_event("/disconnect #{id}")[:kind]).to eq("error")
+            expect(first_event("/disconnect #{id}")[:kind]).to eq(:error)
           end
 
           it "/disconnect #{id} → payload includes '#{id}'" do
@@ -349,7 +349,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
 
     it "/disconnect 0 (never-valid id) → error (find_by(id: 0) returns nil)" do
       allow(::Channel).to receive(:find_by).with(id: 0).and_return(nil)
-      expect(first_event("/disconnect 0")[:kind]).to eq("error")
+      expect(first_event("/disconnect 0")[:kind]).to eq(:error)
     end
 
     it "all-digit target routes via find_by, NOT the LIKE path" do
@@ -368,15 +368,15 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
   # ═══════════════════════════════════════════════════════════════════════════
   describe "5. whitespace normalisation" do
     it "double space before @handle → same as single space → confirmation" do
-      expect(first_event("/disconnect  @gaming")[:kind]).to eq("confirmation")
+      expect(first_event("/disconnect  @gaming")[:kind]).to eq(:confirmation)
     end
 
     it "trailing spaces after @handle → stripped → same channel lookup → confirmation" do
-      expect(first_event("/disconnect @gaming   ")[:kind]).to eq("confirmation")
+      expect(first_event("/disconnect @gaming   ")[:kind]).to eq(:confirmation)
     end
 
     it "tab between verb and @handle → treated as whitespace separator → confirmation" do
-      expect(first_event("/disconnect\t@gaming")[:kind]).to eq("confirmation")
+      expect(first_event("/disconnect\t@gaming")[:kind]).to eq(:confirmation)
     end
   end
 
@@ -395,7 +395,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
     end
 
     it "/disconnect --help → target '--help' → not_found error (NOT a help page)" do
-      expect(first_event("/disconnect --help")[:kind]).to eq("error")
+      expect(first_event("/disconnect --help")[:kind]).to eq(:error)
     end
 
     it "/disconnect --help → payload includes '--help' (target echoed)" do
@@ -407,7 +407,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       # starts with @ → fragment = "gaming --help" → LIKE %gaming --help%
       allow(::Channel).to receive(:where).with("handle LIKE ?", "%gaming --help%")
         .and_return(double("nil_rel", first: nil))
-      expect(first_event("/disconnect @gaming --help")[:kind]).to eq("error")
+      expect(first_event("/disconnect @gaming --help")[:kind]).to eq(:error)
     end
   end
 
@@ -420,7 +420,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
   # ═══════════════════════════════════════════════════════════════════════════
   describe "7. auth parameter (handler does not gate)" do
     it "authenticated: false + missing target → kind: 'error' (missing_target), not auth rejection" do
-      expect(first_event("/disconnect", authenticated: false)[:kind]).to eq("error")
+      expect(first_event("/disconnect", authenticated: false)[:kind]).to eq(:error)
     end
 
     it "authenticated: false + missing target → returns Result::Ok (not Result::Error)" do
@@ -428,21 +428,21 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
     end
 
     it "authenticated: false + @handle found → kind: 'confirmation' (auth flag ignored by handler)" do
-      expect(first_event("/disconnect @gaming", authenticated: false)[:kind]).to eq("confirmation")
+      expect(first_event("/disconnect @gaming", authenticated: false)[:kind]).to eq(:confirmation)
     end
 
     it "authenticated: false + @handle not found → kind: 'error' (not_found, not auth)" do
       allow(::Channel).to receive(:where).and_return(double("nil_rel", first: nil))
-      expect(first_event("/disconnect @nobody", authenticated: false)[:kind]).to eq("error")
+      expect(first_event("/disconnect @nobody", authenticated: false)[:kind]).to eq(:error)
     end
 
     it "authenticated: false + numeric id found → kind: 'confirmation'" do
       allow(::Channel).to receive(:find_by).with(id: 42).and_return(channel_double)
-      expect(first_event("/disconnect 42", authenticated: false)[:kind]).to eq("confirmation")
+      expect(first_event("/disconnect 42", authenticated: false)[:kind]).to eq(:confirmation)
     end
 
     it "authenticated: false + numeric id not found → kind: 'error'" do
-      expect(first_event("/disconnect 99999", authenticated: false)[:kind]).to eq("error")
+      expect(first_event("/disconnect 99999", authenticated: false)[:kind]).to eq(:error)
     end
   end
 

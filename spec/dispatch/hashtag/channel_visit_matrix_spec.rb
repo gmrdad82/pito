@@ -110,7 +110,7 @@ RSpec.describe "Dispatch matrix — #channel_visit follow-up (recognition, DB mo
     end
 
     it "mutation kind is 'system_follow_up'" do
-      expect(result.kind).to eq("system_follow_up")
+      expect(result.kind).to eq(:system_follow_up)
     end
 
     it "does NOT return a Result::Error" do
