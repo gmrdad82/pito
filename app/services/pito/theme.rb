@@ -44,8 +44,8 @@ module Pito
       yellow:       "#e0af68"
     }.freeze
 
-    # L1 derived atom — retained for reference; no longer used as a section
-    # accent. Updated to Tokyo Night blue (#7aa2f7) as the palette accent.
+    # L1 derived atom — Tokyo Night blue (#7aa2f7); the section accent for
+    # home/channels/projects/settings/notifications/calendar (see SECTION_ACCENTS).
     BLUE_ACCENT = "#7aa2f7".freeze
 
     # L2 — section accents. Per the Tokyo Night migration, the three primary

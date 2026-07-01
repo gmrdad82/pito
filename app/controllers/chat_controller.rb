@@ -312,7 +312,7 @@ class ChatController < ApplicationController
     else
       broadcaster.emit(
         turn:,
-        kind:    "error",
+        kind:    :error,
         payload: { text: auth_error_key(result.status) }
       )
     end
@@ -378,7 +378,7 @@ class ChatController < ApplicationController
     unless authenticated
       broadcaster.emit(
         turn:,
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return nil
@@ -387,7 +387,7 @@ class ChatController < ApplicationController
     unless Pito::Credentials.google_oauth_configured?
       broadcaster.emit(
         turn:,
-        kind:    "error",
+        kind:    :error,
         payload: {
           text:        Pito::Copy.render("pito.copy.connect.not_configured"),
           credentials: {
@@ -471,7 +471,7 @@ class ChatController < ApplicationController
           input_kind: :chat,
           input_text: "show vid"
         ),
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
@@ -518,7 +518,7 @@ class ChatController < ApplicationController
           input_kind: :slash,
           input_text: "/games import"
         ),
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
@@ -544,7 +544,7 @@ class ChatController < ApplicationController
           input_kind: :slash,
           input_text: input
         ),
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
@@ -596,7 +596,7 @@ class ChatController < ApplicationController
           input_kind: :slash,
           input_text: "/themes"
         ),
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
@@ -623,7 +623,7 @@ class ChatController < ApplicationController
           input_kind: :chat,
           input_text: mode == :delete ? "delete game" : "show game"
         ),
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
@@ -649,7 +649,7 @@ class ChatController < ApplicationController
           input_kind: :slash,
           input_text: input
         ),
-        kind:    "error",
+        kind:    :error,
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return nil

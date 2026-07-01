@@ -180,7 +180,7 @@ class GameImportJob < ApplicationJob
   # Emit the :system announce event if not already present on the turn.
   # Idempotent: skips if a :system event already exists on the turn.
   def emit_announce_once(broadcaster, turn:, game:, conversation:)
-    return if turn.events.exists?(kind: "system")
+    return if turn.events.exists?(kind: :system)
 
     payload = Pito::MessageBuilder::Game::ImportAnnounce.call(
       game,
@@ -197,7 +197,7 @@ class GameImportJob < ApplicationJob
   # Emit the :enhanced done event if not already present on the turn.
   # Idempotent: skips if an :enhanced event already exists on the turn.
   def emit_done_once(broadcaster, turn:, game:, conversation:)
-    return if turn.events.exists?(kind: "enhanced")
+    return if turn.events.exists?(kind: :enhanced)
 
     payload = Pito::MessageBuilder::Game::ImportDone.call(game, conversation: conversation)
     event   = Event.create_with_position!(

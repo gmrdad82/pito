@@ -20,8 +20,7 @@ module Pito
     #   comments                                    → daily Area chart; passed `period`.
     #   retention                                   → lifetime audience-retention
     #                                                 area chart (its own metric).
-    #   day_of_week_heatmap                         → { no_data:, caption: } only
-    #                                                 (component not yet built).
+    #   day_of_week_heatmap                         → day-of-week Heatmap chart (lifetime).
     #
     # Fault isolation: any StandardError per call → returns the no_data cell and
     # logs a warning. Never raises.

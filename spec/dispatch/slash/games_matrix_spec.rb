@@ -88,7 +88,7 @@ RSpec.describe "Dispatch matrix — /games (recognition, DB mocked)", type: :dis
     end
 
     it "event kind is the string 'system'" do
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload carries html: true (man-page flag, string key)" do
@@ -147,7 +147,7 @@ RSpec.describe "Dispatch matrix — /games (recognition, DB mocked)", type: :dis
     end
 
     it "event kind is 'system'" do
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload contains :text (usage_hint copy)" do
@@ -179,7 +179,7 @@ RSpec.describe "Dispatch matrix — /games (recognition, DB mocked)", type: :dis
     end
 
     it "event kind is 'system'" do
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "payload contains sidebar_open: 'games_import'" do

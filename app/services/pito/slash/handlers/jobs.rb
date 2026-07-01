@@ -163,11 +163,11 @@ module Pito
         end
 
         def text_event(text)
-          Pito::Slash::Result::Ok.new(events: [ { kind: "system", payload: { text: text } } ])
+          Pito::Slash::Result::Ok.new(events: [ { kind: :system, payload: { text: text } } ])
         end
 
         def man_ok(body)
-          Pito::Slash::Result::Ok.new(events: [ { kind: "system", payload: { "html" => true, "body" => body } } ])
+          Pito::Slash::Result::Ok.new(events: [ { kind: :system, payload: { "html" => true, "body" => body } } ])
         end
 
         def error(message_key, **args)

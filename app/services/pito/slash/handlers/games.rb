@@ -57,7 +57,7 @@ module Pito
             ]
           )
           Pito::Slash::Result::Ok.new(events: [ {
-            kind:    "system",
+            kind:    :system,
             payload: { "html" => true, "body" => body }
           } ])
         end
@@ -79,7 +79,7 @@ module Pito
           title = import_title
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 sidebar_open:    "games_import",
                 prefill:         title,
@@ -92,7 +92,7 @@ module Pito
         def usage_hint
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 text: Pito::Copy.render("pito.copy.games.import_usage")
               }

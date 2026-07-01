@@ -11,9 +11,9 @@ module Pito
       # - Bare integer — exact `Channel.find_by(id:)`.
       #
       # Returns `Result::Ok` with:
-      # - `kind: "confirmation"` and `expand_detail` (channel stats + video breakdown)
+      # - `kind: :confirmation` and `expand_detail` (channel stats + video breakdown)
       #   when the channel is found.
-      # - `kind: "error"` (not `Result::Error`) when the target is missing or
+      # - `kind: :error` (not `Result::Error`) when the target is missing or
       #   the channel is not found, so the error appears inline in the scrollback.
       #
       # The confirmation payload is follow-up-able: stamped with
@@ -62,7 +62,7 @@ module Pito
         def missing_target_error
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "error",
+              kind:    :error,
               payload: Pito::MessageBuilder::Text.call("pito.copy.disconnect.missing_target")
             }
           ])
@@ -71,7 +71,7 @@ module Pito
         def not_found_error(target)
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "error",
+              kind:    :error,
               payload: Pito::MessageBuilder::Text.call("pito.copy.disconnect.not_found", target: target)
             }
           ])
@@ -82,7 +82,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "confirmation",
+              kind:    :confirmation,
               payload: payload
             }
           ])

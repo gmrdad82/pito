@@ -13,7 +13,7 @@ RSpec.describe Pito::Slash::Handlers::Compact do
       result = handler.call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       event = result.events.first
-      expect(event[:kind]).to eq("confirmation")
+      expect(event[:kind]).to eq(:confirmation)
     end
 
     it "the confirmation payload carries command 'compact'" do
@@ -30,7 +30,7 @@ RSpec.describe Pito::Slash::Handlers::Compact do
         result = handler.call
         expect(result).to be_a(Pito::Slash::Result::Ok)
         event = result.events.first
-        expect(event[:kind]).to eq("system")
+        expect(event[:kind]).to eq(:system)
         expect(event[:payload]["body"]).to include("/compact")
       end
     end

@@ -75,7 +75,7 @@ module Pito
           return channel_not_found_error if ch.nil?
 
           Pito::FollowUp::Result::Append.new(events: [
-            { kind: "system", payload: Pito::MessageBuilder::Channel::Visit.call(ch, conversation:, destination:) }
+            { kind: :system, payload: Pito::MessageBuilder::Channel::Visit.call(ch, conversation:, destination:) }
           ])
         end
 

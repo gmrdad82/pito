@@ -37,7 +37,7 @@ RSpec.describe Pito::Slash::Handlers::Games, type: :service do
 
     it "returns a system event with a witty usage hint" do
       event = result.events.first
-      expect(event[:kind]).to eq("system")
+      expect(event[:kind]).to eq(:system)
       payload = event[:payload]
       text = payload[:text] || payload["text"]
       expect(text).to be_present

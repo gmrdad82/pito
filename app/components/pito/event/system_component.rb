@@ -6,8 +6,8 @@ module Pito
     # This is the default segment type emitted by slash command handlers.
     #
     # Payload keys (all optional unless noted):
-    #   body:             [String]  — plain-text body rendered via typewriter reveal
-    #   html:             [Boolean] — when true, `body` is pre-formatted HTML (no typewriter)
+    #   body:             [String]  — plain-text body, rendered instantly (no reveal)
+    #   html:             [Boolean] — when true, `body` is pre-formatted HTML
     #   text:             [String]  — fallback plain body when `body` is absent
     #   message_key:      [String]  — I18n key; resolved with `message_args` when `body`/`text` absent
     #   message_args:     [Hash]    — interpolation args for the I18n translation

@@ -34,7 +34,7 @@ module Pito
           ::Conversation::Rename.call(conversation:, title:)
 
           Pito::Slash::Result::Ok.new(events: [
-            { kind: "system", payload: Pito::MessageBuilder::Text.call("pito.copy.conversations.renamed", title:) }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.conversations.renamed", title:) }
           ])
         end
 
@@ -47,7 +47,7 @@ module Pito
 
         def needs_title
           Pito::Slash::Result::Ok.new(events: [
-            { kind: "system", payload: { text: I18n.t("pito.slash.rename.needs_title") } }
+            { kind: :system, payload: { text: I18n.t("pito.slash.rename.needs_title") } }
           ])
         end
 
@@ -60,7 +60,7 @@ module Pito
             ]
           )
           Pito::Slash::Result::Ok.new(events: [
-            { kind: "system", payload: { "html" => true, "body" => body } }
+            { kind: :system, payload: { "html" => true, "body" => body } }
           ])
         end
       end

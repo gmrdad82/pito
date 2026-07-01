@@ -378,6 +378,13 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Removed
 
+- **Internal dead-code sweep** — removed a batch of unreferenced code with no
+  user-facing effect: several orphaned jobs/services/components (`VideoPublish`,
+  `SyncVideoJob`, the unused recommendation-scoring and local-search-query objects,
+  the pre-real-analytics `Channel` mock cluster, the `Pito::Transitions` module, and
+  more), a fully-orphaned copy dictionary, dead CSS rules, and the vendored
+  `xterm.js` bundle + its addons. Behaviour is unchanged.
+
 - **Message & theme-change reveal animations** — the per-glyph text reveals
   (typewriter, scramble, and the word-jump comet), plus the theme-change diff
   morph, are gone. Chat messages and theme switches now render **instantly**. The

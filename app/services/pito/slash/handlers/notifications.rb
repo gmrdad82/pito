@@ -42,7 +42,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 sidebar_open: "notifications",
                 text:         I18n.t("pito.slash.notifications.sidebar.opening")

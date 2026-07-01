@@ -207,7 +207,7 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
       standard_commands.each do |command|
         it "#{command.inspect} + confirm → kind: 'confirmation_follow_up'" do
           result = call(event_for(command), "confirm")
-          expect(result.events.first[:kind]).to eq("confirmation_follow_up")
+          expect(result.events.first[:kind]).to eq(:confirmation_follow_up)
         end
       end
     end
@@ -216,7 +216,7 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
     describe "import_videos → :system (SYSTEM_OUTCOME_ON_CONFIRM)" do
       it "import_videos + confirm → kind: 'system'" do
         result = call(event_for("import_videos"), "confirm")
-        expect(result.events.first[:kind]).to eq("system")
+        expect(result.events.first[:kind]).to eq(:system)
       end
 
       it "import_videos system event carries 'text' in payload" do
@@ -237,7 +237,7 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
       enhanced_commands.each do |command|
         it "#{command.inspect} + confirm → kind: 'enhanced'" do
           result = call(event_for(command), "confirm")
-          expect(result.events.first[:kind]).to eq("enhanced")
+          expect(result.events.first[:kind]).to eq(:enhanced)
         end
 
         it "#{command.inspect} enhanced event carries 'text' in payload" do
@@ -268,7 +268,7 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
     all_commands.each do |command|
       it "#{command.inspect} + cancel → kind: 'confirmation_follow_up'" do
         result = call(event_for(command), "cancel")
-        expect(result.events.first[:kind]).to eq("confirmation_follow_up")
+        expect(result.events.first[:kind]).to eq(:confirmation_follow_up)
       end
     end
   end

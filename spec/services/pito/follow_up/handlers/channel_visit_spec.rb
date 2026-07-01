@@ -35,7 +35,7 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelVisit do
 
     it "returns a Mutation to the system_follow_up surface kind" do
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
-      expect(result.kind).to eq("system_follow_up")
+      expect(result.kind).to eq(:system_follow_up)
     end
 
     it "rebuilds the :visited payload (visit_state visited, no shimmer)" do

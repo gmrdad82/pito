@@ -35,7 +35,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "confirmation",
+              kind:    :confirmation,
               payload: payload
             }
           ])
@@ -49,7 +49,7 @@ module Pito
             ]
           )
           Pito::Slash::Result::Ok.new(events: [
-            { kind: "system", payload: { "html" => true, "body" => body } }
+            { kind: :system, payload: { "html" => true, "body" => body } }
           ])
         end
       end

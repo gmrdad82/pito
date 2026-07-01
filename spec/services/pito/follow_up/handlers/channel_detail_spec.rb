@@ -57,7 +57,7 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
 
     it "appends one system event" do
       expect(result.events.length).to eq(1)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "renders the visiting shimmer" do

@@ -30,13 +30,8 @@ module Pito
     #
     # Rendering structure (both phases share the same root Segment wiring):
     #   - Root Segment id: "event_<event.id>" (stable DOM anchor)
-    #   - Content wrapper: data-controller="pito--diff-reveal"
-    #                      data-pito--diff-reveal-granularity-value="<granularity>"
-    #                      data-pito--diff-reveal-phase-value="<phase>"
-    #   - Each animatable text node:
-    #       <span data-pito--diff-reveal-target="cell" data-from="<old>">NEW</span>
-    #     textContent = final state (correct on reload / no-JS)
-    #     data-from   = pre-transform text (for animation)
+    #   - Text nodes render their FINAL state directly — item 18 removed the
+    #     diff-reveal morph, so no reveal controller or data-* attrs remain.
     class ThemeDiffComponent < ViewComponent::Base
       # @param payload [Hash]
       # @param event   [Event, nil]

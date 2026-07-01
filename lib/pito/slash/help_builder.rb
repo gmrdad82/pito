@@ -114,7 +114,7 @@ module Pito
 
         def ok(body)
           Pito::Slash::Result::Ok.new(events: [ {
-            kind:    "system",
+            kind:    :system,
             payload: { "html" => true, "body" => body }
           } ])
         end

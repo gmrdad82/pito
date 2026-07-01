@@ -34,7 +34,7 @@ module Pito
         def restricted_help
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 message_key: "pito.slash.help.unauthenticated"
               }
@@ -45,7 +45,7 @@ module Pito
         def full_help
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "system",
+              kind:    :system,
               payload: {
                 body:           Pito::Copy.render("pito.copy.help.body"),
                 expand_label:   I18n.t("pito.slash.help.expand_label"),

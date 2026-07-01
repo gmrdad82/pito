@@ -6,10 +6,8 @@ module Pito
     # + backing report group, and per-metric entity availability.
     #
     # "Sort available": render a role's metrics in this exact order, SKIPPING any not
-    # available for the entity level (e.g. retention is single-video only → skipped
-    # for channel/game). The analyze messages render every listed metric as a `0`/`1`
-    # data-pulled scaffold (one generic cell) for now; bespoke per-metric components
-    # come on the owner's "revisit".
+    # available for the entity level. The analyze messages render each metric as its own
+    # bespoke cell (area / heart / bar / heatmap chart, or a scalar) via AnalyzeMetricFill.
     module MetricOrder
       # metric → { label: copy-key suffix under pito.copy.analytics.metrics,
       #            report: the Primitives report group, vid_only: restricted to videos }
