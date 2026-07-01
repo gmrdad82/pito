@@ -63,9 +63,11 @@ RSpec.describe Pito::Analytics::Slots::Regular, type: :component do
   # ── no_data state ────────────────────────────────────────────────────────────
 
   context "no_data: true" do
+    # Caption is passed RAW — NoData wraps it in .pito-metric__caption itself, so
+    # the cell stays ONE grid item (the 2×450 fix). A pre-wrapped <p> would double-wrap.
     subject(:node) do
       render_inline(described_class.new(key: :views, no_data: true)) do |c|
-        c.with_caption { '<p class="pito-metric__caption">n/a</p>'.html_safe }
+        c.with_caption { "n/a" }
       end
     end
 

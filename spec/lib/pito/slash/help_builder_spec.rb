@@ -160,51 +160,6 @@ RSpec.describe Pito::Slash::HelpBuilder do
     end
   end
 
-  # ── /config fx --help (live showcase man page, NOT generic) ──────────────────
-
-  describe ".call — /config fx --help (delegates to the fx showcase man page)" do
-    subject(:result) do
-      described_class.call(invocation: build_invocation(raw: "/config fx --help", args: [ "fx" ]))
-    end
-
-    include_examples "man-page result"
-
-    it "is the dedicated fx man page, NOT the generic config description" do
-      body = result.events.first[:payload]["body"]
-      expect(body).not_to include("Read or write install-wide credentials")
-      expect(body).to include("/config fx")
-    end
-
-    it "lists all three effects, each followed by a pito--fx-demo showcase row" do
-      body = result.events.first[:payload]["body"]
-      AppSetting::FX_EFFECTS.each do |effect|
-        expect(body).to include(effect)
-        expect(body).to include('data-controller="pito--fx-demo"')
-        expect(body).to include(%(data-pito--fx-demo-effect-value="#{effect}"))
-      end
-      effects = body.scan(/data-pito--fx-demo-effect-value="(\w+)"/).flatten
-      expect(effects).to eq(AppSetting::FX_EFFECTS)
-    end
-  end
-
-  # ── /config motion --help (on/off man page) ──────────────────────────────────
-
-  describe ".call — /config motion --help (delegates to the motion on/off page)" do
-    subject(:result) do
-      described_class.call(invocation: build_invocation(raw: "/config motion --help", args: [ "motion" ]))
-    end
-
-    include_examples "man-page result"
-
-    it "lists the on and off states, not the generic config description" do
-      body = result.events.first[:payload]["body"]
-      expect(body).not_to include("Read or write install-wide credentials")
-      expect(body).to include("/config motion")
-      expect(body).to include(%(<span class="text-cyan">on</span>))
-      expect(body).to include(%(<span class="text-cyan">off</span>))
-    end
-  end
-
   # ── /config --help (general) ─────────────────────────────────────────────────
 
   describe ".call — /config --help (general overview)" do
@@ -221,7 +176,7 @@ RSpec.describe Pito::Slash::HelpBuilder do
     it "body includes a Providers: section listing all known providers" do
       body = result.events.first[:payload]["body"]
       expect(body).to include("Providers:")
-      %w[google voyage igdb webhook me sound fx].each do |p|
+      %w[google voyage igdb webhook me sound timezone].each do |p|
         expect(body).to include(p)
       end
     end

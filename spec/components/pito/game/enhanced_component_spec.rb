@@ -204,13 +204,14 @@ RSpec.describe Pito::Game::EnhancedComponent do
     end
 
     context "when a similar game has no cover art attached" do
-      it "renders a placeholder div instead of an img tag" do
+      it "renders the click-to-sync image placeholder instead of an img tag (item 22)" do
         node = render_component
         cards = node.css(".pito-game-enhanced-message__similar-game-card")
-        # No cover art → placeholder div, not an img
         cards.each do |card|
           expect(card.css("img").length).to eq(0)
-          expect(card.at_css(".pito-game-enhanced-message__similar-game-cover--placeholder")).to be_present
+          fallback = card.at_css(".pito-image-fallback")
+          expect(fallback).to be_present
+          expect(fallback["data-pito--chat-prefill-text-value"]).to start_with("sync game #")
         end
       end
     end

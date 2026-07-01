@@ -60,9 +60,9 @@ RSpec.describe "POST /chat — /config synchronous credential routing", type: :r
     }.to have_enqueued_job(ChatDispatchJob)
   end
 
-  it "routes a NON-credential /config (motion) through the async path" do
+  it "routes a NON-credential /config (sound) through the async path" do
     expect {
-      post "/chat", params: { input: "/config motion off", uuid: conversation.uuid }
+      post "/chat", params: { input: "/config sound off", uuid: conversation.uuid }
     }.to have_enqueued_job(ChatDispatchJob)
   end
 

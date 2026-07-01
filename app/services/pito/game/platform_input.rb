@@ -15,8 +15,10 @@ module Pito
     #   "switch" / "Nintendo Switch"                    → "Nintendo Switch"
     #   "steam" / "pc" / "windows" / "gog" / "epic"     → "PC (Steam)"
     #
-    # Anything the families don't recognise (e.g. "Xbox", "Stadia") is kept as a
-    # cleaned/titleized string and stored as-is — no logo, but never rejected.
+    # Anything the families don't recognise here (e.g. "Stadia", "Mac") is kept
+    # as a cleaned/titleized string and stored as-is — never rejected. Xbox falls
+    # through to titleize too ("xbox series x" → "Xbox Series X"), but SINCE Item 24
+    # added the `xbox` token it now resolves to the Xbox logo via PlatformTokens.
     module PlatformInput
       module_function
 

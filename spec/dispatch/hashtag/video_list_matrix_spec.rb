@@ -155,8 +155,8 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(call("with views").kind).to eq(:system)
     end
 
-    it "Mutation payload carries surface: true" do
-      expect(call("with views").payload["surface"]).to be(true)
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
+      expect(call("with views").payload).not_to have_key("surface")
     end
 
     it "Mutation payload preserves reply_handle from source event" do
@@ -204,8 +204,8 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(call("without unknown_column")).to be_a(Pito::FollowUp::Result::Mutation)
     end
 
-    it "Mutation payload carries surface: true" do
-      expect(call("without channel").payload["surface"]).to be(true)
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
+      expect(call("without channel").payload).not_to have_key("surface")
     end
 
     it "Mutation payload preserves reply_handle from source event" do
@@ -268,8 +268,8 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(call("sort title").kind).to eq(:system)
     end
 
-    it "Mutation payload carries surface: true" do
-      expect(call("sort views").payload["surface"]).to be(true)
+    it "Mutation payload does NOT carry surface (reply elevation removed)" do
+      expect(call("sort views").payload).not_to have_key("surface")
     end
 
     it "Mutation payload preserves reply_handle" do

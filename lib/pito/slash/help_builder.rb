@@ -20,7 +20,7 @@ module Pito
     #   3. Any other command              → generic usage + description (man style)
     module HelpBuilder
       # Ordered provider list for /config --help; mirrors the i18n copy order.
-      ALL_CONFIG_PROVIDERS = %w[google voyage igdb webhook me sound motion fx timezone].freeze
+      ALL_CONFIG_PROVIDERS = %w[google voyage igdb webhook me sound timezone].freeze
 
       class << self
         def call(invocation:)

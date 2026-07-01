@@ -132,7 +132,6 @@ module Pito
           new_payload = rebuild_payload(game, videos, conversation:, columns: current_cols)
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          new_payload["surface"]      = true
 
           Pito::FollowUp::Result::Mutation.new(kind: event.kind.to_sym, payload: new_payload)
         end
@@ -165,7 +164,6 @@ module Pito
           new_payload = rebuild_payload(game, videos, conversation:, columns: new_cols)
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          new_payload["surface"]      = true
 
           Pito::FollowUp::Result::Mutation.new(kind: event.kind.to_sym, payload: new_payload)
         end

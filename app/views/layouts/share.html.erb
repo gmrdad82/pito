@@ -21,7 +21,7 @@
 </head>
 <body class="bg-root text-fg font-mono" data-controller="pito--audio">
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
-  <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-fx="<%= AppSetting.fx_enabled? %>" data-fx-effect="<%= AppSetting.fx_effect %>" data-theme="<%= AppSetting.theme %>"></div>
+  <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
   <%# Global Turbo Stream subscription: receives mini-status and row
       replacements that must propagate to every open browser instance. %>
   <%= turbo_stream_from "pito:global" %>

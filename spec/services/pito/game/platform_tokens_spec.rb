@@ -53,15 +53,20 @@ RSpec.describe Pito::Game::PlatformTokens do
       expect(described_class.tokens([ "Battle.net" ])).to eq([ "steam" ])
     end
 
+    # Xbox bucket (Item 24 — no longer dropped)
+    it "maps 'Xbox Series X|S' to ['xbox']" do
+      expect(described_class.tokens([ "Xbox Series X|S" ])).to eq([ "xbox" ])
+    end
+
+    it "maps 'Xbox One' to ['xbox']" do
+      expect(described_class.tokens([ "Xbox One" ])).to eq([ "xbox" ])
+    end
+
+    it "maps 'Xbox 360' to ['xbox']" do
+      expect(described_class.tokens([ "Xbox 360" ])).to eq([ "xbox" ])
+    end
+
     # Dropped platforms
-    it "drops 'Xbox Series X|S'" do
-      expect(described_class.tokens([ "Xbox Series X|S" ])).to eq([])
-    end
-
-    it "drops 'Xbox One'" do
-      expect(described_class.tokens([ "Xbox One" ])).to eq([])
-    end
-
     it "drops 'Google Stadia'" do
       expect(described_class.tokens([ "Google Stadia" ])).to eq([])
     end
@@ -75,10 +80,10 @@ RSpec.describe Pito::Game::PlatformTokens do
       expect(described_class.tokens([ "PlayStation 4", "PlayStation 5" ])).to eq([ "ps" ])
     end
 
-    # ORDER — always PS → Switch → Steam regardless of input order
-    it "returns tokens in PS → Switch → Steam order regardless of input order" do
-      result = described_class.tokens([ "Steam", "Nintendo Switch", "PlayStation 5" ])
-      expect(result).to eq(%w[ps switch steam])
+    # ORDER — always PS → Switch → Xbox → Steam regardless of input order
+    it "returns tokens in PS → Switch → Xbox → Steam order regardless of input order" do
+      result = described_class.tokens([ "Steam", "Xbox One", "Nintendo Switch", "PlayStation 5" ])
+      expect(result).to eq(%w[ps switch xbox steam])
     end
 
     it "returns PS before Steam when input lists Steam first" do
@@ -104,8 +109,12 @@ RSpec.describe Pito::Game::PlatformTokens do
       expect(described_class.labels([])).to be_nil
     end
 
-    it "returns nil for platforms that all drop (e.g. Xbox-only)" do
-      expect(described_class.labels([ "Xbox Series X|S", "Xbox One" ])).to be_nil
+    it "labels Xbox platforms as 'Xbox' (Item 24)" do
+      expect(described_class.labels([ "Xbox Series X|S", "Xbox One" ])).to eq("Xbox")
+    end
+
+    it "returns nil for platforms that all drop (e.g. Stadia-only)" do
+      expect(described_class.labels([ "Google Stadia" ])).to be_nil
     end
   end
 
@@ -164,9 +173,16 @@ RSpec.describe Pito::Game::PlatformTokens do
       expect(result).to be_html_safe
     end
 
-    it "returns blank html_safe string for Xbox-only platforms" do
+    it "renders the Xbox icon for Xbox platforms (Item 24)" do
       result = described_class.icons_html([ "Xbox Series X|S" ])
-      expect(result).to be_blank
+      expect(result).to include('src="/platforms/xbox.svg"')
+      expect(result).to include('alt="Xbox"')
+    end
+
+    it "emits Xbox between Switch and Steam in ORDER" do
+      html = described_class.icons_html([ "Steam", "Xbox One", "Nintendo Switch", "PlayStation 5" ])
+      positions = %w[playstation switch xbox steam].map { |p| html.index("/platforms/#{p}.svg") }
+      expect(positions).to eq(positions.sort)
     end
   end
 end

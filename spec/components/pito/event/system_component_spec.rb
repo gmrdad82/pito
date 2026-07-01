@@ -3,42 +3,24 @@
 require "rails_helper"
 
 RSpec.describe Pito::Event::SystemComponent do
-  describe "typewriter hook — plain-text body" do
+  # Item 18: messages render INSTANTLY — no typewriter controller / targets.
+  describe "instant render — plain-text body" do
     subject(:node) { render_inline(described_class.new(payload: { body: "Hello world" })) }
 
-    it "wraps content in a div with data-controller='pito--typewriter'" do
-      wrapper = node.css("div[data-controller~='pito--typewriter']").first
-      expect(wrapper).not_to be_nil
-    end
-
-    it "sets data-pito--typewriter-target='body' on the body span inside the wrapper" do
-      span = node.css("[data-controller~='pito--typewriter'] span[data-pito--typewriter-target='body']").first
-      expect(span).not_to be_nil
-    end
-
-    it "includes the body text in the body span" do
-      span = node.css("span.text-fg[data-pito--typewriter-target='body']").first
-      expect(span).not_to be_nil
-      expect(span.text).to include("Hello world")
+    it "renders the body instantly with no typewriter wiring" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.css("span.text-fg").text).to include("Hello world")
     end
   end
 
-  describe "typewriter hook — html body (html: true)" do
+  describe "instant render — html body (html: true)" do
     subject(:node) { render_inline(described_class.new(payload: { body: "<b>bold</b>", html: true })) }
 
-    it "mounts the typewriter controller so the html card reveals (visibility toggle)" do
-      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
-    end
-
-    it "tags the html card content as an htmlProse target inside the controller wrapper" do
-      wrapper = node.css("div[data-controller~='pito--typewriter']").first
-      expect(wrapper).not_to be_nil
-      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
-    end
-
-    it "renders the raw html in a plain text-fg span" do
-      span = node.css("span.text-fg").first
-      expect(span).not_to be_nil
+    it "renders the html card instantly with no typewriter wiring" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.css("b").text).to eq("bold")
     end
   end
 
@@ -83,7 +65,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  describe "typewriter hook — table_rows with plain-text body" do
+  describe "instant render — table_rows with plain-text body" do
     subject(:node) do
       render_inline(described_class.new(payload: {
         body: "Result",
@@ -91,22 +73,14 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "includes kv key span tagged as prose target inside the typewriter wrapper" do
-      wrapper = node.css("div[data-controller~='pito--typewriter']").first
-      expect(wrapper).not_to be_nil
-      key_span = wrapper.css("span[data-pito--typewriter-target='prose']").first
-      expect(key_span).not_to be_nil
-    end
-
-    it "key and value spans are both tagged as prose targets" do
-      prose_spans = node.css("span[data-pito--typewriter-target='prose']")
-      texts = prose_spans.map(&:text)
-      expect(texts).to include("Status")
-      expect(texts).to include("OK")
+    it "renders the kv cells instantly with no typewriter targets" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.text).to include("Status").and include("OK")
     end
   end
 
-  describe "sections mode — plain-text body" do
+  describe "instant render — sections mode, plain-text body" do
     subject(:node) do
       render_inline(described_class.new(payload: {
         body: "Sections body text",
@@ -114,21 +88,14 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "adds pito--typewriter controller to the prose wrapper div in sections mode" do
-      wrapper = node.css("div[data-controller~='pito--typewriter']").first
-      expect(wrapper).not_to be_nil
-      span = wrapper.css("span[data-pito--typewriter-target='body']").first
-      expect(span).not_to be_nil
-      expect(span.text).to include("Sections body text")
-    end
-
-    it "tags section header as a prose target" do
-      header = node.css("[data-pito--typewriter-target='prose']").first
-      expect(header).not_to be_nil
+    it "renders the body + header instantly with no typewriter wiring" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.text).to include("Sections body text").and include("Section 1")
     end
   end
 
-  describe "sections mode — section rows tagged as prose targets" do
+  describe "instant render — sections mode, section rows" do
     subject(:node) do
       render_inline(described_class.new(payload: {
         body: "Help",
@@ -139,20 +106,13 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "tags section row key span as prose target" do
-      key_span = node.css("span[data-pito--typewriter-target='prose']").first
-      expect(key_span).not_to be_nil
-      expect(key_span.text).to eq("ctrl+l")
-    end
-
-    it "tags section row value span as prose target" do
-      value_span = node.css("span[data-pito--typewriter-target='prose']").last
-      expect(value_span).not_to be_nil
-      expect(value_span.text).to eq("focus input")
+    it "renders the section rows instantly with no prose targets" do
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.text).to include("ctrl+l").and include("focus input")
     end
   end
 
-  describe "sections mode — html body" do
+  describe "instant render — sections mode, html body" do
     subject(:node) do
       render_inline(described_class.new(payload: {
         body: "<em>rich</em>",
@@ -161,35 +121,18 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "mounts the typewriter controller in sections mode when html (card reveals)" do
-      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
-    end
-
-    it "tags the html sections card as an htmlProse target" do
-      wrapper = node.css("div[data-controller~='pito--typewriter']").first
-      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
-    end
-  end
-
-  describe "sections mode — html body, CONSUMED" do
-    subject(:node) do
-      render_inline(described_class.new(payload: {
-        body: "<em>rich</em>",
-        html: true,
-        reply_handle: "h", reply_target: "game_detail", reply_consumed: true,
-        sections: [ { title: "Section 1", rows: [] } ]
-      }))
-    end
-
-    it "does NOT mount the typewriter controller once consumed" do
+    it "renders the html sections card instantly with no typewriter wiring" do
       expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target]")).to be_empty
+      expect(node.css("em").text).to eq("rich")
     end
   end
 
   describe "SystemFollowUpComponent (inherits system template via enhanced)" do
-    it "renders pito--typewriter on plain-text body" do
+    it "renders a plain-text body instantly with no typewriter" do
       node = render_inline(Pito::Event::SystemFollowUpComponent.new(payload: { body: "Follow up text" }))
-      expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.text).to include("Follow up text")
     end
   end
 
@@ -811,23 +754,21 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(grid.css("img.pito-platform-icon").first).not_to be_nil
     end
 
-    it "adds an htmlProse typewriter target to the html cell span (reveal gating)" do
+    it "renders the html cell instantly with no typewriter target" do
       grid = node.css("div.pito-data-grid").first
-      spans = grid.css("span")
-      html_span = spans.find { |s| s.css("img").any? }
+      html_span = grid.css("span").find { |s| s.css("img").any? }
       expect(html_span).not_to be_nil
-      expect(html_span["data-pito--typewriter-target"]).to eq("htmlProse")
+      expect(html_span["data-pito--typewriter-target"]).to be_nil
     end
 
-    it "still adds typewriter prose target to the plain-text cell span" do
+    it "renders the plain-text cell instantly with no typewriter target" do
       grid = node.css("div.pito-data-grid").first
-      text_span = grid.css("span[data-pito--typewriter-target='prose']").first
-      expect(text_span).not_to be_nil
-      expect(text_span.text).to include("The Game")
+      expect(grid.css("[data-pito--typewriter-target]")).to be_empty
+      expect(grid.text).to include("The Game")
     end
   end
 
-  describe "table_rows with :cells — html: false cell escapes and keeps typewriter target" do
+  describe "table_rows with :cells — html: false cell escapes (instant)" do
     subject(:node) do
       render_inline(described_class.new(payload: {
         body: "Test",
@@ -845,10 +786,9 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(grid.text).to include("<b>escaped</b>")
     end
 
-    it "keeps the typewriter prose target on the span" do
+    it "renders the cell with no typewriter target" do
       grid = node.css("div.pito-data-grid").first
-      span = grid.css("span[data-pito--typewriter-target='prose']").first
-      expect(span).not_to be_nil
+      expect(grid.css("[data-pito--typewriter-target]")).to be_empty
     end
   end
 
@@ -895,22 +835,19 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  # A reply that mutates this segment in place stamps surface: true on the
-  # rebuilt payload so the updated segment lifts onto the surface background.
-  describe "mutated-segment surface background" do
+  # A system message is ALWAYS transparent (left bar only). The payload[:surface]
+  # "just changed by your reply" lift was removed (owner 2026-07-01) — replies/
+  # follow-ups no longer elevate a message onto the surface background.
+  describe "no reply-elevated surface background" do
     def content_style(payload)
       render_inline(described_class.new(payload:)).css(".pito-segment__content").first&.[]("style").to_s
     end
 
-    it "renders the surface background when surface: true" do
-      expect(content_style(body: "Re-sorted", surface: true)).to include("var(--bg-surface)")
+    it "stays transparent even when a stale payload still carries surface: true" do
+      expect(content_style(body: "Re-sorted", surface: true)).not_to include("background")
     end
 
-    it "accepts the persisted string form (surface: 'true')" do
-      expect(content_style(body: "Re-sorted", surface: "true")).to include("var(--bg-surface)")
-    end
-
-    it "stays transparent on a normal (non-mutation) render" do
+    it "stays transparent on a normal render" do
       expect(content_style(body: "First render")).not_to include("background")
     end
   end

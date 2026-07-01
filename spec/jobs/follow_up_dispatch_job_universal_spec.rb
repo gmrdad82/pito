@@ -67,7 +67,9 @@ RSpec.describe FollowUpDispatchJob, "universal verb routing" do
       described_class.new.perform(source_event.id, rest: "share", turn_id: reply_turn.id)
       appended = reply_turn.events.where(kind: "system").first
       expect(appended).to be_present
-      expect(appended.payload["text"]).to include("/share/")
+      # Share confirmation is now a rendered LinkComponent (html body), not plain text.
+      expect(appended.payload["html"]).to be(true)
+      expect(appended.payload["body"]).to include("/share/")
     end
 
     it "does NOT consume the source event (consume: false for share)" do

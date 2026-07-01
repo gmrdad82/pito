@@ -135,14 +135,13 @@ class AppSetting < ApplicationRecord
     voyage_api_key.present?
   end
 
-  # ── Sound / FX toggles ────────────────────────────────────────────────
+  # ── Sound toggle ──────────────────────────────────────────────────────
   #
-  # Stored as plain key/value rows ("sound_enabled", "fx_enabled").
-  # Default is true — the flag is only false when the stored value is
-  # explicitly "false".
+  # Stored as a plain key/value row ("sound_enabled"). Default is true — the
+  # flag is only false when the stored value is explicitly "false".
+  # (The fx/motion toggle + reveal-effect settings were removed in item 18.)
 
   SOUND_ENABLED_KEY = "sound_enabled"
-  FX_ENABLED_KEY    = "fx_enabled"
 
   def self.sound_enabled?
     get(SOUND_ENABLED_KEY) != "false"
@@ -150,39 +149,6 @@ class AppSetting < ApplicationRecord
 
   def self.sound_enabled=(bool)
     set(SOUND_ENABLED_KEY, bool.to_s)
-  end
-
-  def self.fx_enabled?
-    get(FX_ENABLED_KEY) != "false"
-  end
-
-  def self.fx_enabled=(bool)
-    set(FX_ENABLED_KEY, bool.to_s)
-  end
-
-  # ── Reveal effect ──────────────────────────────────────────────────────────
-  #
-  # Stored as a plain key/value row ("fx_effect"). Names the reveal animation the
-  # client engine plays for scrollback/typewriter output. Default is
-  # "typewriter"; the writer validates against FX_EFFECTS and raises for anything
-  # else (mirrors timezone=). Independent of fx_enabled? — that flag still gates
-  # whether ANY motion plays at all.
-
-  FX_EFFECT_KEY     = "fx_effect"
-  FX_EFFECT_DEFAULT = "typewriter"
-  FX_EFFECTS        = %w[typewriter scramble comet].freeze
-
-  def self.fx_effect
-    get(FX_EFFECT_KEY).presence || FX_EFFECT_DEFAULT
-  end
-
-  # Validates +value+ against FX_EFFECTS before persisting. Raises ArgumentError
-  # for an unknown effect (no row is written).
-  def self.fx_effect=(value)
-    effect = value.to_s
-    raise ArgumentError, "invalid fx effect: #{value.inspect}" unless FX_EFFECTS.include?(effect)
-
-    set(FX_EFFECT_KEY, effect)
   end
 
   # ── Theme ─────────────────────────────────────────────────────────────────

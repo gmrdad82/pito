@@ -1,45 +1,35 @@
 <%= render(Pito::Segment::Component.new(accent:, background:, id: dom_id, scrollback_message: true)) do %>
   <% if sections.any? %>
-    <%# Sections mode: body + all section detail rendered always-visible.
-        Plain-text bodies type in order via the typewriter controller. %>
+    <%# Sections mode: body + all section detail, rendered instantly (item 18). %>
     <% if html %>
-      <%# html: true — the whole card reveals at once via the typewriter's
-          visibility-toggle (htmlProse) mechanism, sequenced through the shared
-          reveal queue. Controller suppressed once reply_consumed so a refresh /
-          replace_event re-render does not re-reveal a historical card. %>
-      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
-        <div data-pito--typewriter-target="htmlProse" data-controller="pito--ascii-fit">
-          <% if body %>
-            <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(body) %></span>
-          <% end %>
-          <div class="mt-1.5 border-t border-line-default pt-1.5">
-            <%= render(Pito::Keybinding::TableComponent.new(sections: sections)) %>
-          </div>
+      <div data-controller="pito--ascii-fit">
+        <% if body %>
+          <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(body) %></span>
+        <% end %>
+        <div class="mt-1.5 border-t border-line-default pt-1.5">
+          <%= render(Pito::Keybinding::TableComponent.new(sections: sections)) %>
         </div>
       </div>
     <% else %>
-      <%# Plain-text: typewriter controller covers the full content region %>
-      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
+      <div>
         <% if body %>
-          <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg" data-pito--typewriter-target="body"><%= body %></span>
+          <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= body %></span>
         <% end %>
         <div class="mt-1.5 border-t border-line-default pt-1.5">
           <div class="flex flex-col gap-3">
             <% sections.each do |section| %>
               <div class="flex flex-col gap-1">
-                <div class="text-yellow font-bold mb-1" data-pito--typewriter-target="prose"><%= section[:title] %></div>
+                <div class="text-yellow font-bold mb-1"><%= section[:title] %></div>
                 <% Array(section[:rows]).each do |row| %>
                   <div class="flex gap-4">
                     <%= render(Pito::Table::KeyValueRowComponent.new(
                           key_text:    row[:key],
                           value_text:  row[:value],
                           key_class:   "text-cyan whitespace-nowrap shrink-0 w-44",
-                          value_class: "text-fg-dim",
-                          key_data:    { "pito--typewriter-target" => "prose" },
-                          value_data:  { "pito--typewriter-target" => "prose" }
+                          value_class: "text-fg-dim"
                         )) %>
                     <% if row[:value2].present? %>
-                      <span class="text-cyan whitespace-nowrap" data-pito--typewriter-target="prose"><%= row[:value2] %></span>
+                      <span class="text-cyan whitespace-nowrap"><%= row[:value2] %></span>
                     <% end %>
                   </div>
                 <% end %>
@@ -50,21 +40,15 @@
       </div>
     <% end %>
   <% else %>
-    <%# No sections: outer typewriter wrapper covers body (via BodyComponent
-        with owner_controller: false) AND the table_rows grid below it.
-        info_lines contain HTML code highlights so they render instantly.
-        Only emit the typewriter wrapper when there IS a plain-text body to
-        anchor it (controller guards against empty body targets internally,
-        but the spec also checks that no controller appears on nil-body renders). %>
+    <%# No sections: body (via BodyComponent) + the table_rows grid + info_lines,
+        all rendered instantly (item 18: text reveal removed). %>
     <% if !html && body %>
-      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
+      <div>
         <%= render(Pito::Event::BodyComponent.new(
-              body:             body,
-              html:             html,
-              detail:           expand_detail,
-              typewriter:       true,
-              owner_controller: false,
-              timestamp:        @timestamp
+              body:      body,
+              html:      html,
+              detail:    expand_detail,
+              timestamp: @timestamp
             )) %>
         <% if table_rows.any? %>
           <% norm_rows = normalized_table_rows %>
@@ -76,7 +60,7 @@
             <% end %>
             <% norm_rows.each do |cells| %>
               <% cells.each do |cell| %>
-                <%= render_cell_span(cell, typewriter: true) %>
+                <%= render_cell_span(cell) %>
               <% end %>
             <% end %>
           </div>
@@ -90,20 +74,16 @@
         <% end %>
       </div>
     <% elsif html %>
-      <%# html: true — the whole card (body + any grid + info-lines) reveals at
-          once via the typewriter's visibility-toggle (htmlProse) mechanism,
-          sequenced through the shared reveal queue. Controller suppressed once
-          reply_consumed so a refresh / replace_event re-render does not re-reveal
-          a historical card. The analytics-fill replace_event swaps in the filled
-          card, whose fresh controller reveals it cleanly. %>
-      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
-        <div data-pito--typewriter-target="htmlProse" data-controller="pito--ascii-fit">
+      <%# html: true — the whole card (body + grid + info-lines) renders instantly
+          (item 18: text reveal removed). The ascii-fit controller stays for
+          html/ascii-art width fitting. %>
+      <div>
+        <div data-controller="pito--ascii-fit">
           <%= render(Pito::Event::BodyComponent.new(
-                body:         body,
-                html:         html,
-                detail:       expand_detail,
-                typewriter:   false,
-                timestamp:    @timestamp
+                body:      body,
+                html:      html,
+                detail:    expand_detail,
+                timestamp: @timestamp
               )) %>
           <% if table_rows.any? %>
             <% norm_rows = normalized_table_rows %>
@@ -130,14 +110,12 @@
         </div>
       </div>
     <% else %>
-      <%# Neither html nor a plain-text body (rare: a bare table). Render instantly
-          — there is no body to anchor a per-character reveal. %>
+      <%# Neither html nor a plain-text body (rare: a bare table). %>
       <%= render(Pito::Event::BodyComponent.new(
-            body:         body,
-            html:         html,
-            detail:       expand_detail,
-            typewriter:   false,
-            timestamp:    @timestamp
+            body:      body,
+            html:      html,
+            detail:    expand_detail,
+            timestamp: @timestamp
           )) %>
       <% if table_rows.any? %>
         <% norm_rows = normalized_table_rows %>

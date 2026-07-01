@@ -698,13 +698,13 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
-  describe "#call with `list games with year sorted by year desc`" do
-    let!(:game_a) { create(:game, title: "Elden Ring",        release_year: 2022) }
-    let!(:game_b) { create(:game, title: "Hollow Knight",     release_year: 2017) }
-    let!(:game_c) { create(:game, title: "Tears of the Kingdom", release_year: 2023) }
+  describe "#call with `list games with footage sorted by footage desc`" do
+    let!(:game_a) { create(:game, title: "Elden Ring",           footage_hours: 20) }
+    let!(:game_b) { create(:game, title: "Hollow Knight",        footage_hours: 5) }
+    let!(:game_c) { create(:game, title: "Tears of the Kingdom", footage_hours: 40) }
 
-    it "returns games ordered by release_year descending" do
-      rows   = handler_for("list games with year sorted by year desc").call.events.first[:payload]["table_rows"]
+    it "returns games ordered by footage descending" do
+      rows   = handler_for("list games with footage sorted by footage desc").call.events.first[:payload]["table_rows"]
       titles = rows.map { |r| r[:cells][1][:text] }
       expect(titles).to eq([ "Tears of the Kingdom", "Elden Ring", "Hollow Knight" ])
     end
@@ -971,10 +971,10 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(body).to include("with &lt;columns&gt;")
     end
 
-    it "lists every optional column with its aliases" do
+    it "lists every optional column with its aliases (release/year removed — item 24)" do
       body = handler_for("list games --help").call.events.first[:payload]["body"]
-      %w[platform genre developer publisher year].each { |col| expect(body).to include(col) }
-      expect(body).to include("release date")
+      %w[platform genre developer publisher footage price].each { |col| expect(body).to include(col) }
+      expect(body).not_to include("release date")
       # aliases are present too
       expect(body).to include("platforms")
       expect(body).to include("dev")

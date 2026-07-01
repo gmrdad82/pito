@@ -93,9 +93,9 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
       expect(result.payload["list_columns"]).to include("platform")
     end
 
-    it "resolves the 'release' alias so `with release` adds release_date" do
+    it "ignores the removed 'release' column alias (item 24)" do
       result = handler.call(event:, rest: "with release", conversation:)
-      expect(result.payload["list_columns"]).to include("release_date")
+      expect(result.payload["list_columns"]).not_to include("release_date")
     end
 
     it "payload table_heading gains Platform column after with" do

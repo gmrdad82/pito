@@ -332,7 +332,7 @@ RSpec.describe Pito::Grammar::Normalizer do
             Pito::Grammar::Slot.new(name: :mode, kind: :literal, source: :config_providers),
             Pito::Grammar::Slot.new(name: :state, kind: :enum, source: :on_off,
                                     optional: true,
-                                    condition: { mode: %w[sound fx] }),
+                                    condition: { mode: %w[sound] }),
             Pito::Grammar::Slot.new(name: :cfg, kind: :kv, source: :config_keys,
                                     optional: true, repeatable: true,
                                     condition: { mode: %w[google voyage] })
@@ -375,7 +375,7 @@ RSpec.describe Pito::Grammar::Normalizer do
 
     describe "on/off synonym resolution via condition-gated enum" do
       it "resolves 'off' to canonical 'off' for a toggle provider" do
-        match = described_class.call(lex("toggle fx off"), namespace: :slash)
+        match = described_class.call(lex("toggle sound off"), namespace: :slash)
         expect(match.values[:state]).to eq("off")
       end
 
@@ -392,8 +392,8 @@ RSpec.describe Pito::Grammar::Normalizer do
         expect(match.values[:state]).to eq("on")
       end
 
-      it "resolves 'disable' (synonym of 'off') for fx provider" do
-        match = described_class.call(lex("toggle fx disable"), namespace: :slash)
+      it "resolves 'disable' (synonym of 'off') for a toggle provider" do
+        match = described_class.call(lex("toggle sound disable"), namespace: :slash)
         expect(match.values[:state]).to eq("off")
       end
     end
@@ -411,7 +411,7 @@ RSpec.describe Pito::Grammar::Normalizer do
             Pito::Grammar::Slot.new(name: :provider, kind: :literal, source: :config_providers),
             Pito::Grammar::Slot.new(name: :state, kind: :enum, source: :on_off,
                                     optional: true,
-                                    condition: { provider: %w[sound fx] }),
+                                    condition: { provider: %w[sound] }),
             Pito::Grammar::Slot.new(name: :setting, kind: :kv, source: :config_keys,
                                     optional: true, repeatable: true,
                                     condition: { provider: %w[google voyage igdb webhook] })
@@ -448,8 +448,8 @@ RSpec.describe Pito::Grammar::Normalizer do
       end
     end
 
-    context "when provider is 'fx' and value is 'off'" do
-      subject(:match) { described_class.call(lex("config fx off"), namespace: :slash) }
+    context "when provider is 'sound' and value is 'off'" do
+      subject(:match) { described_class.call(lex("config sound off"), namespace: :slash) }
 
       it "resolves state to 'off'" do
         expect(match.values[:state]).to eq("off")

@@ -73,4 +73,50 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     described_class.new(client: client).call(game)
     expect(GameVoyageIndexJob).to have_received(:perform_later).with(game.id)
   end
+
+  describe "per-platform release dates (Item 24)" do
+    let(:releases_json) do
+      game_json.merge(
+        "release_dates" => [
+          { "platform" => { "name" => "PlayStation 5" },          "category" => 0, "y" => 2026, "m" => 7, "d" => 31 },
+          { "platform" => { "name" => "PC (Microsoft Windows)" }, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 },
+          { "platform" => { "name" => "Nintendo Switch" },        "category" => 5, "y" => 2026 },                       # Q3
+          { "platform" => { "name" => "Google Stadia" },          "category" => 0, "y" => 2026, "m" => 1, "d" => 1 }    # dropped
+        ]
+      )
+    end
+
+    before { allow(client).to receive(:fetch_game).with(1020).and_return([ releases_json ]) }
+
+    it "creates one platform_release row per recognised token (Stadia dropped)" do
+      described_class.new(client: client).call(game)
+      expect(game.platform_releases.pluck(:platform_token)).to contain_exactly("ps", "steam", "switch")
+    end
+
+    it "stores the per-platform components (day for PS, quarter for Switch)" do
+      described_class.new(client: client).call(game)
+      ps = game.platform_releases.find_by(platform_token: "ps")
+      expect([ ps.release_year, ps.release_month, ps.release_day ]).to eq([ 2026, 7, 31 ])
+      sw = game.platform_releases.find_by(platform_token: "switch")
+      expect([ sw.release_year, sw.release_quarter ]).to eq([ 2026, 3 ])
+    end
+
+    it "derives games.release_date as the earliest across platforms (Switch Q3 → 2026-07-01)" do
+      described_class.new(client: client).call(game)
+      expect(game.reload.release_date).to eq(Date.new(2026, 7, 1))
+    end
+
+    it "drops platform_release rows for platforms absent on a later re-sync" do
+      described_class.new(client: client).call(game)
+      expect(game.platform_releases.count).to eq(3)
+
+      allow(client).to receive(:fetch_game).with(1020).and_return([
+        game_json.merge("release_dates" => [
+          { "platform" => { "name" => "PlayStation 5" }, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 }
+        ])
+      ])
+      described_class.new(client: client).call(game)
+      expect(game.platform_releases.pluck(:platform_token)).to eq([ "ps" ])
+    end
+  end
 end

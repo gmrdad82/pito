@@ -1,33 +1,26 @@
 # frozen_string_literal: true
 
-# DAILY release-countdown reminder.
+# DAILY release-countdown reminder (Item 24 — per-platform).
 #
-# Selects every game whose `release_date` is PRESENT and falls within the next
-# 30 days (today .. today + 30), computes the whole days remaining, and drops a
-# witty reminder Notification per game. Date-less / TBA games (nil
-# `release_date`) are skipped — the whole point of this job is replacing the old
-# date-less summary with concrete, dated countdowns.
+# Selects every PER-PLATFORM release (GamePlatformRelease) that is DAY-PRECISION
+# (release_day present) and falls within the next 30 days, groups them by
+# (game, date), and drops one witty reminder Notification per group naming the
+# platform(s) hitting that date ("… on PlayStation + Steam in 3 days").
 #
-# == Same-day-per-game dedup
+# Only day-precision rows count down — a quarter/year lower-bound is not a real
+# release day (this is the Item 23 fix: never count "0 days" to a quarter).
+# Games with no dated per-platform release are silently skipped.
 #
-# The `Notification` schema is message-only — there is no `dedup_key` column to
-# lean on. To guarantee at most one countdown per game per day we embed an
-# invisible, stable HTML-comment MARKER in each message
-# (`<!-- pito:release_countdown:game-<id> -->`) and, before creating a
-# notification, check whether one carrying THIS game's marker already exists
-# among today's notifications. Why a marker and not a title match:
+# == Same-day per (game, date) dedup
 #
-#   * A bare title `LIKE` check collides across games (one title a substring of
-#     another) AND with other notifications that list titles (the nightly sync
-#     summary embeds changed/failed titles), producing false "already sent"
-#     skips.
-#   * The marker keys on the immutable game id, contains only
-#     `[a-z0-9:-]` (no SQL-wildcard chars), and is HTML-invisible in the
-#     rendered notification, so it is safe to `LIKE`-match and never shows to
-#     the user.
-#
-# The trailing space in the marker (`game-1 -->`) keeps `game-1` from matching
-# `game-12` under `LIKE`.
+# The `Notification` schema is message-only — no dedup_key column. We embed an
+# invisible, stable HTML-comment MARKER
+# (`<!-- pito:release_countdown:game-<id>:<iso-date> -->`) in each message and,
+# before creating one, check whether a notification carrying THIS game+date
+# marker already exists among today's notifications. The marker keys on the
+# immutable game id + the release date (both `[a-z0-9:-]`, no SQL wildcards) and
+# is HTML-invisible. The trailing space (`…:2026-07-31 -->`) keeps one marker
+# from prefix-matching another under `LIKE`.
 class ReleaseCountdownJob < ApplicationJob
   queue_as :default
 
@@ -36,30 +29,45 @@ class ReleaseCountdownJob < ApplicationJob
   def perform
     window_end = Date.current + COUNTDOWN_WINDOW
 
-    Game.where(release_date: Date.current..window_end).find_each do |game|
-      next if already_reminded_today?(game)
+    dated = GamePlatformRelease
+            .where.not(release_day: nil)
+            .where(release_date: Date.current..window_end)
+            .includes(:game)
 
-      days_remaining = (game.release_date - Date.current).to_i
+    dated.group_by { |rel| [ rel.game_id, rel.release_date ] }.each do |(_game_id, date), rows|
+      game = rows.first.game
+      next if game.nil? || already_reminded?(game, date)
+
       body = Pito::Notifications::Source::ReleaseCountdown.message(
-        game: game, days_remaining: days_remaining
+        game:           game,
+        days_remaining: (date - Date.current).to_i,
+        platforms:      platform_label(rows.map(&:platform_token))
       )
 
-      Notification.create!(message: "#{body}#{marker(game)}")
+      Notification.create!(message: "#{body}#{marker(game, date)}")
     end
   end
 
   private
 
-  # Invisible, stable per-game marker appended to the message so a same-day
-  # re-run can recognise its own prior reminder.
-  def marker(game)
-    " <!-- pito:release_countdown:game-#{game.id} -->"
+  # Human platform label(s) in canonical order, joined "PlayStation + Steam".
+  def platform_label(tokens)
+    tokens.uniq
+          .sort_by { |t| Pito::Game::PlatformTokens::ORDER.index(t) || Pito::Game::PlatformTokens::ORDER.size }
+          .map { |t| I18n.t("pito.game.platform_label.#{t}") }
+          .join(" + ")
   end
 
-  def already_reminded_today?(game)
+  # Invisible, stable per-(game, date) marker so a same-day re-run recognises its
+  # own prior reminder.
+  def marker(game, date)
+    " <!-- pito:release_countdown:game-#{game.id}:#{date.iso8601} -->"
+  end
+
+  def already_reminded?(game, date)
     Notification
       .where(created_at: Date.current.all_day)
-      .where("message LIKE ?", "%pito:release_countdown:game-#{game.id} %")
+      .where("message LIKE ?", "%pito:release_countdown:game-#{game.id}:#{date.iso8601} %")
       .exists?
   end
 end

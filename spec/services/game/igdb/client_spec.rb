@@ -213,6 +213,50 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(hits.map { |h| h["id"] }).to eq([ 3003 ])
     end
 
+    # 2026-07-01 — bundle-name ALLOWLIST: GOTY / Game of the Year / Anniversary
+    # editions (game_type 3) are kept even without " + " (owner: the Rayman case).
+    it "keeps gt3 Anniversary-edition bundles (owner Rayman case)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 6001, "name" => "Rayman: 30th Anniversary Edition", "game_type" => 3, "cover" => cover },
+        { "id" => 6002, "name" => "Some Game 10th anniversary",       "game_type" => 3, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("Rayman 30th Anniversary")
+      expect(hits.map { |h| h["id"] }).to contain_exactly(6001, 6002)
+    end
+
+    it "keeps gt3 GOTY / Game of the Year bundles in every case form" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 6101, "name" => "The Witcher 3: Wild Hunt - GOTY Edition", "game_type" => 3, "cover" => cover },
+        { "id" => 6102, "name" => "Skyrim GoTY",                             "game_type" => 3, "cover" => cover },
+        { "id" => 6103, "name" => "Fallout: Game of The Year Edition",       "game_type" => 3, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("goty")
+      expect(hits.map { |h| h["id"] }).to contain_exactly(6101, 6102, 6103)
+    end
+
+    it "still DROPS gt3 non-combo bundles not on the allowlist (Deluxe / Collector / Pack)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 6201, "name" => "Some Game: Deluxe Edition",            "game_type" => 3, "cover" => cover },
+        { "id" => 6202, "name" => "Some Game: Collector's Pack",          "game_type" => 3, "cover" => cover },
+        { "id" => 6203, "name" => "Some Game: 30th Anniversary Edition",  "game_type" => 3, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("some game")
+      # Only the Anniversary bundle survives; Deluxe + Collector's Pack drop.
+      expect(hits.map { |h| h["id"] }).to eq([ 6203 ])
+    end
+
     # IGB1 — existing gt0 name-filter behaviour is unchanged.
     it "keeps gt0 base game but still drops gt0 edition-noise and colon-prefix denoise rows (IGB1 backward compat)" do
       cover = { "image_id" => "img" }

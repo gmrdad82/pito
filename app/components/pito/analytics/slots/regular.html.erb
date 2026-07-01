@@ -1,8 +1,9 @@
-<%# Regular metric cell: three branches.
-    loading:  NoData(:regular) canvas with the LoadingDots comet IN its caption
-              slot (beneath the canvas), so the cell is one grid item.
-    no_data:  NoData(:regular) canvas + caption slot (terminal state).
-    filled:   visualizer slot + caption slot beneath it. %>
+<%# Regular metric cell — the wrapper is display:contents, so it must hold exactly
+    ONE child element (one grid item), else children split across grid columns.
+    loading:  NoData(:regular) with the LoadingDots comet as its caption.
+    no_data:  NoData(:regular) with the caption folded in.
+    filled:   the visualizer (which carries its own caption) — or, for a bare
+              scalar, just the caption slot. Exactly one is non-empty. %>
 <div class="pito-analytics-scalars__cell"<% if dom_id %> id="<%= dom_id %>"<% end %>>
   <% if loading? %>
     <%# Comet rides in the CAPTION slot beneath the canvas (where the metric
@@ -10,9 +11,12 @@
         the cell stays ONE .pito-metric grid item, not two (17.12). %>
     <%= render(Pito::Analytics::Visualizers::NoData.new(size: :regular, caption: render(Pito::Analytics::Support::LoadingDots.new(seed: key)))) %>
   <% elsif no_data? %>
-    <%= render(Pito::Analytics::Visualizers::NoData.new(size: :regular)) %>
-    <%= caption %>
+    <%# Caption INSIDE NoData so the cell stays ONE grid item (2×450 fix). %>
+    <%= render(Pito::Analytics::Visualizers::NoData.new(size: :regular, caption: caption)) %>
   <% else %>
+    <%# Filled: the visualizer carries its OWN caption (passed in by the caller),
+        so exactly ONE of these is non-empty → one grid item. The scalar branch
+        uses the caption slot only (no visualizer). %>
     <%= visualizer %>
     <%= caption %>
   <% end %>

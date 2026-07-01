@@ -4,6 +4,7 @@ en:
       platform_label:
         ps: "PlayStation"
         switch: "Switch"
+        xbox: "Xbox"
         steam: "Steam"
       detail:
         title: "Title"
@@ -19,7 +20,6 @@ en:
         genres: "Genres"
         themes: "Themes"
         perspective: "Perspective"
-        no_cover: "No cover art"
       release_label:
         # User-facing presenter labels for `Game#release_label`. Branch is
         # picked by component nullability — see

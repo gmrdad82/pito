@@ -45,12 +45,10 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(vocab["publisher"]).to eq(:publisher)
     end
 
-    it "maps 'release date' to :release_date" do
-      expect(vocab["release date"]).to eq(:release_date)
-    end
-
-    it "maps 'year' to :year" do
-      expect(vocab["year"]).to eq(:year)
+    it "no longer maps the removed 'release date' / 'release' / 'year' columns (item 24)" do
+      expect(vocab["release date"]).to be_nil
+      expect(vocab["release"]).to be_nil
+      expect(vocab["year"]).to be_nil
     end
 
     it "maps 'channel' to :channels" do
@@ -82,17 +80,17 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
 
     it "returns headings in the requested order" do
-      expect(described_class.headings([ :year, :developer ])).to eq([ "Year", "Developer" ])
+      expect(described_class.headings([ :footage, :developer ])).to eq([ "Footage", "Developer" ])
     end
 
     it "returns the heading for footage" do
       expect(described_class.headings([ :footage ])).to eq([ "Footage" ])
     end
 
-    it "includes all eight headings when all columns are requested" do
-      all = %i[platform genre developer publisher channels release_date year footage]
+    it "includes every heading when all columns are requested (release/year removed — item 24)" do
+      all = %i[platform genre developer publisher channels footage price]
       expect(described_class.headings(all)).to eq(
-        [ "Platform", "Genre", "Developer", "Publisher", "Channels", "Release", "Year", "Footage" ]
+        [ "Platform", "Genre", "Developer", "Publisher", "Channels", "Footage", "Price" ]
       )
     end
   end
@@ -115,18 +113,17 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
 
     it "returns nil for a with-column NOT in selected_columns" do
-      key = described_class.sort_key_for("year", selected_columns: [])
+      key = described_class.sort_key_for("footage", selected_columns: [])
       expect(key).to be_nil
     end
 
     it "returns a proc for a with-column that IS in selected_columns" do
-      key = described_class.sort_key_for("year", selected_columns: [ :year ])
+      key = described_class.sort_key_for("developer", selected_columns: [ :developer ])
       expect(key).to be_a(Proc)
-      expect(key.call(game)).to eq(2022)
     end
 
     it "returns nil for an unknown token" do
-      key = described_class.sort_key_for("bogus", selected_columns: [ :year ])
+      key = described_class.sort_key_for("bogus", selected_columns: [ :footage ])
       expect(key).to be_nil
     end
 
@@ -145,20 +142,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(key).to be_a(Proc)
     end
 
-    # TBA games (no release date / year) must sort AFTER known dates ascending
-    # (and first descending) — the key treats unknown as the far future.
-    it "sorts a TBA game (nil release_date) after a known date ascending" do
-      tba   = create(:game, release_year: nil, release_month: nil, release_day: nil)
-      known = create(:game, release_year: 2015, release_month: 3, release_day: 1)
-      key   = described_class.sort_key_for("release date", selected_columns: [ :release_date ])
-      expect(key.call(tba)).to be > key.call(known)
-    end
-
-    it "sorts a TBA game (nil year) after a known year ascending" do
-      tba   = build(:game, release_year: nil)
-      known = build(:game, release_year: 2015)
-      key   = described_class.sort_key_for("year", selected_columns: [ :year ])
-      expect(key.call(tba)).to be > key.call(known)
+    # (The release_date / year sort columns were removed in item 24 — releases
+    # are per-platform now and the list no longer offers those sortable columns.)
+    it "no longer resolves the removed 'release date' / 'year' sort tokens" do
+      expect(described_class.sort_key_for("release date", selected_columns: [ :release_date ])).to be_nil
+      expect(described_class.sort_key_for("year", selected_columns: [ :year ])).to be_nil
     end
 
     it "returns nil for 'channel' when :channels not in selected_columns" do
@@ -253,51 +241,23 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(result.first[:text]).to include("/platforms/")
     end
 
-    it "returns platform cell text with PlayStation and Steam icons (Xbox dropped)" do
+    it "returns platform cell text with PlayStation, Xbox, and Steam icons (item 24)" do
       g = create(:game, platforms: [ "PlayStation 5", "Xbox One", "Steam" ])
       result = described_class.cells(g, [ :platform ])
       expect(result.first[:text]).to include("/platforms/playstation.svg")
+      expect(result.first[:text]).to include("/platforms/xbox.svg")
       expect(result.first[:text]).to include("/platforms/steam.svg")
-      expect(result.first[:text]).not_to include("Xbox")
-    end
-
-    it "returns the release year as a string" do
-      result = described_class.cells(game, [ :year ])
-      expect(result.first[:text]).to eq("2022")
-    end
-
-    it "returns '—' for a game with no release year" do
-      tba_game = create(:game, :tba)
-      result   = described_class.cells(tba_game, [ :year ])
-      expect(result.first[:text]).to eq("—")
-    end
-
-    it "returns the release label for :release_date" do
-      result = described_class.cells(game, [ :release_date ])
-      expect(result.first[:text]).to be_a(String)
-      expect(result.first[:text]).not_to be_empty
     end
 
     it "returns cells in the requested column order" do
-      result = described_class.cells(game, [ :year, :developer ])
+      result = described_class.cells(game, [ :footage, :developer ])
       expect(result.size).to eq(2)
-      expect(result[0][:text]).to eq("2022")
       expect(result[1][:text]).to include("From Software")
     end
 
-    it "right-aligns the :release_date cell" do
-      result = described_class.cells(game, [ :release_date ])
+    it "right-aligns the :footage cell" do
+      result = described_class.cells(game, [ :footage ])
       expect(result.first[:class]).to include("text-right")
-    end
-
-    it "right-aligns the :year cell" do
-      result = described_class.cells(game, [ :year ])
-      expect(result.first[:class]).to include("text-right")
-    end
-
-    it "adds tabular-nums to the :year cell" do
-      result = described_class.cells(game, [ :year ])
-      expect(result.first[:class]).to include("tabular-nums")
     end
 
     it "does NOT add text-right to left-aligned columns" do
@@ -516,20 +476,15 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       )
     end
 
-    it "right-aligns and tags :release_date" do
-      result = described_class.heading_cells([ :release_date ])
-      expect(result.first).to eq({ "text" => "Release", "class" => "pito-table-heading--added text-right" })
-    end
-
-    it "right-aligns and tags :year" do
-      result = described_class.heading_cells([ :year ])
-      expect(result.first).to eq({ "text" => "Year", "class" => "pito-table-heading--added text-right" })
+    it "right-aligns and tags a right-aligned column (:footage)" do
+      result = described_class.heading_cells([ :footage ])
+      expect(result.first).to eq({ "text" => "Footage", "class" => "pito-table-heading--added text-right" })
     end
 
     it "tags every added heading, in order" do
-      result = described_class.heading_cells([ :developer, :year ])
+      result = described_class.heading_cells([ :developer, :footage ])
       expect(result[0]).to eq({ "text" => "Developer", "class" => "pito-table-heading--added" })
-      expect(result[1]).to eq({ "text" => "Year", "class" => "pito-table-heading--added text-right" })
+      expect(result[1]).to eq({ "text" => "Footage", "class" => "pito-table-heading--added text-right" })
     end
   end
 
@@ -561,26 +516,21 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
 
     it "sorts columns by their COLUMNS order" do
-      expect(described_class.canonical_order([ :year, :platform, :developer ]))
-        .to eq([ :platform, :developer, :year ])
+      expect(described_class.canonical_order([ :footage, :platform, :developer ]))
+        .to eq([ :platform, :developer, :footage ])
     end
 
-    it "ensures :release_date, :year, and :footage always trail the other columns" do
-      all = %i[release_date year platform genre developer publisher channels footage]
+    it "ensures :footage and :price trail the other columns" do
+      all = %i[price platform genre developer publisher channels footage]
       result = described_class.canonical_order(all)
-      expect(result.last(3)).to eq(%i[release_date year footage])
+      expect(result.last(2)).to eq(%i[footage price])
     end
 
-    it "places :channels before :release_date and :year" do
-      all = %i[channels release_date year]
+    it "places :channels before :footage and :price" do
+      all = %i[channels footage price]
       result = described_class.canonical_order(all)
-      expect(result.index(:channels)).to be < result.index(:release_date)
-      expect(result.index(:channels)).to be < result.index(:year)
-    end
-
-    it "places :footage after :year" do
-      result = described_class.canonical_order(%i[footage year platform])
-      expect(result.index(:footage)).to be > result.index(:year)
+      expect(result.index(:channels)).to be < result.index(:footage)
+      expect(result.index(:channels)).to be < result.index(:price)
     end
   end
 end

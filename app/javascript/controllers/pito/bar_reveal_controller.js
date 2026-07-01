@@ -16,14 +16,12 @@
 // Auto-registered via eagerLoadControllersFrom.
 
 import { Controller } from "@hotwired/stimulus"
-import { motionDisabled } from "pito/settings"
 
 const LEAD_IN_MS = 80 // ensure the clipped frame paints before the transition
 const STEP_MS    = 35 // per-bucket stagger
 
 export default class extends Controller {
   connect() {
-    if (motionDisabled()) return // fx off / reduced motion → leave it whole
 
     this.element.classList.add("is-revealing")
     this._raf = requestAnimationFrame(() => {

@@ -167,12 +167,33 @@ RSpec.describe AnalyzePrepareJob, type: :job do
       allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
         Pito::Analytics::RetentionSeries::Result.new(series: [], total_pct: 0, rel_performance: nil)
       )
+      # day_of_week_heatmap (:enhanced) → WeekdaySeries, which hits Primitives directly
+      # (not DailySeries.for); stub it so no live YouTube call escapes compute's rescue.
+      allow(Pito::Analytics::WeekdaySeries).to receive(:for).and_return(
+        Pito::Analytics::WeekdaySeries::Result.new(values: Array.new(7, 0.0))
+      )
     end
 
     it "returns a hash with :scaffold, :charts, :likes, :bars keys" do
       marker = analyze_event.payload["analyze"]
       result = described_class.aggregate(marker)
       expect(result).to include(:scaffold, :charts, :likes, :bars)
+    end
+
+    it "computes the retention area chart for the :enhanced role at vid level (Item 25)" do
+      video = create(:video, channel: channel, youtube_video_id: "yt1")
+      allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
+        Pito::Analytics::RetentionSeries::Result.new(series: [ 90.0, 55.0, 30.0 ], total_pct: 41.2, rel_performance: 0.7)
+      )
+      marker = Pito::MessageBuilder::Analyze::Message.pending(
+        role: "enhanced", title: "My Vid", level: :vid,
+        entity_ids: [ video.id ], period: "7d", conversation: conversation
+      )["analyze"]
+
+      charts = described_class.aggregate(marker)[:charts]
+      expect(charts[:retention]).to be_present
+      expect(charts[:retention]["series"]).to eq([ 90.0, 55.0, 30.0 ])
+      expect(charts[:retention]["reference_token"]).to eq("lifetime")
     end
   end
 

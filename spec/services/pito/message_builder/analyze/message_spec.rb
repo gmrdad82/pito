@@ -224,10 +224,12 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(ready["body"]).to include("pito-analytics-scalars")
       end
 
-      it "renders a '1' cell for each pulled metric" do
-        doc    = Nokogiri::HTML.fragment(ready["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        expect(values).to all(eq("1"))
+      it "renders every pulled :system metric as a chart/heart cell (no 0/1 scalars left)" do
+        # With charts:{} but scaffold all-true, each :system metric (all Area/Heart)
+        # renders as its NoData placeholder — there are no pure-scalar 0/1 cells.
+        doc = Nokogiri::HTML.fragment(ready["body"])
+        expect(doc.css(".pito-analytics-scalars__value")).to be_empty
+        expect(ready["body"]).to include("pito-metric--nodata")
       end
 
       it "persists scaffold in marker['scaffold'] with string keys" do
@@ -255,11 +257,11 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(ready["body"]).to include("pito-metric--nodata")
       end
 
-      it "still renders the pure-scalar metric (comments) as a 0/1 cell" do
-        doc    = Nokogiri::HTML.fragment(ready["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        expect(values).not_to be_empty
-        expect(values).to all(match(/\A[01]\z/))
+      it "leaves no 0/1 scalar cells (every :system metric is now an Area/Heart metric)" do
+        # comments moved to :enhanced as an area chart, so :system is all chart/heart
+        # metrics → all NoData with no data, no scalar value cells remain.
+        doc = Nokogiri::HTML.fragment(ready["body"])
+        expect(doc.css(".pito-analytics-scalars__value")).to be_empty
       end
     end
 
@@ -274,15 +276,14 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(ready["body"]).to include("pito-analytics-scalars")
       end
 
-      it "every cell value is '0'" do
-        doc    = Nokogiri::HTML.fragment(ready["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        expect(values).not_to be_empty
-        expect(values).to all(eq("0"))
+      it "renders no 0/1 scalar cells (system is all chart/heart metrics → NoData)" do
+        doc = Nokogiri::HTML.fragment(ready["body"])
+        expect(doc.css(".pito-analytics-scalars__value")).to be_empty
+        expect(ready["body"]).to include("pito-metric--nodata")
       end
     end
 
-    context "with enhanced role for channel level (retention excluded)" do
+    context "with enhanced role for channel level (retention now included)" do
       let(:enhanced_pending) do
         described_class.pending(
           role: "enhanced", title: "My Channel", level: :channel, entity_ids: [ 42 ], period: "7d",
@@ -300,20 +301,17 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(ready.dig("analyze", "status")).to eq("ready")
       end
 
-      it "retention is absent (vid_only metric skipped for channel)" do
-        expect(ready["body"]).not_to include("retention")
+      it "retention is now available at channel level (aggregated from the channel's vids)" do
+        expect(Pito::Analytics::MetricOrder.for(role: :enhanced, level: :channel)).to include(:retention)
       end
 
-      it "renders the bar metrics (devices/geography/…) as NoData when no bar data is supplied" do
-        # devices/geography/demographics_* are Bar metrics → with no Breakdown data
-        # they become the NoData placeholder, not a 0/1 scaffold cell.
+      it "renders the enhanced metrics (bars/retention/heatmap/comments) as NoData when no data is supplied" do
+        # devices/geography/demographics_* (Bar), retention/comments (Area), and
+        # day_of_week_heatmap (Heatmap) all become the NoData placeholder with no data;
+        # none is a 0/1 scaffold cell.
+        doc = Nokogiri::HTML.fragment(ready["body"])
         expect(ready["body"]).to include("pito-metric--nodata")
-      end
-
-      it "renders the pure-scalar metric (day_of_week_heatmap) as a 0/1 cell" do
-        doc    = Nokogiri::HTML.fragment(ready["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        expect(values).to all(match(/\A[01]\z/))
+        expect(doc.css(".pito-analytics-scalars__value")).to be_empty
       end
     end
 
@@ -349,14 +347,13 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(charts.size).to eq(3)
       end
 
-      it "body renders scalar cells only for non-chart metrics" do
-        doc    = Nokogiri::HTML.fragment(ready["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        # chart metrics (views/watched_hours/subs) replaced by AreaChart; remaining
-        # system metrics for channel level: likes/avg_view_duration/avg_viewed_pct/
-        # comments/subscribed_status = 5 scalar cells, all "1" (full_scaffold).
-        expect(values).not_to be_empty
-        expect(values).to all(eq("1"))
+      it "renders the remaining system metrics as NoData (no scalar cells left)" do
+        doc = Nokogiri::HTML.fragment(ready["body"])
+        # chart metrics (views/watched_hours/subs) → AreaChart (3); the remaining
+        # :system metrics (avg_view_duration/avg_viewed_pct/likes) have no data →
+        # NoData; there are no 0/1 scalar cells.
+        expect(doc.css(".pito-metric--area-chart").size).to eq(3)
+        expect(doc.css(".pito-analytics-scalars__value")).to be_empty
       end
 
       it "cells_for produces chart cells for chart metrics and scaffold cells for others" do
@@ -382,55 +379,36 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
   # ── .render_chart_caption ──────────────────────────────────────────────────
 
   describe ".render_chart_caption" do
-    context "for avg_viewed_pct with insight data" do
+    context "for avg_viewed_pct (PULLED from YouTube averageViewPercentage)" do
       let(:chart) do
         {
-          "series"               => [ 95.0, 80.0, 65.0, 50.0 ],
-          "total_pct"            => 72.5,
-          "avg_duration_seconds" => 22.0,
-          "previous"             => nil,
-          "trend"                => false,
-          "reference_token"      => "lifetime",
-          "at_mark_pct"          => 62,
-          "benchmark_word"       => "typical"
+          "series"          => [ 40.0, 45.0, 50.0 ],
+          "total_pct"       => 45.2,
+          "previous"        => nil,
+          "trend"           => false,
+          "reference_token" => nil
         }
       end
 
-      it "renders a second caption row with the insight sentence" do
+      it "renders the views-weighted percentage as the caption value" do
         html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart:)
-        expect(html).to include("<br>")
-        expect(html).to include("62%")
-        expect(html).to include("0:22")
-        expect(html).to include("typical")
+        expect(html).to include("45.2%")
       end
 
-      it "renders the X% as a subject-shimmer token (ACL5c)" do
+      it "renders no second insight row (that derived feature was dropped)" do
         html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart:)
-        doc  = Nokogiri::HTML.fragment(html)
-        expect(doc.css("span.pito-subject-shimmer").map(&:text)).to include("62%")
-      end
-
-      it "renders the benchmark word in a pito-trend-number span (neutral for typical)" do
-        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart:)
-        expect(html).to include('class="pito-trend-number"')
-      end
-
-      it "renders above average with the green trend class" do
-        above_chart = chart.merge("benchmark_word" => "above average")
-        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart: above_chart)
-        expect(html).to include("pito-trend-number--up")
-      end
-
-      it "renders below average with the red trend class" do
-        below_chart = chart.merge("benchmark_word" => "below average")
-        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart: below_chart)
-        expect(html).to include("pito-trend-number--down")
-      end
-
-      it "does NOT render the insight row when at_mark_pct is missing" do
-        no_insight = chart.except("at_mark_pct")
-        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart: no_insight)
         expect(html).not_to include("<br>")
+      end
+    end
+
+    context "for day_of_week_heatmap" do
+      it "names the busiest weekday as a subject-shimmer token" do
+        html = described_class.render_chart_caption(
+          metric: :day_of_week_heatmap,
+          chart:  { "values" => [ 10.0, 20.0, 5.0, 30.0, 25.0, 40.0, 15.0 ] }
+        )
+        # Saturday (index 5) is the max → the caption subject.
+        expect(Nokogiri::HTML.fragment(html).css("span.pito-subject-shimmer").map(&:text)).to include("Saturday")
       end
     end
 
@@ -609,6 +587,24 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     it "geography: resolves the country code to a name and colours by order from the ramp" do
       bars = bars_for(:geography, [ { key: "us", pct: 60.0 }, { key: "gb", pct: 15.0 } ])
       expect(bars.map { |b| [ b[:label], b[:color] ] }).to eq([ [ "United States", :green ], [ "United Kingdom", :cyan ] ])
+    end
+  end
+
+  # ── retention caption (Item 25) ────────────────────────────────────────────────
+
+  describe ".render_chart_caption for :retention" do
+    let(:chart) { { "total_pct" => 27.9, "benchmark_word" => "above average", "series" => [ 80, 60, 40 ] } }
+
+    it "uses retention's OWN caption pool (not the generic metric_caption)" do
+      html = described_class.render_chart_caption(metric: :retention, chart:).to_s
+      expect(html).to include("28%")                          # mean retention %, rounded + shimmered
+      expect(html).to include("pito-subject-shimmer")         # value rendered as a subject token
+      expect(html).to include("above average")                # benchmark word
+      expect(html).to include("pito-trend-number--up")        # benchmark in its trend colour
+    end
+
+    it "is a distinct metric — CHART_METRIC_KEYS includes retention" do
+      expect(described_class::CHART_METRIC_KEYS).to include("retention")
     end
   end
 end

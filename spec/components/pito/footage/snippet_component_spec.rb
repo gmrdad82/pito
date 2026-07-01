@@ -33,11 +33,13 @@ RSpec.describe Pito::Footage::SnippetComponent do
     expect(button["aria-label"]).to be_present
   end
 
-  it "renders the clipboard feedback target" do
-    feedback = node.css("[data-pito--clipboard-target='feedback']").first
+  it "renders a copy ICON button (not the word Copy) + a separate empty feedback target" do
+    button = node.css("button[data-action='click->pito--clipboard#copy']").first
+    expect(button.at_css("svg.pito-icon")).to be_present   # lucide copy icon (Item 38)
 
+    feedback = node.css("[data-pito--clipboard-target='feedback']").first
     expect(feedback).not_to be_nil
-    expect(feedback.text).to eq("Copy")
+    expect(feedback.text.strip).to eq("")
   end
 
   it "leads with the inline timestamp slot so the message timestamp lands on the first line" do

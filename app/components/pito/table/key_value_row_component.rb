@@ -57,7 +57,7 @@ module Pito
       private
 
       # Converts a hash of data attributes into keyword args for tag helpers.
-      # e.g. { "pito--typewriter-target" => "prose" } → { data: { "pito--typewriter-target" => "prose" } }
+      # e.g. { "pito--chat-prefill-text-value" => "show game #1" } → { data: { ... } }
       # Pass an empty hash to produce no extra attributes.
       def span_attrs(data_hash)
         data_hash.present? ? { data: data_hash } : {}

@@ -14,6 +14,56 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
+- **Shareable links are clickable + one-click copy** — the `share` reply now renders
+  the public link as a real clickable link (opens in a new tab, action-styled) with
+  a copy-to-clipboard icon right beside it, so you can open or grab it instantly.
+
+- **`analyze` retention chart** — the `:enhanced` analyze card's audience-retention
+  metric (lifetime, per-video) now renders as a real **area chart** — same reveal
+  animation and shimmer as the Views chart — instead of a placeholder, filled by its
+  own dedicated background request. Its caption is a distinct witty line reporting the
+  average retention and how it benchmarks.
+
+- **`analyze` day-of-week heatmap** — the `:enhanced` analyze card now leads with a
+  **day-of-week heatmap**: seven equal-width, full-height braille bars (Mon→Sun),
+  each tinted on the green→red health ramp by that weekday's average views over the
+  channel's lifetime (busiest weekday green, quietest red), with the shared pito-blue
+  shimmer swept over it. The caption calls out your busiest posting day. Works on
+  vid, channel, and game scopes.
+
+- **`analyze` comments chart** — comments moved from a plain scalar to a real **area
+  chart** in the `:enhanced` card (last metric), on vid, channel, and game.
+
+- **Per-platform release dates — PlayStation, Switch, Xbox, and Steam** — a game's
+  upcoming release is now tracked **per platform** instead of as one blurry date.
+  `show game` shows a release date per platform, grouped by date: platforms sharing
+  a date collapse to one line with all their logos, and platforms with different
+  dates each get their own line with their own logo (e.g. **PlayStation + Steam**
+  on July 31, **Switch** in Q3). The release countdown now fires **one reminder per
+  distinct date, naming which platform is releasing** ("… on PlayStation + Steam in
+  3 days"). Xbox joins as a first-class platform (logo + grouping, catching Xbox One
+  / Series X|S / 360). No other tool tracks per-platform release dates for a
+  creator's slate. **Backfill:** existing games pick up per-platform dates on their
+  next IGDB sync — to refresh everything now, run
+  `Game.find_each { |g| GameIgdbSync.perform_later(g.id) }` from the console.
+
+- **Missing-image placeholders you can click to sync** — every entity image
+  (channel banner & avatar, video thumbnail, game cover — every size and every
+  card) now falls back to a muted click-to-sync placeholder when nothing is
+  attached, instead of a bare `?` or a "No cover" line. It's a rectangle for
+  banners / thumbnails / covers, a circle for avatars, showing a centered
+  **"No image." + sync** (auto-hidden on boxes too small to read, like tiny
+  avatars). The **whole box is clickable**: one click types the exact sync
+  command for that entity and runs it (a real Enter keypress) — so you go from
+  "there's no art here" to fetching it in one tap. A new `Pito::ImageRender`
+  service owns the image-or-placeholder decision, so no card hand-rolls it.
+- **Direct `sync game #id` and `sync channel @handle`** — game sync used to be
+  reply-only and `sync channel` only took the shift+tab scope. Now both work as
+  direct id/handle commands (mirroring `show game #id` / `show channel @handle`),
+  which is what the new image placeholders click to run. `sync channel @handle`
+  scopes to that one channel (overriding the shift+tab scope); `sync vid #id`
+  is unchanged.
+
 - **`show game` channel coverage + recommendation** — the channel-matches card is now
   two columns: the left shows this game's coverage **distribution across your channels**
   (offset bars weighted by linked videos, views, and lifetime watch-time), the right shows the top-5 channel
@@ -198,6 +248,27 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Changed
 
+- **Retention on channel and game** — the `:enhanced` retention chart is no longer
+  video-only. It now renders for channels and games too, computed by views-weighting
+  each of the scope's videos' retention curves (a channel is its videos; a game is
+  its linked videos across channels).
+
+- **`analyze` averages come straight from YouTube** — the average-view-duration and
+  average-percentage-viewed charts (and the at-a-glance average-view-duration
+  sparkline) now **pull YouTube's own per-day averages** and views-weight them across
+  a multi-video scope, instead of deriving them from watch-minutes ÷ views or the
+  retention curve. The numbers now match YouTube Studio exactly rather than drifting.
+
+- **Chart cells are framed** — every analytics chart (at-a-glance and `analyze`,
+  incl. the empty no-data canvas) now has a dashed border in the graph-paper dot
+  color, so the two side-by-side 450px columns read as distinct despite the small gap.
+
+- **`list games` drops the `release date` and `year` columns** — with releases now
+  tracked per platform, a single sortable release/year column no longer makes sense.
+  Both are gone from the `list games` table, the `with`/`without` column options, and
+  their sort tokens (`list --help` updated). The `list released | upcoming | tba`
+  status filter is unchanged.
+
 - **Shimmer system overhaul** — one consistent set of shimmers, all sharing a single
   diagonal angle (135°) and speed (5s) as Tailwind tokens, all 20-step staggered:
   - **action** (pito-blue + purple) is now the *only* clickable shimmer — keys, table
@@ -298,17 +369,105 @@ stacks. (Bespoke analytics view components close out the tag.)
   configured host) in development.
 - **Analytics widgets own their reveal** — charts/bars animate with their own
   choreography (the Views bottom-up wipe, the score/TTB `=` left→right comet
-  wipe) regardless of the `/config` fx effect; the message prose still obeys it.
+  wipe); they always play. Message prose renders instantly (see Removed).
 - **Mobile chatbox meta line** stacks each shortcut chip key-over-caption (2 rows
   per pair) with an ellipsised conversation name, instead of overflowing.
-- **Typewriter reveal** no longer pops its first glyph — it's primed
-  near-invisible (layout reserved) and snaps in as the reveal begins.
 - **PITO logo broken-neon reveal** — on the start screen and the 404 page the
   block-logo flickers in glyph-by-glyph at random, like a faulty neon sign warming
-  up, then settles (with the odd rare flicker). Its own animation, independent of
-  the `/config` fx effect.
+  up, then settles (with the odd rare flicker). Its own animation, always plays.
+
+### Removed
+
+- **Message & theme-change reveal animations** — the per-glyph text reveals
+  (typewriter, scramble, and the word-jump comet), plus the theme-change diff
+  morph, are gone. Chat messages and theme switches now render **instantly**. The
+  widget/chrome reveals stay and always play: chart sweeps (area/bar/metric),
+  the context-bar dynamite fuse, the PITO logo flicker, the desktop sidebar
+  slide, and shimmers — none of them respect the OS "reduce motion" setting any
+  more, they always animate.
+- **`/config motion` and `/config fx`** — with the content reveals gone, the
+  animation on/off toggle and the reveal-style picker no longer have anything to
+  configure. Both commands (and their `--help`, autosuggest, grammar, and the
+  stored `fx_enabled` / `fx_effect` settings) are removed; the stored rows are
+  deleted by a migration. **`/config sound` is unchanged.**
+
+### Changed
+
+- **Detail cards show Stats and Shinies as aligned rows** — on `show channel` /
+  `show vid` / `show game`, the Stats line (`365 Views · 17👍 · 2💬`) and the Shinies
+  badges are now key/value rows (label on the left, value on the right) instead of
+  stacked headings; the Shinies badges wrap freely in their column.
+
+- **Analytics chart columns keep a clean gap** — the at-a-glance, `analyze`, and
+  per-game channel-distribution chart panels now each fill exactly one 450px column,
+  so the two columns no longer touch or overlap. The channel recommendation column
+  stays panel-free.
+
+- **Share pages are simpler and unfold with one key** — a public `/share/:uuid` page
+  is now a minimal read-only view: no auth mini-status, no scroll-nav, no command
+  palette. The reduced chatbox is prefilled with **unfold**; press **`c`** to focus
+  it, then **Enter** opens the full conversation (the hint swaps "c to chat" →
+  "Enter to unfold", and the Enter affordance is a real link so it works without JS).
+  Shared messages also no longer show their reply `#hashtag` (they're read-only).
+
+- **Charts sit on a surface panel, not a dashed frame** — the at-a-glance and
+  `analyze` metric cells now lift onto a surface background (chart + caption
+  together) instead of the dashed border.
+
+- **Copy affordance shimmers in the action colour** — the copy icon (share link +
+  footage snippet) now uses the shared copy widget with the pito-blue↔purple action
+  shimmer instead of a flat cyan, via one core component so both stay in sync.
+
+- **Replies no longer elevate a message's background** — the "this was just changed
+  by your reply" surface lift (`payload[:surface]`) was removed. A message keeps the
+  background it was rendered with; follow-up replies don't re-tint the original.
 
 ### Fixed
+
+- **Footage snippet command is readable again** — the `footage` command block was
+  being shrunk to ~40% (an ASCII-fit scale meant for wide art) and gained a
+  horizontal scrollbar. It now renders full-size and wraps to fit, readable on
+  mobile too.
+
+- **Thinking ASCII + scroll-nav polish** — the resolved thinking face (`( •_•)>⌐■-■`)
+  now uses the same dim colour as its "…for 1.06s" text; the bottom scroll-nav pill
+  drops its bottom border to match the top pill.
+
+- **Unresolved messages can't be shared** — the `share` reply is now offered (and
+  accepted) only once a message has finished loading (its thinking indicator
+  resolved). Sharing an in-flight message (e.g. an `analyze` card mid-render) is
+  refused with a clear message, and the reply menu hides `share` until it's ready.
+
+- **Chart health colour is consistent across metrics** — on a small channel, the
+  Watched-hours and Subs area charts rendered green from the baseline up (while
+  Views, avg-view-duration and avg-%-viewed showed the expected red baseline). Their
+  daily targets are fractional (< 1), and the plot's `1.0` y-scale floor was dragging
+  the green anchor down to the baseline. The gradient anchor now uses the target's
+  own scale, so an empty/under-target chart reads red at the baseline for every metric.
+
+- **`analyze` subscribers no longer read zero** — the daily analytics query wasn't
+  requesting subscriber gains/losses, so the subs chart and net-subs total could
+  read 0; the daily query now pulls them and the subs numbers are correct.
+
+- **Game likes show one heart, not two** — the `analyze` likes for a game showed both
+  a vids heart and a channel heart. A game spans channels, so the channel heart was
+  meaningless; a game now shows a single heart from its linked videos. (Channel shows
+  one channel heart; a video still shows two — its own plus its channel's.)
+
+- **Conversation scrollbar is clearly visible** — the scrollback's edge-fade
+  gradient was masking the scrollbar itself; the fade was removed from the
+  conversation scrollback so the slim themed scrollbar is fully visible.
+
+- **`footage snippet` command is readable** — the copyable shell one-liner was
+  rendering at the tiny browser "monospace" default; it's now pinned to the 14px
+  base, with a copy icon replacing the "Copy" text.
+
+- **Release countdown no longer fires a month early** — a game with a concrete
+  date on one platform and a quarter (e.g. "Q3") on another used to store the
+  quarter's *start* as its release date, so the countdown could announce "in 0 days"
+  weeks before the real launch. Countdowns now come from the per-platform dates and
+  only fire for **day-precision** releases — never counting down to a quarter or a
+  year.
 
 - **Analytics grids are always two columns** — the `analyze` message and every
   at-a-glance grid (show vid / game / channel) now lay out as a fixed 2×450px grid on
@@ -331,10 +490,26 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Chatbox lines up with the messages** — the chatbox / slash palette left border now
   aligns with the scrollback messages' left border on desktop (a residual column
   padding had pushed it 5px to the right).
-- **Scroll-nav count reads correctly** — the "N more above/below" pill now uses the
-  right singular/plural noun ("1 more message", "3 more messages"), and both pills hide
-  reliably at the very top/bottom and on a short, all-visible conversation; the bottom
-  pill sits flush against the context bar.
+- **Scroll-nav pills are created/removed, not shown/hidden** — the top/bottom "N more
+  above/below" pills are now added to and removed from the DOM as you scroll (a stale
+  `hidden`-class rule could never actually hide them, so the bottom pill lingered at the
+  very bottom). They read correctly too: right singular/plural noun and verb ("1 more
+  message remains", "3 more messages remain"), both pills gone at the extremes and on a
+  short all-visible conversation, and the bottom pill sits flush against the context bar.
+- **Scroll-nav pills breathe** — a little more horizontal padding on both pills.
+- **Chatbox padding is tighter and even** — less left/right padding, and the gap from the
+  left edge to the text now matches the gap on the right (the accent bar + gap had made
+  the left side wider).
+- **Cleaner game-import messages** — importing a game now shows a single thinking block
+  (leftover ones from a previous version's extra messages are gone). The status message
+  reads *"<game> is importing…"* (present tense, no `#id`) with the timestamp on the same
+  row as the copy; the done message also puts its timestamp inline, its `#id` is now
+  **clickable** (opens the game via `show game #id`), and the redundant "Type `show game`
+  to see it in full" line was removed.
+- **Anniversary / GOTY editions are importable** — IGDB tags some standalone releases
+  (e.g. *Rayman: 30th Anniversary Edition*) as "bundles", which the game search filtered
+  out. Bundle rows whose name says **GOTY / Game of the Year / Anniversary** now pass the
+  filter alongside true combo bundles, so you can import them.
 - **Footage value is readable on the time-to-beat bar** — the generic footage tick
   color was bleeding onto the inline value chip (fg-on-fg = invisible); the chip now
   keeps its inverted, legible colors.

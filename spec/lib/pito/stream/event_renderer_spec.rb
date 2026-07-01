@@ -78,6 +78,20 @@ RSpec.describe Pito::Stream::EventRenderer do
       event = event_for("error", text: "something went wrong")
       expect(described_class.component_for(event)).to be_a(Pito::Event::ErrorComponent)
     end
+
+    it "keeps the reply_handle by default (repliable message)" do
+      event = event_for("system", body: "hi", reply_handle: "xy-1234", reply_target: "game_detail")
+      component = described_class.component_for(event)
+      expect(component.reply_handle).to eq("xy-1234")
+    end
+
+    it "strips reply_handle/reply_target when suppress_reply: true (public share page)" do
+      event = event_for("system", body: "hi", reply_handle: "xy-1234", reply_target: "game_detail")
+      component = described_class.component_for(event, suppress_reply: true)
+      expect(component.reply_handle).to be_nil
+      # non-destructive: a default render of the same event still carries the handle
+      expect(described_class.component_for(event).reply_handle).to eq("xy-1234")
+    end
   end
 
   describe ".build_component" do

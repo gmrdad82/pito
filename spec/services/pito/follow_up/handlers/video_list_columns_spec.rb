@@ -110,9 +110,9 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
       expect(result.payload["reply_target"]).to eq("video_list")
     end
 
-    it "stamps surface: true so the mutated segment lifts onto the surface background" do
+    it "does NOT elevate the mutated segment (payload[:surface] removed 2026-07-01)" do
       result = handler.call(event:, rest: "with game", conversation:)
-      expect(result.payload["surface"]).to be(true)
+      expect(result.payload).not_to have_key("surface")
     end
 
     it "accepts comma-separated columns: with game, duration" do

@@ -17,14 +17,16 @@ module Pito
     #   BAR metrics (subscribed_status / devices /
     #               geography / demographics_gender
     #               / demographics_age)             → LIFETIME always.
-    #   comments                                    → plain scalar; passed `period`.
-    #   retention + day_of_week_heatmap             → { no_data:, caption: } only
-    #                                                 (components not yet built).
+    #   comments                                    → daily Area chart; passed `period`.
+    #   retention                                   → lifetime audience-retention
+    #                                                 area chart (its own metric).
+    #   day_of_week_heatmap                         → { no_data:, caption: } only
+    #                                                 (component not yet built).
     #
     # Fault isolation: any StandardError per call → returns the no_data cell and
     # logs a warning. Never raises.
     module AnalyzeMetricFill
-      AREA_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct].freeze
+      AREA_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct retention comments].freeze
 
       # MetricOrder symbol → Breakdown metric symbol.
       BAR_METRICS = {
@@ -36,7 +38,8 @@ module Pito
       }.freeze
 
       # Metrics whose components are not yet built — always return no_data.
-      STUB_METRICS = %i[retention day_of_week_heatmap].freeze
+      # (None currently — the day-of-week heatmap shipped 2026-07-01.)
+      STUB_METRICS = %i[].freeze
 
       module_function
 
@@ -67,8 +70,8 @@ module Pito
           likes_cell(groups:, level:)
         elsif (breakdown_metric = BAR_METRICS[metric])
           bar_cell_for(metric:, breakdown_metric:, groups:)
-        elsif metric == :comments
-          comments_cell(groups:, period:)
+        elsif metric == :day_of_week_heatmap
+          heatmap_cell(groups:)
         else
           no_data_cell(metric)
         end
@@ -86,10 +89,9 @@ module Pito
         when :avg_view_duration
           compute_avg_view_duration(groups:, window:, target:)
         when :avg_viewed_pct
-          # avg_view_duration total feeds the M:SS component of the caption.
-          avd_target = Pito::Analytics::Thresholds.target_daily(metric: :avg_view_duration, subs:)
-          avd_chart  = compute_avg_view_duration(groups:, window:, target: avd_target)
-          compute_avg_viewed_pct(groups:, window:, target:, computed_charts: { avg_view_duration: avd_chart })
+          compute_avg_viewed_pct(groups:, window:, target:)
+        when :retention
+          compute_retention(groups:, window:, target:)
         else
           compute_daily_chart(metric:, groups:, window:, target:)
         end
@@ -120,6 +122,20 @@ module Pito
         Pito::MessageBuilder::Analyze::Message.heart_cell(marker)
       end
 
+      # ── HEATMAP (day-of-week) cell ───────────────────────────────────────────────
+
+      # Day-of-week heatmap — ALWAYS lifetime (owner). WeekdaySeries computes the
+      # avg-views-per-weekday vector (Mon..Sun) from the scope's cached daily views;
+      # the Heatmap visualizer colours each full-height bar on the green→red ramp.
+      def heatmap_cell(groups:)
+        lifetime = Pito::Analytics::Window.for("lifetime", reference_date: Date.current)
+        result   = Pito::Analytics::WeekdaySeries.for(groups:, window: lifetime)
+        return no_data_cell(:day_of_week_heatmap) if result.values.sum <= 0
+
+        caption = Pito::MessageBuilder::Analyze::Message.render_heatmap_caption(values: result.values)
+        { heatmap: :day_of_week_heatmap, values: result.values, caption: }
+      end
+
       # ── BAR cells ────────────────────────────────────────────────────────────────
 
       def bar_cell_for(metric:, breakdown_metric:, groups:)
@@ -129,16 +145,6 @@ module Pito
 
         caption = Pito::MessageBuilder::Analyze::Message.render_bar_caption(metric)
         Pito::MessageBuilder::Analyze::Message.bar_cell(metric, rows, caption)
-      end
-
-      # ── comments scalar cell ─────────────────────────────────────────────────────
-
-      def comments_cell(groups:, period:)
-        window = Pito::Analytics::Window.for(period, reference_date: Date.current)
-        data   = Pito::Analytics::Primitives.fetch(groups:, window:, report: "scalars")
-        total  = data.values.sum { |row| row.is_a?(Hash) ? (row["comments"] || row[:comments]).to_i : 0 }
-        label  = Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(:comments))
-        { label:, value: total.to_s }
       end
 
       # ── chart compute helpers (mirrors AnalyzePrepareJob) ────────────────────────
@@ -156,24 +162,35 @@ module Pito
         }
       end
 
-      # Views-weighted average audience-retention chart (lifetime window always;
-      # trend false — no baseline). `computed_charts` provides the avg_view_duration
-      # total (seconds) for the M:SS caption.
-      def compute_avg_viewed_pct(groups:, window:, target:, computed_charts:)
-        result          = Pito::Analytics::RetentionSeries.for(groups:, window:)
-        avg_dur_seconds = computed_charts.dig(:avg_view_duration, "total")
-        at_mark         = Pito::Analytics::RetentionSeries.at_mark_pct(result.series, result.total_pct)
-        benchmark       = Pito::Analytics::RetentionSeries.benchmark_word(result.rel_performance)
+      # Avg percentage viewed — PULLED from YouTube's per-day averageViewPercentage
+      # (views-weighted across the scope's vids), over the message period. Same
+      # shape as avg_view_duration (owner: pull YT's value, don't derive from the
+      # retention curve). trend false — no baseline.
+      def compute_avg_viewed_pct(groups:, window:, target:)
+        result = Pito::Analytics::AdaptiveSeries.for(groups:, window:, value_key: :average_view_percentage)
         {
-          "series"               => result.series,
-          "total_pct"            => result.total_pct,
-          "avg_duration_seconds" => avg_dur_seconds,
-          "previous"             => nil,
-          "target_daily"         => target,
-          "trend"                => false,
-          "reference_token"      => "lifetime",
-          "at_mark_pct"          => at_mark,
-          "benchmark_word"       => benchmark
+          "series"       => result.series,
+          "total_pct"    => result.total,
+          "previous"     => nil,
+          "target_daily" => target,
+          "trend"        => false,
+          "dates"        => result.dates.map(&:iso8601)
+        }
+      end
+
+      # Lifetime audience-retention CURVE chart — its OWN metric (distinct from
+      # avg_viewed_pct; both draw on RetentionSeries). Views-weighted, lifetime,
+      # no trend. benchmark_word feeds the witty caption.
+      def compute_retention(groups:, window:, target:)
+        result = Pito::Analytics::RetentionSeries.for(groups:, window:)
+        {
+          "series"          => result.series,
+          "total_pct"       => result.total_pct,
+          "previous"        => nil,
+          "target_daily"    => target,
+          "trend"           => false,
+          "reference_token" => "lifetime",
+          "benchmark_word"  => Pito::Analytics::RetentionSeries.benchmark_word(result.rel_performance)
         }
       end
 
@@ -206,6 +223,8 @@ module Pito
           lost   = Pito::Analytics::DailySeries.for(groups:, window:, metric: "subscribers_lost")
           series = gained.series.zip(lost.series).map { |g, l| g - l }
           Pito::Analytics::DailySeries::Result.new(dates: gained.dates, series:, total: series.sum)
+        when :comments
+          Pito::Analytics::DailySeries.for(groups:, window:, metric: "comments")
         else
           Pito::Analytics::DailySeries.for(groups:, window:)
         end

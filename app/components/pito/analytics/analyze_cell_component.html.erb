@@ -4,22 +4,26 @@
 <% if loading? %>
   <%= render(Pito::Analytics::Slots::Regular.new(key: key, token: token, loading: true)) %>
 <% elsif no_data? %>
+  <%# Caption rides INSIDE NoData (one grid item). Pass it RAW — NoData wraps it in
+      .pito-metric__caption itself (caption_p here would double-wrap <p><p>). %>
   <%= render(Pito::Analytics::Slots::Regular.new(key: key, token: token, no_data: true)) do |s| %>
-    <% s.with_caption { caption_p(caption) } %>
+    <% s.with_caption { caption } %>
   <% end %>
 <% else %>
+  <%# Caption is passed INTO the visualizer (renders beneath it) so the cell is ONE
+      grid item — identical HTML to the ready-state render (ScaffoldComponent). A
+      separate caption sibling would land in the next grid column (the 2×450 bug). %>
   <%= render(Pito::Analytics::Slots::Regular.new(key: key, token: token)) do |s| %>
     <% if heart? %>
-      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Heart.new(hearts: cell[:heart], caption: nil)) } %>
-      <% s.with_caption { caption_p(caption) } %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Heart.new(hearts: cell[:heart], caption: caption)) } %>
     <% elsif chart? %>
-      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Area.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: nil, trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) } %>
-      <% s.with_caption { caption_p(caption) } %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Area.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: caption, trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) } %>
     <% elsif bars? %>
-      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Bar.new(bars: cell[:bars], caption: nil)) } %>
-      <% s.with_caption { caption_p(caption) } %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Bar.new(bars: cell[:bars], caption: caption)) } %>
+    <% elsif heatmap? %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Heatmap.new(values: cell[:values], caption: caption)) } %>
     <% else %>
-      <%# scalar (comments): no chart — value + label as the caption line. %>
+      <%# scalar (e.g. day_of_week_heatmap): no chart — value + label as the caption line. %>
       <% s.with_caption { caption_p("#{cell[:value]} #{cell[:label]}") } %>
     <% end %>
   <% end %>

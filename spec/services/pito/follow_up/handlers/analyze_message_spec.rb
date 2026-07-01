@@ -24,18 +24,14 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
   # Build a ready analyze event with scaffold persisted in the marker and
   # followupable fields set.  payload_overrides can patch the marker for
   # specific edge-case tests.
-  def build_analyze_event(payload_overrides = {})
+  def build_analyze_event(payload_overrides = {}, role: "system", level: :channel)
     pending_p = Pito::MessageBuilder::Analyze::Message.pending(
-      role:         "system",
-      title:        "My Channel",
-      level:        :channel,
-      entity_ids:   [ 1 ],
-      period:       "7d",
-      conversation:
+      role:, title: "My Channel", level:, entity_ids: [ 1 ], period: "7d", conversation:
     )
+    scaffold = Pito::Analytics::MetricOrder.for(role: role.to_sym, level:).index_with { true }
     pending_event_stub = instance_double("Event", payload: pending_p)
     ready_p = Pito::MessageBuilder::Analyze::Message.ready_payload(
-      pending_event_stub, data: { scaffold: full_scaffold, views: nil }
+      pending_event_stub, data: { scaffold:, views: nil }
     )
     Event.create_with_position!(
       conversation:, turn:, kind: :system, payload: ready_p.merge(payload_overrides)
@@ -102,8 +98,9 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
 
   describe "#call — with <metric> un-excludes a previously excluded metric" do
     let(:source_event) do
-      # Simulate a prior "without comms" — marker has without: ["comms"].
-      build_analyze_event.tap do |event|
+      # Comments now lives in the :enhanced card as an area chart — simulate a prior
+      # "without comms" there (marker has without: ["comms"]).
+      build_analyze_event(role: "enhanced").tap do |event|
         marker = event.payload.fetch("analyze")
         event.update!(payload: event.payload.merge(
           "analyze" => marker.merge("without" => [ "comms" ])
@@ -122,9 +119,9 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
     end
 
     it "body includes the comments cell again" do
-      doc    = Nokogiri::HTML.fragment(result.payload["body"])
-      labels = doc.css(".pito-analytics-scalars__label").map(&:text)
-      expect(labels).to include("Comments")
+      # With no persisted comments chart data, the re-included comments metric renders
+      # as its NoData placeholder whose caption is the metric label ("Comments").
+      expect(result.payload["body"]).to include("Comments")
     end
   end
 

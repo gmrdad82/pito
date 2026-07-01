@@ -2,23 +2,25 @@
 
 require "rails_helper"
 
-# Pito::Shell::ScrollNavComponent renders two pills (top + bottom) that overlay
-# the conversation scrollback.  The pito--scroll-nav Stimulus controller
-# drives show/hide and count interpolation at runtime; the component itself
-# is responsible for the static structure, copy, and the count-variants JSON.
+# Pito::Shell::ScrollNavComponent renders two pill <template>s (top + bottom).
+# The pito--scroll-nav Stimulus controller CREATES a pill (a clone of the
+# matching template) and appends it when needed, and REMOVES it from the DOM
+# when not — never show/hide. The component provides the templates, copy, and the
+# count-variants JSON.
 RSpec.describe Pito::Shell::ScrollNavComponent do
   subject(:node) { render_inline(described_class.new) }
 
-  # ── Both pills hidden by default ────────────────────────────────────────────
+  # ── Two pill templates, nothing live by default ─────────────────────────────
 
-  it "renders exactly 2 pills" do
-    expect(node.css("[data-pito--scroll-nav-target='topPill'], [data-pito--scroll-nav-target='bottomPill']").length).to eq(2)
+  it "renders exactly 2 pill templates (top + bottom)" do
+    expect(node.css("[data-pito--scroll-nav-target='topTemplate'], [data-pito--scroll-nav-target='bottomTemplate']").length).to eq(2)
+    expect(node.css(".pito-scroll-nav__pill--top").length).to eq(1)
+    expect(node.css(".pito-scroll-nav__pill--bottom").length).to eq(1)
   end
 
-  it "renders both pills with the `hidden` class (hidden by default)" do
-    pills = node.css("[data-pito--scroll-nav-target='topPill'], [data-pito--scroll-nav-target='bottomPill']")
-    pills.each do |pill|
-      expect(pill["class"]).to include("hidden")
+  it "renders NO `hidden` class on the pills (create/remove, not show/hide)" do
+    node.css(".pito-scroll-nav__pill").each do |pill|
+      expect(pill["class"]).not_to include("hidden")
     end
   end
 
@@ -52,28 +54,22 @@ RSpec.describe Pito::Shell::ScrollNavComponent do
 
   # ── Jump copy (1-variant, server-rendered) ───────────────────────────────────
 
-  it "includes the jump_to_start copy in the top pill" do
-    top_pill = node.css("[data-pito--scroll-nav-target='topPill']").first
-    expect(top_pill.text).to include("jump to the start")
+  it "includes the compact jump-to-start arrow copy in the top pill" do
+    top_pill = node.css(".pito-scroll-nav__pill--top").first
+    expect(top_pill.text).to include("[<-")
   end
 
-  it "includes the jump_to_end copy in the bottom pill" do
-    bottom_pill = node.css("[data-pito--scroll-nav-target='bottomPill']").first
-    expect(bottom_pill.text).to include("jump to the end")
+  it "includes the compact jump-to-end arrow copy in the bottom pill" do
+    bottom_pill = node.css(".pito-scroll-nav__pill--bottom").first
+    expect(bottom_pill.text).to include("jump ->]")
   end
 
-  # ── Count targets (JS-filled, empty on render) ───────────────────────────────
+  # ── Count spans (JS-filled, empty on render) ─────────────────────────────────
 
-  it "renders a topCount target span (empty — filled by JS)" do
-    count = node.css("[data-pito--scroll-nav-target='topCount']")
-    expect(count).not_to be_empty
-    expect(count.text.strip).to eq("")
-  end
-
-  it "renders a bottomCount target span (empty — filled by JS)" do
-    count = node.css("[data-pito--scroll-nav-target='bottomCount']")
-    expect(count).not_to be_empty
-    expect(count.text.strip).to eq("")
+  it "renders a count span in each pill (empty — filled by JS)" do
+    counts = node.css(".pito-scroll-nav__pill [data-scroll-nav-count]")
+    expect(counts.length).to eq(2)
+    counts.each { |c| expect(c.text.strip).to eq("") }
   end
 
   # ── 50-variant JSON catalog ──────────────────────────────────────────────────

@@ -42,24 +42,11 @@ RSpec.describe Pito::Event::EchoComponent do
     expect(node.css("span.pito-timestamp-prefix").text).to include("23:45")
   end
 
-  # The user's own echoed input types in via the typewriter (body target). It is
-  # rendered instant ONLY under the JS skip guards (initial render / reduced-
-  # motion / fx off) — those guards live in the controller, not the markup.
-  it "mounts the typewriter controller so the echo types in" do
+  # The echoed input renders INSTANTLY (item 18 removed the typewriter).
+  it "renders the echo text instantly with no typewriter wiring" do
     node = render_inline(described_class.new(payload: { text: "list videos" }))
-    expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
-  end
-
-  it "tags the echo text span as the typewriter body target" do
-    node = render_inline(described_class.new(payload: { text: "list videos" }))
-    span = node.css("[data-controller~='pito--typewriter'] span[data-pito--typewriter-target='body']").first
-    expect(span).not_to be_nil
-    expect(span.text).to include("list videos")
-  end
-
-  it "sets the typewriter doneEvent to pito:echo-typed (so the comet clears)" do
-    node    = render_inline(described_class.new(payload: { text: "hi" }))
-    wrapper = node.css("div[data-controller~='pito--typewriter']").first
-    expect(wrapper["data-pito--typewriter-done-event-value"]).to eq("pito:echo-typed")
+    expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+    expect(node.css("[data-pito--typewriter-target]")).to be_empty
+    expect(node.text).to include("list videos")
   end
 end

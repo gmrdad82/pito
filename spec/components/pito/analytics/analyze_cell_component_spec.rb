@@ -119,6 +119,15 @@ RSpec.describe Pito::Analytics::AnalyzeCellComponent, type: :component do
     it "does NOT render the NoData placeholder" do
       expect(node.at_css(".pito-metric--nodata")).to be_nil
     end
+
+    # 2×450 grid regression (Item 26): the cell wrapper is display:contents, so it
+    # must hold EXACTLY ONE child (the visualizer) — the caption lives INSIDE the
+    # visualizer, not as a sibling that would spill into the next grid column.
+    it "emits exactly one grid item (visualizer) with the caption nested inside it" do
+      wrapper = node.at_css(".pito-analytics-scalars__cell")
+      expect(wrapper.element_children.size).to eq(1)
+      expect(wrapper.at_css(".pito-metric--area-chart .pito-metric__caption")).to be_present
+    end
   end
 
   # ── Bar visualizer ────────────────────────────────────────────────────────────

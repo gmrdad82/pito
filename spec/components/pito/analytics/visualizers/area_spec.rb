@@ -84,6 +84,18 @@ RSpec.describe Pito::Analytics::Visualizers::Area do
     expect(plot["style"]).to include("--pito-green-anchor: 100%")
   end
 
+  it "anchors an EMPTY chart with a FRACTIONAL target at 100% (red baseline, not green-heavy)" do
+    # Regression (owner 2026-07-01): watched_hours/subs on a small channel have a
+    # daily target < 1. The plot-scale 1.0 ceiling floor used to drag the anchor to
+    # target/1.0 (a few %), painting an empty chart green from the baseline. The
+    # anchor now uses max(peak, target) (no floor) → target/target = 100% → red base.
+    wh = render_chart(metric: :watched_hours, series: [], target_daily: 0.357)
+    expect(wh.css(".pito-metric__plot").first["style"]).to include("--pito-green-anchor: 100%")
+
+    subs = render_chart(metric: :subs, series: [], target_daily: 0.071)
+    expect(subs.css(".pito-metric__plot").first["style"]).to include("--pito-green-anchor: 100%")
+  end
+
   # ── Tick values ───────────────────────────────────────────────────────────────
 
   it "renders discrete y-VALUE ticks inside-left at their data height (no rotation)" do

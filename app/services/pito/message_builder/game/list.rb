@@ -36,7 +36,7 @@ module Pito
             ],
             "shimmer_heading" => true,
             "fixed_leading"  => (cols & %i[platform]).size,
-            "fixed_trailing" => (cols & %i[release_date year footage]).size,
+            "fixed_trailing" => (cols & %i[footage]).size,
             "table_rows"    => games.map { |game|
               id_text = "##{game.id}"
               {

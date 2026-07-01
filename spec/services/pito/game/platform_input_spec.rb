@@ -37,10 +37,18 @@ RSpec.describe Pito::Game::PlatformInput do
       end
     end
 
-    it "stores unknown platforms as cleaned/titleized text with no logo" do
+    it "titleizes Xbox input and resolves it to the xbox token/logo (Item 24)" do
       expect(described_class.normalize("xbox")).to eq("Xbox")
+      expect(described_class.normalize("xbox one")).to eq("Xbox One")
+      expect(described_class.normalize("xbox series x")).to eq("Xbox Series X")
+      %w[Xbox Xbox\ One Xbox\ Series\ X].each do |name|
+        expect(Pito::Game::PlatformTokens.tokens([ name ])).to eq([ "xbox" ])
+      end
+    end
+
+    it "stores unknown platforms as cleaned/titleized text with no logo" do
       expect(described_class.normalize("google stadia")).to eq("Google Stadia")
-      expect(Pito::Game::PlatformTokens.tokens([ described_class.normalize("xbox") ])).to be_empty
+      expect(Pito::Game::PlatformTokens.tokens([ described_class.normalize("google stadia") ])).to be_empty
     end
 
     it "returns an empty string for blank input" do

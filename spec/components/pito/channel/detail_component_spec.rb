@@ -77,14 +77,23 @@ RSpec.describe Pito::Channel::DetailComponent, type: :component do
       expect(node.text).to include("Avatar")
     end
 
-    it "leaves the banner spot EMPTY and STILL shows the avatar in the kv-table when there is no banner" do
+    it "fills the banner spot with a click-to-sync placeholder (avatar still inline) when there is no banner (item 22)" do
       attach_avatar
-      node = render_card
-      # No banner element, and the avatar is NOT in the left/top spot anymore…
-      expect(node.at_css(".pito-channel-detail__banner")).to be_nil
-      expect(node.at_css(".pito-channel-detail__avatar img")).to be_nil
-      # …it lives in the kv-table (always present when an avatar is attached).
+      node   = render_card
+      banner = node.at_css(".pito-channel-detail__banner")
+      expect(banner).to be_present
+      fallback = banner.at_css(".pito-image-fallback")
+      expect(fallback).to be_present
+      expect(fallback["data-pito--chat-prefill-text-value"]).to eq("sync channel #{channel.at_handle}")
+      # the attached avatar still renders inline in the kv-table
       expect(node.at_css("img.pito-channel-detail__avatar-inline")).to be_present
+    end
+
+    it "shows a circle click-to-sync placeholder for the inline avatar when no avatar is attached (item 22)" do
+      node     = render_card
+      fallback = node.at_css(".pito-image-fallback.pito-image-fallback--circle.pito-channel-detail__avatar-inline")
+      expect(fallback).to be_present
+      expect(fallback["data-pito--chat-prefill-text-value"]).to eq("sync channel #{channel.at_handle}")
     end
 
     it "vertically centers the 'Avatar' kv-label to the avatar image (13.11)" do

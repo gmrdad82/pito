@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_28_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_01_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -186,6 +186,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000002) do
     t.index ["game_id", "genre_id"], name: "index_game_genres_on_game_id_and_genre_id", unique: true
     t.index ["game_id", "position"], name: "index_game_genres_on_game_id_and_position"
     t.index ["genre_id"], name: "index_game_genres_on_genre_id"
+  end
+
+  create_table "game_platform_releases", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "game_id", null: false
+    t.string "platform_token", null: false
+    t.date "release_date"
+    t.integer "release_day"
+    t.integer "release_month"
+    t.integer "release_quarter"
+    t.integer "release_year"
+    t.datetime "updated_at", null: false
+    t.index ["game_id", "platform_token"], name: "index_game_platform_releases_on_game_and_platform", unique: true
+    t.index ["game_id"], name: "index_game_platform_releases_on_game_id"
+    t.index ["release_date"], name: "index_game_platform_releases_on_release_date"
   end
 
   create_table "game_publishers", force: :cascade do |t|
@@ -501,6 +516,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_28_000002) do
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
   add_foreign_key "game_genres", "genres", on_delete: :cascade
+  add_foreign_key "game_platform_releases", "games"
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "shares", "conversations"

@@ -69,21 +69,23 @@ RSpec.describe Pito::Analytics::AdaptiveSeries do
     end
   end
 
-  # ── Per-bucket value (views-weighted avg seconds) ───────────────────────────
+  # ── Per-bucket value (views-weighted avg of YouTube's per-day average) ───────
+  # AdaptiveSeries now PULLS YouTube's per-day average_view_duration and
+  # VIEWS-WEIGHTS it across the scope's videos (Σ(value×views)/Σviews) — it no
+  # longer derives it from estimated_minutes_watched.
 
   describe ".for — computed series and total" do
-    it "computes daily avg duration (M×60/views) for a short window" do
+    it "views-weights YouTube's per-day average_view_duration for a short window" do
       w = window("7d")
       day0 = w.start_date
 
-      # Two videos on the same day; total views=10, total minutes=20 → avg=120s
+      # Two videos on the same day; weighted: (6×100 + 4×150)/10 = 120s
       stub_primitives(
-        "vidA" => [ { "day" => day0.to_s, "views" => 6, "estimated_minutes_watched" => 12 } ],
-        "vidB" => [ { "day" => day0.to_s, "views" => 4, "estimated_minutes_watched" => 8 } ]
+        "vidA" => [ { "day" => day0.to_s, "views" => 6, "average_view_duration" => 100 } ],
+        "vidB" => [ { "day" => day0.to_s, "views" => 4, "average_view_duration" => 150 } ]
       )
       result = described_class.for(groups: [], window: w)
 
-      # Day 0: (20 min × 60) / 10 views = 120s
       expect(result.series.first).to be_within(0.1).of(120.0)
       # Remaining 6 days have no data → 0.0
       expect(result.series[1..].sum).to eq(0.0)
@@ -104,65 +106,76 @@ RSpec.describe Pito::Analytics::AdaptiveSeries do
       stub_primitives(
         "vid" => [
           {
-            "day"                       => first_day.to_s,
-            "views"                     => 10,
-            "estimated_minutes_watched" => 30
+            "day"                   => first_day.to_s,
+            "views"                 => 10,
+            "average_view_duration" => 180
           }
         ]
       )
       result = described_class.for(groups: [], window: w)
       # 1y ≈ 365 days → monthly bucketing → 12 or 13 months
       expect(result.series.size).to be_between(12, 13)
-      # First month has data: 30min×60/10v = 180s
+      # First month has data: YouTube's average_view_duration = 180s
       expect(result.series.first).to be_within(0.1).of(180.0)
       expect(result.series[1..]).to all(eq(0.0))
     end
 
-    it "aggregates views and minutes across multiple videos per day" do
+    it "views-weights the average across multiple videos per day" do
       w = window("7d")
       day = w.start_date
 
       stub_primitives(
-        "vidA" => [ { "day" => day.to_s, "views" => 100, "estimated_minutes_watched" => 200 } ],
-        "vidB" => [ { "day" => day.to_s, "views" => 100, "estimated_minutes_watched" => 100 } ]
+        "vidA" => [ { "day" => day.to_s, "views" => 100, "average_view_duration" => 120 } ],
+        "vidB" => [ { "day" => day.to_s, "views" => 100, "average_view_duration" => 60 } ]
       )
       result = described_class.for(groups: [], window: w)
-      # total: (300 min × 60) / 200 views = 90s
+      # weighted: (100×120 + 100×60)/200 = 90s
       expect(result.series.first).to be_within(0.1).of(90.0)
       expect(result.total).to be_within(0.1).of(90.0)
     end
 
-    it "overall total is Σ(all minutes×60) / Σ(all views), not mean of bucket values" do
+    it "overall total is Σ(value×views) / Σ(views), not the mean of bucket values" do
       w = window("7d")
       d0 = w.start_date
       d1 = d0 + 1
 
       stub_primitives(
         "vid" => [
-          { "day" => d0.to_s, "views" => 100, "estimated_minutes_watched" => 100 },
-          { "day" => d1.to_s, "views" => 10,  "estimated_minutes_watched" => 100 }
+          { "day" => d0.to_s, "views" => 100, "average_view_duration" => 60 },
+          { "day" => d1.to_s, "views" => 10,  "average_view_duration" => 600 }
         ]
       )
       result = described_class.for(groups: [], window: w)
-      # Bucket 0: 100min×60/100v = 60s
-      # Bucket 1: 100min×60/10v  = 600s
-      # Mean of buckets = (60+600)/2 = 330s
-      # Weighted total = 200min×60/110v ≈ 109.1s (correct)
+      # Bucket 0: 60s ; Bucket 1: 600s ; mean of buckets = 330s (WRONG)
+      # Weighted total = (100×60 + 10×600)/110 ≈ 109.1s (correct)
       expect(result.series[0]).to be_within(0.1).of(60.0)
       expect(result.series[1]).to be_within(0.1).of(600.0)
-      expect(result.total).to be_within(1.0).of(200.0 * 60 / 110.0)
+      expect(result.total).to be_within(1.0).of((100 * 60 + 10 * 600) / 110.0)
+    end
+
+    it "views-weights average_view_percentage when value_key: :average_view_percentage" do
+      w = window("7d")
+      day = w.start_date
+      stub_primitives(
+        "vidA" => [ { "day" => day.to_s, "views" => 3, "average_view_percentage" => 40.0 } ],
+        "vidB" => [ { "day" => day.to_s, "views" => 1, "average_view_percentage" => 80.0 } ]
+      )
+      result = described_class.for(groups: [], window: w, value_key: :average_view_percentage)
+      # weighted: (3×40 + 1×80)/4 = 50%
+      expect(result.series.first).to be_within(0.1).of(50.0)
+      expect(result.total).to be_within(0.1).of(50.0)
     end
 
     it "tolerates symbol keys in the raw primitive rows" do
       w = window("7d")
-      stub_primitives("vid" => [ { day: w.start_date, views: 5, estimated_minutes_watched: 10 } ])
+      stub_primitives("vid" => [ { day: w.start_date, views: 5, average_view_duration: 120 } ])
       result = described_class.for(groups: [], window: w)
-      expect(result.series.first).to be_within(0.1).of(120.0)  # 10min×60/5v
+      expect(result.series.first).to be_within(0.1).of(120.0)
     end
 
     it "ignores rows with unparseable day keys" do
       w = window("7d")
-      stub_primitives("vid" => [ { "day" => "not-a-date", "views" => 99, "estimated_minutes_watched" => 99 } ])
+      stub_primitives("vid" => [ { "day" => "not-a-date", "views" => 99, "average_view_duration" => 99 } ])
       result = described_class.for(groups: [], window: w)
       expect(result.total).to eq(0.0)
     end

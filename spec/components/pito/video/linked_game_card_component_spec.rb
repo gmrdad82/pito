@@ -153,10 +153,12 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.css(".pito-video-linked-game-card__cover img")).not_to be_empty
   end
 
-  it "renders the no-cover placeholder when nothing is attached" do
+  it "renders the click-to-sync image placeholder when nothing is attached (item 22)" do
     node = render_inline(described_class.new(game: game))
     expect(node.css(".pito-video-linked-game-card__cover img")).to be_empty
-    expect(node.text).to include(I18n.t("pito.game.detail.no_cover"))
+    fallback = node.at_css(".pito-video-linked-game-card__cover .pito-image-fallback")
+    expect(fallback).to be_present
+    expect(fallback["data-pito--chat-prefill-text-value"]).to eq("sync game ##{game.id}")
   end
 
   # ── Big cover Ken-Burns pan (L5) ────────────────────────────────────────────

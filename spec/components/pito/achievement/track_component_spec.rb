@@ -394,10 +394,7 @@ RSpec.describe Pito::Achievement::TrackComponent do
       expect(reached_rule).not_to match(/^\s*animation:\s/)
     end
 
-    it "honours prefers-reduced-motion for the reached ellipsis too" do
-      reduced = css[/@media \(prefers-reduced-motion: reduce\) \{\s*\.pito-achievement-track__dot--reached[^}]*\}/m]
-      expect(reduced).to be_present
-      expect(reduced).to include(".pito-achievement-track__ellipsis--reached")
-    end
+    # (The prefers-reduced-motion override was removed in item 18 — the shimmer
+    # reveals now always play, with no OS reduced-motion respect.)
   end
 end

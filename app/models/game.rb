@@ -13,6 +13,9 @@ class Game < ApplicationRecord
   has_many :video_game_links, dependent: :destroy
   has_many :linked_videos, through: :video_game_links, source: :video
 
+  # Per-platform release dates (Item 24) — one row per platform group.
+  has_many :platform_releases, class_name: "GamePlatformRelease", dependent: :destroy
+
   has_many :stats, as: :entity, dependent: :destroy
   has_many :achievements, as: :achievable, dependent: :destroy
   has_many :achievement_metrics, as: :achievable, dependent: :destroy

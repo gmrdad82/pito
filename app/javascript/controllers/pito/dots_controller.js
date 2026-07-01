@@ -1,37 +1,23 @@
 // Pito::DotsController
 //
 // Shows the PostCommandDots comet when a command is submitted and hides it the
-// instant the response lands — when the echoed input finishes typing, or (for
-// echo-less fast paths) when the first result segment appears.
+// instant the response lands — when the first result segment appears (messages
+// render instantly now; there is no echo-typing phase — item 18).
 //
 // Lifecycle:
-//   submit          → dots appear fast (command sent — backend is working)
-//   echo types out  → dots STAY while the echo reveals (still landing)
-//   pito:echo-typed → dots fade out slow (the echo finished typing — landed)
+//   submit               → dots appear fast (command sent — backend is working)
+//   pito:result-appended → dots fade out slow (a result landed — hide dots)
 //
-// No-echo edge case:
-//   Auth-gated fast paths broadcast an error with NO echo, NO turn, and NO
-//   pito:done — so pito:echo-typed never comes. pito:result-appended (fired by
-//   scrollback_controller when the error segment appends) hides the comet so it
-//   never hangs. Net: the comet hides on whichever of pito:echo-typed /
-//   pito:result-appended arrives first (both #hide calls are idempotent).
-//
-//   pito:done still fires elsewhere (completed_at / resume) but no longer drives
-//   the comet.
-//
-// Client-only / sidebar fast paths:
+// No-result / sidebar fast paths:
 //   A /slash command that only opens a sidebar (/resume, /themes, the game /
-//   video pickers, IGDB import) sends nothing meaningful to the backend — it
-//   produces NO echo and NO scrollback result, so neither pito:echo-typed nor
-//   pito:result-appended ever arrives. The sidebar dispatches "pito:comet-clear"
-//   on open (resume_controller) so the comet doesn't hang. The comet is a
-//   real-backend-round-trip indicator — this keeps it that way.
+//   video pickers, IGDB import) produces no scrollback result, so
+//   pito:result-appended never arrives. The sidebar dispatches "pito:comet-clear"
+//   on open (resume_controller) so the comet doesn't hang. (#hide is idempotent.)
 //
 // 1:4 ratio (150ms fade-in, 600ms fade-out) — see CSS.
 //
 // Listens to document events dispatched by:
 //   chat-form   → "pito:submitted"       (command sent — show dots)
-//   typewriter  → "pito:echo-typed"      (echo finished typing — hide dots)
 //   scrollback  → "pito:result-appended" (a result landed — hide dots)
 //   resume      → "pito:comet-clear"     (sidebar/client-only command — hide dots)
 //
@@ -51,7 +37,6 @@ export default class extends Controller {
     const { signal } = this.abort
 
     document.addEventListener("pito:submitted",       () => this.#show(), { signal })
-    document.addEventListener("pito:echo-typed",      () => this.#hide(), { signal })
     document.addEventListener("pito:result-appended", () => this.#hide(), { signal })
     document.addEventListener("pito:comet-clear",     () => this.#hide(), { signal })
   }

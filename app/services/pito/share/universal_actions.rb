@@ -41,8 +41,30 @@ module Pito
         # generic (event-less) help page → `share` is shown (no revoke/unshare,
         # since there's no event to check for an existing Share).
         return [] if event && NON_SHAREABLE_KINDS.include?(event.kind.to_s)
+        # An UNRESOLVED message (its thinking indicator is still spinning — e.g. an
+        # analyze card mid-fan-out) is NOT shareable: sharing an in-flight message
+        # would capture a half-rendered/loading state. Offer no universal verbs
+        # until it resolves (owner 2026-07-01). Server-side `call` enforces the same.
+        return [] if event && !resolved?(event)
 
         ALWAYS_AVAILABLE + (event && ::Share.exists?(event_id: event.id) ? SHARE_REQUIRED : [])
+      end
+
+      # True when the message is done rendering — i.e. it has no still-spinning
+      # thinking indicator. A thinking event links to its message via
+      # payload["for_event_id"] (stamped by the Finalizer); the message is resolved
+      # once that indicator's payload["resolved"] is true. A message with NO linked
+      # indicator (instant messages: echo, sync, …) is trivially resolved.
+      def self.resolved?(event)
+        return true unless event
+
+        thinking = event.turn.events
+          .where(kind: :thinking)
+          .where("payload->>'for_event_id' = ?", event.id.to_s)
+          .first
+        return true unless thinking
+
+        thinking.payload["resolved"] == true || thinking.payload["resolved"] == "true"
       end
 
       # `origin` is the request origin (scheme + host + port, e.g.
@@ -52,6 +74,16 @@ module Pito
       # a tunnelled dev setup). Falls back to PublicHosts.app_base when absent.
       def call(source_event:, rest:, conversation:, origin: nil)
         verb = rest.to_s.strip.split(/\s+/).first.to_s.downcase
+
+        # Enforce the resolution gate server-side too (the palette hides the verb,
+        # but a typed `#handle share` must also be refused while the message is
+        # still loading) (owner 2026-07-01).
+        unless self.class.resolved?(source_event)
+          return Pito::FollowUp::Result::Error.new(
+            message_key:  "pito.copy.share.not_resolved",
+            message_args: {}
+          )
+        end
 
         case verb
         when "share"
@@ -83,7 +115,7 @@ module Pito
         url  = "#{base.chomp('/')}/share/#{share.uuid}"
 
         Pito::FollowUp::Result::Append.new(
-          events:  [ { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.share.shared_url", url:) } ],
+          events:  [ { kind: :system, payload: Pito::MessageBuilder::Share::Link.call(url:) } ],
           consume: false
         )
       end

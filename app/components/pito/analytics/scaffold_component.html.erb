@@ -22,6 +22,8 @@
             <%= render(Pito::Analytics::Visualizers::Area.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: cell[:caption], trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) %>
           <% elsif cell[:bars].present? %>
             <%= render(Pito::Analytics::Visualizers::Bar.new(bars: cell[:bars], caption: cell[:caption])) %>
+          <% elsif cell[:heatmap].present? %>
+            <%= render(Pito::Analytics::Visualizers::Heatmap.new(values: cell[:values], caption: cell[:caption])) %>
           <% elsif cell[:no_data] %>
             <%= render(Pito::Analytics::Visualizers::NoData.new(caption: cell[:caption])) %>
           <% else %>

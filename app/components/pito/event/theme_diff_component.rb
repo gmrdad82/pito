@@ -5,9 +5,8 @@ module Pito
     # Renders a theme-diff event: the result of a #preview or #apply hashtag
     # transforming the most-recent theme-list message in place.
     #
-    # This component renders the FINAL state (reload-correct, works without JS)
-    # and emits `pito--diff-reveal` wiring for the animation engine.
-    # Until the controller is registered the wiring is inert.
+    # This component renders the FINAL state instantly (item 18 removed the
+    # diff-reveal morph animation). Reload-correct, no JS needed.
     #
     # Payload contract
     # ----------------

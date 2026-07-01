@@ -117,8 +117,6 @@ RSpec.describe Pito::Stream::Broadcaster do
   describe "#broadcast_settings_update" do
     it "broadcasts a replace for pito-settings to the conversation stream" do
       allow(AppSetting).to receive(:sound_enabled?).and_return(true)
-      allow(AppSetting).to receive(:fx_enabled?).and_return(false)
-      allow(AppSetting).to receive(:fx_effect).and_return("scramble")
 
       expect {
         broadcaster.broadcast_settings_update
@@ -127,8 +125,7 @@ RSpec.describe Pito::Stream::Broadcaster do
         expect(html).to include('action="replace"')
         expect(html).to include("pito-settings")
         expect(html).to include('data-sound="true"')
-        expect(html).to include('data-fx="false"')
-        expect(html).to include('data-fx-effect="scramble"')
+        expect(html).not_to include("data-fx")
       }
     end
   end
@@ -366,8 +363,6 @@ RSpec.describe Pito::Stream::Broadcaster do
     it "broadcasts a pito-settings replace to pito:global" do
       # Stub AppSetting flags — avoids requiring encryption in pure unit tests.
       allow(AppSetting).to receive(:sound_enabled?).and_return(true)
-      allow(AppSetting).to receive(:fx_enabled?).and_return(true)
-      allow(AppSetting).to receive(:fx_effect).and_return("comet")
 
       expect {
         described_class.broadcast_global_settings_update
@@ -376,20 +371,18 @@ RSpec.describe Pito::Stream::Broadcaster do
         expect(html).to include('action="replace"')
         expect(html).to include("pito-settings")
         expect(html).to include('data-sound="true"')
-        expect(html).to include('data-fx-effect="comet"')
+        expect(html).not_to include("data-fx")
       }
     end
 
     it "reflects the current AppSetting values in the broadcast" do
       allow(AppSetting).to receive(:sound_enabled?).and_return(false)
-      allow(AppSetting).to receive(:fx_enabled?).and_return(false)
 
       expect {
         described_class.broadcast_global_settings_update
       }.to have_broadcasted_to("pito:global").with { |msg|
         html = broadcast_html(msg)
         expect(html).to include('data-sound="false"')
-        expect(html).to include('data-fx="false"')
       }
     end
 

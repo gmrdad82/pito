@@ -158,6 +158,35 @@ RSpec.describe Pito::Chat::Handlers::Sync do
     end
   end
 
+  # ── sync game #id (direct id sync) ────────────────────────────────────────────
+
+  describe "sync game #id (direct)" do
+    let!(:game) { create(:game, title: "Hollow Knight") }
+
+    it "builds a sync_game confirmation for the #id game" do
+      payload = handler_for("game", "##{game.id}").call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_game")
+      expect(payload["game_id"]).to eq(game.id)
+    end
+
+    it "recognizes the `games` plural alias with #id" do
+      payload = handler_for("games", "##{game.id}").call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_game")
+      expect(payload["game_id"]).to eq(game.id)
+    end
+
+    it "returns needs_ref when the #id game does not exist" do
+      result = handler_for("game", "#999999").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.sync.needs_ref")
+    end
+
+    it "returns needs_ref for bare `sync game` (no #id)" do
+      result = handler_for("game").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+    end
+  end
+
   # ── sync videos — unknown handle ──────────────────────────────────────────────
 
   describe "sync videos — unknown handle" do
@@ -196,6 +225,26 @@ RSpec.describe Pito::Chat::Handlers::Sync do
       payload = result.events.first[:payload]
       expect(payload["command"]).to eq("sync_channel")
       expect(payload["channel_ids"]).to eq([ channel.id ])
+    end
+  end
+
+  # ── sync channel @handle — inline scope (self-contained click) ────────────────
+
+  describe "sync channel @handle (inline scope)" do
+    it "scopes to the inline @handle channel (no shift+tab scope needed)" do
+      payload = handler_for("channel", "@pito").call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_channel")
+      expect(payload["channel_ids"]).to eq([ channel.id ])
+    end
+
+    it "inline @handle overrides the shift+tab @all scope" do
+      payload = handler_for("channel", "@pito", channel: "@all").call.events.first[:payload]
+      expect(payload["channel_ids"]).to eq([ channel.id ])
+    end
+
+    it "@all inline is not a specific handle — still all channels" do
+      payload = handler_for("channel", "@all").call.events.first[:payload]
+      expect(payload["channel_ids"]).to eq([])
     end
   end
 

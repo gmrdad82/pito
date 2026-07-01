@@ -66,21 +66,21 @@ RSpec.describe Pito::MessageBuilder::Game::List do
     end
   end
 
-  describe ".call with columns: [:genre, :year]" do
+  describe ".call with columns: [:genre, :footage]" do
     let(:genre)  { create(:genre, name: "Action") }
-    let!(:game)  { create(:game, title: "Devil May Cry", release_year: 2001) }
+    let!(:game)  { create(:game, title: "Devil May Cry", footage_hours: 3) }
     let!(:_link) { create(:game_genre, game: game, genre: genre) }
 
     let(:games) { ::Game.includes(:genres).order(:title) }
 
-    subject(:payload) { described_class.call(games, conversation: conversation, columns: [ :genre, :year ]) }
+    subject(:payload) { described_class.call(games, conversation: conversation, columns: [ :genre, :footage ]) }
 
-    it "sets table_heading to [#-hash, Game, Genre, Year-hash]" do
+    it "sets table_heading to [#-hash, Game, Genre, Footage-hash]" do
       expect(payload["table_heading"]).to eq([
         { "text" => "#", "class" => "text-right" },
         "Game",
         { "text" => "Genre", "class" => "pito-table-heading--added" },
-        { "text" => "Year", "class" => "pito-table-heading--added text-right" }
+        { "text" => "Footage", "class" => "pito-table-heading--added text-right" }
       ])
     end
 
@@ -93,9 +93,9 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(genre_text).to include("Action")
     end
 
-    it "includes the release year in the fourth cell" do
-      year_text = payload["table_rows"].first[:cells][3][:text]
-      expect(year_text).to eq("2001")
+    it "includes the footage value in the fourth cell" do
+      footage_text = payload["table_rows"].first[:cells][3][:text]
+      expect(footage_text).to be_a(String).and be_present
     end
   end
 
@@ -191,14 +191,13 @@ RSpec.describe Pito::MessageBuilder::Game::List do
     end
   end
 
-  describe ".call with all 6 columns (developer, publisher, genre, platform, release_date, year)" do
+  describe ".call with columns (developer, publisher, genre, platform, footage) — release/year removed (item 24)" do
     let(:genre)       { create(:genre, name: "Action") }
     let(:dev_co)      { create(:company, name: "Studio Dev") }
     let(:pub_co)      { create(:company, name: "Studio Pub") }
 
     let!(:game) do
-      g = create(:game, title: "Full Game", release_year: 2023,
-                        release_month: 3, release_day: 15,
+      g = create(:game, title: "Full Game", footage_hours: 4,
                         platforms: [ "PlayStation 5" ])
       create(:game_genre,     game: g, genre: genre)
       create(:game_developer, game: g, company: dev_co)
@@ -207,7 +206,7 @@ RSpec.describe Pito::MessageBuilder::Game::List do
     end
 
     let(:games)   { ::Game.includes(:genres, :developer_companies, :publisher_companies).where(id: game.id) }
-    let(:columns) { %i[developer publisher genre platform release_date year] }
+    let(:columns) { %i[developer publisher genre platform footage] }
 
     subject(:payload) { described_class.call(games, conversation: conversation, columns: columns) }
 
@@ -215,46 +214,29 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(payload["fixed_leading"]).to eq(1)
     end
 
-    it "has fixed_trailing == 2 (release_date + year)" do
-      expect(payload["fixed_trailing"]).to eq(2)
+    it "has fixed_trailing == 1 (footage)" do
+      expect(payload["fixed_trailing"]).to eq(1)
     end
 
-    it "columns are in canonical order (platform, genre, developer, publisher, release_date, year)" do
-      # The table_heading reflects canonical order after the leading # and Game entries
+    it "columns are in canonical order (platform, genre, developer, publisher, footage)" do
       heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
-      expect(heading_texts).to eq(%w[# Game Platform Genre Developer Publisher Release Year])
+      expect(heading_texts).to eq(%w[# Game Platform Genre Developer Publisher Footage])
     end
 
     it "# heading is a right-aligned hash" do
       expect(payload["table_heading"].first).to eq({ "text" => "#", "class" => "text-right" })
     end
 
-    it "Year heading is a right-aligned hash" do
-      year_entry = payload["table_heading"].find { |h| h.is_a?(Hash) && h["text"] == "Year" }
-      expect(year_entry).to eq({ "text" => "Year", "class" => "pito-table-heading--added text-right" })
+    it "Footage heading is a right-aligned hash" do
+      entry = payload["table_heading"].find { |h| h.is_a?(Hash) && h["text"] == "Footage" }
+      expect(entry).to eq({ "text" => "Footage", "class" => "pito-table-heading--added text-right" })
     end
 
-    it "Release heading is a right-aligned hash" do
-      release_entry = payload["table_heading"].find { |h| h.is_a?(Hash) && h["text"] == "Release" }
-      expect(release_entry).to eq({ "text" => "Release", "class" => "pito-table-heading--added text-right" })
-    end
-
-    it "Year cell is right-aligned with tabular-nums" do
-      row     = payload["table_rows"].first
-      # Find year cell (last cell)
+    it "Footage cell is right-aligned" do
+      row           = payload["table_rows"].first
       heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
-      year_idx = heading_texts.index("Year")
-      year_cell = row[:cells][year_idx]
-      expect(year_cell[:class]).to include("text-right")
-      expect(year_cell[:class]).to include("tabular-nums")
-    end
-
-    it "Release cell is right-aligned" do
-      row     = payload["table_rows"].first
-      heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
-      release_idx = heading_texts.index("Release")
-      release_cell = row[:cells][release_idx]
-      expect(release_cell[:class]).to include("text-right")
+      footage_cell  = row[:cells][heading_texts.index("Footage")]
+      expect(footage_cell[:class]).to include("text-right")
     end
   end
 

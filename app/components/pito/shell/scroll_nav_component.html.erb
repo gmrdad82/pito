@@ -1,24 +1,28 @@
-<%# Scroll-nav wrapper — holds both pills and the Stimulus controller root.
-    Pills are position:fixed so DOM placement doesn't affect layout; this
-    wrapper itself has zero height in the flex column. %>
+<%# Scroll-nav wrapper — the Stimulus controller root + two <template>s. The
+    controller CREATES a pill (a clone of the matching template) and appends it
+    when there are messages above / below, and REMOVES it from the DOM when there
+    are none (owner: create/remove, never show/hide). Pills are position:fixed, so
+    this wrapper stays zero-height in the flex column. %>
 <div data-controller="pito--scroll-nav"
      data-pito--scroll-nav-variants-value="<%= count_variants_json %>">
 
-  <%# TOP pill — shown when there are messages fully above the viewport. %>
-  <div class="pito-scroll-nav__pill pito-scroll-nav__pill--top hidden"
-       data-pito--scroll-nav-target="topPill">
-    <span class="text-fg-dim" data-pito--scroll-nav-target="topCount"></span>
-    <span class="<%= token_class("ctrl+home") %> cursor-pointer"
-          data-action="click->pito--scroll-nav#jumpTop">ctrl+home</span>
-    <span class="text-fg-dim"><%= jump_to_start %></span>
-  </div>
+  <%# TOP pill template — cloned + appended when messages are above the viewport. %>
+  <template data-pito--scroll-nav-target="topTemplate">
+    <div class="pito-scroll-nav__pill pito-scroll-nav__pill--top">
+      <span class="text-fg-dim" data-scroll-nav-count></span>
+      <span class="<%= token_class("ctrl+home") %> cursor-pointer"
+            data-action="click->pito--scroll-nav#jumpTop">ctrl+home</span>
+      <span class="text-fg-dim"><%= jump_to_start %></span>
+    </div>
+  </template>
 
-  <%# BOTTOM pill — shown when there are messages fully below the viewport. %>
-  <div class="pito-scroll-nav__pill pito-scroll-nav__pill--bottom hidden"
-       data-pito--scroll-nav-target="bottomPill">
-    <span class="text-fg-dim" data-pito--scroll-nav-target="bottomCount"></span>
-    <span class="<%= token_class("ctrl+end") %> cursor-pointer"
-          data-action="click->pito--scroll-nav#jumpBottom">ctrl+end</span>
-    <span class="text-fg-dim"><%= jump_to_end %></span>
-  </div>
+  <%# BOTTOM pill template — cloned + appended when messages are below the viewport. %>
+  <template data-pito--scroll-nav-target="bottomTemplate">
+    <div class="pito-scroll-nav__pill pito-scroll-nav__pill--bottom">
+      <span class="text-fg-dim" data-scroll-nav-count></span>
+      <span class="<%= token_class("ctrl+end") %> cursor-pointer"
+            data-action="click->pito--scroll-nav#jumpBottom">ctrl+end</span>
+      <span class="text-fg-dim"><%= jump_to_end %></span>
+    </div>
+  </template>
 </div>

@@ -154,14 +154,19 @@ class Channel
         rows.first || {}
       end
 
-      # Daily time-series: views + estimatedMinutesWatched per calendar day.
+      # Daily time-series per calendar day. Pulls the counts (views, watch-time,
+      # net-subs inputs, comments) AND YouTube's own per-day AVERAGES
+      # (averageViewDuration, averageViewPercentage) so charts use YouTube's values
+      # directly instead of deriving them (owner: never re-derive what YT supplies;
+      # only views-weight across multiple videos/channels — a per-scope combine YT
+      # can't do). normalize_generic_response preserves the float averages.
       # Returns an Array of Hashes ordered by day (API default).
       def daily(channel_id:, start_date:, end_date:, videos: nil)
         query(
           channel_id: channel_id,
           start_date: start_date,
           end_date:   end_date,
-          metrics:    "views,estimatedMinutesWatched",
+          metrics:    "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,subscribersLost,comments",
           dimensions: "day",
           filters:    video_filter(videos)
         )

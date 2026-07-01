@@ -52,12 +52,13 @@ RSpec.describe Pito::MessageBuilder::Game::ListHelp do
       expect(result["body"]).to include("channel")
     end
 
-    it "body includes the release date column token" do
-      expect(result["body"]).to include("release date")
+    it "no longer lists the removed release date / year columns (item 24)" do
+      expect(result["body"]).not_to include("release date")
+      expect(result["body"]).not_to match(/\byear\b/i)
     end
 
-    it "body includes the year column token" do
-      expect(result["body"]).to include("year")
+    it "body includes the footage column token" do
+      expect(result["body"]).to include("footage")
     end
 
     it "body includes the with option" do

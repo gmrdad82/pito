@@ -29,10 +29,6 @@ module Pito
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
-          # TBA (no date/year) sorts AFTER all known dates ascending (and first
-          # descending) — treat unknown as the far future, not Date.new(0).
-          release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
-          year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true },
           channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true },
           footage:      { key: ->(g) { g.footage_hours },                                        requires_with: true },
           # Unpriced games sort before any priced game ascending (nil → -1).
@@ -52,8 +48,6 @@ module Pito
           "developer"    => :developer,
           "dev"          => :developer,
           "publisher"    => :publisher,
-          "release date" => :release_date,
-          "year"         => :year,
           "channel"      => :channels,
           "channels"     => :channels,
           "footage"      => :footage,
@@ -102,18 +96,6 @@ module Pito
               end
             }
           },
-          release_date: {
-            aliases: [ "release", "release date" ],
-            heading: "Release",
-            align:   :right,
-            value:   ->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }
-          },
-          year:         {
-            aliases: %w[year],
-            heading: "Year",
-            align:   :right,
-            value:   ->(g) { g.release_year&.to_s || "—" }
-          },
           footage:      {
             aliases:    %w[footage],
             heading:    "Footage",
@@ -155,8 +137,8 @@ module Pito
           end.freeze
         end
 
-        # Returns +cols+ sorted by their order in COLUMNS.keys — so
-        # release_date and year always trail the other with-columns.
+        # Returns +cols+ sorted by their order in COLUMNS.keys — a stable
+        # left-to-right column order regardless of the order the user typed them.
         #
         # @param cols [Array<Symbol>] canonical column keys in any order
         # @return [Array<Symbol>]
@@ -242,7 +224,7 @@ module Pito
                 cfg[:cell_class] ||
                 case cfg[:align]
                 when :right
-                  col == :year ? "text-fg-dim text-right tabular-nums" : "text-fg-dim text-right"
+                  "text-fg-dim text-right"
                 else
                   "text-fg-dim"
                 end
