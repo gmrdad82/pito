@@ -163,6 +163,7 @@ jobs:
         uses: ./.github/actions/slack-notify
         with:
           headline: ":package: *New image published — `${{ env.IMAGE }}:${{ steps.meta.outputs.version }}`*"
+          extra: "Deploy it: `pito update`"
           status: ${{ job.status }}
           webhook: ${{ secrets.SLACK_WEBHOOK }}
           github-token: ${{ github.token }}
