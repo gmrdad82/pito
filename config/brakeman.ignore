@@ -9,12 +9,24 @@
       "note": "HEAD requests do not need intended-URL stashing; the behaviour is intentional."
     },
     {
-      "fingerprint": "f6447e4dd2a52cba99eb199ef848434d1b0505b41435303749813ab86416d8ca",
-      "note": "allow_other_host is required for Google OAuth redirect to accounts.google.com."
-    },
-    {
       "fingerprint": "9ea997b0cb677c31fa4f8a92bba0eac8e37cc7cc89febd139072b700a03b845b",
       "note": "list games platform filter: the interpolated fragment is only static `p ILIKE ?` placeholders (one per platform token); user values are bound via *args, so the query is fully parameterized. False positive."
+    },
+    {
+      "warning_type": "Cross-Site Scripting",
+      "check_name": "CrossSiteScripting",
+      "fingerprint": "a0c7a7d85dbefe8c43839b039978b01877b464b8027648e0ff337464671ea9c6",
+      "file": "app/views/conversations/show.html.erb",
+      "line": 14,
+      "note": "@scrollback_html is the L2 snapshot: Pito::Stream::ScrollbackCache assembles Pito::Stream::EventRenderer output \u2014 the SAME server-rendered ViewComponent HTML this view previously rendered inline per event (0.9.0 Phase 6). All user/import-derived values are escaped at component level (see Pito::Copy.render_html's XSS contract); no raw user input reaches the string. Weak-confidence false positive on the html_safe hop."
+    },
+    {
+      "warning_type": "Cross-Site Scripting",
+      "check_name": "CrossSiteScripting",
+      "fingerprint": "baa43d6a0e4c8cf4d71e066393caabb1ed094f159bcd27f766e9bb4f26318c9b",
+      "file": "app/views/conversations/show.html.erb",
+      "line": 14,
+      "note": "@scrollback_html is the L2 snapshot: Pito::Stream::ScrollbackCache assembles Pito::Stream::EventRenderer output \u2014 the SAME server-rendered ViewComponent HTML this view previously rendered inline per event (0.9.0 Phase 6). All user/import-derived values are escaped at component level (see Pito::Copy.render_html's XSS contract); no raw user input reaches the string. Weak-confidence false positive on the html_safe hop."
     }
   ],
   "updated": "2026-06-09",

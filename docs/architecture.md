@@ -153,14 +153,14 @@ for kind → component lookup (`COMPONENT_CLASSES`).
 Layered, all derived and disposable; **events stay canonical** (structured
 `jsonb` + baked body HTML — never the source of truth for data).
 
-| Layer | Store | What | Key | Expiry |
-| --- | --- | --- | --- | --- |
-| **L0 primitives** | `analytics_primitives` | per-subject raw YouTube metrics (video, or channel-wide `:channel`) per report per window | (subject, report, start, end) | Window policy (below) |
-| **L0.5 cells** | `analytics_cache` (`Pito::Analytics::Cache`) | one analyze metric's computed raw ingredient (chart/bars/likes data) | `cell:v1:<metric>:<level>:<ids-digest>:<window>` — **selection-free** | Window policy |
-| **L1 fragments** | SolidCache (`Pito::Stream::FragmentCache`) | one rendered event's HTML, meta line replaced by a `data-pito-meta-slot` filled at serve time | kind + event id + zone + SHA256(payload minus `reply_consumed`) | digest rotation + 1wk TTL |
-| **L2 snapshot** | SolidCache (`Pito::Stream::ScrollbackCache`) | the assembled scrollback (turn containers + filled fragments) | conversation uuid + zone | busted at every Broadcaster chokepoint; rebuilt on read |
-| **Share page** | SolidCache (`Pito::Share::PageCache`) | intro + shared event (reply-suppressed) + outro | content-addressed (uuid + event digest + counts + zone) | 1wk; revoke needs no bust (controller gates on the Share row) |
-| **IGDB search** | SolidCache (`Pito::Search::Modules::IgdbGames`) | successful search envelopes only | case-folded query digest + limit | 1 day |
+| Layer             | Store                                           | What                                                                                          | Key                                                                   | Expiry                                                        |
+| ----------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **L0 primitives** | `analytics_primitives`                          | per-subject raw YouTube metrics (video, or channel-wide `:channel`) per report per window     | (subject, report, start, end)                                         | Window policy (below)                                         |
+| **L0.5 cells**    | `analytics_cache` (`Pito::Analytics::Cache`)    | one analyze metric's computed raw ingredient (chart/bars/likes data)                          | `cell:v1:<metric>:<level>:<ids-digest>:<window>` — **selection-free** | Window policy                                                 |
+| **L1 fragments**  | SolidCache (`Pito::Stream::FragmentCache`)      | one rendered event's HTML, meta line replaced by a `data-pito-meta-slot` filled at serve time | kind + event id + zone + SHA256(payload minus `reply_consumed`)       | digest rotation + 1wk TTL                                     |
+| **L2 snapshot**   | SolidCache (`Pito::Stream::ScrollbackCache`)    | the assembled scrollback (turn containers + filled fragments)                                 | conversation uuid + zone                                              | busted at every Broadcaster chokepoint; rebuilt on read       |
+| **Share page**    | SolidCache (`Pito::Share::PageCache`)           | intro + shared event (reply-suppressed) + outro                                               | content-addressed (uuid + event digest + counts + zone)               | 1wk; revoke needs no bust (controller gates on the Share row) |
+| **IGDB search**   | SolidCache (`Pito::Search::Modules::IgdbGames`) | successful search envelopes only                                                              | case-folded query digest + limit                                      | 1 day                                                         |
 
 **Window expiry policy — ONE place** (`Pito::Analytics::Window.expires_at_for`):
 finalized (period ended ≥ `FINALIZED_AFTER` = 7 days ago; YouTube aggregates in
@@ -168,7 +168,7 @@ finalized (period ended ≥ `FINALIZED_AFTER` = 7 days ago; YouTube aggregates i
 window-keyed caches call it; never re-derive TTLs.
 
 **Selection invariant.** `analyze … with/without <metrics>` filters the
-*render*, never the fetch: markers store the full role metric set, L0/L0.5 are
+_render_, never the fetch: markers store the full role metric set, L0/L0.5 are
 keyed selection-free, and any selection composes from the same cached cells
 (spec: `selection_invariant_spec.rb`).
 
