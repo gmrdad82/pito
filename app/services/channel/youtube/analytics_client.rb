@@ -141,6 +141,29 @@ class Channel
         subscribersGained subscribersLost likes dislikes comments
       ].join(",").freeze
 
+      # PER-VIDEO scalar rows for a BATCH of videos in ONE request (0.9.0
+      # Phase 3) — the "Top videos with optional regional filters" report
+      # shape: `dimensions=video`, `sort` required, ≤ 200 rows, and the ONLY
+      # video-dimensioned variant carrying all 9 SCALAR_METRICS (verified
+      # against channel_reports docs; subscribersGained/Lost are absent from
+      # the other Top-videos variants). Callers slice to ≤ 200 ids.
+      #
+      # Returns an Array of row Hashes each carrying `:video` plus the metric
+      # keys. A video with NO activity in the range returns no row — callers
+      # treat that as an empty (but cacheable) result.
+      def scalars_by_video(channel_id:, start_date:, end_date:, videos:)
+        query(
+          channel_id:  channel_id,
+          start_date:  start_date,
+          end_date:    end_date,
+          metrics:     SCALAR_METRICS,
+          dimensions:  "video",
+          filters:     video_filter(videos),
+          sort:        "-views",
+          max_results: 200
+        )
+      end
+
       # Aggregate scalars across the date range (no dimension).
       # Returns the single row Hash, or `{}` when the API returns no data.
       def scalars(channel_id:, start_date:, end_date:, videos: nil)
@@ -155,18 +178,23 @@ class Channel
       end
 
       # Daily time-series per calendar day. Pulls the counts (views, watch-time,
-      # net-subs inputs, comments) AND YouTube's own per-day AVERAGES
+      # net-subs inputs, likes, comments) AND YouTube's own per-day AVERAGES
       # (averageViewDuration, averageViewPercentage) so charts use YouTube's values
       # directly instead of deriving them (owner: never re-derive what YT supplies;
       # only views-weight across multiple videos/channels — a per-scope combine YT
       # can't do). normalize_generic_response preserves the float averages.
       # Returns an Array of Hashes ordered by day (API default).
+      #
+      # `likes` joined in 0.9.0 (glance likes sparkline folds from this report);
+      # daily-primitive rows stored before then lack the key — callers that need
+      # it pass `require_keys: ["likes"]` to Pito::Analytics::Primitives so such
+      # warm rows refetch once.
       def daily(channel_id:, start_date:, end_date:, videos: nil)
         query(
           channel_id: channel_id,
           start_date: start_date,
           end_date:   end_date,
-          metrics:    "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,subscribersLost,comments",
+          metrics:    "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,subscribersLost,likes,comments",
           dimensions: "day",
           filters:    video_filter(videos)
         )

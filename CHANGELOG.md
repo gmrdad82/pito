@@ -4,6 +4,65 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — unreleased
+
+**cache the cache** — a dedicated caching, code-optimization, and
+request-rewriting release. Same product, a fraction of the requests.
+
+### Added
+
+- **Layered cache architecture** on top of the analytics primitives (L0):
+  **L0.5** per-metric cell data (selection-free — any `with`/`without`
+  combination composes from the same cached cells), **L1** rendered
+  message fragments (handle chrome extracted to a serve-time meta slot, so
+  hashtag retirement never invalidates a fragment), and **L2** whole-scrollback
+  snapshots (a conversation reload is one cache read, uniform for 2 or
+  100 messages).
+- **Share pages cached** — the public `/share/:uuid` scrollback serves from a
+  content-addressed SolidCache entry; revocation stays gated by the Share row.
+- **IGDB search cache** — repeat sidebar searches answer instantly for a day;
+  error envelopes are never cached.
+- **`rake pito:bench`** — a strictly READONLY benchmark harness (in-process
+  network kill switch + read-only DB session): replay/component/Copy/fold
+  timings, cache-temperature inventory, and dry request-plan counters, with
+  diffable JSON snapshots under `tmp/bench/`.
+- **`CacheSweepJob`** (daily 04:00) — sweeps expired analytics cache/primitive
+  rows and `api_requests` audit rows older than 90 days.
+- **Automatic recovery after reauth** — the moment a dead YouTube grant is
+  reauthenticated, PITO requeues every failed job and immediately re-runs the
+  scheduled passes the flag had been skipping (channel + video sync per
+  channel, stats, achievements) — no more waiting for the next nightly.
+
+### Changed
+
+- **The glance (`show …`) folds from the shared primitives** instead of firing
+  ~10 dedicated YouTube requests every time: 2 requests cold, **zero warm**, at
+  any level — and it now shares rows with `analyze` (the double-fetch is gone).
+- **TTL policy in one place** (`Window#expires_at_for`): finalized periods
+  (ended ≥ 1 week ago) stay frozen forever; **lifetime data holds 24h** (was
+  hourly); live windows hold 4h. Retention rows joined the same policy (their
+  hardcoded 1h TTL was a second policy point — removed).
+- **Batched + parallel external requests**: per-video scalars fetch ≤200 videos
+  per request via the Top-videos report; un-batchable per-video reports (daily,
+  breakdowns — API has no video dimension there) fetch 4-wide concurrent; the
+  IGDB nightly refresh bulk-fetches every awaited game in ⌈N/500⌉×2 requests
+  (was 2×N).
+- **Analyze finalize composes from per-metric stashes** — the last metric to
+  land no longer re-aggregates every metric (which refetched likes and probed
+  every report at the message window); repeat analyzes within the TTL make
+  **zero** requests end-to-end.
+- **Likes hearts** fold from the scalars primitive (were raw uncached HTTP).
+- The `daily` report now carries `likes` (glance sparkline); pre-0.9.0 warm
+  rows refetch once via `require_keys`.
+- Copy-widget **"Copied!" feedback no longer reflows its host row** — it
+  overlays the icon instead of occupying flex space (the footage-snippet
+  layout-jump bug).
+
+### Removed
+
+- **`/compact`** — the placeholder command and its whole stack (handler, no-op
+  job, confirmation branch, copy, grammar row, specs). The context bar stays.
+
 ## [0.8.5] — 2026-07-02
 
 A broad follow-up to **analtics**: a full `show channel` surface, sharper `sync`

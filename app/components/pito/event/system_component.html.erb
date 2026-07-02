@@ -89,10 +89,13 @@
   <% if @suggestion %>
     <%= render(Pito::Event::SegmentSuggestionComponent.new(suggestion: @suggestion)) %>
   <% end %>
-  <% if meta_handle || channel %>
-    <%= render(Pito::Event::MetaLineComponent.new(
-          handle:  meta_handle,
-          channel: channel
-        )) %>
+  <%# Meta line (handle/channel) renders through a SLOT filled at serve time
+      (Pito::Stream::EventRenderer#fill_meta_slot) — the handle affordance is
+      the only thing that changes on old messages (consumption), so keeping it
+      OUT of the markup makes the fragment cache-stable (0.9.0 Phase 5; same
+      pattern as data-pito-ts-slot). Emitted whenever a handle/channel COULD
+      render; the filler decides liveness from the payload. %>
+  <% if meta_slot? %>
+    <div data-pito-meta-slot></div>
   <% end %>
 <% end %>

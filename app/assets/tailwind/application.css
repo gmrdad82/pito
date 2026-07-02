@@ -2375,7 +2375,8 @@ html {
    old cyan. Since the icon is an SVG (stroke:currentColor), the gradient-clip text
    shimmer can't apply, so we animate `color` between the action base/band. No
    hover, border-radius 0. */
-.pito-copy { display: inline-flex; align-items: center; margin-left: 0.5ch; }
+/* position: relative anchors the "Copied!" overlay (see __feedback below). */
+.pito-copy { display: inline-flex; align-items: center; margin-left: 0.5ch; position: relative; }
 .pito-copy__btn {
   flex: 0 0 auto;
   background: transparent;
@@ -2391,7 +2392,19 @@ html {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-.pito-copy__feedback { margin-left: 0.5ch; }
+/* "Copied!" feedback OVERLAYS to the right of the icon instead of occupying
+   flex space — a host row (e.g. the footage snippet's wrapping <code> bar)
+   must never re-wrap when the feedback appears/clears (0.9.0: the layout-jump
+   bug, owner 2026-07-02). pointer-events off: it is a transient label. */
+.pito-copy__feedback {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.5ch;
+  white-space: nowrap;
+  pointer-events: none;
+}
 
 /* Icon shimmer: pulse currentColor between the action base (pito-blue) and band
    (purple) — the SVG-stroke analogue of .pito-action-shimmer's text sweep. */

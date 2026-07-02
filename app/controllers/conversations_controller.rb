@@ -29,6 +29,18 @@ class ConversationsController < ApplicationController
     # view likewise withholds the typed-command history, draft, and title.
     @events      = @authenticated ? @conversation.events.includes(:turn).order(:position) : Event.none
     @event_count = @authenticated ? @conversation.context_event_count : 0
+
+    # L2 snapshot (0.9.0 Phase 6): the assembled scrollback serves as ONE cache
+    # read; misses rebuild from the L1 fragment layer. Broadcaster chokepoints
+    # bust it on every scrollback-visible change. Authenticated only.
+    @scrollback_html =
+      if @authenticated
+        Pito::Stream::ScrollbackCache.fetch(@conversation) do
+          Pito::Stream::ScrollbackCache.assemble(@events.to_a)
+        end
+      else
+        ""
+      end
   end
 
   # GET /resume — re-render the conversations sidebar (same Turbo Stream as the

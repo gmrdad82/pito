@@ -210,6 +210,40 @@ class Game
         post("game_time_to_beats", body)
       end
 
+      # BULK variants (0.9.0 Phase 3) — the nightly refresh fetches every
+      # awaited game in ⌈N/500⌉ requests instead of 2 per game. IGDB's
+      # documented per-query row cap is 500 (`limit`); callers slice to ≤500.
+
+      # Full game rows for a list of IGDB ids — same GAME_FIELDS payload shape
+      # as #fetch_game, one request per call.
+      def fetch_games_by_ids(igdb_ids)
+        ids = sanitize_id_list(igdb_ids)
+        return [] if ids.empty?
+        raise ArgumentError, "at most 500 ids per call (got #{ids.size})" if ids.size > 500
+
+        body = Apicalypse.new
+          .fields(*GAME_FIELDS)
+          .where("id = (#{ids.join(',')})")
+          .limit(500)
+          .to_s
+        post("games", body)
+      end
+
+      # Time-to-beat rows for a list of IGDB game ids — same row shape as
+      # #fetch_time_to_beat (callers group by "game_id").
+      def fetch_time_to_beats_by_game_ids(igdb_ids)
+        ids = sanitize_id_list(igdb_ids)
+        return [] if ids.empty?
+        raise ArgumentError, "at most 500 ids per call (got #{ids.size})" if ids.size > 500
+
+        body = Apicalypse.new
+          .fields("id", "game_id", "hastily", "normally", "completely")
+          .where("game_id = (#{ids.join(',')})")
+          .limit(500)
+          .to_s
+        post("game_time_to_beats", body)
+      end
+
       def fetch_external_games(igdb_id)
         raise ArgumentError, "igdb_id must be a positive integer" unless valid_igdb_id?(igdb_id)
 

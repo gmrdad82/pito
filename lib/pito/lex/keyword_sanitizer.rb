@@ -18,7 +18,7 @@ module Pito
 
       KEYWORDS = Set.new(%w[
         list ls show delete rm schedule publish unlist price footage link unlink
-        sync import reindex platform find help authenticate connect config disconnect themes compact
+        sync import reindex platform find help authenticate connect config disconnect themes
         set unset update snippet add remove sort order slate
         logout notifications notifs exit quit
         share revoke unshare unfold

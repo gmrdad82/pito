@@ -118,12 +118,6 @@ en:
           description: "Search IGDB for a game and import it into your library. Optionally prefill the search box with a title."
         import:
           opening: "Opening the IGDB import sidebar…"
-      compact:
-        descriptions:
-          compact: "Compact the conversation context"
-        help:
-          usage: "/compact"
-          description: "Compact this conversation's context to free up space (experimental)."
       rename:
         descriptions:
           rename: "Rename the current conversation (/rename <new title>)"

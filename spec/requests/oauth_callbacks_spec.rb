@@ -142,6 +142,41 @@ RSpec.describe "YoutubeConnections::OauthCallbacksController", type: :request do
     end
   end
 
+  # ── Reauth recovery (0.9.0 Phase RQ) ──────────────────────────────────────
+
+  describe "GET /auth/youtube/callback — reauth recovery" do
+    let(:subject_id) { "sub-recovery-#{SecureRandom.hex(4)}" }
+
+    before do
+      authenticate_via_totp
+      post chat_path, params: { input: "/connect", uuid: conversation.uuid }
+      OmniAuth.config.add_mock(:google_oauth2, omniauth_hash(subject_id:))
+      allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
+        .to receive(:discover_and_link_channels)
+        .and_return({ added: [], duplicates: [ "Alpha" ], error: nil })
+    end
+
+    it "enqueues YoutubeReauthRecoveryJob when a dead grant comes back to life" do
+      dead = create(:youtube_connection, google_subject_id: subject_id, needs_reauth: true)
+
+      expect { get "/auth/youtube/callback" }
+        .to have_enqueued_job(YoutubeReauthRecoveryJob).with(dead.id)
+    end
+
+    it "does NOT enqueue recovery on a FIRST connect (nothing was skipped)" do
+      expect { get "/auth/youtube/callback" }
+        .not_to have_enqueued_job(YoutubeReauthRecoveryJob)
+    end
+
+    it "does NOT enqueue recovery when the grant comes back PARTIAL (still broken)" do
+      create(:youtube_connection, google_subject_id: subject_id, needs_reauth: true)
+      OmniAuth.config.add_mock(:google_oauth2, omniauth_hash(subject_id:, scopes: [ "email" ]))
+
+      expect { get "/auth/youtube/callback" }
+        .not_to have_enqueued_job(YoutubeReauthRecoveryJob)
+    end
+  end
+
   # ── Failure action (GET /auth/failure) ────────────────────────────────────
 
   describe "GET /auth/failure" do

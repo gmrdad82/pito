@@ -1,32 +1,11 @@
 <%# Public share page — reduced view for a single shared event.
     Privacy: the parent conversation title is NOT shown anywhere. %>
-<%
-  scrollback   = Pito::Conversation::ScrollbackCount.around(
-                   conversation: @conversation,
-                   position:     @event.position
-                 )
-  before_count = scrollback[:before]
-  after_count  = scrollback[:after]
-%>
 <div id="pito-share" class="flex flex-col" style="height: 100vh;">
   <div id="pito-scrollback" class="pito-hide-scrollbar pito-scroll-fade" style="flex: 1; overflow-y: auto; padding: 32px 25px 20px;">
-    <%# Intro summary — how many non-thinking messages came before this one. %>
-    <% if before_count > 0 %>
-      <%= render(Pito::Event::SystemComponent.new(
-            payload: { body: Pito::Copy.render("pito.copy.share.intro", count: before_count) }
-          )) %>
-    <% end %>
-
-    <%# The shared event itself. Read-only: suppress the reply affordance so the
-        public page shows no #hashtag (owner 2026-07-01). %>
-    <%= render(Pito::Stream::EventRenderer.component_for(@event, suppress_reply: true)) %>
-
-    <%# Outro summary — how many non-thinking messages came after this one. %>
-    <% if after_count > 0 %>
-      <%= render(Pito::Event::SystemComponent.new(
-            payload: { body: Pito::Copy.render("pito.copy.share.outro", count: after_count) }
-          )) %>
-    <% end %>
+    <%# Intro + the shared event (reply-suppressed) + outro — rendered through
+        Pito::Share::PageCache (SolidCache, content-addressed key; 0.9.0
+        Phase 7), so repeat public hits cost one cache read. %>
+    <%= @scrollback_html.html_safe %>
   </div>
 
   <div style="padding: 0 25px 32px;">

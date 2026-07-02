@@ -11,8 +11,10 @@ RSpec.describe Pito::Analytics::AnalyzeMetricFill do
 
   before { allow(described_class).to receive(:groups_for).and_return(groups) }
 
+  # Assertions target the renderable CELL; Filled#raw (the marker stash entry)
+  # gets its own examples below.
   def call(metric:, level: "channel", entity_ids: [ 1 ], period: "28d")
-    described_class.for(metric:, level:, entity_ids:, period:)
+    described_class.for(metric:, level:, entity_ids:, period:).cell
   end
 
   def daily_result(dates: [ Date.new(2026, 6, 1) ], series: [ 100 ], total: 100)

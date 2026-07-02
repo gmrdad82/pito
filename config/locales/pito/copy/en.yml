@@ -7613,9 +7613,6 @@ en:
           - "%{count} {message|messages} %{direction}, unseen"
         jump_to_start: "[<-"
         jump_to_end: "jump ->]"
-      compact:
-        confirmation_body: "Compact this conversation? This will condense the context. (This is a placeholder — real compaction coming later.)"
-        queued: "Compacting… (this is a no-op placeholder for now.)"
       purge_warning:
         - "Unnamed after 30 days? Gone. It's not personal. It's automation."
         - "Your conversation has no name. In 30 days, neither will it."

@@ -219,7 +219,7 @@ RSpec.describe Pito::Analytics::Primitives, type: :service do
   # ── TTL: live window ─────────────────────────────────────────────────────────
 
   describe ".fetch — TTL for live window" do
-    it "stores expires_at ≈ now + 1 hour" do
+    it "stores expires_at ≈ now + LIVE_TTL (4h — the 0.9.0 live tier)" do
       stub_client_scalars({ views: 1 })
 
       described_class.fetch(
@@ -230,7 +230,7 @@ RSpec.describe Pito::Analytics::Primitives, type: :service do
       )
 
       row = persisted_primitive(video.youtube_video_id, live_window)
-      expect(row.expires_at).to be_within(1.second).of(now + 1.hour)
+      expect(row.expires_at).to be_within(1.second).of(now + 4.hours)
     end
   end
 
@@ -309,6 +309,75 @@ RSpec.describe Pito::Analytics::Primitives, type: :service do
       )
 
       expect(result[video.youtube_video_id]).to eq({ "views" => 77 })
+    end
+  end
+  # ── batched scalars (0.9.0 Phase 3) ─────────────────────────────────────────
+
+  describe ".fetch — batched scalars (multi-video group)" do
+    let(:video2) { create(:video, channel: channel) }
+
+    def stub_batched(rows)
+      allow_any_instance_of(::Channel::Youtube::AnalyticsClient)
+        .to receive(:scalars_by_video)
+        .and_return(rows)
+    end
+
+    it "fetches ALL cold videos in ONE dimensions=video request and splits rows per video" do
+      stub_batched([
+        { video: video.youtube_video_id,  views: 10, likes: 1 },
+        { video: video2.youtube_video_id, views: 20, likes: 2 }
+      ])
+
+      result = described_class.fetch(
+        groups: [ [ channel, [ video.youtube_video_id, video2.youtube_video_id ] ] ],
+        window: live_window, report: "scalars", now: now
+      )
+
+      expect(result[video.youtube_video_id]).to include("views" => 10)
+      expect(result[video2.youtube_video_id]).to include("views" => 20)
+      # The :video dimension key is stripped — stored rows keep the aggregate shape.
+      expect(persisted_primitive(video.youtube_video_id, live_window).metrics).not_to have_key("video")
+      expect(persisted_primitive(video2.youtube_video_id, live_window).metrics["views"]).to eq(20)
+    end
+
+    it "stores {} for a video the batch returned no row for (no activity — warm emptiness)" do
+      stub_batched([ { video: video.youtube_video_id, views: 10 } ])
+
+      result = described_class.fetch(
+        groups: [ [ channel, [ video.youtube_video_id, video2.youtube_video_id ] ] ],
+        window: live_window, report: "scalars", now: now
+      )
+
+      expect(result[video2.youtube_video_id]).to eq({})
+      expect(persisted_primitive(video2.youtube_video_id, live_window).metrics).to eq({})
+    end
+
+    it "batches ONLY the cold videos — warm rows are served without any client call" do
+      create(:analytics_primitive, video_youtube_id: video.youtube_video_id, report: "scalars",
+             start_date: live_window.start_date, end_date: live_window.end_date,
+             period_token: "7d", metrics: { "views" => 99 }, expires_at: 1.hour.from_now)
+      batched = []
+      allow_any_instance_of(::Channel::Youtube::AnalyticsClient)
+        .to receive(:scalars_by_video) { |_, videos:, **| batched.concat(videos); [] }
+
+      result = described_class.fetch(
+        groups: [ [ channel, [ video.youtube_video_id, video2.youtube_video_id ] ] ],
+        window: live_window, report: "scalars", now: now
+      )
+
+      expect(result[video.youtube_video_id]).to eq({ "views" => 99 })
+      expect(batched).to eq([ video2.youtube_video_id ])
+    end
+
+    it "keeps the single-video path on the aggregate #scalars call (no dimension needed)" do
+      stub_client_scalars({ views: 7 })
+
+      result = described_class.fetch(
+        groups: [ [ channel, [ video.youtube_video_id ] ] ],
+        window: live_window, report: "scalars", now: now
+      )
+
+      expect(result[video.youtube_video_id]).to eq({ "views" => 7 })
     end
   end
 end

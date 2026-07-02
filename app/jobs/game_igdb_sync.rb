@@ -40,7 +40,10 @@ class GameIgdbSync < ApplicationJob
 
   queue_as :default
 
-  def perform(game_id, conversation_id: nil)
+  # `prefetched:` (0.9.0 Phase 3) — bulk-fetched `{ game_json:, ttb_json: }`
+  # passed through to SyncGame so batch callers (the nightly refresh) skip the
+  # two per-game IGDB requests. perform_now callers only (in-memory payloads).
+  def perform(game_id, conversation_id: nil, prefetched: nil)
     game = Game.find_by(id: game_id)
     return unless game
 
@@ -58,7 +61,7 @@ class GameIgdbSync < ApplicationJob
     game.update_column(:resyncing, true)
     success = false
     begin
-      Game::Igdb::SyncGame.new.call(game)
+      Game::Igdb::SyncGame.new.call(game, prefetched:)
       success = true
     rescue Game::Igdb::Client::RateLimited => e
       sleep(e.retry_after.to_i.clamp(1, 60))

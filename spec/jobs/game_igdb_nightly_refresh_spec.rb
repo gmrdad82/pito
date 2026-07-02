@@ -12,19 +12,52 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     described_class.new.perform
   end
 
+  # ── bulk prefetch (0.9.0 Phase 3) ───────────────────────────────────────────
+
+  it "bulk-prefetches every awaited game's IGDB + ttb rows and hands each sync its payload" do
+    game   = create(:game, igdb_id: 4242, igdb_synced_at: 10.days.ago, release_year: nil)
+    client = instance_double(Game::Igdb::Client)
+    allow(Game::Igdb::Client).to receive(:new).and_return(client)
+    allow(client).to receive(:fetch_games_by_ids).with([ game.igdb_id ])
+      .and_return([ { "id" => game.igdb_id, "name" => "Awaited" } ])
+    allow(client).to receive(:fetch_time_to_beats_by_game_ids).with([ game.igdb_id ])
+      .and_return([ { "game_id" => game.igdb_id, "hastily" => 3600 } ])
+
+    run!
+
+    expect(GameIgdbSync).to have_received(:perform_now).with(
+      game.id,
+      prefetched: {
+        game_json: hash_including("id" => game.igdb_id),
+        ttb_json:  [ hash_including("game_id" => game.igdb_id) ]
+      }
+    )
+  end
+
+  it "falls back to per-game fetches (prefetched: nil) when the bulk prefetch errors" do
+    game   = create(:game, igdb_id: 4243, igdb_synced_at: 10.days.ago, release_year: nil)
+    client = instance_double(Game::Igdb::Client)
+    allow(Game::Igdb::Client).to receive(:new).and_return(client)
+    allow(client).to receive(:fetch_games_by_ids).and_raise(Game::Igdb::Client::ServerError, "5xx")
+
+    run!
+
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id, prefetched: nil)
+  end
+
   # ── scope filtering ─────────────────────────────────────────────────────────
 
   it "syncs a synced, awaited (TBA) game" do
     game = create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id, prefetched: anything)
   end
 
   it "does NOT sync a released game (day-precision past date — IGDB data is final)" do
     released = create(:game, igdb_synced_at: 10.days.ago,
                              release_year: 2020, release_month: 3, release_day: 15)
     run!
-    expect(GameIgdbSync).not_to have_received(:perform_now).with(released.id)
+    expect(GameIgdbSync).not_to have_received(:perform_now).with(released.id, prefetched: anything)
   end
 
   it "syncs a game whose date is only quarter-precision, even after the window opens (no fixed clear date)" do
@@ -33,7 +66,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     game = create(:game, igdb_synced_at: 10.days.ago,
                          release_year: Date.current.year, release_quarter: 1)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id, prefetched: anything)
   end
 
   it "syncs a game settled at game level whose platform row is only quarter-precision" do
@@ -45,13 +78,13 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
            release_year: Date.current.year, release_quarter: 1,
            release_month: nil, release_day: nil)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id, prefetched: anything)
   end
 
   it "syncs even a freshly-synced awaited game (nightly cadence — no stale gate, Item 51)" do
     fresh = create(:game, igdb_synced_at: 1.hour.ago, release_year: nil)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(fresh.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(fresh.id, prefetched: anything)
   end
 
   it "syncs a game released on one platform while another platform's date is still ahead (Item 51)" do
@@ -63,7 +96,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     create(:game_platform_release, game:, platform_token: "switch",
            release_year: future.year, release_month: future.month, release_day: future.day)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id, prefetched: anything)
   end
 
   it "syncs a game released on one platform while another platform is TBA (Item 51)" do
@@ -73,7 +106,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
            release_year: 2020, release_month: 3, release_day: 15)
     create(:game_platform_release, game:, platform_token: "xbox", release_year: nil)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id, prefetched: anything)
   end
 
   it "does NOT sync a game released on every platform" do
@@ -84,13 +117,13 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     create(:game_platform_release, game:, platform_token: "steam",
            release_year: 2021, release_month: 6, release_day: 1)
     run!
-    expect(GameIgdbSync).not_to have_received(:perform_now).with(game.id)
+    expect(GameIgdbSync).not_to have_received(:perform_now).with(game.id, prefetched: anything)
   end
 
   it "does NOT sync a never-synced game" do
     never = create(:game, igdb_synced_at: nil, release_year: nil)
     run!
-    expect(GameIgdbSync).not_to have_received(:perform_now).with(never.id)
+    expect(GameIgdbSync).not_to have_received(:perform_now).with(never.id, prefetched: anything)
   end
 
   # ── no chat broadcast ────────────────────────────────────────────────────────
@@ -98,7 +131,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
   it "does NOT pass a conversation_id to GameIgdbSync (no chat broadcast)" do
     create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
     run!
-    expect(GameIgdbSync).to have_received(:perform_now).with(Integer)
+    expect(GameIgdbSync).to have_received(:perform_now).with(Integer, prefetched: anything)
     expect(GameIgdbSync).not_to have_received(:perform_now).with(anything, conversation_id: anything)
   end
 
@@ -119,7 +152,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
   # (b) failure → notification created
   it "(b) creates ONE Notification when at least one game fails" do
     game = create(:game, title: "Broken Game", igdb_synced_at: 10.days.ago, release_year: nil)
-    allow(GameIgdbSync).to receive(:perform_now).with(game.id).and_raise(RuntimeError, "boom")
+    allow(GameIgdbSync).to receive(:perform_now).with(game.id, prefetched: anything).and_raise(RuntimeError, "boom")
 
     expect { run! }.to change(Notification, :count).by(1)
     msg = Notification.last.message
@@ -187,7 +220,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
 
   it "Notification message includes failure info when a game fails" do
     game = create(:game, title: "Exploding Game", igdb_synced_at: 10.days.ago, release_year: nil)
-    allow(GameIgdbSync).to receive(:perform_now).with(game.id).and_raise(RuntimeError, "boom")
+    allow(GameIgdbSync).to receive(:perform_now).with(game.id, prefetched: anything).and_raise(RuntimeError, "boom")
 
     run!
     msg = Notification.last.message
@@ -202,9 +235,9 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     game2 = create(:game, title: "Beta Game",  igdb_synced_at: 10.days.ago, release_year: nil)
     game3 = create(:game, title: "Gamma Game", igdb_synced_at: 10.days.ago, release_year: nil)
 
-    allow(GameIgdbSync).to receive(:perform_now).with(game1.id).and_raise(RuntimeError, "err alpha")
-    allow(GameIgdbSync).to receive(:perform_now).with(game2.id).and_raise(RuntimeError, "err beta")
-    allow(GameIgdbSync).to receive(:perform_now).with(game3.id).and_raise(RuntimeError, "err gamma")
+    allow(GameIgdbSync).to receive(:perform_now).with(game1.id, prefetched: anything).and_raise(RuntimeError, "err alpha")
+    allow(GameIgdbSync).to receive(:perform_now).with(game2.id, prefetched: anything).and_raise(RuntimeError, "err beta")
+    allow(GameIgdbSync).to receive(:perform_now).with(game3.id, prefetched: anything).and_raise(RuntimeError, "err gamma")
 
     expect { run! }.to change(Notification, :count).by(1)
 
