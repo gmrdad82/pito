@@ -162,6 +162,7 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/slack-notify
         with:
+          headline: ":package: *New image published — `${{ env.IMAGE }}:${{ steps.meta.outputs.version }}`*"
           status: ${{ job.status }}
           webhook: ${{ secrets.SLACK_WEBHOOK }}
           github-token: ${{ github.token }}

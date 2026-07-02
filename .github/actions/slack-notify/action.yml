@@ -19,6 +19,10 @@ description: >-
 # step conclusions) alongside its existing `contents: read`.
 
 inputs:
+  headline:
+    description: "Optional success headline override (e.g. an image-published notice)."
+    required: false
+    default: ""
   status:
     description: "Job status (success / failure / cancelled). Pass the job.status context."
     required: true
@@ -35,6 +39,7 @@ runs:
     - name: Post CI result to Slack
       shell: bash
       env:
+        HEADLINE: ${{ inputs.headline }}
         STATUS: ${{ inputs.status }}
         SLACK_WEBHOOK: ${{ inputs.webhook }}
         GH_TOKEN: ${{ inputs.github-token }}
@@ -74,8 +79,9 @@ runs:
               "Flawless. Don't let it go to your head." \
               "All systems nominal. The Butler approves." \
               "Passed without complaint. A rare and beautiful thing.")"
+            headline="${HEADLINE:-:white_check_mark: *${WORKFLOW} is green on \`${BRANCH}\`* :four_leaf_clover:}"
             text="$(printf '%s\n%s\n%s' \
-              ":white_check_mark: *${WORKFLOW} is green on \`${BRANCH}\`* :four_leaf_clover:" \
+              "${headline}" \
               "${line}" \
               "_${repo_name} · <${RUN_URL}|run> · \`${short_sha}\`_")"
             ;;
