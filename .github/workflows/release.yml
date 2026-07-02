@@ -16,6 +16,12 @@ name: Release (GHCR image)
 # and published only when you cut a release tag. So: finish work →
 # `git tag v0.7.1 && git push origin v0.7.1` → this workflow ships the image.
 #
+# GREEN-CI GATE (owner 2026-07-02): a tag on a commit that is not fully green
+# must NOT build an image. The `verify-ci` job waits for every other workflow
+# run on the tagged commit to complete (CI usually runs concurrently — branch
+# and tag are pushed together) and fails unless every conclusion is
+# success/skipped. No CI evidence at all also refuses (fail closed).
+#
 # One-time setup (already done for ghcr.io/gmrdad82/pito): set the package to
 # PUBLIC in GitHub → Packages → Package settings, so self-hosters can
 # `docker compose pull` without authenticating.
@@ -36,8 +42,52 @@ env:
   IMAGE: ghcr.io/${{ github.repository }} # → ghcr.io/gmrdad82/pito
 
 jobs:
+  verify-ci:
+    # THE GATE: block the build until the tagged commit is fully green.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for green CI on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Gating image build on CI for $SHA"
+          deadline=$((SECONDS + 1800))    # 30 min for in-flight runs to finish
+          evidence_deadline=$((SECONDS + 180)) # 3 min for runs to even appear
+          while :; do
+            runs=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&per_page=100"                      --jq '[.workflow_runs[] | select(.name != "Release (GHCR image)")]')
+            total=$(jq 'length' <<<"$runs")
+            pending=$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")
+            bad=$(jq -r '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != "skipped")]
+                          | map("\(.name): \(.conclusion)") | join(", ")' <<<"$runs")
+
+            if [ -n "$bad" ]; then
+              echo "::error::CI is NOT green on $SHA — $bad. Refusing to build the image."
+              exit 1
+            fi
+            if [ "$total" -eq 0 ]; then
+              if [ "$SECONDS" -ge "$evidence_deadline" ]; then
+                echo "::error::No CI runs found for $SHA — refusing to build without CI evidence (fail closed)."
+                exit 1
+              fi
+              echo "no CI runs registered yet for $SHA — waiting…"
+            elif [ "$pending" -eq 0 ]; then
+              echo "All $total workflow run(s) green on $SHA — proceeding with the build."
+              exit 0
+            else
+              echo "waiting: $pending of $total run(s) still in progress…"
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::Timed out (30m) waiting for CI on $SHA."
+              exit 1
+            fi
+            sleep 30
+          done
+
   build:
     # One job per architecture, each on a NATIVE runner (no emulation).
+    needs: verify-ci
     strategy:
       fail-fast: false
       matrix:
