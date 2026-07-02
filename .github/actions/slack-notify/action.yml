@@ -23,6 +23,10 @@ inputs:
     description: "Optional success headline override (e.g. an image-published notice)."
     required: false
     default: ""
+  extra:
+    description: "Optional extra line under the quip (e.g. a `pito update` snippet)."
+    required: false
+    default: ""
   status:
     description: "Job status (success / failure / cancelled). Pass the job.status context."
     required: true
@@ -40,6 +44,7 @@ runs:
       shell: bash
       env:
         HEADLINE: ${{ inputs.headline }}
+        EXTRA: ${{ inputs.extra }}
         STATUS: ${{ inputs.status }}
         SLACK_WEBHOOK: ${{ inputs.webhook }}
         GH_TOKEN: ${{ inputs.github-token }}
@@ -68,6 +73,17 @@ runs:
 
         case "$STATUS" in
           success)
+            if [ -n "${HEADLINE:-}" ]; then
+              # Image-release flavor — its own prose pool, same Butler.
+              line="$(pick \
+                "Fresh off the buildx press. Handle with ceremony." \
+                "Multi-arch and mildly smug. It's on the shelf." \
+                "The registry has accepted your offering." \
+                "Hot image, straight from the oven. Mind the layers." \
+                "Bits shipped. They're your problem again at deploy time." \
+                "Another artifact for the vault. The Butler dusted it first." \
+                "Pushed, tagged, immutable. As all things should be.")"
+            else
             line="$(pick \
               "Everything behaved itself. Nothing to see here, as it should be." \
               "Green across the board. I shall permit myself a small nod." \
@@ -79,11 +95,15 @@ runs:
               "Flawless. Don't let it go to your head." \
               "All systems nominal. The Butler approves." \
               "Passed without complaint. A rare and beautiful thing.")"
+            fi
             headline="${HEADLINE:-:white_check_mark: *${WORKFLOW} is green on \`${BRANCH}\`* :four_leaf_clover:}"
             text="$(printf '%s\n%s\n%s' \
               "${headline}" \
               "${line}" \
               "_${repo_name} · <${RUN_URL}|run> · \`${short_sha}\`_")"
+            if [ -n "${EXTRA:-}" ]; then
+              text="$(printf '%s\n%s' "$text" "$EXTRA")"
+            fi
             ;;
 
           cancelled)
