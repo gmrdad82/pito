@@ -4,7 +4,7 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.9.0] — unreleased
+## [0.9.0] — 2026-07-02
 
 **cache the cache** — a dedicated caching, code-optimization, and
 request-rewriting release. Same product, a fraction of the requests.
