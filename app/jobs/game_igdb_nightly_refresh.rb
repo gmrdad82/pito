@@ -36,19 +36,27 @@
 class GameIgdbNightlyRefresh < ApplicationJob
   queue_as :default
 
+  # 0.9.0 Phase 3 — BULK prefetch: every awaited game's IGDB row + time-to-beat
+  # row is fetched in ⌈N/500⌉ bulk queries (2 requests per 500 games instead of
+  # 2 per game), then each game syncs from its prefetched payload. If a bulk
+  # slice errors (rate limit, 5xx), those games fall back to the per-game
+  # fetch inside SyncGame — the optimization can never break the nightly.
+  BULK_SLICE = 500
+
   def perform
     checked        = 0
     changed        = []
     failures       = []
 
-    upcoming_games = Game.synced.awaiting_release
+    upcoming_games = Game.synced.awaiting_release.to_a
+    prefetched     = prefetch(upcoming_games.map(&:igdb_id).compact)
 
-    upcoming_games.find_each do |game|
+    upcoming_games.each do |game|
       checked += 1
       before_updated_at = game.updated_at
 
       begin
-        GameIgdbSync.perform_now(game.id)
+        GameIgdbSync.perform_now(game.id, prefetched: prefetched&.dig(game.igdb_id))
 
         after_updated_at = Game.where(id: game.id).pick(:updated_at)
         if after_updated_at && after_updated_at > before_updated_at
@@ -68,5 +76,23 @@ class GameIgdbNightlyRefresh < ApplicationJob
       failures:      failures,
       releasing_30d: []
     )
+  end
+
+  private
+
+  # igdb_id → { game_json:, ttb_json: } for every id a bulk slice answered.
+  # A failed slice logs and contributes nothing — its games sync per-game.
+  def prefetch(igdb_ids)
+    client = Game::Igdb::Client.new
+    igdb_ids.each_slice(BULK_SLICE).each_with_object({}) do |slice, map|
+      games = client.fetch_games_by_ids(slice).index_by { |row| row["id"] }
+      ttbs  = client.fetch_time_to_beats_by_game_ids(slice).group_by { |row| row["game_id"] }
+
+      slice.each do |igdb_id|
+        map[igdb_id] = { game_json: games[igdb_id], ttb_json: ttbs[igdb_id] || [] }
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[GameIgdbNightlyRefresh] bulk prefetch failed for #{slice.size} ids (#{e.class}: #{e.message}) — falling back to per-game fetches")
+    end
   end
 end

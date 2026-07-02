@@ -340,13 +340,28 @@ RSpec.describe Pito::Analytics::Window, type: :service do
     context "live window (7d ending on as_of)" do
       subject(:window) { described_class.for("7d", reference_date: finalized_ref) }
 
-      it "returns now + 1 hour with the default live_ttl" do
-        expect(window.expires_at_for(now: fixed_now)).to eq(fixed_now + 1.hour)
+      it "returns now + LIVE_TTL (4h — the 0.9.0 live tier)" do
+        expect(window.expires_at_for(now: fixed_now)).to eq(fixed_now + 4.hours)
       end
 
       it "respects a custom live_ttl" do
         expect(window.expires_at_for(now: fixed_now, live_ttl: 30.minutes))
           .to eq(fixed_now + 30.minutes)
+      end
+    end
+
+    context "lifetime window (ends today, never finalizes)" do
+      subject(:window) { described_class.for("lifetime", reference_date: finalized_ref) }
+
+      it "returns now + LIFETIME_TTL (24h — the 0.9.0 lifetime tier)" do
+        expect(window.expires_at_for(now: fixed_now)).to eq(fixed_now + 24.hours)
+      end
+    end
+
+    context "previous comparable range" do
+      it "is frozen: a prev range always ends ≥ FINALIZED_AFTER days back (7d prev sits exactly on the boundary)" do
+        prev = described_class.for("7d", reference_date: fixed_now.to_date).previous
+        expect(prev.expires_at_for(now: fixed_now)).to be_nil
       end
     end
   end

@@ -5,8 +5,9 @@ module Pito
     # Computes the 1–2 likes-vs-dislikes HEARTS for an analyze scope, ALWAYS over
     # the LIFETIME window (the likes score is a lifetime verdict, independent of the
     # message's shift+space period). Mirrors the job's `groups` model
-    # ([[channel, video_ids|:channel], …]) and sums likes/dislikes via the same
-    # AnalyticsClient.scalars call Pito::Analytics::Scalars uses.
+    # ([[channel, video_ids|:channel], …]) and folds likes/dislikes from the shared
+    # `scalars` primitive (Pito::Analytics::Primitives — 0.9.0 Phase 1), so the
+    # hearts reuse whatever a glance or analyze already fetched for the scope.
     #
     # Layout (owner 2026-07-01) — ONE heart per level, except vid:
     #   vid     → SUBJECT (the vid's own ratio, red) + CHANNEL heart (purple)
@@ -50,20 +51,12 @@ module Pito
 
       # Sum likes/dislikes across the groups over `window` → { likes:, dislikes:,
       # score: } or nil when there are no ratings (or every group errors).
+      # Folds from the shared `scalars` primitive (0.9.0 Phase 1) — string-keyed
+      # per-subject rows, warm after any glance/analyze touched the scope.
       def ratio(groups, window)
-        likes    = 0
-        dislikes = 0
-        groups.each do |channel, vids|
-          ids = vids == :channel ? nil : Array(vids).presence
-          row = ::Channel::Youtube::AnalyticsClient
-            .new(channel.youtube_connection)
-            .scalars(channel_id: channel.youtube_channel_id,
-                     start_date: window.start_date, end_date: window.end_date, videos: ids)
-          next if row.blank?
-
-          likes    += row[:likes].to_i
-          dislikes += row[:dislikes].to_i
-        end
+        rows     = Pito::Analytics::Primitives.fetch(groups:, window:, report: "scalars").values
+        likes    = rows.sum { |r| r["likes"].to_i }
+        dislikes = rows.sum { |r| r["dislikes"].to_i }
 
         total = likes + dislikes
         return nil if total.zero?

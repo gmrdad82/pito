@@ -85,6 +85,15 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     audit("youtube_connection.callback.succeeded",
           connection_id: connection.id)
 
+    # Recovery hook (0.9.0 Phase RQ): this callback just flipped a previously
+    # dead grant back to life — requeue failed jobs + catch up the scheduled
+    # passes the flag made every job skip. Dirty tracking (not a plain flag
+    # read) so a FIRST connect never triggers it; the partial-grant branch
+    # returned above, so a still-broken grant can't reach this.
+    if connection.saved_change_to_needs_reauth? && connection.needs_reauth_before_last_save
+      YoutubeReauthRecoveryJob.perform_later(connection.id)
+    end
+
     # Channel discovery — auto-links all channels accessible under this
     # Google account. Duplicates (by youtube_channel_id) are skipped.
     # API failures surface as a flash note but do NOT roll back the

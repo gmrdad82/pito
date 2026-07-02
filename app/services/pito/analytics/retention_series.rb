@@ -39,9 +39,11 @@ module Pito
       ParsedCurve = Data.define(:curve, :rel_performance)
 
       # Slim struct with the interface Primitives.store / AnalyticsPrimitive expect.
+      # Expiry goes through the ONE Window policy point (token "lifetime" → 24h
+      # tier; never re-derive TTLs locally — 0.9.0 Phase 2).
       LifetimeWindow = Struct.new(:start_date, :end_date, :token) do
-        def expires_at_for(now:, live_ttl: 1.hour)
-          now + live_ttl # ends today → never finalized
+        def expires_at_for(now:, live_ttl: nil)
+          Pito::Analytics::Window.expires_at_for(end_date:, now:, token:, live_ttl:)
         end
       end
 

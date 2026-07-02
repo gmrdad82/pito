@@ -48,9 +48,46 @@ module Pito
         "theme_diff"              => Pito::Event::ThemeDiffComponent
       }.freeze
 
+      # Renders an event to HTML: fragment-cached body (L1 — FragmentCache) +
+      # the serve-time meta-slot fill. The fragment carries a
+      # `data-pito-meta-slot` div instead of the handle/channel meta line;
+      # the CURRENT meta state (handle liveness included) renders into it here,
+      # so handle consumption never invalidates a cached fragment.
       def self.render(event)
-        component = component_for(event)
-        ApplicationController.renderer.render(component, layout: false)
+        html = Pito::Stream::FragmentCache.fetch(event) do
+          ApplicationController.renderer.render(component_for(event), layout: false)
+        end
+        fill_meta_slot(html, event)
+      end
+
+      # The public (share-page) render: reply affordances suppressed, fragment
+      # cache bypassed (share pages get their own page-level cache — Phase 7).
+      def self.render_public(event)
+        html = ApplicationController.renderer.render(
+          component_for(event, suppress_reply: true), layout: false
+        )
+        fill_meta_slot(html, event, suppress_reply: true)
+      end
+
+      META_SLOT = "<div data-pito-meta-slot></div>"
+
+      def self.fill_meta_slot(html, event, suppress_reply: false)
+        return html unless html.include?("data-pito-meta-slot")
+
+        component = component_for(event, suppress_reply:)
+        return html.sub(META_SLOT, "") unless component.respond_to?(:meta_handle)
+
+        handle  = component.meta_handle
+        channel = component.channel
+        meta =
+          if handle || channel.present?
+            ApplicationController.renderer.render(
+              Pito::Event::MetaLineComponent.new(handle:, channel:), layout: false
+            )
+          else
+            ""
+          end
+        html.sub(META_SLOT, meta)
       end
 
       # @param suppress_reply [Boolean] when true, strip the reply affordances

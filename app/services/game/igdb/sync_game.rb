@@ -20,13 +20,18 @@ class Game
         @client = client
       end
 
-      def call(game)
+      # `prefetched:` (0.9.0 Phase 3) — bulk callers (GameIgdbNightlyRefresh)
+      # pass `{ game_json:, ttb_json: }` fetched via the ⌈N/500⌉ bulk queries;
+      # the two per-game requests are then skipped. When prefetched is given
+      # but carries no game_json, the game is MISSING on IGDB — same
+      # ValidationError as an empty individual fetch (no silent refetch).
+      def call(game, prefetched: nil)
         raise ArgumentError, "Game has no igdb_id" if game.igdb_id.blank?
 
-        game_json = @client.fetch_game(game.igdb_id).first
+        game_json = prefetched ? prefetched[:game_json] : @client.fetch_game(game.igdb_id).first
         raise Game::Igdb::Client::ValidationError, "IGDB has no game with id=#{game.igdb_id}" if game_json.nil?
 
-        ttb_json = @client.fetch_time_to_beat(game.igdb_id)
+        ttb_json = prefetched ? prefetched[:ttb_json] : @client.fetch_time_to_beat(game.igdb_id)
 
         attrs = Game::Igdb::GameMapper.map_game(game_json, ttb_json)
 

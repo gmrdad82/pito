@@ -21,7 +21,7 @@ RSpec.describe GameIgdbSync, type: :job do
 
   describe "#perform" do
     it "delegates to Game::Igdb::SyncGame" do
-      expect(sync_game_double).to receive(:call).with(anything)
+      expect(sync_game_double).to receive(:call).with(anything, prefetched: nil)
       described_class.new.perform(game.id)
     end
 

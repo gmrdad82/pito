@@ -8,13 +8,10 @@
        data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag">
     <%# Group events by turn so a refresh reproduces the same per-turn containers
         the cable broadcasts build live (echo + its results stay together). %>
-    <% @events.group_by(&:turn_id).each do |turn_id, events| %>
-      <div id="turn_<%= turn_id %>" class="pito-turn">
-        <% events.each do |event| %>
-          <%= render Pito::Stream::EventRenderer.component_for(event) %>
-        <% end %>
-      </div>
-    <% end %>
+    <%# The L2 snapshot: assembled turn containers + L1 fragments + meta fills,
+        one cache read on a warm reload (0.9.0 Phases 5–6). Markup identical to
+        what the cable broadcasts build live. %>
+    <%= @scrollback_html.html_safe %>
   </div>
 
   <%# Scroll-nav pills — fixed-positioned, no effect on flex layout. %>

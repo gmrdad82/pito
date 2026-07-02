@@ -84,6 +84,10 @@ module Pito
       # async turns (e.g. a lone :system summary from SyncVideosJob) also open
       # their container live instead of silently no-op-ing into a missing target.
       def broadcast_event(event)
+        # Anything reaching the scrollback invalidates the L2 snapshot — the
+        # next page load reassembles from L1 fragments (0.9.0 Phase 6).
+        Pito::Stream::ScrollbackCache.bust(@conversation)
+
         html   = Pito::Stream::EventRenderer.render(event)
         helper = ApplicationController.helpers
 
@@ -128,6 +132,8 @@ module Pito
       # The event's segment must have been rendered with id: "event_#{event.id}".
       # Used by confirmation routing to flip a segment to processing/resolved state.
       def replace_event(event)
+        Pito::Stream::ScrollbackCache.bust(@conversation)
+
         html    = Pito::Stream::EventRenderer.render(event)
         helper  = ApplicationController.helpers
         content = helper.turbo_stream.replace("event_#{event.id}", html)
@@ -300,7 +306,12 @@ module Pito
 
       # Stamp a single thinking indicator resolved (elapsed from its OWN
       # started_at) and broadcast a Turbo Stream replace for its segment.
+      # Busts the L2 snapshot: the resolve mutates the payload and broadcasts
+      # directly (not via replace_event), so without this a reload captured
+      # between the message broadcast and the resolve would freeze an
+      # unresolved spinner into the snapshot.
       def resolve_one(event)
+        Pito::Stream::ScrollbackCache.bust(@conversation)
         started = event.payload["started_at"]
         elapsed = started ? (Time.current - Time.parse(started)) : nil
 

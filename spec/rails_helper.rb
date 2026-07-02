@@ -23,6 +23,7 @@ require 'webmock/rspec'
 # copy_spec.rb.
 require_relative 'support/copy'
 require_relative 'support/dispatch_intent'
+require_relative 'support/analytics_primitives'
 
 # Allow localhost connections (Rack::Test, ActionCable) but block all external HTTP.
 WebMock.disable_net_connect!(allow_localhost: true)

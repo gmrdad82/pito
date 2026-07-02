@@ -26,6 +26,9 @@ class SharesController < ApplicationController
 
     @conversation = @share.conversation
     @event        = @share.event
+    # Cached intro + shared event + outro (0.9.0 Phase 7). The Share row lookup
+    # above is the revocation gate — only live shares reach the cache.
+    @scrollback_html = Pito::Share::PageCache.fetch(@share)
   end
 
   def unfold

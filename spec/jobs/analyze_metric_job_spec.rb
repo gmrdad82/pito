@@ -2,13 +2,11 @@
 
 require "rails_helper"
 
-# AnalyzeMetricJob fills ONE analyze metric cell via its own dedicated request
-# (stubbed here through Pito::Analytics::AnalyzeMetricFill), swaps that cell, and
-# runs the barrier: the last metric to land per event rewrites the message to ready,
-# resolves the indicator, and completes the turn.
-#
-# AnalyzePrepareJob.aggregate is also stubbed to avoid network — it is called by
-# the last metric job to rebuild the aggregate state before writing the ready payload.
+# AnalyzeMetricJob fills ONE analyze metric cell (stubbed here through
+# Pito::Analytics::AnalyzeMetricFill), swaps that cell, and runs the barrier:
+# the last metric to land per event composes the ready message FROM THE
+# PER-METRIC STASHES (0.9.0 Phase 4 — no re-aggregate, no refetch), resolves
+# the indicator, and completes the turn.
 RSpec.describe AnalyzeMetricJob, type: :job do
   let(:conversation) { Conversation.singleton }
   let!(:channel)     { create(:channel, :on_connection) }
@@ -48,12 +46,14 @@ RSpec.describe AnalyzeMetricJob, type: :job do
     Pito::Analytics::MetricOrder.for(role: :system, level: :channel).map(&:to_s)
   end
 
-  # Stub the per-metric fill (no network) and the aggregate (no network).
+  # Stub the per-metric fill (no network). Filled carries the raw stash entry
+  # the barrier persists; nil raw = a no-data metric.
   before do
-    allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for)
-      .and_return({ no_data: true, caption: "n/a" })
-    allow(AnalyzePrepareJob).to receive(:aggregate)
-      .and_return({ scaffold: {}, charts: {}, likes: nil, bars: {} })
+    allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for).and_return(
+      Pito::Analytics::AnalyzeMetricFill::Filled.new(
+        cell: { no_data: true, caption: "n/a" }, raw: nil
+      )
+    )
   end
 
   # ── Barrier ──────────────────────────────────────────────────────────────────
@@ -93,11 +93,14 @@ RSpec.describe AnalyzeMetricJob, type: :job do
     before do
       # Most metrics return a plain no_data cell; one explicitly triggers the
       # no_data path to confirm it does not block the barrier.
-      allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for)
-        .and_return({ no_data: true, caption: "n/a" })
+      allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for).and_return(
+        Pito::Analytics::AnalyzeMetricFill::Filled.new(cell: { no_data: true, caption: "n/a" }, raw: nil)
+      )
       allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for)
         .with(hash_including(metric: metric_keys.first))
-        .and_return({ no_data: true, caption: metric_keys.first })
+        .and_return(
+          Pito::Analytics::AnalyzeMetricFill::Filled.new(cell: { no_data: true, caption: metric_keys.first }, raw: nil)
+        )
     end
 
     it "still reaches ready (the no_data cell does not block the barrier)" do

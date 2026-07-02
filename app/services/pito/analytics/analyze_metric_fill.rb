@@ -2,13 +2,12 @@
 
 module Pito
   module Analytics
-    # Fetches ONE analyze metric via its OWN dedicated YouTube Analytics request(s).
-    # Returns a cell-data Hash for that metric in the same shape that
-    # Pito::MessageBuilder::Analyze::Message#cells_for produces, or
-    # { no_data: true, caption: <label> } when there is nothing to show or an
-    # error occurs. This is the per-metric, dedicated-request analog of the
-    # at-a-glance Pito::Analytics::MetricFill — each metric makes its OWN YouTube
-    # request(s), with NO shared primitives cache between metrics.
+    # Fills ONE analyze metric by folding from the shared primitives layer
+    # (0.9.0 — every path goes through Pito::Analytics::Primitives, so metrics
+    # reuse each other's warm rows and repeat analyzes are request-free).
+    # Returns a Filled: `cell` in the shape Message#cells_for produces (or
+    # { no_data: true, caption: } when there is nothing to show / an error
+    # occurs), plus `raw` for the marker stash.
     #
     # Period rules
     #   AREA metrics (views / watched_hours / subs / avg_view_duration /
@@ -25,6 +24,13 @@ module Pito
     # Fault isolation: any StandardError per call → returns the no_data cell and
     # logs a warning. Never raises.
     module AnalyzeMetricFill
+      # Cell + its RAW ingredient (0.9.0 Phase 4): `cell` renders the live swap;
+      # `raw` — { "slot" => "charts"|"bars"|"likes", "data" => … } — is stashed
+      # on the message marker so the LAST metric job composes the persisted
+      # ready state from stashes (Message.ready_payload) with NO re-aggregate,
+      # no refetch, and no scaffold probe requests. raw is nil for no-data.
+      Filled = Data.define(:cell, :raw)
+
       AREA_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct retention comments].freeze
 
       # MetricOrder symbol → Breakdown metric symbol.
@@ -46,18 +52,88 @@ module Pito
       # @param level      [String, Symbol]  "channel" | "vid" | "game"
       # @param entity_ids [Array<Integer>]
       # @param period     [String]          shift+space window token (e.g. "28d")
-      # @return [Hash]
+      # @return [Filled]
       def for(metric:, level:, entity_ids:, period:)
         metric = metric.to_sym
-        return no_data_cell(metric) if STUB_METRICS.include?(metric)
+        return no_data(metric) if STUB_METRICS.include?(metric)
 
         groups = groups_for(level, entity_ids)
-        return no_data_cell(metric) if groups.empty?
+        return no_data(metric) if groups.empty?
 
-        dispatch(metric:, groups:, level: level.to_s, period:)
+        # L0.5 per-metric cell cache (0.9.0 Phase 4): the computed raw ingredient,
+        # keyed SELECTION-FREE by (metric, level, ids, effective window) — any
+        # with/without combination composes from the same cached cells. Expiry
+        # inherits the ONE Window policy (frozen ≥1wk / lifetime 24h / live 4h).
+        window = effective_window(metric, period)
+        sig    = cell_signature(metric:, level:, entity_ids:, window:)
+        cached = Pito::Analytics::Cache.read(sig)
+        return Filled.new(cell: cell_from_raw(metric, cached), raw: cached) if cached
+
+        filled = dispatch(metric:, groups:, level: level.to_s, period:)
+        store_cell(sig, filled.raw, window:) if filled.raw
+        filled
       rescue StandardError => e
         Rails.logger.warn("[Analytics::AnalyzeMetricFill] #{metric} #{level} #{entity_ids.inspect}: #{e.class}: #{e.message}")
-        no_data_cell(metric)
+        no_data(metric)
+      end
+
+      # ── L0.5 cell cache plumbing ────────────────────────────────────────────────
+
+      # Metrics that ignore the shift+space period fetch at LIFETIME (likes,
+      # bars, heatmap, retention) — their cache key must use the window they
+      # actually read, or the same data would be cached once per period token.
+      LIFETIME_METRICS = (%i[likes retention day_of_week_heatmap] + BAR_METRICS.keys).freeze
+
+      def effective_window(metric, period)
+        token = LIFETIME_METRICS.include?(metric) ? "lifetime" : period
+        Pito::Analytics::Window.for(token, reference_date: Date.current)
+      end
+
+      def cell_signature(metric:, level:, entity_ids:, window:)
+        digest = Digest::MD5.hexdigest(Array(entity_ids).map(&:to_s).sort.join(","))
+        "cell:v1:#{metric}:#{level}:#{digest}:#{window.start_date}:#{window.end_date}"
+      end
+
+      def store_cell(sig, raw, window:)
+        Pito::Analytics::Cache.store(sig, raw, expires_at: window.expires_at_for(now: Time.current))
+      rescue StandardError => e
+        # A cell-cache write failure must never sink the fill (e.g. the bench's
+        # read-only session) — the cell just recomputes next time.
+        Rails.logger.warn("[Analytics::AnalyzeMetricFill] cell cache store failed: #{e.class}: #{e.message}")
+      end
+
+      # Rebuild the renderable cell from a (string-keyed, jsonb round-tripped)
+      # raw entry — captions re-render fresh; the data itself is the cache.
+      def cell_from_raw(metric, raw)
+        data = raw["data"]
+        case raw["slot"]
+        when "likes"
+          marker = Pito::MessageBuilder::Analyze::Message.likes_marker(Array(data).map(&:symbolize_keys))
+          Pito::MessageBuilder::Analyze::Message.heart_cell(marker)
+        when "bars"
+          caption = Pito::MessageBuilder::Analyze::Message.render_bar_caption(metric)
+          Pito::MessageBuilder::Analyze::Message.bar_cell(metric, data, caption)
+        else # "charts"
+          chart_cell_from(metric, data)
+        end
+      end
+
+      def chart_cell_from(metric, chart)
+        if metric == :day_of_week_heatmap
+          caption = Pito::MessageBuilder::Analyze::Message.render_heatmap_caption(values: Array(chart["values"]))
+          { heatmap: metric, values: Array(chart["values"]), caption: }
+        else
+          caption = Pito::MessageBuilder::Analyze::Message.render_chart_caption(metric:, chart:)
+          {
+            chart:           metric,
+            series:          Array(chart["series"]),
+            target_daily:    chart["target_daily"].to_f,
+            caption:         caption,
+            trend:           chart.fetch("trend", true),
+            reference_token: chart["reference_token"],
+            dates:           chart["dates"]
+          }
+        end
       end
 
       # ── per-metric dispatch ─────────────────────────────────────────────────────
@@ -72,7 +148,7 @@ module Pito
         elsif metric == :day_of_week_heatmap
           heatmap_cell(groups:)
         else
-          no_data_cell(metric)
+          no_data(metric)
         end
       end
 
@@ -95,10 +171,10 @@ module Pito
           compute_daily_chart(metric:, groups:, window:, target:)
         end
 
-        return no_data_cell(metric) if chart.nil?
+        return no_data(metric) if chart.nil?
 
         caption = Pito::MessageBuilder::Analyze::Message.render_chart_caption(metric:, chart:)
-        {
+        cell = {
           chart:           metric,
           series:          Array(chart["series"]),
           target_daily:    chart["target_daily"].to_f,
@@ -107,18 +183,22 @@ module Pito
           reference_token: chart["reference_token"],
           dates:           chart["dates"]
         }
+        Filled.new(cell:, raw: { "slot" => "charts", "data" => chart })
       end
 
       # ── HEART (likes) cell ───────────────────────────────────────────────────────
 
       def likes_cell(groups:, level:)
         likes_data = Pito::Analytics::LikesHearts.for(groups:, level: level.to_s)
-        return no_data_cell(:likes) if likes_data.blank?
+        return no_data(:likes) if likes_data.blank?
 
         marker = Pito::MessageBuilder::Analyze::Message.likes_marker(likes_data)
-        return no_data_cell(:likes) if marker.nil?
+        return no_data(:likes) if marker.nil?
 
-        Pito::MessageBuilder::Analyze::Message.heart_cell(marker)
+        Filled.new(
+          cell: Pito::MessageBuilder::Analyze::Message.heart_cell(marker),
+          raw:  { "slot" => "likes", "data" => likes_data }
+        )
       end
 
       # ── HEATMAP (day-of-week) cell ───────────────────────────────────────────────
@@ -129,10 +209,13 @@ module Pito
       def heatmap_cell(groups:)
         lifetime = Pito::Analytics::Window.for("lifetime", reference_date: Date.current)
         result   = Pito::Analytics::WeekdaySeries.for(groups:, window: lifetime)
-        return no_data_cell(:day_of_week_heatmap) if result.values.sum <= 0
+        return no_data(:day_of_week_heatmap) if result.values.sum <= 0
 
         caption = Pito::MessageBuilder::Analyze::Message.render_heatmap_caption(values: result.values)
-        { heatmap: :day_of_week_heatmap, values: result.values, caption: }
+        Filled.new(
+          cell: { heatmap: :day_of_week_heatmap, values: result.values, caption: },
+          raw:  { "slot" => "charts", "data" => { "values" => result.values } }
+        )
       end
 
       # ── BAR cells ────────────────────────────────────────────────────────────────
@@ -140,10 +223,13 @@ module Pito
       def bar_cell_for(metric:, breakdown_metric:, groups:)
         lifetime = Pito::Analytics::Window.for("lifetime", reference_date: Date.current)
         rows     = Pito::Analytics::Breakdown.for(metric: breakdown_metric, groups:, window: lifetime)
-        return no_data_cell(metric) if rows.blank?
+        return no_data(metric) if rows.blank?
 
         caption = Pito::MessageBuilder::Analyze::Message.render_bar_caption(metric)
-        Pito::MessageBuilder::Analyze::Message.bar_cell(metric, rows, caption)
+        Filled.new(
+          cell: Pito::MessageBuilder::Analyze::Message.bar_cell(metric, rows, caption),
+          raw:  { "slot" => "bars", "data" => rows }
+        )
       end
 
       # ── chart compute helpers (mirrors AnalyzePrepareJob) ────────────────────────
@@ -266,8 +352,9 @@ module Pito
         groups.filter_map { |ch, _| ch }.uniq(&:id).sum { |c| c.subscriber_count.to_i }
       end
 
-      def no_data_cell(metric)
-        { no_data: true, caption: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric.to_sym)) }
+      def no_data(metric)
+        cell = { no_data: true, caption: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric.to_sym)) }
+        Filled.new(cell:, raw: nil)
       end
     end
   end

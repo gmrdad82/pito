@@ -9,7 +9,6 @@ en:
         connect: "Connect a YouTube channel via Google OAuth"
         new: "Start fresh — `/new` for a blank conversation, `/new <name>` to name it"
         resume: "`/resume` browses conversations; `/resume <name>` opens that one (or offers to create it)"
-        compact: "Compact conversation context"
         rename: "Rename the current conversation"
         disconnect: "Disconnect a YouTube channel"
         theme: "Switch the UI theme (apply / preview / reset)"

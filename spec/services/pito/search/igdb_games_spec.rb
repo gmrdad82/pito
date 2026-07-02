@@ -36,4 +36,52 @@ RSpec.describe Pito::Search::Registry, type: :service do
   it "raises a clear error for an unknown module" do
     expect { described_class.for(:nope) }.to raise_error(KeyError, /no search module/)
   end
+  # ── result cache (0.9.0 Phase 7) ─────────────────────────────────────────────
+
+  describe "result cache" do
+    around do |example|
+      original    = Rails.cache
+      Rails.cache = ActiveSupport::Cache::MemoryStore.new
+      example.run
+    ensure
+      Rails.cache = original
+    end
+
+    it "answers a repeat query from the cache (one upstream call)" do
+      client = instance_double(Game::Igdb::Client)
+      allow(Game::Igdb::Client).to receive(:new).and_return(client)
+      allow(client).to receive(:search_games).and_return([ { "id" => 1, "name" => "Hollow Knight" } ])
+
+      2.times { Pito::Search::Modules::IgdbGames.new.call(query: "Hollow Knight") }
+
+      expect(client).to have_received(:search_games).once
+    end
+
+    it "normalizes case for the cache key but keeps queries distinct by limit" do
+      client = instance_double(Game::Igdb::Client)
+      allow(Game::Igdb::Client).to receive(:new).and_return(client)
+      allow(client).to receive(:search_games).and_return([])
+
+      Pito::Search::Modules::IgdbGames.new.call(query: "SILKSONG")
+      Pito::Search::Modules::IgdbGames.new.call(query: "silksong")
+      Pito::Search::Modules::IgdbGames.new.call(query: "silksong", limit: 3)
+
+      expect(client).to have_received(:search_games).twice # case-folded hit + limit variant
+    end
+
+    it "NEVER caches an error envelope (upstream blips stay retryable)" do
+      client = instance_double(Game::Igdb::Client)
+      allow(Game::Igdb::Client).to receive(:new).and_return(client)
+      allow(client).to receive(:search_games)
+        .and_raise(Game::Igdb::Client::ServerError, "5xx")
+
+      first = Pito::Search::Modules::IgdbGames.new.call(query: "Celeste")
+      allow(client).to receive(:search_games).and_return([ { "id" => 2 } ])
+      second = Pito::Search::Modules::IgdbGames.new.call(query: "Celeste")
+
+      expect(first[:error]).to be_present
+      expect(second[:error]).to be_nil
+      expect(second[:hits]).to be_present
+    end
+  end
 end

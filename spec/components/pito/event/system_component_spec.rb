@@ -796,7 +796,11 @@ RSpec.describe Pito::Event::SystemComponent do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }
 
-    it "shows the #handle in the meta line for a follow-up-able message" do
+    # Since 0.9.0 Phase 5 the COMPONENT emits a meta SLOT (cache-stable); the
+    # meta line itself — handle liveness included — is rendered into it at
+    # serve time by Pito::Stream::EventRenderer. Component-level truth: the
+    # slot is present; renderer-level truth: the #handle fills it while live.
+    it "emits the meta slot for a follow-up-able message; the renderer fills in the #handle" do
       event = create(:event, conversation:, turn:, kind: "system", position: 1,
                      payload: {
                        "reply_handle" => "beta-1234",
@@ -805,7 +809,11 @@ RSpec.describe Pito::Event::SystemComponent do
                        "html" => true
                      })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
-      expect(node.css(".pito-echo__meta").text).to include("beta-1234")
+      expect(node.css("[data-pito-meta-slot]")).to be_present
+
+      html = Pito::Stream::EventRenderer.render(event)
+      expect(html).to include("beta-1234")
+      expect(html).not_to include("data-pito-meta-slot")
     end
 
     it "NEVER renders a separate usage/affordance line" do
@@ -830,8 +838,27 @@ RSpec.describe Pito::Event::SystemComponent do
                        "reply_consumed" => true,
                        "body"           => "Consumed", "html" => true
                      })
-      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
-      expect(node.css(".pito-echo__meta").text).not_to include("beta-1234")
+      html = Pito::Stream::EventRenderer.render(event)
+      expect(html).not_to include("beta-1234")
+      expect(html).not_to include("data-pito-meta-slot")
+    end
+
+    it "serves the SAME cached fragment before and after consumption (only the slot fill differs)" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle" => "gamma-9",
+                       "reply_target" => "game_detail",
+                       "body" => "Stable", "html" => true
+                     })
+      live_key = Pito::Stream::FragmentCache.key(event)
+      live_html = Pito::Stream::EventRenderer.render(event)
+
+      event.update!(payload: event.payload.merge("reply_consumed" => true))
+      expect(Pito::Stream::FragmentCache.key(event)).to eq(live_key) # no rotation
+      consumed_html = Pito::Stream::EventRenderer.render(event)
+
+      expect(live_html).to include("gamma-9")
+      expect(consumed_html).not_to include("gamma-9")
     end
   end
 

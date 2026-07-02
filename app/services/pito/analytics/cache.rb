@@ -107,18 +107,25 @@ module Pito
         updated > 0 ? :claimed : :pending
       end
 
-      # Upserts the cache row to ready with the given payload and TTL.
+      # Upserts the cache row to ready with the given payload and expiry.
       #
-      # @param signature [String]
-      # @param payload   [Hash]
-      # @param ttl:      [ActiveSupport::Duration, Numeric] seconds or duration
-      def store(signature, payload, ttl:)
+      # Expiry is EITHER `ttl:` (duration from now) OR `expires_at:` (absolute
+      # Time, or nil = frozen forever — the Window policy's finalized tier;
+      # 0.9.0 Phase 4). Exactly one must be given.
+      #
+      # @param signature  [String]
+      # @param payload    [Hash]
+      # @param ttl:       [ActiveSupport::Duration, Numeric, nil]
+      # @param expires_at [Time, nil, :unset]
+      def store(signature, payload, ttl: nil, expires_at: :unset)
+        raise ArgumentError, "give ttl: or expires_at:, not both/neither" if ttl.nil? == (expires_at == :unset)
+
         AnalyticsCache.upsert(
           {
             signature:  signature,
             status:     "ready",
             payload:    payload,
-            expires_at: Time.current + ttl,
+            expires_at: expires_at == :unset ? Time.current + ttl : expires_at,
             error:      nil
           },
           unique_by:   :signature,
@@ -147,19 +154,21 @@ module Pito
       # Synchronous convenience wrapper.
       #
       # Returns the cached payload if the entry is ready and unexpired.
-      # Otherwise yields, stores the result with the given TTL, and returns it.
-      # If the block raises, the entry is marked failed and the exception
-      # is re-raised.
+      # Otherwise yields, stores the result (ttl: or expires_at: — see #store),
+      # and returns it. If the block raises, the entry is marked failed and the
+      # exception is re-raised. A nil result is returned but NOT stored (no
+      # negative caching — "no data" stays re-checkable).
       #
-      # @param signature [String]
-      # @param ttl:      [ActiveSupport::Duration, Numeric]
-      # @return [Hash] the cached or freshly computed payload
-      def fetch(signature, ttl:)
+      # @param signature  [String]
+      # @param ttl:       [ActiveSupport::Duration, Numeric, nil]
+      # @param expires_at [Time, nil, :unset]
+      # @return [Hash, nil] the cached or freshly computed payload
+      def fetch(signature, ttl: nil, expires_at: :unset)
         cached = read(signature)
         return cached unless cached.nil?
 
         result = yield
-        store(signature, result, ttl: ttl)
+        store(signature, result, ttl:, expires_at:) unless result.nil?
         result
       rescue => e
         self.fail(signature, error: e.message)

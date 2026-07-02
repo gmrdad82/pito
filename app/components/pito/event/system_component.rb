@@ -68,6 +68,16 @@ module Pito
         handle.presence || (followupable? ? reply_handle : nil)
       end
 
+      # True when the message may carry a meta line at all — the template then
+      # emits the `data-pito-meta-slot` div and the serve-time filler renders
+      # the CURRENT meta state (liveness included) into it. Keyed off the
+      # stable payload facts (handle present / channel present / a reply_handle
+      # exists), NOT off consumption state — so the cached fragment never
+      # changes when a handle retires.
+      def meta_slot?
+        handle.present? || channel.present? || reply_handle.present?
+      end
+
       # Returns table_rows as an array of cell arrays: each row becomes an ordered
       # Array of { text:, class: } hashes. Supports the new `:cells` key (arbitrary
       # N columns) and falls back to the legacy { key:, value:, value2: } shape so

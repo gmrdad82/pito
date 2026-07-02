@@ -69,23 +69,38 @@ module Pito
 
       # Days a window's end_date must be in the past before its data is treated as
       # finalized. YouTube finalizes estimated metrics in ~2–3 days; the 7-day
-      # buffer absorbs late revisions / timezone edges (docs/claude/0.8.0.md).
+      # buffer absorbs late revisions / timezone edges (docs/claude/0.8.0.md;
+      # re-confirmed by owner 2026-07-02 for 0.9.0: frozen = ended ≥ 1 week ago).
       FINALIZED_AFTER = 7
+
+      # TTL tiers for NON-finalized windows (0.9.0 Phase 2, owner-locked).
+      # Lifetime-scale data barely moves in a day — and YouTube's own reports lag
+      # ~24–48h — so lifetime windows hold for a day and live windows for 4h.
+      # This method + finalized? are the ONLY expiry policy in the app: every
+      # window-keyed cache (primitives, retention rows, cell caches) must call
+      # here, never re-derive TTLs.
+      LIVE_TTL     = 4.hours
+      LIFETIME_TTL = 24.hours
+
+      def self.ttl_for(token)
+        token.to_s == "lifetime" ? LIFETIME_TTL : LIVE_TTL
+      end
 
       # Freeze math as class methods so both a Window and its PreviousRange share it.
       def self.finalized?(end_date:, as_of:)
         end_date <= as_of - FINALIZED_AFTER
       end
 
-      def self.expires_at_for(end_date:, now:, live_ttl: 1.hour)
-        finalized?(end_date:, as_of: now.to_date) ? nil : now + live_ttl
+      def self.expires_at_for(end_date:, now:, token: nil, live_ttl: nil)
+        finalized?(end_date:, as_of: now.to_date) ? nil : now + (live_ttl || ttl_for(token))
       end
 
       # A duck-typed window covering the prior comparable range — same interface
       # Primitives.fetch needs (start_date / end_date / token / expires_at_for).
+      # Prev ranges are never lifetime, so they always get the live tier.
       PreviousRange = Data.define(:start_date, :end_date, :token) do
-        def expires_at_for(now:, live_ttl: 1.hour)
-          Pito::Analytics::Window.expires_at_for(end_date:, now:, live_ttl:)
+        def expires_at_for(now:, live_ttl: nil)
+          Pito::Analytics::Window.expires_at_for(end_date:, now:, token:, live_ttl:)
         end
       end
 
@@ -98,13 +113,14 @@ module Pito
       end
 
       # Cache expiry for this window's primitives / accumulated results:
-      #   finalized → nil   (never expires; the period is frozen)
-      #   live      → now + live_ttl  (recent days still move)
+      #   finalized → nil            (never expires; the period is frozen)
+      #   lifetime  → now + 24h      (lifetime-scale data barely moves in a day)
+      #   live      → now + 4h       (recent days still move; YT lags ~24–48h anyway)
       #
       # @param now      [Time] treated as "now" (pass Time.current at the call site)
-      # @param live_ttl [ActiveSupport::Duration] TTL for non-finalized windows
-      def expires_at_for(now:, live_ttl: 1.hour)
-        self.class.expires_at_for(end_date:, now:, live_ttl:)
+      # @param live_ttl [ActiveSupport::Duration, nil] explicit override; nil = tiered
+      def expires_at_for(now:, live_ttl: nil)
+        self.class.expires_at_for(end_date:, now:, token:, live_ttl:)
       end
 
       # The prior comparable window (for trend baselines), or nil when this window

@@ -148,6 +148,48 @@ RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
 `Pito::Stream::EventRenderer.component_for(event)` is the single source of truth
 for kind → component lookup (`COMPONENT_CLASSES`).
 
+## Caching (0.9.0 — "cache the cache")
+
+Layered, all derived and disposable; **events stay canonical** (structured
+`jsonb` + baked body HTML — never the source of truth for data).
+
+| Layer | Store | What | Key | Expiry |
+| --- | --- | --- | --- | --- |
+| **L0 primitives** | `analytics_primitives` | per-subject raw YouTube metrics (video, or channel-wide `:channel`) per report per window | (subject, report, start, end) | Window policy (below) |
+| **L0.5 cells** | `analytics_cache` (`Pito::Analytics::Cache`) | one analyze metric's computed raw ingredient (chart/bars/likes data) | `cell:v1:<metric>:<level>:<ids-digest>:<window>` — **selection-free** | Window policy |
+| **L1 fragments** | SolidCache (`Pito::Stream::FragmentCache`) | one rendered event's HTML, meta line replaced by a `data-pito-meta-slot` filled at serve time | kind + event id + zone + SHA256(payload minus `reply_consumed`) | digest rotation + 1wk TTL |
+| **L2 snapshot** | SolidCache (`Pito::Stream::ScrollbackCache`) | the assembled scrollback (turn containers + filled fragments) | conversation uuid + zone | busted at every Broadcaster chokepoint; rebuilt on read |
+| **Share page** | SolidCache (`Pito::Share::PageCache`) | intro + shared event (reply-suppressed) + outro | content-addressed (uuid + event digest + counts + zone) | 1wk; revoke needs no bust (controller gates on the Share row) |
+| **IGDB search** | SolidCache (`Pito::Search::Modules::IgdbGames`) | successful search envelopes only | case-folded query digest + limit | 1 day |
+
+**Window expiry policy — ONE place** (`Pito::Analytics::Window.expires_at_for`):
+finalized (period ended ≥ `FINALIZED_AFTER` = 7 days ago; YouTube aggregates in
+~48h) → **frozen forever** · lifetime → **24h** · live → **4h**. New
+window-keyed caches call it; never re-derive TTLs.
+
+**Selection invariant.** `analyze … with/without <metrics>` filters the
+*render*, never the fetch: markers store the full role metric set, L0/L0.5 are
+keyed selection-free, and any selection composes from the same cached cells
+(spec: `selection_invariant_spec.rb`).
+
+**Meta slot.** The only thing that mutates old messages — reply-handle
+consumption — renders through the serve-time meta-slot fill
+(`EventRenderer.fill_meta_slot`), so fragments are immune to it (same pattern
+as `data-pito-ts-slot` for timestamps).
+
+**Copy variants.** Scrollback bodies freeze their 1-of-50 variant at build time
+(baked HTML); chrome re-samples per render and is never cached. `Pito::Copy`
+itself is µs-scale (benched) — it has **no cache** by design.
+
+**Hygiene.** `CacheSweepJob` (daily 04:00) sweeps expired `analytics_cache` +
+`analytics_primitives` rows and `api_requests` older than 90 days. Everything
+else expires lazily / by LRU (SolidCache 256MB cap).
+
+**Benchmarks.** `rake pito:bench` — strictly READONLY (network kill switch +
+read-only DB session): replay/component/Copy/fold timings, cache-temperature
+inventory, and dry request-plan counters (`Pito::Bench::DryRun`). Snapshots
+land in `tmp/bench/` for release-over-release diffs.
+
 ## Conversation model
 
 One conversation per UUID. `POST /chat` with no UUID (blank input on the start

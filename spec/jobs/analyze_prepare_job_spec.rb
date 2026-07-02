@@ -7,10 +7,7 @@ require "rails_helper"
 # behaviour lives in AnalyzeMetricJob (see analyze_metric_job_spec.rb) — here we
 # assert the fan-out shape, the blank-metric_keys fast-path, and the missing-turn
 # guard. An end-to-end pass runs the fanned jobs inline and confirms the final
-# ready state lands.
-#
-# .aggregate is exercised here too (it is now a public class-method re-used by
-# the last AnalyzeMetricJob; stub the analytics services to keep it offline).
+# ready state lands (the last AnalyzeMetricJob composes it from the stashes).
 RSpec.describe AnalyzePrepareJob, type: :job do
   include ActiveJob::TestHelper
 
@@ -131,10 +128,11 @@ RSpec.describe AnalyzePrepareJob, type: :job do
 
   context "when the fanned metric jobs run" do
     before do
-      allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for)
-        .and_return({ no_data: true, caption: "n/a" })
-      allow(AnalyzePrepareJob).to receive(:aggregate)
-        .and_return({ scaffold: {}, charts: {}, likes: nil, bars: {} })
+      allow(Pito::Analytics::AnalyzeMetricFill).to receive(:for).and_return(
+        Pito::Analytics::AnalyzeMetricFill::Filled.new(
+          cell: { no_data: true, caption: "n/a" }, raw: nil
+        )
+      )
     end
 
     it "fills the event to ready, resolves the indicator, completes the turn" do
@@ -144,56 +142,6 @@ RSpec.describe AnalyzePrepareJob, type: :job do
       expect(analyze_event.payload["body"]).to include("pito-analytics-scalars")
       expect(thinking_event.reload.payload["resolved"]).to be(true)
       expect(turn.reload.completed_at).not_to be_nil
-    end
-  end
-
-  # ── .aggregate class method ──────────────────────────────────────────────────
-
-  describe ".aggregate" do
-    before do
-      allow(Pito::Analytics::Scaffold).to receive(:for).and_return({})
-      allow(Pito::Analytics::LikesHearts).to receive(:for).and_return(nil)
-      allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
-      allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(0)
-      allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
-        Pito::Analytics::DailySeries::Result.new(dates: [], series: [], total: 0)
-      )
-      # avg_view_duration / avg_viewed_pct charts go through these (not DailySeries);
-      # WebMock's NetConnect error is an Exception (not StandardError), so an
-      # unstubbed call would escape compute's rescue and raise.
-      allow(Pito::Analytics::AdaptiveSeries).to receive(:for).and_return(
-        Pito::Analytics::AdaptiveSeries::Result.new(series: [], total: 0, dates: [])
-      )
-      allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
-        Pito::Analytics::RetentionSeries::Result.new(series: [], total_pct: 0, rel_performance: nil)
-      )
-      # day_of_week_heatmap (:enhanced) → WeekdaySeries, which hits Primitives directly
-      # (not DailySeries.for); stub it so no live YouTube call escapes compute's rescue.
-      allow(Pito::Analytics::WeekdaySeries).to receive(:for).and_return(
-        Pito::Analytics::WeekdaySeries::Result.new(values: Array.new(7, 0.0))
-      )
-    end
-
-    it "returns a hash with :scaffold, :charts, :likes, :bars keys" do
-      marker = analyze_event.payload["analyze"]
-      result = described_class.aggregate(marker)
-      expect(result).to include(:scaffold, :charts, :likes, :bars)
-    end
-
-    it "computes the retention area chart for the :enhanced role at vid level (Item 25)" do
-      video = create(:video, channel: channel, youtube_video_id: "yt1")
-      allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
-        Pito::Analytics::RetentionSeries::Result.new(series: [ 90.0, 55.0, 30.0 ], total_pct: 41.2, rel_performance: 0.7)
-      )
-      marker = Pito::MessageBuilder::Analyze::Message.pending(
-        role: "enhanced", title: "My Vid", level: :vid,
-        entity_ids: [ video.id ], period: "7d", conversation: conversation
-      )["analyze"]
-
-      charts = described_class.aggregate(marker)[:charts]
-      expect(charts[:retention]).to be_present
-      expect(charts[:retention]["series"]).to eq([ 90.0, 55.0, 30.0 ])
-      expect(charts[:retention]["reference_token"]).to eq("lifetime")
     end
   end
 

@@ -16,9 +16,18 @@ module RakeSpecHelper
     $stderr = old_stderr
   end
 
-  # Loads all rake tasks once per suite.
+  # Loads all rake tasks once per suite — GUARDED: a second load_tasks call
+  # (each rake spec file calls it in before(:all)) would ENHANCE every task
+  # with a duplicate body, so invoking a task would run it twice.
   def load_tasks
+    return if RakeSpecHelper.tasks_loaded
+
     Rails.application.load_tasks
+    RakeSpecHelper.tasks_loaded = true
+  end
+
+  class << self
+    attr_accessor :tasks_loaded
   end
 
   # Re-enables a rake task so it can be invoked multiple times in one spec.
