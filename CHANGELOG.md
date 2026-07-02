@@ -178,17 +178,17 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   Views / Watched Hours / Subs captions carry a filled **trend triangle** (▲/▼/–)
   vs the prior window.
   **Avg View Duration** uses adaptive bucketing (daily ≤30 days, weekly 31–90, monthly
-  >90) with per-bucket Σ(estimated_minutes_watched×60)/Σ(views); ticks and caption
-  values show **M:SS**; health target is 2:00 (120 s). No trend triangle.
-  **Avg Retention** is always **lifetime** (the shift+space period window is
-  ignored); the x-axis shows video-position percentages (0%→100%) rather than day
-  indices; vid level = the video's own audience-retention curve; game/channel =
-  **views-weighted average** across linked/all videos fetched and cached per-video
-  in `AnalyticsPrimitive` (report: "retention"); caption shows **M:SS (XX.X%)**
-  plus a cyan "lifetime" reference token; health target is 50%. No trend triangle.
-  The five chart metrics are ordered first in the `:system` grid
-  (`views, watched_hours, subs, avg_view_duration, avg_viewed_pct`); remaining
-  scalars keep the `0`/`1` scaffold display until each is built.
+  > 90) with per-bucket Σ(estimated_minutes_watched×60)/Σ(views); ticks and caption
+  > values show **M:SS**; health target is 2:00 (120 s). No trend triangle.
+  > **Avg Retention** is always **lifetime** (the shift+space period window is
+  > ignored); the x-axis shows video-position percentages (0%→100%) rather than day
+  > indices; vid level = the video's own audience-retention curve; game/channel =
+  > **views-weighted average** across linked/all videos fetched and cached per-video
+  > in `AnalyticsPrimitive` (report: "retention"); caption shows **M:SS (XX.X%)**
+  > plus a cyan "lifetime" reference token; health target is 50%. No trend triangle.
+  > The five chart metrics are ordered first in the `:system` grid
+  > (`views, watched_hours, subs, avg_view_duration, avg_viewed_pct`); remaining
+  > scalars keep the `0`/`1` scaffold display until each is built.
 - **Glance sparklines** — the `show vid` / `show game` / `show channel`
   `:enhanced` glance now renders a **2-row braille mini-series above the scalar**
   for its four time-series metrics (**views, watched hours, net subs, likes**),
@@ -301,7 +301,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
 
 - **Shimmer system overhaul** — one consistent set of shimmers, all sharing a single
   diagonal angle (135°) and speed (5s) as Tailwind tokens, all 20-step staggered:
-  - **action** (pito-blue + purple) is now the *only* clickable shimmer — keys, table
+  - **action** (pito-blue + purple) is now the _only_ clickable shimmer — keys, table
     links, clickable tokens, `/resume` suggestions, `#id` links, shift+r.
   - **subject** and **reference** (decorative identifiers) read as normal foreground
     text with an orange→yellow sheen.
@@ -388,7 +388,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
 - **`list channels`** is ordered by most-recently-published vid.
 - **No more entity guessing in free chat** — `show`, `rm`/`delete`, and `list` no
   longer silently assume "game" when the second word isn't a recognised entity. In
-  free chat the second token *is* the entity: a bare id (`show 123`, `rm 5`), a
+  free chat the second token _is_ the entity: a bare id (`show 123`, `rm 5`), a
   bare verb (`show`, `rm`), or an unknown word (`show foo`, `list foobar`) now gets
   a clear "I don't get it" nudge instead of a surprise game lookup. Explicit nouns
   (`show game 12`, `rm vid 5`, `list vids`) and `list`'s filter shortcuts
@@ -479,7 +479,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   800×800 `high` size. Masters were already large elsewhere (IGDB `t_1080p`
   covers, 2560×1440 banner originals, `maxres` thumbnails). Variants
   regenerate lazily on first view — no migration, no backfill; a `sync
-  channels` after deploy refreshes the avatar masters.
+channels` after deploy refreshes the avatar masters.
 
 - **Awaited games refresh nightly, until the date is real** — the nightly IGDB
   pass no longer skips a game synced within the last 7 days: any game still
@@ -560,7 +560,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
 
 - **Release countdown no longer fires a month early** — a game with a concrete
   date on one platform and a quarter (e.g. "Q3") on another used to store the
-  quarter's *start* as its release date, so the countdown could announce "in 0 days"
+  quarter's _start_ as its release date, so the countdown could announce "in 0 days"
   weeks before the real launch. Countdowns now come from the per-platform dates and
   only fire for **day-precision** releases — never counting down to a quarter or a
   year.
@@ -598,12 +598,12 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   the left side wider).
 - **Cleaner game-import messages** — importing a game now shows a single thinking block
   (leftover ones from a previous version's extra messages are gone). The status message
-  reads *"<game> is importing…"* (present tense, no `#id`) with the timestamp on the same
+  reads _"<game> is importing…"_ (present tense, no `#id`) with the timestamp on the same
   row as the copy; the done message also puts its timestamp inline, its `#id` is now
   **clickable** (opens the game via `show game #id`), and the redundant "Type `show game`
   to see it in full" line was removed.
 - **Anniversary / GOTY editions are importable** — IGDB tags some standalone releases
-  (e.g. *Rayman: 30th Anniversary Edition*) as "bundles", which the game search filtered
+  (e.g. _Rayman: 30th Anniversary Edition_) as "bundles", which the game search filtered
   out. Bundle rows whose name says **GOTY / Game of the Year / Anniversary** now pass the
   filter alongside true combo bundles, so you can import them.
 - **Footage value is readable on the time-to-beat bar** — the generic footage tick
@@ -656,7 +656,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   `http://localhost:3027` behind a tunnel). Threaded from the request through the
   async dispatch job.
 - **Bare `show channel` reads as a channel, not a game** — `show channel` with no
-  `@handle` (and no channel scope) now asks *which channel* instead of falling
+  `@handle` (and no channel scope) now asks _which channel_ instead of falling
   through to the game picker; with a shift+tab channel scope set, it shows that
   channel directly.
 - **`share` is hidden on confirmation prompts** — the reply menu on an ephemeral
