@@ -19,7 +19,7 @@
 # is peeled first, then the leading token of the trailing text is the game ref
 # (free-chat / list reply); in a detail reply the game comes from the card payload
 # and the WHOLE remaining text is the platform name. The name is normalised via
-# Pito::Game::PlatformInput and appended to / removed from `game.platforms`.
+# Pito::Games::PlatformInput and appended to / removed from `game.platforms`.
 module Pito
   module Chat
     module Handlers
@@ -45,7 +45,7 @@ module Pito
         # ── Mutation ────────────────────────────────────────────────────────────
 
         def set_platform(game, name)
-          normalized = Pito::Game::PlatformInput.normalize(name)
+          normalized = Pito::Games::PlatformInput.normalize(name)
           return missing_name if normalized.blank?
 
           unless game.platforms.include?(normalized)
@@ -56,7 +56,7 @@ module Pito
         end
 
         def unset_platform(game, name)
-          normalized = Pito::Game::PlatformInput.normalize(name)
+          normalized = Pito::Games::PlatformInput.normalize(name)
           return missing_name if normalized.blank?
 
           if game.platforms.include?(normalized)

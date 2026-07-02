@@ -13,7 +13,7 @@ module Pito
   # deluxe/collector → 5) and stay robust to round prices (€60.00 → 4, €45.00 → 3).
   #
   # This module owns only the *tier* — no rendering, no number formatting.
-  # The number is Pito::Formatter::Price; the glyphs are Pito::Game::PriceGlyphs.
+  # The number is Pito::Formatter::Price; the glyphs are Pito::Games::PriceGlyphs.
   module Coin
     # [inclusive upper bound (EUR), coin count] for tiers 1..4, in ascending
     # order. A price above the last threshold is MAX_TIER. nil → :unpriced and

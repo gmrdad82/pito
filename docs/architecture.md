@@ -203,7 +203,7 @@ components are. The column exists so index-friendly queries keep working.
 
 ### Source adapters
 
-`Pito::Game::ReleaseDateMapper.call(input)` is the single entry point that maps a
+`Pito::Games::ReleaseDateMapper.call(input)` is the single entry point that maps a
 normalized component hash → the 5-column attribute hash. Source-specific adapters
 translate into that shape:
 

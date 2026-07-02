@@ -140,7 +140,7 @@ module Pito
           # Render the confirmed time in the app-local zone (Time.zone), matching
           # the DD-MM-YYYY HH:MM the schedule confirmation showed. No "UTC" label —
           # a timezone is configured, so the time already reads local.
-          when_label = publish_at.in_time_zone(Time.zone).strftime("%d-%m-%Y %H:%M")
+          when_label = Pito::Formatter::SyncStamp.call(publish_at)
           Pito::Copy.render("pito.copy.videos.scheduled",
                             { title: title, when: when_label })
         end

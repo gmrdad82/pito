@@ -25,15 +25,15 @@ module Pito
         UNSET_SUBCOMMAND = "unset"
 
         def call
-          sub, ref, raw_amount = parse_args
+          subcommand, ref, raw_amount = parse_args
 
-          case sub
+          case subcommand
           when SET_SUBCOMMAND   then set(ref, raw_amount)
           when UNSET_SUBCOMMAND then unset(ref)
           else
-            # Implicit set: `price <id> <amount>` (no subcommand) — `sub` holds the
+            # Implicit set: `price <id> <amount>` (no subcommand) — `subcommand` holds the
             # id, `ref` the amount. Parity with the `#<handle> price <amount>` reply.
-            set(sub, ref)
+            set(subcommand, ref)
           end
         end
 
@@ -68,8 +68,8 @@ module Pito
         # amount token. Trailing tokens beyond the amount are ignored.
         def parse_args
           rest = message.raw.to_s.strip.sub(/\Aprice\b\s*/i, "").strip
-          sub, ref, raw_amount = rest.split(/\s+/, 3)
-          [ sub&.downcase, ref, raw_amount&.split(/\s+/)&.first ]
+          subcommand, ref, raw_amount = rest.split(/\s+/, 3)
+          [ subcommand&.downcase, ref, raw_amount&.split(/\s+/)&.first ]
         end
 
         # Parse the euro amount with BigDecimal (exact, not Float), rounded to 2
@@ -99,7 +99,7 @@ module Pito
           # escaping (img tags intact); the game title gets the subject shimmer.
           body = Pito::Copy.render_html(
             "pito.copy.price.updated",
-            { game: game.title, price: Pito::Game::PriceGlyphs.html(game.price) },
+            { game: game.title, price: Pito::Games::PriceGlyphs.html(game.price) },
             shimmer: [ :game ]
           )
           Pito::Chat::Result::Ok.new(events: [

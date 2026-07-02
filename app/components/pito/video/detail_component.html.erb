@@ -1,15 +1,16 @@
 <%# Pito::Video::DetailComponent — video detail card for chat messages.
     Two columns: LEFT = thumbnail + hairline + one-line stats counters + Shinies;
-    RIGHT = kv-table (Title first), hairline, then Description. %>
-<div class="pito-video-detail flex flex-col md:flex-row gap-4 md:items-start">
+    RIGHT = kv-table (Title first), hairline, then Description.
+    Uses Pito::Detail::CardComponent as the shared two-column shell. %>
+<%= render(Pito::Detail::CardComponent.new(
+      bem:                  "pito-video-detail",
+      intro:                @intro,
+      stat_counter_metrics: stat_counter_metrics,
+      shinies:              top_shinies_per_metric,
+      right_gap:            "gap-1"
+    )) do |card| %>
 
-  <%# ── Left column: intro (with timestamp slot), thumbnail, stats, Shinies ── %>
-  <div class="pito-video-detail__left flex flex-col gap-3">
-
-    <% if @intro.present? %>
-      <div class="pito-video-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
-    <% end %>
-
+  <% card.with_image do %>
     <%# Thumbnail — or the shared click-to-sync placeholder (rect) when missing. %>
     <div class="pito-video-detail__thumbnail">
       <%= render Pito::ImageRender.call(
@@ -21,36 +22,11 @@
             fallback_class: "pito-image-box--rect169"
           ) %>
     </div>
+  <% end %>
 
-    <%# Hairline separating the thumbnail from the stats %>
-    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
-
-    <%# Stats + Shinies as kv-table rows (owner 2026-07-01, items 48/49): the heading
-        is the KEY column, the value is the one-line counters / freely-wrapping badges. %>
-    <div class="pito-video-detail__stats pito-detail-stats">
-      <div class="pito-video-detail__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
-      <div><%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %></div>
-
-      <% if @video.achievements.any? %>
-        <div class="pito-video-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
-        <div class="pito-video-detail__shinies flex flex-wrap gap-2">
-          <% top_shinies_per_metric.each do |a| %>
-            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
-          <% end %>
-        </div>
-      <% end %>
-    </div>
-  </div>
-
-  <%# Mobile-only hairline between the stacked columns (hidden at md: and up,
-      where the two-column layout needs no divider). %>
-  <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-col-divider md:hidden")) %>
-
-  <%# ── Right column: kv-table (Title first), hairline, then Description ──
-      Title is the first kv row so it lives in the same grid as the metadata.
-      whitespace-pre-wrap on the description body preserves YouTube line breaks. %>
-  <div class="pito-video-detail__right flex flex-col gap-1 flex-1 min-w-0">
-    <%# KV table — Title row first, then ID, YouTube ID, and optional metadata %>
+  <% card.with_body do %>
+    <%# KV table — Title row first, then ID, YouTube ID, and optional metadata.
+        The wrapper div is rendered by the shell; only the content lives here. %>
     <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.video.detail.title"),
@@ -124,6 +100,6 @@
       <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
       <div class="pito-video-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
     <% end %>
-  </div>
+  <% end %>
 
-</div>
+<% end %>

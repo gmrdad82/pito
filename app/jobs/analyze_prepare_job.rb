@@ -82,15 +82,16 @@ class AnalyzePrepareJob < ApplicationJob
   # back to the scaffold "0" display.
   def compute(marker)
     window   = Pito::Analytics::Window.for(marker["period"], reference_date: Date.current)
-    level    = marker["level"]
+    level    = marker["level"].to_sym
+    role     = marker["role"].to_sym
     ids      = Array(marker["entity_ids"])
     groups   = groups_for(level, ids)
-    scaffold = Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: level.to_sym)
+    scaffold = Pito::Analytics::Scaffold.for(groups:, window:, role:, level:)
 
     # Chart metrics THIS role+level actually lists (system: views…avg_viewed_pct;
     # enhanced: retention). `&` preserves CHART_METRICS order (avg_view_duration
     # before avg_viewed_pct).
-    role_metrics = Pito::Analytics::MetricOrder.for(role: marker["role"].to_sym, level: level.to_sym)
+    role_metrics = Pito::Analytics::MetricOrder.for(role:, level:)
     chart_keys   = CHART_METRICS & role_metrics
 
     charts = nil
@@ -105,10 +106,10 @@ class AnalyzePrepareJob < ApplicationJob
     end
 
     # Likes HEARTS — ALWAYS lifetime, :system role only.
-    likes = marker["role"] == "system" ? Pito::Analytics::LikesHearts.for(groups:, level:) : nil
+    likes = role == :system ? Pito::Analytics::LikesHearts.for(groups:, level:) : nil
 
     # Bar breakdowns (all LIFETIME) for whatever bar-metrics this role+level lists.
-    bars = compute_bars(groups:, role: marker["role"], level:)
+    bars = compute_bars(groups:, role:, level:)
 
     { scaffold:, charts:, likes:, bars: }
   rescue StandardError => e
@@ -128,7 +129,7 @@ class AnalyzePrepareJob < ApplicationJob
     return {} if groups.empty?
 
     lifetime = Pito::Analytics::Window.for("lifetime", reference_date: Date.current)
-    metrics  = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym)
+    metrics  = Pito::Analytics::MetricOrder.for(role:, level:)
     metrics.each_with_object({}) do |metric, h|
       breakdown_metric = BAR_METRICS[metric]
       next unless breakdown_metric
@@ -276,11 +277,11 @@ class AnalyzePrepareJob < ApplicationJob
   #              reuse shared vids across the requested ids)
   def groups_for(level, ids)
     case level
-    when "channel"
+    when :channel
       ::Channel.where(id: ids).select { |c| usable?(c) }.map { |c| [ c, :channel ] }
-    when "vid"
+    when :vid
       ::Video.where(id: ids).includes(:channel).group_by(&:channel).filter_map { |ch, vids| usable_group(ch, vids) }
-    when "game"
+    when :game
       ::Video.joins(:video_game_links).where(video_game_links: { game_id: ids })
              .includes(:channel).distinct.group_by(&:channel).filter_map { |ch, vids| usable_group(ch, vids) }
     else

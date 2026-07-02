@@ -14,23 +14,77 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
 
   # ── scope filtering ─────────────────────────────────────────────────────────
 
-  it "syncs a stale, synced, upcoming (unreleased) game" do
+  it "syncs a synced, awaited (TBA) game" do
     game = create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
     run!
     expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
   end
 
-  it "does NOT sync a released game (IGDB data is final)" do
+  it "does NOT sync a released game (day-precision past date — IGDB data is final)" do
     released = create(:game, igdb_synced_at: 10.days.ago,
                              release_year: 2020, release_month: 3, release_day: 15)
     run!
     expect(GameIgdbSync).not_to have_received(:perform_now).with(released.id)
   end
 
-  it "does NOT sync a freshly-synced game (not stale)" do
-    fresh = create(:game, igdb_synced_at: 1.day.ago, release_year: nil)
+  it "syncs a game whose date is only quarter-precision, even after the window opens (no fixed clear date)" do
+    # Q-window lower bound is in the past, but no release_day — "sync until a
+    # fixed clear date" (owner 2026-07-02): still awaited.
+    game = create(:game, igdb_synced_at: 10.days.ago,
+                         release_year: Date.current.year, release_quarter: 1)
     run!
-    expect(GameIgdbSync).not_to have_received(:perform_now).with(fresh.id)
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+  end
+
+  it "syncs a game settled at game level whose platform row is only quarter-precision" do
+    game = create(:game, igdb_synced_at: 10.days.ago,
+                         release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "ps",
+           release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "switch",
+           release_year: Date.current.year, release_quarter: 1,
+           release_month: nil, release_day: nil)
+    run!
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+  end
+
+  it "syncs even a freshly-synced awaited game (nightly cadence — no stale gate, Item 51)" do
+    fresh = create(:game, igdb_synced_at: 1.hour.ago, release_year: nil)
+    run!
+    expect(GameIgdbSync).to have_received(:perform_now).with(fresh.id)
+  end
+
+  it "syncs a game released on one platform while another platform's date is still ahead (Item 51)" do
+    game = create(:game, igdb_synced_at: 10.days.ago,
+                         release_year: 2020, release_month: 3, release_day: 15)
+    future = Date.current + 40.days
+    create(:game_platform_release, game:, platform_token: "ps",
+           release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "switch",
+           release_year: future.year, release_month: future.month, release_day: future.day)
+    run!
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+  end
+
+  it "syncs a game released on one platform while another platform is TBA (Item 51)" do
+    game = create(:game, igdb_synced_at: 10.days.ago,
+                         release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "steam",
+           release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "xbox", release_year: nil)
+    run!
+    expect(GameIgdbSync).to have_received(:perform_now).with(game.id)
+  end
+
+  it "does NOT sync a game released on every platform" do
+    game = create(:game, igdb_synced_at: 10.days.ago,
+                         release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "ps",
+           release_year: 2020, release_month: 3, release_day: 15)
+    create(:game_platform_release, game:, platform_token: "steam",
+           release_year: 2021, release_month: 6, release_day: 1)
+    run!
+    expect(GameIgdbSync).not_to have_received(:perform_now).with(game.id)
   end
 
   it "does NOT sync a never-synced game" do
@@ -83,7 +137,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
   end
 
   # (c) also: completely empty scope → no notification
-  it "(c) creates NO Notification when there are no stale upcoming games at all" do
+  it "(c) creates NO Notification when there are no awaited games at all" do
     expect { run! }.not_to change(Notification, :count)
   end
 

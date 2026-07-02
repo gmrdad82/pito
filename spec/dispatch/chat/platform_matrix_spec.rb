@@ -10,7 +10,7 @@ require "rails_helper"
 #
 # Subject:  Pito::Chat::Handlers::Platform
 # File:     app/services/pito/chat/handlers/platform.rb
-# Vocab:    Pito::Game::PlatformInput (app/services/pito/game/platform_input.rb)
+# Vocab:    Pito::Games::PlatformInput (app/services/pito/game/platform_input.rb)
 # Resolver: id_only_resolution! — ILIKE title lookup intentionally disabled.
 #
 # ── Subcommands ───────────────────────────────────────────────────────────────

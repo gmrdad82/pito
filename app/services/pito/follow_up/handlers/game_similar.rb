@@ -14,10 +14,6 @@ module Pito
       #       `show game #<id>` — no follow_up scope, since the strip is a
       #       rendered component without a table_rows scope list). Returns the
       #       standard game detail + recommendations event set.
-      #
-      # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
-      # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
-      # Always use `::Game` for the model.
       class GameSimilar < Pito::FollowUp::Handler
         self.target "game_similar"
         self.mode   :append

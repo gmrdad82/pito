@@ -57,22 +57,19 @@ module Pito
         @channel.description.presence
       end
 
-      # Absolute "DD-MM-YYYY HH:MM" last-sync stamp (local zone), or "—" when the
-      # channel has never been synced.
+      # Absolute last-sync stamp via the shared SyncStamp, with the channel's
+      # bespoke never-synced copy as the fallback.
       def last_sync_label
-        return I18n.t("pito.channel.detail.never_synced") if @channel.last_synced_at.blank?
-
-        @channel.last_synced_at.in_time_zone.strftime("%d-%m-%Y %H:%M")
+        Pito::Formatter::SyncStamp.call(
+          @channel.last_synced_at,
+          fallback: I18n.t("pito.channel.detail.never_synced")
+        )
       end
 
       # One Achievement per metric — the highest threshold reached in each lane —
-      # ordered by most-recently-advanced first. Mirrors the vid/game cards.
+      # newest lane first (shared TopShiniesPerMetric; mirrors the other cards).
       def top_shinies_per_metric
-        @channel.achievements
-                .group_by(&:metric)
-                .values
-                .map { |a| a.max_by(&:threshold) }
-                .sort_by { |a| -a.unlocked_at.to_i }
+        Pito::Achievements::TopShiniesPerMetric.call(@channel.achievements)
       end
     end
   end

@@ -31,7 +31,7 @@ FactoryBot.define do
     trait :with_score do
       with_ratings
       after(:build) do |game|
-        game.score = Pito::Game::ScoreCalculator.call(game)
+        game.score = Pito::Games::ScoreCalculator.call(game)
       end
     end
 

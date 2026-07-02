@@ -27,9 +27,9 @@ module Pito
         SNIPPET_SUBCOMMAND = "snippet"
 
         def call
-          sub, ref, raw_hours = parse_args
+          subcommand, ref, raw_hours = parse_args
 
-          case sub
+          case subcommand
           when SUBCOMMAND         then update(ref, raw_hours)
           when SNIPPET_SUBCOMMAND then snippet
           else needs_ref
@@ -65,8 +65,8 @@ module Pito
         # beyond the hours value are ignored.
         def parse_args
           rest = message.raw.to_s.strip.sub(/\Afootage\b\s*/i, "").strip
-          sub, ref, raw_hours = rest.split(/\s+/, 3)
-          [ sub&.downcase, ref, raw_hours&.split(/\s+/)&.first ]
+          subcommand, ref, raw_hours = rest.split(/\s+/, 3)
+          [ subcommand&.downcase, ref, raw_hours&.split(/\s+/)&.first ]
         end
 
         # Parse the hours value with BigDecimal (exact, not Float), then ceil UP

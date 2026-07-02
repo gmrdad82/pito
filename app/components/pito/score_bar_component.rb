@@ -6,7 +6,7 @@
 # overlay + absolute-positioned score bubble.
 #
 # The score is read from `game.score` (the vote-weighted average
-# computed by `Pito::Game::ScoreCalculator`).
+# computed by `Pito::Games::ScoreCalculator`).
 #
 # kwargs:
 #   game:  (Game, optional) — source record for score synthesis.
@@ -50,7 +50,7 @@ class Pito::ScoreBarComponent < ViewComponent::Base
   def self.synthesized_score(game)
     return nil unless game
 
-    Pito::Game::ScoreCalculator.call(game)
+    Pito::Games::ScoreCalculator.call(game)
   end
 
   def synthesized_score

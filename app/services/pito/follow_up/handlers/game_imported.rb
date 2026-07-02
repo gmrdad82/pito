@@ -11,9 +11,6 @@ module Pito
       #   #<handle> show   → shows the imported/resynced game
       #     Translates to `show game #<game_id>` using game_id from the event payload.
       #     No args needed — the game_id is already in context.
-      #
-      # NAMESPACE GOTCHA: inside Pito::FollowUp::Handlers::*, bare `Game` resolves
-      # to Pito::Game module. Always use `::Game` for the AR model.
       class GameImported < Pito::FollowUp::Handler
         self.target "game_imported"
         self.mode   :append

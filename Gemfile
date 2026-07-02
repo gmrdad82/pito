@@ -79,12 +79,8 @@ end
 
 # gem "draper" — removed Phase 1 (no web views)
 
-# Phase 25 — 01e. TOTP 2FA (`rotp`) + QR-code rendering (`rqrcode`).
-# `rotp` generates and verifies the standard `otpauth://totp/...` URIs and
-# 6-digit codes (RFC 6238); `rqrcode` renders the URI as an SVG payload
-# so the enrollment view can show the QR scan target without an external
-# image service. Both gems are pure Ruby — no native extensions.
+# Phase 25 — 01e. TOTP 2FA. `rotp` generates and verifies the standard
+# `otpauth://totp/...` URIs and 6-digit codes (RFC 6238); pure Ruby.
 gem "rotp", "~> 6.3"
-gem "rqrcode", "~> 3.2"
 
 gem "countries", "~> 8.1"

@@ -25,7 +25,7 @@ module Pito
         SORT_SPECS = {
           id:           { key: ->(g) { g.id },                                                  requires_with: false },
           title:        { key: ->(g) { g.title.to_s.downcase },                                 requires_with: false },
-          platform:     { key: ->(g) { Pito::Game::PlatformTokens.labels(g.platforms).to_s.downcase }, requires_with: true },
+          platform:     { key: ->(g) { Pito::Games::PlatformTokens.labels(g.platforms).to_s.downcase }, requires_with: true },
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
@@ -60,7 +60,7 @@ module Pito
             aliases: %w[platform platforms],
             heading: "Platform",
             html:    true,
-            value:   ->(g) { Pito::Game::PlatformTokens.icons_html(g.platforms) }
+            value:   ->(g) { Pito::Games::PlatformTokens.icons_html(g.platforms) }
           },
           genre:        {
             aliases:    %w[genre genres],
@@ -109,7 +109,7 @@ module Pito
             align:      :right,
             html:       true,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-price",
-            value:      ->(g) { Pito::Game::PriceGlyphs.html(g.price) }
+            value:      ->(g) { Pito::Games::PriceGlyphs.html(g.price) }
           }
         }.freeze
 
@@ -211,7 +211,7 @@ module Pito
             cfg  = COLUMNS.fetch(col)
             text =
               if col == :price && price_pad_int
-                Pito::Game::PriceGlyphs.html(game.price, pad_int: price_pad_int)
+                Pito::Games::PriceGlyphs.html(game.price, pad_int: price_pad_int)
               else
                 cfg[:value].call(game)
               end

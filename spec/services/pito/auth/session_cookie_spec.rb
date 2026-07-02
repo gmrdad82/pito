@@ -7,7 +7,6 @@
 #   .from_request(request)             — reads + validates the cookie; nil if missing/expired
 #   #touch!(data)                      — refreshes last_seen_at (debounced)
 #   #clear!                            — deletes the cookie
-#   #mark_totp_verified!(data, at:)    — bumps totp_verified_at and last_seen_at
 #
 # SessionData#expired? — true when last_seen_at is older than IDLE_TIMEOUT (24h).
 #

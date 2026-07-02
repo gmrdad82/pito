@@ -56,7 +56,7 @@ RSpec.describe "Dispatch matrix — price (recognition, DB mocked)", type: :disp
     allow(::Game).to receive(:find_by).and_return(nil)
     allow(::Game).to receive(:find_by).with(id: PRICE_GAME_ID.to_s).and_return(game)
     allow(game).to receive(:update!)
-    allow(Pito::Game::PriceGlyphs).to receive(:html).and_return("<span>coins</span>")
+    allow(Pito::Games::PriceGlyphs).to receive(:html).and_return("<span>coins</span>")
     allow(Pito::Copy).to receive(:render_html).and_return("<p>price set ok</p>".html_safe)
   end
 

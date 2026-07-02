@@ -11,9 +11,9 @@ module Pito
     # CommandHelp.call(:list, noun: :videos)  → delegates to Video::ListHelp
     # CommandHelp.call(:list, noun: :channels)→ delegates to Channel::ListHelp (witty)
     #
-    # Copy lives at pito.copy.chat_help.<verb>:
-    #   verb-level usage  → pito.copy.chat_help.<verb>.usage  (String)
-    #   noun page         → pito.copy.chat_help.<verb>.<noun> = { usage:, sections: }
+    # Copy lives at pito.chat_help.<verb>:
+    #   verb-level usage  → pito.chat_help.<verb>.usage  (String)
+    #   noun page         → pito.chat_help.<verb>.<noun> = { usage:, sections: }
     #
     # Verb-level rendering:
     #   - Shows the verb-level usage line.
@@ -83,8 +83,8 @@ module Pito
 
       # Render a specific noun page.
       def render_noun_page(verb, noun)
-        data = I18n.t("pito.copy.chat_help.#{verb}.#{noun}", default: nil)
-        return nil unless data.is_a?(Hash)
+        data = Pito::Copy.subtree("pito.chat_help.#{verb}.#{noun}")
+        return nil unless data
 
         usage    = (data[:usage] || data["usage"]).to_s
         sections = data[:sections] || data["sections"]
@@ -112,13 +112,13 @@ module Pito
 
       # Build a verb-level man page listing noun form usages.
       def render_multi_noun_verb_page(verb, nouns)
-        verb_usage = I18n.t("pito.copy.chat_help.#{verb}.usage", default: nil)
-        return nil unless verb_usage.is_a?(String) && verb_usage.present?
+        verb_usage = Pito::Copy.render_soft("pito.chat_help.#{verb}.usage")
+        return nil if verb_usage.blank?
 
         # Collect per-noun usage lines.
         noun_rows = nouns.filter_map do |n|
-          data = I18n.t("pito.copy.chat_help.#{verb}.#{n}", default: nil)
-          next unless data.is_a?(Hash)
+          data = Pito::Copy.subtree("pito.chat_help.#{verb}.#{n}")
+          next unless data
 
           usage = (data[:usage] || data["usage"]).to_s
           next if usage.blank?
@@ -143,8 +143,8 @@ module Pito
       # Lists all three noun forms (games / videos / channels) with their usage lines,
       # followed by an Options group with --help.  Mirrors render_multi_noun_verb_page.
       def render_list_index
-        usage = I18n.t("pito.copy.chat_help.list.usage", default: nil)
-        return nil unless usage.is_a?(String) && usage.present?
+        usage = Pito::Copy.render_soft("pito.chat_help.list.usage")
+        return nil if usage.blank?
 
         games_usage    = Pito::Copy.render("pito.copy.list.games_help.usage")
         videos_usage   = Pito::Copy.render("pito.copy.list.videos_help.usage")

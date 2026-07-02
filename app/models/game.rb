@@ -50,10 +50,26 @@ class Game < ApplicationRecord
   scope :upcoming, -> { where("release_date > ? OR release_year IS NULL", Date.current) }
 
   # Nightly-refresh scopes — used by GameIgdbNightlyRefresh.
-  # `synced`  → has been synced at least once from IGDB.
-  # `stale`   → synced more than 7 days ago (due for a re-sync).
+  # `synced`           → has been synced at least once from IGDB.
+  # `awaiting_release` → still awaited SOMEWHERE (Item 51). A game (or one of
+  #   its platform rows) is SETTLED only by a DAY-precision date in the past —
+  #   "sync until a fixed clear date" (owner 2026-07-02): TBA, a future date,
+  #   or a bare year/quarter/month (release_day NULL — the derived
+  #   release_date is just the window's lower bound, so "past" proves nothing)
+  #   all keep the game refreshing until IGDB supplies the concrete day.
+  #   `upcoming` can't serve this: the game-level release_date is the EARLIEST
+  #   across platforms, so it goes past as soon as the first platform ships.
   scope :synced, -> { where.not(igdb_synced_at: nil) }
-  scope :stale,  -> { where(igdb_synced_at: ..7.days.ago) }
+  scope :awaiting_release, lambda {
+    where(
+      "(games.release_year IS NULL OR games.release_day IS NULL OR games.release_date > :today) OR EXISTS (
+         SELECT 1 FROM game_platform_releases gpr
+         WHERE gpr.game_id = games.id
+           AND (gpr.release_year IS NULL OR gpr.release_day IS NULL OR gpr.release_date > :today)
+       )",
+      today: Date.current
+    )
+  }
 
   # ── Score (vote-weighted average of IGDB rating triplets) ─────
   RATING_FIELDS = %i[
@@ -71,7 +87,7 @@ class Game < ApplicationRecord
 
   # Bypasses the drift guard — a deliberate action (e.g. backfill).
   def recompute_score!
-    update!(score: Pito::Game::ScoreCalculator.call(self))
+    update!(score: Pito::Games::ScoreCalculator.call(self))
   end
 
   def released?
@@ -96,7 +112,7 @@ class Game < ApplicationRecord
   end
 
   def auto_recompute_score
-    new_score = Pito::Game::ScoreCalculator.call(self)
+    new_score = Pito::Games::ScoreCalculator.call(self)
     if score_drift_too_large?(new_score)
       raise Pito::Error::ScoreDrift.new(
         game: self, old_score: score, new_score: new_score
@@ -142,7 +158,7 @@ class Game < ApplicationRecord
   end
 
   def derive_release_date
-    Pito::Game::ReleaseDateMapper.call(
+    Pito::Games::ReleaseDateMapper.call(
       year:    release_year,
       quarter: release_quarter,
       month:   release_month,

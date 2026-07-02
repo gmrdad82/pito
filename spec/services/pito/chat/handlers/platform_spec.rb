@@ -115,7 +115,7 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     result = free_call("#{game.id} Stadia")
 
     expect(game.reload.platforms).to eq([ "Stadia" ])
-    expect(Pito::Game::PlatformTokens.tokens(game.platforms)).to be_empty
+    expect(Pito::Games::PlatformTokens.tokens(game.platforms)).to be_empty
     expect(result.events.first[:payload]["body"]).to include("Stadia")
   end
 
@@ -123,7 +123,7 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     free_call("#{game.id} Xbox")
 
     expect(game.reload.platforms).to eq([ "Xbox" ])
-    expect(Pito::Game::PlatformTokens.tokens(game.platforms)).to eq([ "xbox" ])
+    expect(Pito::Games::PlatformTokens.tokens(game.platforms)).to eq([ "xbox" ])
   end
 
   # ── Errors ──────────────────────────────────────────────────────────────────────

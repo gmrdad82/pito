@@ -53,26 +53,12 @@
     <% end %>
   </div>
 
-  <%# Row 3 — legend. Each pillar legend item is only shown when IGDB
-      returned data for that pillar (hours[key] > 0). Absent pillars are
-      omitted from both the ticks and the legend. %>
+  <%# Row 3 — legend (legend_pillars omits pillars IGDB has no data for). %>
   <div class="pito-ttb__legend">
-    <% if hours[:main].to_i.positive? %>
+    <% legend_pillars.each do |key| %>
       <span class="pito-ttb__legend-item">
-        <span class="pito-ttb__legend-tick" data-accent="main">|</span>
-        <span class="pito-ttb__legend-label"><%= self.class.pillar_label[:main] %></span>
-      </span>
-    <% end %>
-    <% if hours[:extras].to_i.positive? %>
-      <span class="pito-ttb__legend-item">
-        <span class="pito-ttb__legend-tick" data-accent="extras">|</span>
-        <span class="pito-ttb__legend-label"><%= self.class.pillar_label[:extras] %></span>
-      </span>
-    <% end %>
-    <% if hours[:completionist].to_i.positive? %>
-      <span class="pito-ttb__legend-item">
-        <span class="pito-ttb__legend-tick" data-accent="completionist">|</span>
-        <span class="pito-ttb__legend-label"><%= self.class.pillar_label[:completionist] %></span>
+        <span class="pito-ttb__legend-tick" data-accent="<%= key %>">|</span>
+        <span class="pito-ttb__legend-label"><%= self.class.pillar_label[key] %></span>
       </span>
     <% end %>
   </div>

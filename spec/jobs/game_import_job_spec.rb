@@ -32,7 +32,7 @@ RSpec.describe GameImportJob, type: :job do
     allow(::Game::VoyageIndexer).to receive(:call)
 
     # Stub ScoreCalculator
-    allow(Pito::Game::ScoreCalculator).to receive(:call).and_return(80.0)
+    allow(Pito::Games::ScoreCalculator).to receive(:call).and_return(80.0)
 
     # Stub update_column for all column names (resyncing, score, igdb_synced_at, etc.)
     allow(game).to receive(:update_column).with(anything, anything)

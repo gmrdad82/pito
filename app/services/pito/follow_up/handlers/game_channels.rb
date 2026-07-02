@@ -13,10 +13,6 @@ module Pito
       #     → Show the referenced channel by @handle (free-chat dispatch of
       #       `show channel @<handle>`). Returns the standard channel detail
       #       + analytics event set.
-      #
-      # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
-      # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
-      # Always use `::Game` for the model.
       class GameChannels < Pito::FollowUp::Handler
         self.target "game_channels"
         self.mode   :append

@@ -110,7 +110,7 @@ class Game
       #    `first_release_date`, falling back to the most-precise
       #    non-TBD row when `first_release_date` is null.
       # 2. Translates IGDB `category` (0..7) into the component shape.
-      # 3. Delegates to `Pito::Game::ReleaseDateMapper` for the
+      # 3. Delegates to `Pito::Games::ReleaseDateMapper` for the
       #    canonical 5-column output.
       def map_release_date(json)
         first_release_date = unix_to_date(json["first_release_date"])
@@ -130,7 +130,7 @@ class Game
                        {}
         end
 
-        Pito::Game::ReleaseDateMapper.call(components)
+        Pito::Games::ReleaseDateMapper.call(components)
       end
 
       # Precision rank: lower = more precise.

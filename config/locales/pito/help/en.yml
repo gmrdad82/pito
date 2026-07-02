@@ -1,0 +1,623 @@
+en:
+  pito:
+    # Structured `--help` man-page trees (usage + sections) served via
+    # Pito::Copy.subtree / Pito::Copy.render_soft. NOT 1-or-50 dictionary
+    # copy — that lives under pito.copy.* (config/locales/pito/copy/).
+    chat_help:
+      list:
+        usage: "list games  |  list vids  |  list channels"
+      show:
+        usage: "show game <id>  |  show vid <id>"
+        game:
+          usage: "show game <id>"
+          sections:
+            Arguments:
+              "game": "Target noun"
+              "<id>": "Local numeric id"
+            Options:
+              "--help": "Print this help message"
+        video:
+          usage: "show vid <id>"
+          sections:
+            Arguments:
+              "vid": "Target noun (aliases: vids, video, videos)"
+              "<id>": "Local numeric id"
+            Options:
+              "--help": "Print this help message"
+      delete:
+        usage: "delete game <id>  |  delete video <id>"
+        game:
+          usage: "delete game <id>"
+          sections:
+            Arguments:
+              "game": "Target noun (alias: rm)"
+              "<id>": "Local numeric game id only — not a name string"
+            Options:
+              "--help": "Print this help message"
+        video:
+          usage: "delete video <id>"
+          sections:
+            Arguments:
+              "video": "Target noun (alias: rm)"
+              "<id>": "Local numeric video id only — not a name string"
+            Options:
+              "--help": "Print this help message"
+      reindex:
+        usage: "reindex game <id>  |  reindex video <id>"
+        game:
+          usage: "reindex game <id>"
+          sections:
+            Arguments:
+              "game": "Target noun"
+              "<id>": "Local numeric game id — Voyage re-embeds the record"
+            Options:
+              "--help": "Print this help message"
+        video:
+          usage: "reindex video <id>"
+          sections:
+            Arguments:
+              "video": "Target noun"
+              "<id>": "Local numeric video id — Voyage re-embeds the record"
+            Options:
+              "--help": "Print this help message"
+      footage:
+        usage: "footage update <id> <hours>  |  footage snippet"
+        update:
+          usage: "footage update <id> <hours>"
+          sections:
+            Arguments:
+              "update": "Target noun — set a game's total recorded footage"
+              "<id>": "Local numeric game id"
+              "<hours>": "Total recorded hours (rounded up to the next 0.5)"
+            Options:
+              "--help": "Print this help message"
+        snippet:
+          usage: "footage snippet"
+          sections:
+            Arguments:
+              "snippet": "Target noun — copy a shell one-liner that ffprobes the current folder and sums its footage hours"
+            Options:
+              "--help": "Print this help message"
+      price:
+        usage: "price set <id> <amount>  |  price unset <id>"
+        set:
+          usage: "price set <id> <amount>"
+          sections:
+            Arguments:
+              "set": "Target noun — set a game's euro price"
+              "<id>": "Local numeric game id"
+              "<amount>": "Price in euros, greater than 0 (e.g. 59.99) — shown as €59.99"
+            Options:
+              "--help": "Print this help message"
+        unset:
+          usage: "price unset <id>"
+          sections:
+            Arguments:
+              "unset": "Target noun — clear a game's price (back to unpriced)"
+              "<id>": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+      link:
+        usage: "link game <id> to|with video <id>  |  link video <id> to|with game <id>"
+        game:
+          usage: "link game <id> to|with video <id>"
+          sections:
+            Arguments:
+              "game": "Target noun"
+              "<id>": "Local numeric game id"
+              "to|with video <id>": "Local numeric video id to link to"
+            Options:
+              "--help": "Print this help message"
+        video:
+          usage: "link video <id> to|with game <id>"
+          sections:
+            Arguments:
+              "video": "Target noun"
+              "<id>": "Local numeric video id"
+              "to|with game <id>": "Local numeric game id to link to"
+            Options:
+              "--help": "Print this help message"
+      unlink:
+        usage: "unlink game <id> from video <id>  |  unlink video <id> from game <id>"
+        game:
+          usage: "unlink game <id> from video <id>"
+          sections:
+            Arguments:
+              "game": "Target noun"
+              "<id>": "Local numeric game id"
+              "from video <id>": "Local numeric video id to unlink from"
+            Options:
+              "--help": "Print this help message"
+        video:
+          usage: "unlink video <id> from game <id>"
+          sections:
+            Arguments:
+              "video": "Target noun"
+              "<id>": "Local numeric video id"
+              "from game <id>": "Local numeric game id to unlink from"
+            Options:
+              "--help": "Print this help message"
+      publish:
+        usage: "publish video <id>"
+        video:
+          usage: "publish video <id>"
+          sections:
+            Arguments:
+              "video": "Target noun"
+              "<id>": "Local numeric video id — sets YouTube visibility to public"
+            Options:
+              "--help": "Print this help message"
+      unlist:
+        usage: "unlist video <id>"
+        video:
+          usage: "unlist video <id>"
+          sections:
+            Arguments:
+              "video": "Target noun"
+              "<id>": "Local numeric video id — sets YouTube visibility to unlisted"
+            Options:
+              "--help": "Print this help message"
+      schedule:
+        usage: "schedule video <id> <when>  |  schedule <id> slate"
+        video:
+          usage: "schedule video <id> <when>  |  schedule <id> slate"
+          sections:
+            Arguments:
+              "video": "Target noun"
+              "<id>": "Local numeric video id"
+              "slate": "Show the upcoming schedule (this week + the rest of your shift+space period), excluding this vid — obeys the shift+tab channel scope"
+              "<when>": |-
+                Publish time (local, ≥30 min out). One of:
+                `today`
+                `today at 14:30`
+                `today at 3am`
+                `today at 5pm`
+                `in 30m`
+                `in 2 hours`
+                `in 3 days`
+                `tomorrow`
+                `tomorrow at noon`
+                `tomorrow night`
+                `at 2pm`
+                `at 3:10am`
+                `at 23`
+                `at 15:30`
+                `saturday at noon`
+                `next friday`
+                `next week`
+                `3 weeks from now`
+                `next month`
+                `for DD.MM.YYYY HH:MM`
+                `DD-MM-YYYY HH:MM`
+            Options:
+              "--help": "Print this help message"
+      import:
+        usage: "import game [title]  |  import vids [for @handle]"
+        game:
+          usage: "import game [title]"
+          sections:
+            Arguments:
+              "game": "Target noun — opens the IGDB import sidebar"
+              "[title]": "Optional title to prefill the IGDB search"
+            Options:
+              "--help": "Print this help message"
+        videos:
+          usage: "import vids [for @handle]"
+          sections:
+            Arguments:
+              "vids": "Target noun (aliases: vid, videos, video) — alias of `sync vids`: imports newer YouTube videos for the scoped channel(s)"
+              "[for @handle]": "Override scope: import only for the given channel handle"
+            Options:
+              "--help": "Print this help message"
+      sync:
+        usage: "sync vids [only id,id,id]  |  sync channels [with <items>]"
+        videos:
+          usage: "sync vids [only id,id,id]"
+          sections:
+            Arguments:
+              "vids": "Target noun (aliases: vid, videos, video) — syncs video metadata from YouTube for the scoped channel(s)"
+              "[only id,id,id]": "Restrict to these local video ids (comma-separated, no titles)"
+            Options:
+              "--help": "Print this help message"
+        channels:
+          usage: "sync channels [with <items>]"
+          sections:
+            Arguments:
+              "channels": "Target noun — syncs channel fields and stats for the scoped channel(s)"
+              "[with <items>]": "videos"
+            Options:
+              "--help": "Print this help message"
+      platform:
+        usage: "platform <id> <name>"
+        game:
+          usage: "platform <id> <name>"
+          sections:
+            Arguments:
+              "<id>": "Local numeric game id — the game to add a platform to (omit when replying to a game card: `#<handle> platform <name>`)"
+              "<name>": "Platform name, normalised to a logo family (e.g. ps5, switch, steam)"
+            Options:
+              "--help": "Print this help message"
+
+      shinies:
+        usage: "shinies channel @handle  |  shinies vid <id>  |  shinies game <id>"
+        channel:
+          usage: "shinies channel @handle"
+          sections:
+            Arguments:
+              "channel": "Target noun"
+              "@handle": "Channel handle (e.g. @myChannel)"
+            Options:
+              "--help": "Print this help message"
+        video:
+          usage: "shinies vid <id>"
+          sections:
+            Arguments:
+              "vid": "Target noun (aliases: vids, video, videos)"
+              "<id>": "Local numeric video id"
+            Options:
+              "--help": "Print this help message"
+        game:
+          usage: "shinies game <id>"
+          sections:
+            Arguments:
+              "game": "Target noun (alias: games)"
+              "<id>": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+
+      analyze:
+        usage: "analyze channel [@handle[, @h2…]]  |  analyze vid [#id[, #id…]]  |  analyze game [#id[, #id…]]"
+        channel:
+          usage: "analyze channel [@handle[, @h2…]]"
+          sections:
+            Arguments:
+              "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are verb aliases"
+              "[@handle]": "One or more channel handles; omit to use the shift+tab scope (@all = every channel, else the selected one)"
+            Options:
+              "--help": "Print this help message"
+        vid:
+          usage: "analyze vid [#id[, #id…]]"
+          sections:
+            Arguments:
+              "vid": "Target noun (aliases: vids, video, videos) — bare form uses the shift+tab channel scope (same as `analyze channel`)"
+              "[#id]": "One or more local numeric video ids"
+            Options:
+              "--help": "Print this help message"
+        game:
+          usage: "analyze game [#id[, #id…]]"
+          sections:
+            Arguments:
+              "game": "Target noun (aliases: games, gamez) — bare form resolves shift+tab → linked videos → games, presented at game level"
+              "[#id]": "One or more local numeric game ids; resolves linked videos and presents results at game level"
+            Options:
+              "--help": "Print this help message"
+
+    hashtag_help:
+      show-game:
+        target_usage: "#<show-game-hashtag> <action>"
+        actions:
+          analyze:
+            usage: "#<show-game-hashtag> analyze"
+            sections:
+              Description:
+                "analyze": "Analyze this game's metrics over the current period"
+              Options:
+                "--help": "Print this help message"
+          delete:
+            usage: "#<show-game-hashtag> delete"
+            sections:
+              Description:
+                "delete": "Delete this game (alias: rm)"
+              Options:
+                "--help": "Print this help message"
+          rm:
+            usage: "#<show-game-hashtag> rm"
+            sections:
+              Description:
+                "rm": "Delete this game (alias: delete)"
+              Options:
+                "--help": "Print this help message"
+          footage:
+            usage: "#<show-game-hashtag> footage [update] <hours>  |  footage snippet"
+            sections:
+              Arguments:
+                "<hours>": "New total footage in hours for this game (rounded up to the next 0.5)"
+                "snippet": "Copy a shell one-liner that ffprobes the current folder and sums its footage hours"
+              Options:
+                "--help": "Print this help message"
+          price:
+            usage: "#<show-game-hashtag> price set <amount>  |  price unset"
+            sections:
+              Arguments:
+                "set <amount>": "Set this game's euro price, greater than 0 (e.g. price set 59.99)"
+                "unset": "Clear this game's price (back to unpriced)"
+              Options:
+                "--help": "Print this help message"
+          link:
+            usage: "#<show-game-hashtag> link to vid <id>[,id…]"
+            sections:
+              Arguments:
+                "to video <id>[,id…]": "One or more local numeric vid ids to link to (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          unlink:
+            usage: "#<show-game-hashtag> unlink from vid <id>[,id…]"
+            sections:
+              Arguments:
+                "from video <id>[,id…]": "One or more local numeric vid ids to unlink from (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          reindex:
+            usage: "#<show-game-hashtag> reindex"
+            sections:
+              Description:
+                "reindex": "Re-embed this game in Voyage"
+              Options:
+                "--help": "Print this help message"
+
+      list-games:
+        target_usage: "#<list-games-hashtag> <action>"
+        actions:
+          analyze:
+            usage: "#<list-games-hashtag> analyze"
+            sections:
+              Description:
+                "analyze": "Analyze the listed games as a scope"
+              Options:
+                "--help": "Print this help message"
+          show:
+            usage: "#<list-games-hashtag> show <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+              Options:
+                "--help": "Print this help message"
+          delete:
+            usage: "#<list-games-hashtag> delete <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list (alias: rm)"
+              Options:
+                "--help": "Print this help message"
+          rm:
+            usage: "#<list-games-hashtag> rm <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list (alias: delete)"
+              Options:
+                "--help": "Print this help message"
+          with:
+            usage: "#<list-games-hashtag> with <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to add: platform, genre, developer, publisher"
+              Options:
+                "--help": "Print this help message"
+          without:
+            usage: "#<list-games-hashtag> without <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to remove: platform, genre, developer, publisher"
+              Options:
+                "--help": "Print this help message"
+          sort:
+            usage: "#<list-games-hashtag> sort by <column> [desc]"
+            sections:
+              "Sort columns":
+                "id": "Row number"
+                "title": "Game title (alphabetical)"
+                "platform": "Platform(s) — requires the platform column to be visible"
+                "genre": "Genre(s) — requires the genre column to be visible"
+                "developer": "Developer — requires the developer column to be visible"
+                "publisher": "Publisher — requires the publisher column to be visible"
+              Options:
+                "[desc]": "Reverse order (descending)"
+                "--help": "Print this help message"
+          link:
+            usage: "#<list-games-hashtag> link <game id> to <vid id>[,id…]"
+            sections:
+              Arguments:
+                "<game id>": "Row id of the game to link"
+                "to <video id>[,id…]": "One or more local numeric vid ids to link to (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          unlink:
+            usage: "#<list-games-hashtag> unlink <game id> from <vid id>[,id…]"
+            sections:
+              Arguments:
+                "<game id>": "Row id of the game to unlink"
+                "from <video id>[,id…]": "One or more local numeric vid ids to unlink from (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+
+      show-video:
+        target_usage: "#<show-vid-hashtag> <action>"
+        actions:
+          analyze:
+            usage: "#<show-vid-hashtag> analyze"
+            sections:
+              Description:
+                "analyze": "Analyze this vid's metrics over the current period"
+              Options:
+                "--help": "Print this help message"
+          delete:
+            usage: "#<show-vid-hashtag> delete"
+            sections:
+              Description:
+                "delete": "Delete this vid (alias: rm)"
+              Options:
+                "--help": "Print this help message"
+          rm:
+            usage: "#<show-vid-hashtag> rm"
+            sections:
+              Description:
+                "rm": "Delete this vid (alias: delete)"
+              Options:
+                "--help": "Print this help message"
+          reindex:
+            usage: "#<show-vid-hashtag> reindex"
+            sections:
+              Description:
+                "reindex": "Re-embed this vid in the Voyage index"
+              Options:
+                "--help": "Print this help message"
+          link:
+            usage: "#<show-vid-hashtag> link to game <id>[,id…]"
+            sections:
+              Arguments:
+                "to game <id>[,id…]": "One or more local numeric game ids to link to (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          unlink:
+            usage: "#<show-vid-hashtag> unlink from game <id>[,id…]"
+            sections:
+              Arguments:
+                "from game <id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+
+      list-videos:
+        target_usage: "#<list-vids-hashtag> <action>"
+        actions:
+          analyze:
+            usage: "#<list-vids-hashtag> analyze"
+            sections:
+              Description:
+                "analyze": "Analyze the listed vids as a scope"
+              Options:
+                "--help": "Print this help message"
+          show:
+            usage: "#<list-vids-hashtag> show <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+              Options:
+                "--help": "Print this help message"
+          schedule:
+            usage: "#<list-vids-hashtag> schedule <id> <when>  |  schedule <id> slate"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+                "<when>": "Publish time — see `schedule --help` for forms"
+                "slate": "Show your upcoming schedule (this week + the rest of the shift+space period), excluding this vid"
+              Options:
+                "--help": "Print this help message"
+          delete:
+            usage: "#<list-vids-hashtag> delete <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list (alias: rm)"
+              Options:
+                "--help": "Print this help message"
+          rm:
+            usage: "#<list-vids-hashtag> rm <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list (alias: delete)"
+              Options:
+                "--help": "Print this help message"
+          with:
+            usage: "#<list-vids-hashtag> with <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to add: channel, visibility, game, length, views, likes, comments, category"
+              Options:
+                "--help": "Print this help message"
+          without:
+            usage: "#<list-vids-hashtag> without <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to remove: channel, visibility, game, length, views, likes, comments, category"
+              Options:
+                "--help": "Print this help message"
+          sort:
+            usage: "#<list-vids-hashtag> sort by <column> [desc]"
+            sections:
+              "Sort columns":
+                "id": "Row number"
+                "title": "Vid title (alphabetical)"
+                "channel": "Channel @handle — requires the channel column to be visible"
+                "visibility": "Visibility — requires the visibility column to be visible"
+                "game": "Linked game(s) — requires the game column to be visible"
+                "duration": "Vid length — requires the length column to be visible"
+                "views": "View count — requires the views column to be visible"
+                "likes": "Like count — requires the likes column to be visible"
+                "comments": "Comment count — requires the comments column to be visible"
+              Options:
+                "[desc]": "Reverse order (descending)"
+                "--help": "Print this help message"
+          link:
+            usage: "#<list-vids-hashtag> link <vid id> to <game id>[,id…]"
+            sections:
+              Arguments:
+                "<video id>": "Row id of the vid to link"
+                "to <game id>[,id…]": "One or more local numeric game ids to link to (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          unlink:
+            usage: "#<list-vids-hashtag> unlink <vid id> from <game id>[,id…]"
+            sections:
+              Arguments:
+                "<video id>": "Row id of the vid to unlink"
+                "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+
+      list-channels:
+        target_usage: "#<list-channels-hashtag> <action>"
+        actions:
+          analyze:
+            usage: "#<list-channels-hashtag> analyze"
+            sections:
+              Description:
+                "analyze": "Analyze the listed channels as a scope"
+              Options:
+                "--help": "Print this help message"
+          shinies:
+            usage: "#<list-channels-hashtag> shinies @handle"
+            sections:
+              Arguments:
+                "@handle": "Channel @handle — show its shinies"
+              Options:
+                "--help": "Print this help message"
+      show-channel:
+        target_usage: "#<show-channel-hashtag> <action>"
+        actions:
+          analyze:
+            usage: "#<show-channel-hashtag> analyze"
+            sections:
+              Description:
+                "analyze": "Analyze this channel's metrics over the current period"
+              Options:
+                "--help": "Print this help message"
+          visit:
+            usage: "#<show-channel-hashtag> visit channel|studio"
+            sections:
+              Arguments:
+                "channel": "Open the channel's YouTube page (aliases: youtube, yt)"
+                "studio": "Open the channel's YouTube Studio"
+              Options:
+                "--help": "Print this help message"
+
+      confirm:
+        target_usage: "#<confirm-hashtag> <action>"
+        actions:
+          confirm:
+            usage: "#<confirm-hashtag> confirm"
+            sections:
+              Description:
+                "confirm": "Confirm the pending action (aliases: yes, ok, approve, true)"
+              Options:
+                "--help": "Print this help message"
+          cancel:
+            usage: "#<confirm-hashtag> cancel"
+            sections:
+              Description:
+                "cancel": "Cancel the pending action (aliases: no, false, discard)"
+              Options:
+                "--help": "Print this help message"
+    share_help:
+      share: "share this message — mints a public /share/:uuid link"
+      revoke: "revoke the share — deletes the public link (async)"
+      unshare: "alias for revoke"
+      unfold: "open the full conversation (share pages only — not available in /chat)"

@@ -24,10 +24,6 @@ module Pito
       #     → Set this game's total footage hours (ceil'd UP to the next 0.5),
       #       mirroring the `footage update <id> <hours>` chat verb (the id is
       #       implied by the card). Reachable via shift+r, which seeds `#<handle> `.
-      #
-      # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
-      # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
-      # Always use `::Game` for the model.
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append

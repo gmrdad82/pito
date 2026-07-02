@@ -150,7 +150,7 @@ module Pito
           rows          = all_providers.map do |p|
             [ p, I18n.t("pito.slash.config.help.general.providers.#{p}", default: "") ]
           end
-          info_line = I18n.t("pito.slash.config.help.general.info_lines").first
+          info_line = I18n.t("pito.slash.config.help.general.info_line")
 
           body = Pito::MessageBuilder::ManPage.render(
             usage:  I18n.t("pito.slash.config.help.general.body"),

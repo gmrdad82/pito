@@ -1716,7 +1716,7 @@ html {
   transition: left 0.6s ease-out;
 }
 
-/* ── Pito::Game::EnhancedComponent ─────────────────────────────
+/* ── Pito::Games::EnhancedComponent ─────────────────────────────
  *
  * Rich recommendations message rendered after Voyage indexing.
  * Layout:
@@ -2327,7 +2327,7 @@ html {
 .pito-platform-release__row { display: flex; align-items: center; gap: 0.4rem; }
 .pito-platform-release__row + .pito-platform-release__row { margin-top: 2px; }
 
-/* Pito::Coin — price-as-coin-tiers (Pito::Game::PriceGlyphs). The coins prefix the
+/* Pito::Coin — price-as-coin-tiers (Pito::Games::PriceGlyphs). The coins prefix the
    number; the FREE star is its own, slightly larger glyph. The gifs are tight
    (coin ~91% of its canvas), so the run reads ~1–2px between coins at gap 0.
    `bottom: 2px` lifts the run off the digit baseline (it otherwise sits ~2px low);

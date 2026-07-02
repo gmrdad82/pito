@@ -1,0 +1,19 @@
+<% if rows.any? %>
+  <div class="pito-data-grid<%= has_body? ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= col_count %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
+    <% heading_cells.each do |cell| %>
+      <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+    <% end %>
+    <% rows.each do |cells| %>
+      <% cells.each do |cell| %>
+        <%= render_cell_span(cell) %>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>
+<% if info_lines.any? %>
+  <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
+    <% info_lines.each do |line| %>
+      <div><%= render_info_line(line) %></div>
+    <% end %>
+  <% end %>
+<% end %>

@@ -143,27 +143,4 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
       expect(node.css(".pito-echo__meta").text).not_to include("beta-1234")
     end
   end
-
-  # ── Quips via copy engine ────────────────────────────────────────────────────
-
-  describe "Pito::Themes::Quips.applied (delegates to Pito::Copy)" do
-    it "returns a non-empty string containing the label" do
-      quip = Pito::Themes::Quips.applied("Dracula")
-      expect(quip).to be_a(String).and be_present
-      expect(quip).to include("Dracula")
-    end
-
-    it "interpolates the theme label into the quip" do
-      quip = Pito::Themes::Quips.applied("Tokyo Night")
-      expect(quip).to include("Tokyo Night")
-    end
-
-    it "returns a variant from the pito.copy.theme.applied pool" do
-      entries = I18n.t("pito.copy.theme.applied")
-      quip    = Pito::Themes::Quips.applied("Dracula")
-      # Strip out the %{theme} interpolation to compare pool membership
-      candidates = entries.map { |e| e % { theme: "Dracula" } }
-      expect(candidates).to include(quip)
-    end
-  end
 end

@@ -37,7 +37,8 @@ production:
   # Nightly data sync — daily at 01:00 UTC. The daily new-video detection pass.
   # Fans out per connected channel: ChannelSync + VideoSyncJob (import new/private
   # uploads + reconcile updates/deletions, refreshing Pito::Stats on upsert), then
-  # GameIgdbNightlyRefresh (re-syncs every stale upcoming Game). Supersedes the
+  # GameIgdbNightlyRefresh (re-syncs every awaited Game nightly — TBA or a
+  # future/TBA date on any platform; Item 51). Supersedes the
   # standalone IGDB entry.
   nightly_sync:
     class: NightlySyncJob

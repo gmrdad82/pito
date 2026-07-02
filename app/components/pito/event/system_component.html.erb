@@ -50,28 +50,8 @@
               detail:    expand_detail,
               timestamp: @timestamp
             )) %>
-        <% if table_rows.any? %>
-          <% norm_rows = normalized_table_rows %>
-          <% heading_cells = table_heading_cells %>
-          <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
-          <div class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
-            <% heading_cells.each do |cell| %>
-              <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
-            <% end %>
-            <% norm_rows.each do |cells| %>
-              <% cells.each do |cell| %>
-                <%= render_cell_span(cell) %>
-              <% end %>
-            <% end %>
-          </div>
-        <% end %>
-        <% if info_lines.any? %>
-          <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
-            <% info_lines.each do |line| %>
-              <div><%= render_info_line(line) %></div>
-            <% end %>
-          <% end %>
-        <% end %>
+        <% dg_rows = normalized_table_rows; dg_heads = table_heading_cells; dg_n = [ dg_heads.size, dg_rows.map(&:size).max.to_i, 2 ].max %>
+        <%= render(Pito::Event::DataGridComponent.new(heading_cells: dg_heads, rows: dg_rows, col_count: table_col_count(dg_n), fixed_leading: fixed_leading, fixed_trailing: fixed_trailing, has_body: body.present?, info_lines: info_lines)) %>
       </div>
     <% elsif html %>
       <%# html: true — the whole card (body + grid + info-lines) renders instantly
@@ -85,28 +65,8 @@
                 detail:    expand_detail,
                 timestamp: @timestamp
               )) %>
-          <% if table_rows.any? %>
-            <% norm_rows = normalized_table_rows %>
-            <% heading_cells = table_heading_cells %>
-            <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
-            <div class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
-              <% heading_cells.each do |cell| %>
-                <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
-              <% end %>
-              <% norm_rows.each do |cells| %>
-                <% cells.each do |cell| %>
-                  <%= render_cell_span(cell) %>
-                <% end %>
-              <% end %>
-            </div>
-          <% end %>
-          <% if info_lines.any? %>
-            <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
-              <% info_lines.each do |line| %>
-                <div><%= render_info_line(line) %></div>
-              <% end %>
-            <% end %>
-          <% end %>
+          <% dg_rows = normalized_table_rows; dg_heads = table_heading_cells; dg_n = [ dg_heads.size, dg_rows.map(&:size).max.to_i, 2 ].max %>
+          <%= render(Pito::Event::DataGridComponent.new(heading_cells: dg_heads, rows: dg_rows, col_count: table_col_count(dg_n), fixed_leading: fixed_leading, fixed_trailing: fixed_trailing, has_body: body.present?, info_lines: info_lines)) %>
         </div>
       </div>
     <% else %>
@@ -117,28 +77,8 @@
             detail:    expand_detail,
             timestamp: @timestamp
           )) %>
-      <% if table_rows.any? %>
-        <% norm_rows = normalized_table_rows %>
-        <% heading_cells = table_heading_cells %>
-        <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
-        <div class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
-          <% heading_cells.each do |cell| %>
-            <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
-          <% end %>
-          <% norm_rows.each do |cells| %>
-            <% cells.each do |cell| %>
-              <%= render_cell_span(cell) %>
-            <% end %>
-          <% end %>
-        </div>
-      <% end %>
-      <% if info_lines.any? %>
-        <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
-          <% info_lines.each do |line| %>
-            <div><%= render_info_line(line) %></div>
-          <% end %>
-        <% end %>
-      <% end %>
+      <% dg_rows = normalized_table_rows; dg_heads = table_heading_cells; dg_n = [ dg_heads.size, dg_rows.map(&:size).max.to_i, 2 ].max %>
+      <%= render(Pito::Event::DataGridComponent.new(heading_cells: dg_heads, rows: dg_rows, col_count: table_col_count(dg_n), fixed_leading: fixed_leading, fixed_trailing: fixed_trailing, has_body: body.present?, info_lines: info_lines)) %>
     <% end %>
   <% end %>
   <%# Witty italic footer after the table rows (list messages) naming the

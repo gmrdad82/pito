@@ -36,7 +36,7 @@ module Pito
         if @video.publish_at.present? && @video.publish_at > Time.current
           return I18n.t(
             "pito.video.detail.scheduled_for",
-            when: @video.publish_at.in_time_zone.strftime("%d-%m-%Y %H:%M"),
+            when: Pito::Formatter::SyncStamp.call(@video.publish_at),
             default: "Scheduled for %{when}"
           )
         end
@@ -65,22 +65,15 @@ module Pito
         @video.description.presence
       end
 
-      # Absolute "DD-MM-YYYY HH:MM" last-sync stamp; "—" when never synced.
+      # Absolute last-sync stamp via the shared SyncStamp; "—" when never synced.
       def last_sync_label
-        return "—" if @video.last_synced_at.blank?
-
-        @video.last_synced_at.in_time_zone.strftime("%d-%m-%Y %H:%M")
+        Pito::Formatter::SyncStamp.call(@video.last_synced_at)
       end
 
-      # Returns one Achievement per metric — the one with the highest threshold
-      # (the last unlocked in that lane) — ordered by unlocked_at descending
-      # so the most recently-advanced lane appears first.
+      # One Achievement per metric — the highest threshold reached in each lane —
+      # newest lane first (shared TopShiniesPerMetric; mirrors the other cards).
       def top_shinies_per_metric
-        @video.achievements
-              .group_by(&:metric)
-              .values
-              .map { |a| a.max_by(&:threshold) }
-              .sort_by { |a| -a.unlocked_at.to_i }
+        Pito::Achievements::TopShiniesPerMetric.call(@video.achievements)
       end
 
       private

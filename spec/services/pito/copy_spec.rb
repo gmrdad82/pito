@@ -124,6 +124,56 @@ RSpec.describe Pito::Copy, type: :service do
     end
   end
 
+  describe ".render_soft" do
+    it "renders a String leaf exactly like .render" do
+      expect(described_class.render_soft("copy_spec.greeting")).to eq("Hello!")
+    end
+
+    it "samples an Array leaf (deterministic first in specs)" do
+      expect(described_class.render_soft("copy_spec.variants")).to eq("alpha")
+    end
+
+    it "honours a forced variant index" do
+      expect(described_class.render_soft("copy_spec.variants", variant: 1)).to eq("beta")
+    end
+
+    it "interpolates %{name} tokens" do
+      expect(described_class.render_soft("copy_spec.with_name", name: "Alice"))
+        .to eq("Hey, Alice!")
+    end
+
+    it "returns nil (does not raise) for a missing key — soft-miss" do
+      expect(described_class.render_soft("copy_spec.does_not_exist")).to be_nil
+    end
+
+    it "returns nil for a namespace (Hash) key — soft-miss" do
+      expect(described_class.render_soft("copy_spec.nested")).to be_nil
+    end
+
+    it "still raises MissingPlaceholder on a present key with an unresolved token" do
+      expect { described_class.render_soft("copy_spec.with_name") }
+        .to raise_error(Pito::Copy::MissingPlaceholder, /name/)
+    end
+  end
+
+  describe ".subtree" do
+    it "returns the Hash for a namespace key (symbol keys, as I18n stores them)" do
+      expect(described_class.subtree("copy_spec.nested")).to eq({ child: "child value" })
+    end
+
+    it "returns nil for a missing key — soft-miss" do
+      expect(described_class.subtree("copy_spec.does_not_exist")).to be_nil
+    end
+
+    it "returns nil for a String leaf" do
+      expect(described_class.subtree("copy_spec.greeting")).to be_nil
+    end
+
+    it "returns nil for an Array leaf (variant pools are not subtrees)" do
+      expect(described_class.subtree("copy_spec.variants")).to be_nil
+    end
+  end
+
   describe ".render_html" do
     it "wraps the named shimmer placeholder in a pito-subject-shimmer span" do
       html = described_class.render_html("copy_spec.subject_line", { title: "Hades" }, shimmer: [ :title ])

@@ -1,0 +1,151 @@
+<%# Pito::Games::DetailComponent — game detail card for chat messages.
+    Two columns: LEFT = cover art + hairline + stats counters + optional Shinies;
+    RIGHT = kv-table (Title first), hairline, Score+TTB bars, hairline, Description.
+    Uses Pito::Detail::CardComponent as the shared two-column shell. %>
+<%= render(Pito::Detail::CardComponent.new(
+      bem:                  "pito-game-detail",
+      intro:                @intro,
+      stat_counter_metrics: stat_counter_metrics,
+      shinies:              top_shinies_per_metric,
+      right_gap:            "gap-2"
+    )) do |card| %>
+
+  <% card.with_image do %>
+    <%# Cover art — or the shared click-to-sync placeholder (rect) when missing.
+        Bounded to the same 450×253 (16:9) box as the show-video thumbnail; when
+        art is attached the image pans vertically (Ken-Burns) via pito-cover-pan. %>
+    <div class="pito-game-detail__cover">
+      <%= render Pito::ImageRender.call(
+            url:            detail_cover_url,
+            shape:          :rect,
+            sync_command:   "sync game ##{@game.id}",
+            alt:            @game.title.to_s,
+            html_class:     "block pito-cover-pan",
+            fallback_class: "pito-image-box--rect169"
+          ) %>
+    </div>
+  <% end %>
+
+  <% card.with_body do %>
+    <%# KV table — Title row first, then ID, platforms … price.
+        The wrapper div is rendered by the shell; only the content lives here. %>
+    <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.title"),
+            value_text:  @game.title,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:        t("pito.game.detail.id"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Shimmer::TokenComponent.new(text: "##{@game.id}", extra_class: "tabular-nums", prefill: "show game ##{@game.id}", submit: true)
+          )) %>
+
+      <% if platforms_icons.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.platforms"),
+              value_text:  platforms_icons,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
+      <% if genres_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.genres"),
+              value_text:  genres_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
+      <% if themes_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.themes"),
+              value_text:  themes_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
+      <% if perspectives_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.perspective"),
+              value_text:  perspectives_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
+      <% if developer_names.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.developer"),
+              value_text:  developer_names,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
+      <% if publisher_names.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.publisher"),
+              value_text:  publisher_names,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
+      <% if release_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:        t("pito.game.detail.release"),
+              key_class:       "text-fg-dim whitespace-nowrap",
+              value_component: Pito::Games::PlatformReleaseComponent.new(game: @game)
+            )) %>
+      <% end %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.footage"),
+            value_text:  footage_label,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg tabular-nums"
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.price"),
+            value_text:  price_label,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg tabular-nums"
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.last_sync_at"),
+            value_text:  last_sync_label,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    </div>
+
+    <%# Hairline before the bars (carries its own spacing via my:) %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+
+    <%# Score + TTB bars %>
+    <div class="pito-game-detail__score">
+      <%= render(Pito::ScoreBarComponent.new(game: @game, label: score_bar_label)) %>
+    </div>
+    <div class="pito-game-detail__ttb">
+      <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours, label: ttb_bar_label)) %>
+    </div>
+
+    <%# Divider hairline between the bars and the description %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+
+    <%# Description — label on its own row, body beneath %>
+    <% if summary.present? %>
+      <div class="text-fg-dim mt-1"><%= t("pito.game.detail.description") %></div>
+      <div class="pito-game-detail__description text-fg"><%= summary %></div>
+    <% end %>
+  <% end %>
+
+<% end %>

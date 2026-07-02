@@ -76,12 +76,6 @@ module Pito
         cookie_jar.delete(COOKIE_NAME)
       end
 
-      def mark_totp_verified!(data, at: Time.current)
-        updated = data.with(totp_verified_at: at, last_seen_at: at)
-        write(updated)
-        updated
-      end
-
       def write(payload)
         cookie_jar.encrypted[COOKIE_NAME] = {
           value: {

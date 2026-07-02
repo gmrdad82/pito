@@ -382,8 +382,19 @@ stacks. (Bespoke analytics view components close out the tag.)
   user-facing effect: several orphaned jobs/services/components (`VideoPublish`,
   `SyncVideoJob`, the unused recommendation-scoring and local-search-query objects,
   the pre-real-analytics `Channel` mock cluster, the `Pito::Transitions` module, and
-  more), a fully-orphaned copy dictionary, dead CSS rules, and the vendored
-  `xterm.js` bundle + its addons. Behaviour is unchanged.
+  more), a fully-orphaned copy dictionary, a never-rendered `/config` help line,
+  dead CSS rules, the vendored `xterm.js` bundle + its addons, and a second pass
+  of never-called helper modules (safe-iteration, yes/no, slug, git-revision,
+  formatter, and game message-builder utilities). Behaviour is unchanged.
+
+- **Unwired auth scaffolding** — removed never-called auth helpers: the
+  session-token-rotation concern (written for in-app TOTP-enroll / backup-code
+  flows that never shipped — enrollment stays the `pito:totp` rake task), the
+  exponential login-backoff calculator (superseded by the live
+  10-failures-per-5-minutes throttle), the duplicate TOTP-enroller service, and
+  the session cookie's unused re-verify helper, and the QR-code gems
+  (`rqrcode` + its two dependencies) that only the never-built in-app
+  enrollment view would have used. Login, throttle, and logout are untouched.
 
 - **Message & theme-change reveal animations** — the per-glyph text reveals
   (typewriter, scramble, and the word-jump comet), plus the theme-change diff
@@ -429,6 +440,35 @@ stacks. (Bespoke analytics view components close out the tag.)
   by your reply" surface lift (`payload[:surface]`) was removed. A message keeps the
   background it was rendered with; follow-up replies don't re-tint the original.
 
+- **Awaited games refresh nightly, until the date is real** — the nightly IGDB
+  pass no longer skips a game synced within the last 7 days: any game still
+  awaited re-syncs every night, and every sync rewrites the release dates when
+  IGDB changed them — so a slipped date or a newly-dated platform lands by
+  morning. "Awaited" means no **fixed clear date** yet: TBA, a future date, or
+  a bare year/quarter/month (a "Q3" game keeps refreshing after July 1 — as
+  release approaches it will get a concrete day, and only a day-precision date
+  in the past settles it), on the game or **on any platform**. A title already
+  out on one platform keeps refreshing while another platform's date is open;
+  only fully-released games rest.
+
+- **All help copy flows through the copy engine** — the `--help` man-page trees
+  (chat verbs, hashtag targets, share verbs) were the last strings read with raw
+  `I18n.t`; `Pito::Copy` gained a Hash-aware `subtree` and a soft-miss
+  `render_soft` API (both specced) and the help builders now use them, so every
+  user-facing string is served by `Pito::Copy`. The trees also moved out of the
+  dictionary namespace into their own (`pito.chat_help.*` / `pito.hashtag_help.*`
+  / `pito.share_help.*`, in `config/locales/pito/help/`), so the copy audit now
+  counts only real 1-or-50 dictionary keys (660 → 367). No visible change.
+
+- **Internal refactors from the code-quality audit** — no visible change: the
+  three detail cards (channel / vid / game) now share one two-column card shell
+  plus shared sync-stamp and top-Shinies helpers instead of three hand-rolled
+  copies; the system message's data grid is one component instead of a
+  triplicated template block; the `Pito::Game` helper namespace was renamed
+  `Pito::Games` so it can no longer be confused with the `Game` record; analyze
+  markers are symbolized once at the read boundary; and a handful of duplicate
+  copy variants were replaced with fresh lines (the 1-or-50 pools stay at 50).
+
 ### Fixed
 
 - **Footage snippet command is readable again** — the `footage` command block was
@@ -455,6 +495,14 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **`analyze` subscribers no longer read zero** — the daily analytics query wasn't
   requesting subscriber gains/losses, so the subs chart and net-subs total could
   read 0; the daily query now pulls them and the subs numbers are correct.
+
+- **At-a-glance avg view duration comes from YouTube, sparkline included** — the
+  glance sparkline for avg view duration was still derived from watch-minutes ÷
+  views per day (a rounded estimate that could disagree with the number right
+  beside it, badly on low-view days). It now pulls YouTube's own per-day
+  `averageViewDuration` — matching the scalar and the `analyze` chart. A channel
+  or vid reads YouTube's value directly; a game extrapolates it from its linked
+  vids (views-weighted).
 
 - **Game likes show one heart, not two** — the `analyze` likes for a game showed both
   a vids heart and a channel heart. A game spans channels, so the channel heart was
@@ -666,7 +714,7 @@ The **golden tape** release — the README now _moves_, and game prices read as 
   a Mario-style **star** + `0.00` (deliberately free — "genuine value", its own state,
   settable via `price set <id> 0`), and **> 0** renders the coins + the number
   (`🪙🪙🪙 59.99`). `Pito::Coin` owns the tier; `Pito::Formatter::Price` owns the number
-  and the nil-vs-0 distinction (`unpriced?` / `free?`); `Pito::Game::PriceGlyphs`
+  and the nil-vs-0 distinction (`unpriced?` / `free?`); `Pito::Games::PriceGlyphs`
   renders. Shows in the game list Price column, the game detail card (`:system`), and
   the linked-game card (`show vid` `:enhanced`).
 - **`price` verb in `shift+r` replies.** Reply to a `list games` message with

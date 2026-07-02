@@ -216,8 +216,3 @@ en:
           - "this is where the share ends. %{count} messages kept going."
           - "the thread has %{count} more messages after this point."
           - "%{count} more messages came after this. only this one was shared."
-        verb_help:
-          share: "share this message — mints a public /share/:uuid link"
-          revoke: "revoke the share — deletes the public link (async)"
-          unshare: "alias for revoke"
-          unfold: "open the full conversation (share pages only — not available in /chat)"

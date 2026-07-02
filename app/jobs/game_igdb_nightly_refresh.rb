@@ -1,19 +1,22 @@
 # Nightly IGDB refresh job.
 #
-# Iterates `Game.synced.stale.upcoming` and runs `GameIgdbSync.perform_now`
+# Iterates `Game.synced.awaiting_release` and runs `GameIgdbSync.perform_now`
 # for each game SEQUENTIALLY so we have a single "done" point for a summary
 # Notification. A begin/rescue per game means one failure does not abort the
 # rest of the batch.
 #
-# Scoping:
-#   - `synced`   — `igdb_synced_at` present. Never-synced games are skipped;
-#     their only legitimate null window is between `add_from_igdb` and the
-#     immediate per-game sync, which the nightly should not race.
-#   - `stale`    — `igdb_synced_at < 7.days.ago`.
-#   - `upcoming` — release in the future / unreleased.
-#     RELEASED games' IGDB data is effectively final, so re-fetching them
-#     weekly just burns quota; only unreleased titles still shift (release
-#     date slips, platform/genre edits), so we refresh those alone.
+# Scoping (Item 51 — every awaited game re-syncs EVERY night, no stale gate):
+#   - `synced`           — `igdb_synced_at` present. Never-synced games are
+#     skipped; their only legitimate null window is between `add_from_igdb`
+#     and the immediate per-game sync, which the nightly should not race.
+#   - `awaiting_release` — settled ONLY by a DAY-precision date in the past
+#     ("sync until a fixed clear date"): TBA, future dates, and bare
+#     year/quarter/month precisions all keep refreshing — on the game or on
+#     ANY platform row (a title out on PS keeps refreshing while its Switch
+#     date is open). FULLY RELEASED games' IGDB data is effectively final, so
+#     re-fetching them just burns quota; awaited titles still shift (release
+#     date slips, precision firms up, platform/genre edits), so those refresh
+#     nightly and every sync rewrites the release fields when IGDB changed.
 #
 # "Changed" detection: `GameIgdbSync` calls `game.update!(igdb_synced_at:
 # Time.current, ...)` inside a transaction. We capture `game.updated_at`
@@ -38,7 +41,7 @@ class GameIgdbNightlyRefresh < ApplicationJob
     changed        = []
     failures       = []
 
-    upcoming_games = Game.synced.stale.upcoming
+    upcoming_games = Game.synced.awaiting_release
 
     upcoming_games.find_each do |game|
       checked += 1

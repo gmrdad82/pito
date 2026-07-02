@@ -11,7 +11,7 @@ require "bigdecimal"
 # Input: a price in euros (BigDecimal / Numeric or nil). Output of `.call`:
 # "€<amount>" with two decimals — "€59.99", "€8.50", "€0.00". Pass `symbol: false`
 # for the bare number ("59.99", "0.00") when the € is supplied elsewhere (the coin
-# glyphs in Pito::Game::PriceGlyphs are the currency mark). An explicit 0 formats as
+# glyphs in Pito::Games::PriceGlyphs are the currency mark). An explicit 0 formats as
 # "€0.00" — free is a real amount and gets *mentioned*, not hidden; only nil
 # (unpriced) and a (forbidden) negative render "—". The free/unpriced *distinction*
 # lives in `free?` / `unpriced?` so Pito::Coin + PriceGlyphs route the "0 or 0.00"

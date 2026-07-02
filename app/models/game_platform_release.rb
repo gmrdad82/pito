@@ -13,8 +13,8 @@
 class GamePlatformRelease < ApplicationRecord
   belongs_to :game
 
-  # Single source of truth for the valid tokens: Pito::Game::PlatformTokens.
-  PLATFORM_TOKENS = Pito::Game::PlatformTokens::ORDER
+  # Single source of truth for the valid tokens: Pito::Games::PlatformTokens.
+  PLATFORM_TOKENS = Pito::Games::PlatformTokens::ORDER
 
   validates :platform_token,
             presence:   true,
@@ -54,7 +54,7 @@ class GamePlatformRelease < ApplicationRecord
   end
 
   def recompute_release_date
-    self.release_date = Pito::Game::ReleaseDateMapper.call(
+    self.release_date = Pito::Games::ReleaseDateMapper.call(
       year:    release_year,
       quarter: release_quarter,
       month:   release_month,

@@ -1,0 +1,64 @@
+<%# Pito::Games::EnhancedComponent — rich recommendations message after Voyage indexing %>
+<%# Intro leads inline (outside the flex wrapper) so the event timestamp
+    ("HH:MM ·", rendered before the body) sits on the SAME row as it; the rest of
+    the enhanced message follows as a block below. %>
+<span class="pito-game-enhanced-message__intro text-fg"><%= raw(intro) %></span>
+<div class="pito-game-enhanced-message">
+
+  <% if channels? %>
+    <%# 2. Spacer + channel section header %>
+    <p class="pito-game-enhanced-message__section-header text-fg-dim"><%= channels_header %></p>
+
+    <%# Channel grid: one column per channel, using shared ItemComponent %>
+    <div class="pito-game-enhanced-message__channel-grid">
+      <% channel_results.each do |result| %>
+        <div class="pito-game-enhanced-message__channel-col">
+          <%= render(Pito::Channel::ItemComponent.new(
+                channel:     result.channel,
+                show_avatar: true,
+                score:       result.score
+              )) %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if similar_games? %>
+    <%# Spacer between sections (only shown when we have something above) %>
+    <% if channels? %>
+      <div class="pito-game-enhanced-message__spacer" aria-hidden="true"></div>
+    <% end %>
+
+    <%# 3. Similar games section header %>
+    <p class="pito-game-enhanced-message__section-header text-fg-dim"><%= similar_games_header %></p>
+
+    <%# Similar games strip: inline wrapping small cover cards %>
+    <div class="pito-game-enhanced-message__similar-games-strip">
+      <% similar_game_results.each do |result| %>
+        <div class="pito-game-enhanced-message__similar-game-card"
+             data-game-id="<%= result.game.id %>">
+          <%= render Pito::ImageRender.call(
+                url:            cover_art_url_for(result.game),
+                shape:          :rect,
+                sync_command:   "sync game ##{result.game.id}",
+                alt:            result.game.title.to_s,
+                html_class:     "pito-game-enhanced-message__similar-game-cover block",
+                fallback_class: "pito-game-enhanced-message__similar-game-cover"
+              ) %>
+          <%# id and title on one line: "#12 Elden Ring". Flex keeps the id
+              fixed while the title truncates; gap provides the single-space
+              separation (flex suppresses the monospace inter-element whitespace). %>
+          <div class="pito-game-enhanced-message__similar-game-line">
+            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id", prefill: "show game ##{result.game.id}", submit: true)) %>
+            <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
+          </div>
+          <%# Similarity score bar — same component as the channel cards. %>
+          <div class="pito-game-enhanced-message__similar-game-score">
+            <%= render(Pito::ScoreBarComponent.new(score: result.score, show_label: false)) %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+</div>

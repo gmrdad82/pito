@@ -566,7 +566,7 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
     # ── Universal share verb rows ──────────────────────────────────────────────
     #
     # The target-level help page always includes a `share` row (from
-    # pito.copy.share.verb_help.share); `revoke` and `unshare` rows are appended
+    # pito.share_help.share); `revoke` and `unshare` rows are appended
     # only when a Share record exists for the supplied event.
 
     describe "universal share verb rows on the target-level page" do

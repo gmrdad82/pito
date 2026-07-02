@@ -4,12 +4,12 @@ module Pito
   module Video
     # Renders a linked-game card for use under a video detail in chat.
     #
-    # Mirrors Pito::Game::DetailComponent's detail layout: a BIG game cover on
+    # Mirrors Pito::Games::DetailComponent's detail layout: a BIG game cover on
     # the LEFT — bounded to the 374×210 16:9 box with the slow Ken-Burns vertical
     # pan (shared Z29 CSS) — and a key/value table on the RIGHT with rows: title,
     # id, genres, perspective, theme, release date, total footage, price, last
     # sync at. Two columns on desktop (md:flex-row, 374px left), stacking
-    # to single-column on mobile (<768px). Unlike Pito::Game::DetailComponent it
+    # to single-column on mobile (<768px). Unlike Pito::Games::DetailComponent it
     # carries NO time-to-beat / score bars — total footage is a plain KV value
     # formatted via Pito::Formatter::FootageHours.
     #
@@ -29,7 +29,7 @@ module Pito
       # Big detail cover (:detail, 450×600 limit) — the card's left column.
       # Mirrors the game detail card's cover: bounded to the 374×210 16:9 box
       # (.pito-video-linked-game-card__cover, shared CSS) with the Ken-Burns
-      # vertical pan (.pito-cover-pan). Same named variant as Pito::Game::DetailComponent.
+      # vertical pan (.pito-cover-pan). Same named variant as Pito::Games::DetailComponent.
       def cover_url
         Pito::ImagePath.call(@game.cover_art, variant: :detail)
       end
@@ -63,14 +63,12 @@ module Pito
       # Price as coin glyphs + number ("🪙🪙🪙 59.99"), or the FREE star when
       # unpriced — html_safe. Surfaces in `show vid <id>` as an :enhanced message.
       def price_label
-        Pito::Game::PriceGlyphs.html(@game.price)
+        Pito::Games::PriceGlyphs.html(@game.price)
       end
 
-      # Absolute "DD-MM-YYYY HH:MM" IGDB last-sync stamp; "—" when never synced.
+      # Absolute IGDB last-sync stamp via the shared SyncStamp; "—" when never synced.
       def last_sync_label
-        return "—" if @game.igdb_synced_at.blank?
-
-        @game.igdb_synced_at.in_time_zone.strftime("%d-%m-%Y %H:%M")
+        Pito::Formatter::SyncStamp.call(@game.igdb_synced_at)
       end
     end
   end

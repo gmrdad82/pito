@@ -11,6 +11,6 @@
        data-game-title="<%= game.title %>">
     <%= render(Pito::Shimmer::TokenComponent.new(text: "##{game.id}", extra_class: "shrink-0 tabular-nums w-12 text-right")) %>
     <span class="text-fg truncate flex-1"><%= game.title %></span>
-    <%= Pito::Game::PlatformTokens.icons_html(game.platforms) %>
+    <%= Pito::Games::PlatformTokens.icons_html(game.platforms) %>
   </div>
 <% end %>

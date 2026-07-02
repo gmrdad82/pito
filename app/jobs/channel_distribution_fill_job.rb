@@ -43,7 +43,7 @@ class ChannelDistributionFillJob < ApplicationJob
     shares =
       if game
         channels = Pito::Recommendations.channels_for(game, include_all: true)
-                                        .first(Pito::Game::ChannelsComponent::TOP_N)
+                                        .first(Pito::Games::ChannelsComponent::TOP_N)
                                         .map(&:channel)
         # Dedicated, 1-day-cached lifetime watch-time fetch (heavy → that's why this
         # runs in the async fill job), feeding the videos + views + watch-time blend.

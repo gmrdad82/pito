@@ -113,7 +113,7 @@ class GameImportJob < ApplicationJob
     # Step 3 — Score
     broadcast_step_pending(@broadcaster, step: 3)
     @game.reload
-    score = Pito::Game::ScoreCalculator.call(@game)
+    score = Pito::Games::ScoreCalculator.call(@game)
     @game.update_column(:score, score) if score != @game.score
     broadcast_step_done(@broadcaster, step: 3)
 

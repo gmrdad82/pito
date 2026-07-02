@@ -5,7 +5,7 @@ module Pito
     module Game
       # Builds the CHANNEL-MATCHES recommendations message (item 16): two columns —
       # per-game channel DISTRIBUTION (col 1) + channel RECOMMENDATION (col 2),
-      # rendered by Pito::Game::ChannelsComponent.
+      # rendered by Pito::Games::ChannelsComponent.
       #
       # PROGRESSIVE: `show game` emits `.pending` INSTANTLY — col 2 (recommendation)
       # rendered directly, col 1 (distribution) as a NoData dotted canvas + a
@@ -54,7 +54,7 @@ module Pito
         # Render the message body (col 1 = bars when `shares` present, else NoData).
         # Shared by `pending` (shares nil) and the fill job (shares present).
         def ready_body(game:, intro:, distribution_caption:, recommendation_caption:, shares:)
-          render_component(Pito::Game::ChannelsComponent.new(
+          render_component(Pito::Games::ChannelsComponent.new(
             game: game, intro: intro,
             distribution_caption: distribution_caption,
             recommendation_caption: recommendation_caption, shares: shares

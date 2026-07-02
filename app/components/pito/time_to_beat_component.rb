@@ -77,6 +77,12 @@ module Pito
       }.freeze
     end
 
+    # Pillars IGDB returned data for, in display order — drives the legend row
+    # (absent pillars are omitted from both the ticks and the legend).
+    def legend_pillars
+      %i[main extras completionist].select { |key| hours[key].to_i.positive? }
+    end
+
     def initialize(game: nil, hours: nil, footage_hours: nil, label: nil)
       @game          = game
       @hours         = hours

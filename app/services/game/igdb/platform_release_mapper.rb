@@ -5,7 +5,7 @@ class Game
     # IGDB `release_dates[]` → per-platform-GROUP release component hashes (Item 24).
     #
     # Groups the rows by platform TOKEN (ps / switch / xbox / steam, via
-    # Pito::Game::PlatformTokens) and, for each token, keeps the MOST PRECISE row
+    # Pito::Games::PlatformTokens) and, for each token, keeps the MOST PRECISE row
     # (day > month > quarter > year). Unrecognised platforms (e.g. Stadia) and TBD
     # rows are dropped. The IGDB category → component translation is reused from
     # GameMapper so the two mappers never diverge.
@@ -25,7 +25,7 @@ class Game
           name = row.dig("platform", "name")
           next if name.blank?
 
-          token = Pito::Game::PlatformTokens.tokens([ name ]).first
+          token = Pito::Games::PlatformTokens.tokens([ name ]).first
           next unless token
 
           components = GameMapper.translate_igdb_category(row)

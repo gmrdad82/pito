@@ -12,7 +12,7 @@ require "rails_helper"
 #      when `first_release_date` is null.
 #   2. Translates IGDB's `category` into the pito component shape
 #      (see `docs/architecture.md` § "Game release-date representation").
-#   3. Feeds the result to `Pito::Game::ReleaseDateMapper` so the
+#   3. Feeds the result to `Pito::Games::ReleaseDateMapper` so the
 #      output is the canonical 5-column attribute hash.
 #
 # IGDB `category` table:

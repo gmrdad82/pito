@@ -27,7 +27,7 @@ module Pito
           # cover, capped to the cover width) so the right column starts at the
           # top beside them. The component embeds a ts-slot the event component
           # fills with the "HH:MM ·" timestamp.
-          body = render_component(Pito::Game::DetailComponent.new(game: game, intro: intro))
+          body = render_component(Pito::Games::DetailComponent.new(game: game, intro: intro))
 
           payload = html_payload(body: body, game_id: game.id)
 

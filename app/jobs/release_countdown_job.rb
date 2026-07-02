@@ -53,7 +53,7 @@ class ReleaseCountdownJob < ApplicationJob
   # Human platform label(s) in canonical order, joined "PlayStation + Steam".
   def platform_label(tokens)
     tokens.uniq
-          .sort_by { |t| Pito::Game::PlatformTokens::ORDER.index(t) || Pito::Game::PlatformTokens::ORDER.size }
+          .sort_by { |t| Pito::Games::PlatformTokens::ORDER.index(t) || Pito::Games::PlatformTokens::ORDER.size }
           .map { |t| I18n.t("pito.game.platform_label.#{t}") }
           .join(" + ")
   end

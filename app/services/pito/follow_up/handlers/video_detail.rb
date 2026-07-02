@@ -21,7 +21,7 @@ module Pito
       #       reads video_id from the source event and the game ref from rest.
       #
       # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
-      # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
+      # `Video` resolves to the Pito::Video MODULE (not the ActiveRecord model).
       # Always use `::Video` for the model.
       class VideoDetail < Pito::FollowUp::Handler
         self.target "video_detail"

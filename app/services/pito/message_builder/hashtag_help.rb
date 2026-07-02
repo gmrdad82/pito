@@ -10,9 +10,9 @@ module Pito
     # HashtagHelp.call(target: "game_detail", action: "footage")
     #   → action-level page for the specific action.
     #
-    # Copy lives at pito.copy.hashtag_help.<indicator>:
-    #   target_usage → pito.copy.hashtag_help.<indicator>.target_usage  (String)
-    #   per-action   → pito.copy.hashtag_help.<indicator>.actions.<action>
+    # Copy lives at pito.hashtag_help.<indicator>:
+    #   target_usage → pito.hashtag_help.<indicator>.target_usage  (String)
+    #   per-action   → pito.hashtag_help.<indicator>.actions.<action>
     #                   = { usage:, sections: }
     #
     # Returns nil for:
@@ -65,13 +65,13 @@ module Pito
       # Render the target-level page: usage + list of handler actions + universal
       # share verb rows (share always; revoke/unshare only when the event is shared).
       def render_target_page(indicator, handler, event: nil)
-        target_usage = I18n.t("pito.copy.hashtag_help.#{indicator}.target_usage", default: nil)
-        return nil unless target_usage.is_a?(String) && target_usage.present?
+        target_usage = Pito::Copy.render_soft("pito.hashtag_help.#{indicator}.target_usage")
+        return nil if target_usage.blank?
 
         # Collect action rows from the handler's declared actions.
         action_rows = handler.actions.filter_map do |act|
-          data = I18n.t("pito.copy.hashtag_help.#{indicator}.actions.#{act}", default: nil)
-          next unless data.is_a?(Hash)
+          data = Pito::Copy.subtree("pito.hashtag_help.#{indicator}.actions.#{act}")
+          next unless data
 
           usage = (data[:usage] || data["usage"]).to_s
           next if usage.blank?
@@ -100,8 +100,8 @@ module Pito
       def universal_share_verb_rows(event:)
         verbs = Pito::Share::UniversalActions.verbs_for(event)
         verbs.filter_map do |verb|
-          desc = I18n.t("pito.copy.share.verb_help.#{verb}", default: nil)
-          next unless desc.is_a?(String) && desc.present?
+          desc = Pito::Copy.render_soft("pito.share_help.#{verb}")
+          next if desc.blank?
 
           [ verb, desc ]
         end
@@ -110,8 +110,8 @@ module Pito
 
       # Render an action-level page for a single action.
       def render_action_page(indicator, action)
-        data = I18n.t("pito.copy.hashtag_help.#{indicator}.actions.#{action}", default: nil)
-        return nil unless data.is_a?(Hash)
+        data = Pito::Copy.subtree("pito.hashtag_help.#{indicator}.actions.#{action}")
+        return nil unless data
 
         usage    = (data[:usage] || data["usage"]).to_s
         sections = data[:sections] || data["sections"]

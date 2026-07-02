@@ -6,6 +6,8 @@ module Pito
   # == Contract
   #
   # Pito::Copy.render(key, vars = {}, variant: nil, **kwargs) → String
+  # Pito::Copy.render_soft(key, ...)                          → String | nil (optional copy)
+  # Pito::Copy.subtree(key)                                   → Hash | nil (help trees)
   #
   # Placeholder values may be passed as an explicit Hash (+vars+) or as trailing
   # keyword arguments — both are equivalent.
@@ -103,6 +105,50 @@ module Pito
 
       # 5. Interpolate %{name} tokens.
       interpolate(key, chosen, vars)
+    end
+
+    # Soft sibling of +render+ for OPTIONAL copy (help pages): returns +nil+
+    # instead of raising when +key+ is missing or resolves to a namespace
+    # (Hash) — absence means "no page here", not a bug. A present key behaves
+    # exactly like +render+ (1-or-50 sampling, %{name} interpolation,
+    # MissingPlaceholder still raises — a broken placeholder IS a bug).
+    #
+    #   Pito::Copy.render_soft("pito.chat_help.show.usage")
+    #   # => "show game <query> · show vid <query>"   (or nil for an unknown verb)
+    #
+    # @param key     [Symbol, String] I18n key
+    # @param vars    [Hash]           placeholder values (symbol keys)
+    # @param variant [Integer, nil]   forced variant index; nil = sampler
+    # @param extra   [Hash]           placeholder values given as keyword args
+    # @return        [String, nil]
+    def render_soft(key, vars = {}, variant: nil, **extra)
+      vars = vars.merge(extra) unless extra.empty?
+
+      raw = I18n.t(key, default: nil)
+      return nil if raw.nil? || raw.is_a?(Hash)
+
+      entries = Array(raw)
+      chosen  = variant.nil? ? sampler.call(entries) : entries.fetch(variant)
+      interpolate(key, chosen.to_s, vars)
+    end
+
+    # Fetches a STRUCTURED subtree of the copy dictionary — the man-page help
+    # trees (`pito.chat_help.*`, `pito.hashtag_help.*`), whose value
+    # is a Hash (usage + sections), not a 1-or-50 line list. Returns the Hash
+    # (symbol keys, as I18n stores them), or +nil+ when the key is missing or
+    # resolves to a leaf — soft-miss, mirroring +render_soft+.
+    #
+    # This is the single sanctioned way to read a help-tree Hash subtree;
+    # string leaves go through +render+ / +render_soft+.
+    #
+    #   Pito::Copy.subtree("pito.chat_help.show.game")
+    #   # => { usage: "...", sections: { ... } }   (or nil for an unknown noun)
+    #
+    # @param key [Symbol, String] I18n key
+    # @return    [Hash, nil]
+    def subtree(key)
+      raw = I18n.t(key, default: nil)
+      raw.is_a?(Hash) ? raw : nil
     end
 
     # HTML-aware sibling of +render+ for the scrollback: same key resolution and

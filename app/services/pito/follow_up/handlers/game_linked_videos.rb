@@ -31,10 +31,6 @@ module Pito
       # Sort mutations (no consume, :mutate mode per action):
       #   #<handle> sort by <col> [desc]  → re-sort the stamped list in place
       #   #<handle> order by <col> [desc] → alias for sort
-      #
-      # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
-      # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
-      # Always use `::Game` for the model.
       class GameLinkedVideos < Pito::FollowUp::Handler
         self.target "game_linked_videos"
         self.mode   :append

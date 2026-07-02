@@ -74,7 +74,8 @@ module Pito
         end
       end
 
-      # ── series (daily) — one dedicated request per group, summed by day ─────────
+      # ── series (daily) — one dedicated request per group, summed by day
+      #    (avg_view_duration: YouTube's per-day value, views-weighted) ─────────────
 
       def series_metrics(groups, window, key)
         rows = daily(groups, window, series_metric_names(key))
@@ -85,7 +86,7 @@ module Pito
         case key
         when "views"             then "views"
         when "watched_hours"     then "estimatedMinutesWatched"
-        when "avg_view_duration" then "views,estimatedMinutesWatched"
+        when "avg_view_duration" then "averageViewDuration,views"
         when "subs_net"          then "subscribersGained,subscribersLost"
         when "likes"             then "likes"
         end
@@ -100,6 +101,8 @@ module Pito
           %i[views estimated_minutes_watched subscribers_gained subscribers_lost likes].each do |col|
             by_day[day][col] += r[col].to_i
           end
+          # YouTube's own per-day average, views-weighted across rows (never re-derived).
+          by_day[day][:weighted_duration] += r[:average_view_duration].to_f * r[:views].to_i
         end
         days = by_day.keys.sort
         case key
@@ -108,7 +111,7 @@ module Pito
         when "likes"             then { likes:         days.map { |d| by_day[d][:likes] } }
         when "subs_net"          then { subs:          days.map { |d| by_day[d][:subscribers_gained] - by_day[d][:subscribers_lost] } }
         when "avg_view_duration"
-          { avg_view_duration: days.map { |d| v = by_day[d][:views]; v.positive? ? ((by_day[d][:estimated_minutes_watched].to_f / v) * 60).round : 0 } }
+          { avg_view_duration: days.map { |d| v = by_day[d][:views]; v.positive? ? (by_day[d][:weighted_duration] / v).round : 0 } }
         end
       end
 

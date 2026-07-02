@@ -72,6 +72,22 @@ RSpec.describe Pito::Analytics::MetricFill do
       cell = described_class.for(scope: video, period: "28d", key: "avg_view_duration")
       expect(cell.result.metrics[:avg_view_duration][:current]).to eq(200)
     end
+
+    it "requests YouTube's averageViewDuration for the day-series (not derived from watch minutes)" do
+      stub_query(scalar_row: { average_view_duration: 200, views: 100 }, daily_rows: [])
+      described_class.for(scope: video, period: "28d", key: "avg_view_duration")
+      expect(client).to have_received(:query)
+        .with(hash_including(metrics: "averageViewDuration,views", dimensions: "day"))
+    end
+
+    it "views-weights YouTube's per-day averages across rows sharing a day" do
+      stub_query(scalar_row: { average_view_duration: 200, views: 100 },
+                 daily_rows: [ { day: "2026-01-01", average_view_duration: 100, views: 30 },
+                               { day: "2026-01-01", average_view_duration: 200, views: 10 },
+                               { day: "2026-01-02", average_view_duration: 90, views: 0 } ])
+      cell = described_class.for(scope: video, period: "28d", key: "avg_view_duration")
+      expect(cell.series[:avg_view_duration]).to eq([ 125, 0 ]) # (100×30 + 200×10)/40 · 0-view day → 0
+    end
   end
 
   describe "fault isolation / unavailability" do

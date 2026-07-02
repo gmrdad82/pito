@@ -17,7 +17,7 @@ module Pito
         def call(video, conversation:, when: nil)
           publish_time = binding.local_variable_get(:when)
           local_time   = publish_time.in_time_zone(Time.zone)
-          when_label   = local_time.strftime("%d-%m-%Y %H:%M")
+          when_label   = Pito::Formatter::SyncStamp.call(local_time)
           payload = {
             "command"     => "video_schedule",
             "body"        => Pito::Copy.render("pito.copy.videos.schedule_confirm",

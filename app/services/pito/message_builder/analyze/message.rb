@@ -128,24 +128,26 @@ module Pito
         #   when no chart data is available (e.g. enhanced role, or fetch error).
         def ready_payload(event, data:)
           marker   = event.payload.fetch("analyze")
+          role     = marker["role"].to_sym
+          level    = marker["level"].to_sym
           scaffold = data[:scaffold] || {}
           charts   = data[:charts] || {}
           bars     = (data[:bars] || {}).transform_keys(&:to_sym)
           selection = Pito::Analytics::MetricSelection.from_lists(marker["with"], marker["without"])
 
           chart_captions = charts.each_with_object({}) do |(metric, chart), h|
-            h[metric.to_sym] = chart && render_chart_caption(metric:, chart:)
+            h[metric] = chart && render_chart_caption(metric:, chart:)
           end
           bar_captions = bars.each_with_object({}) { |(metric, _rows), h| h[metric] = render_bar_caption(metric) }
 
           likes   = likes_marker(data[:likes])
-          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, bars:, bar_captions:, likes:)
+          cells   = cells_for(role:, level:, scaffold:, selection:, charts:, chart_captions:, bars:, bar_captions:, likes:)
           analyze = marker.merge("status" => "ready", "scaffold" => stringify_scaffold(scaffold))
 
           # Persist each chart (with its sampled caption) so a mutate reply
           # can re-render the chart without re-fetching from YouTube.
           charts.each do |metric, chart|
-            analyze[metric.to_s] = chart.merge("caption" => chart_captions[metric.to_sym]) if chart
+            analyze[metric.to_s] = chart.merge("caption" => chart_captions[metric]) if chart
           end
           # Persist the bar breakdowns (+ captions) so a mutate reply re-renders
           # without refetch (string-keyed rows for jsonb).
@@ -168,6 +170,8 @@ module Pito
         # @param with/without [Array<Symbol>] the accumulated selection
         def rerender(event, with:, without:)
           marker    = event.payload.fetch("analyze")
+          role      = marker["role"].to_sym
+          level     = marker["level"].to_sym
           scaffold  = symbolize_scaffold(marker["scaffold"])
           selection = Pito::Analytics::MetricSelection.from_lists(with, without)
 
@@ -181,7 +185,7 @@ module Pito
           bars         = (marker["bars"] || {}).transform_keys(&:to_sym)
           bar_captions = (marker["bar_captions"] || {}).transform_keys(&:to_sym)
 
-          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, bars:, bar_captions:, likes: marker["likes"])
+          cells   = cells_for(role:, level:, scaffold:, selection:, charts:, chart_captions:, bars:, bar_captions:, likes: marker["likes"])
           payload = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
             "html"    => true,
@@ -241,7 +245,6 @@ module Pito
         # value_label} via the per-metric presentation config; presentation runs at
         # render time so a re-render picks up current copy/translations.
         def bar_cell(metric, rows, caption)
-          metric = metric.to_sym
           built  = Array(rows).each_with_index.map do |row, i|
             key = (row[:key] || row["key"]).to_s
             pct = (row[:pct] || row["pct"]).to_f
@@ -298,7 +301,6 @@ module Pito
         # token (these bars are lifetime). Mirrors render_chart_caption /
         # render_likes_caption: html-safe, persisted in the marker, re-rendered raw.
         def render_bar_caption(metric)
-          metric = metric.to_sym
           Pito::Copy.render_html(
             "pito.copy.analytics.bars.caption.#{metric}",
             { subject:   BAR_CAPTION_SUBJECT.fetch(metric, metric.to_s),
@@ -362,13 +364,13 @@ module Pito
         # @param metric [Symbol]
         # @param chart  [Hash]   string-keyed chart data
         def render_chart_caption(metric:, chart:)
-          return render_retention_caption(chart:) if metric.to_sym == :retention
-          return render_heatmap_caption(values: chart["values"] || chart[:values]) if metric.to_sym == :day_of_week_heatmap
+          return render_retention_caption(chart:) if metric == :retention
+          return render_heatmap_caption(values: chart["values"] || chart[:values]) if metric == :day_of_week_heatmap
 
           caption = Pito::Copy.render_html(
             "pito.copy.analyze.metric_caption",
             {
-              metric: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric.to_sym)),
+              metric: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric)),
               value:  chart_value_html(metric:, chart:)
             },
             shimmer: [ :metric ]
@@ -513,7 +515,7 @@ module Pito
         # @param chart  [Hash] string-keyed chart data (reads "total", "total_pct",
         #                      "avg_duration_seconds" depending on metric)
         def fmt_chart_value(metric, chart)
-          case metric.to_sym
+          case metric
           when :watched_hours
             "#{chart["total"].to_f.round}h"
           when :subs

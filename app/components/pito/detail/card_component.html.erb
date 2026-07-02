@@ -1,0 +1,41 @@
+<div class="<%= bem %> flex flex-col md:flex-row gap-4 md:items-start">
+
+  <%# ── Left column: intro (with timestamp slot), image, stats, Shinies ── %>
+  <div class="<%= bem %>__left flex flex-col gap-3">
+
+    <% if intro.present? %>
+      <div class="<%= bem %>__intro text-fg"><span data-pito-ts-slot></span><%= raw(intro) %></div>
+    <% end %>
+
+    <%= image %>
+
+    <%# Hairline separating the image from the stats %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
+
+    <%# Stats + Shinies as kv-table rows (owner 2026-07-01, items 48/49): the heading
+        is the KEY column, the value is the one-line counters / freely-wrapping badges. %>
+    <div class="<%= bem %>__stats pito-detail-stats">
+      <div class="<%= bem %>__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
+      <div><%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %></div>
+
+      <% if shinies.any? %>
+        <div class="<%= bem %>__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
+        <div class="<%= bem %>__shinies flex flex-wrap gap-2">
+          <% shinies.each do |a| %>
+            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Mobile-only hairline between the stacked columns (hidden at md: and up,
+      where the two-column layout needs no divider). %>
+  <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-col-divider md:hidden")) %>
+
+  <%# ── Right column: the caller's body slot (kv rows, bars, description) ── %>
+  <div class="<%= bem %>__right flex flex-col <%= right_gap %> flex-1 min-w-0">
+    <%= body %>
+  </div>
+
+</div>

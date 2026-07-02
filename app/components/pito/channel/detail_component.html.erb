@@ -1,16 +1,16 @@
 <%# Pito::Channel::DetailComponent — channel detail card for chat messages.
-    Two columns: LEFT = avatar + hairline + one-line stats counters + Shinies;
-    RIGHT = kv-table (Handle, Title, Description, Last sync at). Mirrors the
-    video/game detail cards. %>
-<div class="pito-channel-detail flex flex-col md:flex-row gap-4 md:items-start">
+    Two columns: LEFT = banner + hairline + one-line stats counters + Shinies;
+    RIGHT = kv-table (Avatar, Handle, Title, Description, Last sync at, links).
+    Uses Pito::Detail::CardComponent as the shared two-column shell. %>
+<%= render(Pito::Detail::CardComponent.new(
+      bem:                  "pito-channel-detail",
+      intro:                @intro,
+      stat_counter_metrics: stat_counter_metrics,
+      shinies:              top_shinies_per_metric,
+      right_gap:            "gap-1"
+    )) do |card| %>
 
-  <%# ── Left column: intro (with timestamp slot), avatar, stats, Shinies ── %>
-  <div class="pito-channel-detail__left flex flex-col gap-3">
-
-    <% if @intro.present? %>
-      <div class="pito-channel-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
-    <% end %>
-
+  <% card.with_image do %>
     <%# Banner (our cached 450×253 16:9 copy) in the top-left spot. When the
         channel has NO banner, the shared click-to-sync placeholder (rect) fills
         the spot (item 22 — supersedes the earlier empty-spot behaviour). The
@@ -25,34 +25,11 @@
             fallback_class: "pito-image-box--rect169"
           ) %>
     </div>
+  <% end %>
 
-    <%# Hairline separating the banner (when present) from the stats %>
-    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
-
-    <%# Stats + Shinies as kv-table rows (owner 2026-07-01, items 48/49): the heading
-        is the KEY column, the value is the one-line counters / freely-wrapping badges. %>
-    <div class="pito-channel-detail__stats pito-detail-stats">
-      <div class="pito-channel-detail__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
-      <div><%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %></div>
-
-      <% if @channel.achievements.any? %>
-        <div class="pito-channel-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
-        <div class="pito-channel-detail__shinies flex flex-wrap gap-2">
-          <% top_shinies_per_metric.each do |a| %>
-            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
-          <% end %>
-        </div>
-      <% end %>
-    </div>
-  </div>
-
-  <%# Mobile-only hairline between the stacked columns (hidden at md: and up). %>
-  <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-col-divider md:hidden")) %>
-
-  <%# ── Right column: kv-table (Handle, Title, Description, Last sync at) ──
-      Description renders full + wrapped (whitespace-pre-wrap preserves the
-      YouTube line breaks) right inside its value cell. %>
-  <div class="pito-channel-detail__right flex flex-col gap-1 flex-1 min-w-0">
+  <% card.with_body do %>
+    <%# kv-table (Avatar, Handle, Title, Description, Last sync at, links) —
+        the wrapper div is rendered by the shell; only the content lives here. %>
     <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
       <%# Avatar row — the small 50% (120×120 variant, displayed 60px) circle+ring
           avatar, ALWAYS shown when the channel has an avatar (independent of the
@@ -115,6 +92,6 @@
             value_component: Pito::Table::LinkValueComponent.new(url: @channel.youtube_studio_url)
           )) %>
     </div>
-  </div>
+  <% end %>
 
-</div>
+<% end %>

@@ -152,7 +152,7 @@ invariants you can't discover by reading a single file — keep them.
 ## Namespace policy
 
 Cross-cutting concerns live under `Pito::*`; each domain owns its own data-source
-integrations. **`::Game` (top-level domain) and `Pito::Game::*` (cross-cutting
+integrations. **`::Game` (top-level domain) and `Pito::Games::*` (cross-cutting
 helpers) are distinct — never collapse one into the other.** The domain layer is
 singular (`Channel::*`, `Video::*`, `Game::*`, `Footage::*`). The
 canonical-namespace split _is_ the architecture, not redundancy — don't

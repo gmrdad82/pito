@@ -68,21 +68,6 @@ module Pito
         handle.presence || (followupable? ? reply_handle : nil)
       end
 
-      def render_info_line(line)
-        segments = line.to_s.split(/(`[^`]+`)/)
-        html = segments.map do |seg|
-          if seg.start_with?("`") && seg.end_with?("`")
-            content = ERB::Util.html_escape(seg[1..-2])
-            %(<code class="text-fg">#{content}</code>)
-          elsif seg.present?
-            %(<span class="text-fg-dim">#{ERB::Util.html_escape(seg)}</span>)
-          else
-            ""
-          end
-        end.join
-        html.html_safe
-      end
-
       # Returns table_rows as an array of cell arrays: each row becomes an ordered
       # Array of { text:, class: } hashes. Supports the new `:cells` key (arbitrary
       # N columns) and falls back to the legacy { key:, value:, value2: } shape so
@@ -107,15 +92,6 @@ module Pito
       # in `.pito-data-grid[data-cols="N"]`. No inline style.
       def table_col_count(n)
         [ n, 2 ].max
-      end
-
-      # Renders one data-grid cell <span>. Carries any per-cell `data:` (the
-      # chat-prefill seam for clickable `#id` cells). HTML cells render their
-      # text raw; plain cells are escaped. (Renders instantly — item 18.)
-      def render_cell_span(cell)
-        data    = cell[:data].present? ? cell[:data].to_h.dup : {}
-        content = cell[:html] ? raw(cell[:text].to_s) : cell[:text].to_s
-        tag.span(content, class: cell[:class], data: data.presence)
       end
 
       # Returns heading cell hashes (one per label) when table_heading is present,
