@@ -9,16 +9,18 @@ class Channel < ApplicationRecord
 
   # Locally-cached avatar (RAW master blob). We attach the unprocessed source
   # bytes during sync via Channel::Avatar::Ingest instead of hotlinking
-  # yt3.ggpht.com (which 429s). Display resizing is handled by named variants:
-  #   :lg — 120×120 fill (item lists, recommended channels)
-  #   :sm —  60×60  fill (kv-table inline row in the show-channel detail card)
-  #   :xs —  35×35  fill (game channel-recommendation kv-table rows, item 16) —
-  #          a DISTINCT variant (no browser downscale), sized to ONE braille bar
+  # yt3.ggpht.com (which 429s). Display resizing is handled by named variants —
+  # each variant is 2× its CSS display size so hiDPI/retina screens (every
+  # phone) get a sharp render; the display size is pinned in CSS:
+  #   :lg — 240×240 fill, displayed 120px (item lists, recommended channels)
+  #   :sm — 120×120 fill, displayed  60px (show-channel kv-table inline row)
+  #   :xs —  70×70  fill, displayed  35px (game channel-recommendation rows,
+  #          item 16) — a DISTINCT variant sized to ONE braille bar
   #          (2.5em @ 14px = 35px) so each avatar row aligns with its bar (17.9)
   has_one_attached :avatar do |attachable|
-    attachable.variant :lg, resize_to_fill: [ 120, 120 ]
-    attachable.variant :sm, resize_to_fill: [ 60, 60 ]
-    attachable.variant :xs, resize_to_fill: [ 35, 35 ]
+    attachable.variant :lg, resize_to_fill: [ 240, 240 ]
+    attachable.variant :sm, resize_to_fill: [ 120, 120 ]
+    attachable.variant :xs, resize_to_fill: [ 70, 70 ]
   end
 
   # Host-less ActiveStorage proxy path for the :lg avatar variant (120×120),
@@ -44,10 +46,11 @@ class Channel < ApplicationRecord
   # 2560×1440 YouTube CDN original). We attach the unprocessed bytes during
   # sync via Channel::Banner::Ingest from
   # brandingSettings.image.banner_external_url, instead of hotlinking YouTube.
-  # Display resizing is handled by the named variant:
-  #   :display — 450×253 fill (16:9, detail card banner spot)
+  # Display resizing is handled by the named variant (2× the 450×253 CSS box
+  # for retina):
+  #   :display — 900×506 fill (16:9, detail card banner spot @ 450 CSS px)
   has_one_attached :banner do |attachable|
-    attachable.variant :display, resize_to_fill: [ 450, 253 ]
+    attachable.variant :display, resize_to_fill: [ 900, 506 ]
   end
 
   # Host-less ActiveStorage proxy path for the :display banner variant

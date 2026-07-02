@@ -608,7 +608,9 @@ class Channel
         branding_channel = branding[:channel] || {}
         branding_image   = branding[:image]   || {}
         thumbnails = snippet[:thumbnails] || {}
-        default_thumb = thumbnails[:default] || {}
+        # Biggest available avatar: high = 800×800 (retina-ready master for the
+        # 240/120/70 display variants); default is a soft 88×88 — last resort.
+        avatar_thumb = thumbnails[:high] || thumbnails[:medium] || thumbnails[:default] || {}
 
         hidden_subs = stats[:hidden_subscriber_count]
 
@@ -619,7 +621,7 @@ class Channel
           country: snippet[:country],
           default_language: snippet[:default_language],
           keywords: branding_channel[:keywords],
-          avatar_url: default_thumb[:url],
+          avatar_url: avatar_thumb[:url],
           banner_url: branding_image[:banner_external_url],
           # `watermarks.set` is a separate Data API call; the
           # `channels.list#brandingSettings` payload does NOT carry

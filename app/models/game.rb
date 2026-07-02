@@ -21,14 +21,16 @@ class Game < ApplicationRecord
   has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
   has_one_attached :cover_art do |attachable|
-    # :detail — 450px-wide portrait for the game detail card and the video
-    # linked-game card cover box. resize_to_limit preserves aspect ratio and
-    # never upscales below the natural size.
-    attachable.variant :detail, resize_to_limit: [ 450, 600 ]
-    # :strip — exact 180×240px fill for the similar-games strip card.
-    # resize_to_fill crops to the exact display dimensions so the browser
-    # performs no downscale (eliminates subpixel blur on the strip).
-    attachable.variant :strip,  resize_to_fill:  [ 180, 240 ]
+    # Variants are 2× their CSS display size so hiDPI/retina screens (every
+    # phone) render sharp; display boxes stay pinned in CSS.
+    # :detail — displayed 450px wide (game detail card + the video linked-game
+    # card cover box). resize_to_limit preserves aspect ratio and never
+    # upscales below the natural size (t_1080p masters cover 2× comfortably).
+    attachable.variant :detail, resize_to_limit: [ 900, 1200 ]
+    # :strip — displayed exactly 180×240 (similar-games strip card).
+    # resize_to_fill crops to 2× the display box; the CSS box + object-fit do
+    # the clean 2:1 downscale on 1× screens.
+    attachable.variant :strip,  resize_to_fill:  [ 360, 480 ]
   end
 
   has_neighbors :summary_embedding

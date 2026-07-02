@@ -12,11 +12,12 @@ class Video < ApplicationRecord
   has_many :achievements, as: :achievable, dependent: :destroy
   has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
-  # Locally-cached thumbnail master (raw bytes from YouTube CDN). Attached
-  # during sync/import via Video::Thumbnail::Ingest instead of hotlinking
-  # i.ytimg.com (which 429s). Display resizing is handled by the named variant.
+  # Locally-cached thumbnail master (raw bytes from YouTube CDN, maxres).
+  # Attached during sync/import via Video::Thumbnail::Ingest instead of
+  # hotlinking i.ytimg.com (which 429s). Display resizing is handled by the
+  # named variant — 2× the 450×253 CSS box so retina screens render sharp.
   has_one_attached :thumbnail do |attachable|
-    attachable.variant :display, resize_to_fill: [ 450, 253 ]
+    attachable.variant :display, resize_to_fill: [ 900, 506 ]
   end
 
   has_neighbors :summary_embedding

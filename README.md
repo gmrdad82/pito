@@ -62,6 +62,57 @@ game/channel recommendations. Your laptop, your data.
 > obligation. issues triaged when there's time; PRs welcome but not guaranteed to
 > merge. no hosted service from this repo.
 
+## What PITO does that no one else does — not even Studio
+
+Everything in this section is native to PITO and simply **absent** from YouTube
+Studio, TubeBuddy, and vidIQ. Not "better" — absent. Studio knows your videos
+inside out; it has just never once asked which _game_ you were playing. PITO is
+built around that question.
+
+### Which of your channels owns a game
+
+<p align="center"><img src="docs/media/mkt-02-coverage.png" width="760" alt="PITO — cross-channel game coverage: distribution + recommendation"></p>
+
+`show game` answers the one question a multi-channel gamer actually has: side by
+side, how this game's coverage is **distributed** across your channels (weighted by
+vids + views + lifetime watch-time, streaming in as braille bars) and which channel
+it best **fits** next (top-5 recommendation, avatar and score, row-aligned with the
+distribution). Nobody else has a cross-channel game view — Studio doesn't even let
+a second channel into the same tab.
+
+### And the rest of the loot
+
+<!-- prettier-ignore -->
+<table>
+<tr>
+<td width="50%"><img src="docs/media/mkt-04-releases.png" alt="Per-platform release dates"><br><b>Release dates per platform — PlayStation, Switch, Xbox, and Steam</b> — grouped by date with their logos, and a countdown that names <i>which</i> platform lands ("…on PlayStation + Steam in 3 days"). Unreleased games re-sync nightly until the date is real.</td>
+<td width="50%"><img src="docs/media/mkt-01-linkage.png" alt="Game–video linkage"><br><b>Games ↔ videos, explicitly linked</b> — <code>link</code> / <code>unlink</code>, never guessed from titles. Your library finally knows which game every video covers — and everything below runs on that graph.</td>
+</tr>
+<tr>
+<td><img src="docs/media/mkt-06-game-analytics.png" alt="Game-level analytics"><br><b>Analytics at the game level</b> — avg % viewed, retention, avg view duration, aggregated across a game's linked vids (channels get the same treatment). Studio does these strictly one video at a time.</td>
+<td><img src="docs/media/mkt-07-heatmap.png" alt="Day-of-week heatmap"><br><b>Day-of-week heatmap</b> — Mon→Sun bars computed from your daily views, busiest day green. The YouTube API doesn't even offer this dimension; PITO does the math itself.</td>
+</tr>
+<tr>
+<td><img src="docs/media/mkt-05-footage.png" alt="Per-game footage on the time-to-beat bar"><br><b>Footage hours per game</b> — your recorded backlog, sitting right on the time-to-beat bar. "Do I have enough material for this one?" — answered at a glance.</td>
+<td><img src="docs/media/mkt-03-price.png" alt="Game price"><br><b>Game price, tracked</b> — coins on the card. Know what covering a slate costs before you promise it to an audience.</td>
+</tr>
+<tr>
+<td><img src="docs/media/mkt-08-schedule.png" alt="Schedule slate"><br><b>A calendar that finds the gap</b> — <code>schedule … slate</code> lays out what's already booked across <i>every</i> channel, so releases spread out instead of quietly stacking on a Tuesday.</td>
+<td><img src="docs/media/mkt-09-share.png" alt="Shareable message"><br><b>Any message is a link</b> — <code>share</code> mints a public URL to that exact reply, chart included. Go ahead, try sending someone a Studio screen.</td>
+</tr>
+<tr>
+<td><img src="docs/media/mkt-10-snapshot.png" alt="Conversation snapshot"><br><b>Conversations are snapshots</b> — an old conversation still shows your numbers <i>as they were</i>. A time machine no dashboard gives you.</td>
+<td><img src="docs/media/mkt-11-mobile.png" alt="PITO on mobile"><br><b>Happily mobile</b> — the chatbox works on your phone. Studio on a phone is… an app that isn't this.</td>
+</tr>
+<tr>
+<td><img src="docs/media/mkt-13-similar.png" alt="Similar games"><br><b>Similar games</b> — Voyage embeddings surface what sits near your library, right on the game card, with the channels each one fits.</td>
+<td><img src="docs/media/mkt-14-shinies.png" alt="Shinies"><br><b>Shinies</b> — lifetime achievement badges across channels, vids, and games. Gaming-flavored bragging rights that unlock as you grow.</td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/media/mkt-12-chatbox.png" alt="The one chatbox"><br><b>And the whole thing is a conversation</b> — one chatbox, one monospace font, full keyboard navigation. The features above aren't buried in menus; you <i>type</i> them.</td>
+</tr>
+</table>
+
 ## Features
 
 PITO is best _seen_ — it moves. Animated walkthroughs land here as I record them; for

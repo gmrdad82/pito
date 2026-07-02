@@ -4,13 +4,43 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.8.5] — Unreleased
+## [0.8.5] — 2026-07-02
 
 A broad follow-up to **analtics**: a full `show channel` surface, sharper `sync`
 and `analyze` reply flows, named conversations, a faster/cleaner notifications
 panel, a self-hosted typeface, and an exhaustive dispatcher-recognition spec net
 that hardens every verb/keyword combination across the slash, hashtag, and chat
 stacks. (Bespoke analytics view components close out the tag.)
+
+### What PITO does that no one else does — not even Studio
+
+As of this tag, the full set of things that exist here and nowhere else — not in
+YouTube Studio, not in TubeBuddy, not in vidIQ:
+
+- **Cross-channel game coverage** — `show game` shows how a game's coverage is
+  distributed across _your_ channels (vids + views + lifetime watch-time) next to
+  the top-5 channels it best fits. Nobody else has a cross-channel game view.
+- **Games ↔ videos, explicitly linked** — `link` / `unlink`, never guessed from
+  titles; the graph everything else runs on.
+- **Per-platform release dates — PlayStation, Switch, Xbox, and Steam** — grouped
+  by date with logos, countdowns that name the platform, and nightly re-syncs
+  until a date is concrete.
+- **Analytics at the game level** — avg % viewed, retention, and avg view duration
+  aggregated across a game's linked vids (Studio: one video at a time).
+- **Day-of-week heatmap** — computed from your daily views; the API has no such
+  dimension.
+- **Footage hours per game** — your recorded backlog on the time-to-beat bar.
+- **Game price, tracked** — coins on the card; budget a slate before promising it.
+- **A calendar that finds the gap** — `schedule … slate` across every channel.
+- **Any message is a shareable link** — `share` mints a public URL to that exact
+  reply, chart included.
+- **Conversations are snapshots** — old conversations keep their numbers as they
+  were.
+- **Happily mobile** — the chatbox works on a phone.
+- **Similar games + Shinies** — Voyage-powered recommendations and lifetime
+  achievement badges, because this is a gaming tool that knows it.
+- **And the whole thing is one chatbox** — terminal-style, keyboard-first; you
+  type, it answers.
 
 ### Added
 
@@ -439,6 +469,17 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Replies no longer elevate a message's background** — the "this was just changed
   by your reply" surface lift (`payload[:surface]`) was removed. A message keeps the
   background it was rendered with; follow-up replies don't re-tint the original.
+
+- **Sharp images on phones and hiDPI screens (@2×)** — every image variant now
+  renders at twice its on-screen size (game covers 900×1200, similar-strip
+  cards 360×480, banners and video thumbnails 900×506, avatars 240/120/70),
+  so retina displays — every phone — get crisp art instead of a soft 1×
+  upscale. Channel avatars also fix a real bug: the roster sync fetched
+  YouTube's **88×88** `default` thumbnail as the master; it now takes the
+  800×800 `high` size. Masters were already large elsewhere (IGDB `t_1080p`
+  covers, 2560×1440 banner originals, `maxres` thumbnails). Variants
+  regenerate lazily on first view — no migration, no backfill; a `sync
+  channels` after deploy refreshes the avatar masters.
 
 - **Awaited games refresh nightly, until the date is real** — the nightly IGDB
   pass no longer skips a game synced within the last 7 days: any game still
