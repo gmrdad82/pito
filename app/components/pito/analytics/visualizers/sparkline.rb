@@ -9,7 +9,7 @@ module Pito
       # chart-viz shimmer (--pito-shimmer-angle) + bottom→up reveal, with NO
       # ticks/legend/caption/axis — just the 2 braille rows on the dotted-paper grid,
       # floored with a baseline row so an all-zero series still shows a minimal
-      # x-axis line. Width = BaseComponent::COLS (45) = the analyze chart wrapper width.
+      # x-axis line. Width = BaseComponent::COLS (42) = the analyze chart wrapper width.
       class Sparkline < Pito::Analytics::Visualizers::Base
         ROWS = 2
         REVEAL_CONTROLLER = "pito--area-chart-reveal"
@@ -25,7 +25,7 @@ module Pito
 
         def reveal_controller = REVEAL_CONTROLLER
 
-        # ROWS (2) strings of COLS (45) chars each (top→bottom), capped at series_max.
+        # ROWS (2) strings of COLS (42) chars each (top→bottom), capped at series_max.
         # Pass @series as floats — BrailleAreaChart handles the conversion internally,
         # and rounding here would silently collapse fractional values (e.g. 0.1h) to zero.
         def rows_braille

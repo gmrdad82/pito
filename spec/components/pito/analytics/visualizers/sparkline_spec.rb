@@ -12,9 +12,9 @@ RSpec.describe Pito::Analytics::Visualizers::Sparkline, type: :component do
 
   subject(:node) { render_inline(described_class.new(series: [ 10, 30, 20, 50, 40 ])) }
 
-  it "subclasses BaseComponent (the 45-col braille canvas)" do
+  it "subclasses BaseComponent (the 42-col braille canvas)" do
     expect(described_class.ancestors).to include(Pito::Analytics::Visualizers::Base)
-    expect(described_class.new(series: [ 1, 2 ]).cols).to eq(45)
+    expect(described_class.new(series: [ 1, 2 ]).cols).to eq(42)
   end
 
   it "renders a .pito-metric--sparkline wrapper with the area-chart-reveal controller" do
@@ -30,7 +30,7 @@ RSpec.describe Pito::Analytics::Visualizers::Sparkline, type: :component do
     expect(rows.all? { |r| braille?(r.text) }).to be(true)
   end
 
-  it "renders each row as a COLS (45) char braille string" do
+  it "renders each row as a COLS (42) char braille string" do
     node.css(".pito-metric__row").each { |r| expect(r.text.length).to eq(cols) }
   end
 
