@@ -8,8 +8,8 @@ schema_version: 1
 # help:   always available; share: withheld on :confirmation kind + unresolved messages;
 # revoke: additionally gated on Share record existing for the event.
 universal_reply:
-  share:  { mode: append }
-  revoke: { mode: append, aliases: [unshare] }
+  share:  { mode: append, kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
+  revoke: { mode: append, aliases: [unshare], kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
   help:   { mode: append }
 
 # Static + dynamic vocabulary declarations. Faithful transcription of
@@ -78,6 +78,9 @@ vocabularies:
     members: [full]
   show_segments:
     members: ["at-a-glance", channels, detail, "linked-game", "linked-videos", similar, videos]
+    synonyms: {similars: similar}
+  analyze_segments:
+    members: [numbers, breakdowns]
   # Dynamic vocabularies — resolved at runtime via Grammar::Vocabulary resolver lambdas.
   channels:      { resolver: channels }
   conversations: { resolver: conversations }
@@ -132,6 +135,13 @@ verbs:
           optional: true
           repeatable: true
           introducer: only
+        - name: without
+          kind: enum
+          source: show_segments
+          optional: true
+          repeatable: true
+          introducer: without
+          introducer: without
       # id_only_resolution! active — title lookup is disabled; handler reads message.raw.
     segments:
       # Ordered emission list per entity; faithfully transcribed from Pito::Chat::Segments::TABLE.
@@ -194,6 +204,7 @@ verbs:
           fill: ~
           reply_target: game_similar
           emit_if: ~
+          aliases: [similars]
         "linked-videos":
           builder: MessageBuilder::Game::LinkedVideos
           kind: enhanced
@@ -247,6 +258,15 @@ verbs:
           kind: enum
           source: nouns
           optional: true
+        - name: without
+          kind: enum
+          source: analyze_segments
+          optional: true
+          repeatable: true
+          introducer: without
+          introducer: without
+          # Metric tokens in the without clause are also accepted — they pass through
+          # as extra_vocabulary and are consumed by MetricSelection independently.
       # Handler reads message.raw for entity/id/handle/period; slot drives ghost only.
     segments:
       # All three entities share ANALYZE_SEGMENTS (MessageBuilder::Analyze::Message::SEGMENT_ROLES).
@@ -322,6 +342,150 @@ verbs:
         video_list:
           mode: append
           # analyze #3 → single vid; bare analyze → all listed video_ids.
+
+  # ─── Segment verbs (D20/D21) ─────────────────────────────────────────────────
+  # Each promotes ONE :enhanced segment of show/analyze into its own top-level chat
+  # verb via the single generic Chat::Handlers::SegmentVerb — ADDITIVE; show/analyze
+  # are untouched. `segment_of` binds the verb to its (parent, segment) pair; entity
+  # availability derives from the parent's segments block (schema-validated). The
+  # handler drives the parent's emission path forcing `only <segment>`, so a segment
+  # verb is byte-identical to `<parent> <noun> <ref> only <segment>`.
+
+  "at-a-glance":
+    aliases: [glance, overview]
+    description: pito.grammar.chat.at-a-glance
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: "at-a-glance" }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  videos:
+    aliases: [vids]
+    description: pito.grammar.chat.videos
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: videos }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  "linked-game":
+    description: pito.grammar.chat.linked-game
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: "linked-game" }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  similar:
+    aliases: [similars]
+    description: pito.grammar.chat.similar
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: similar }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  "linked-videos":
+    aliases: [linked-vids]
+    description: pito.grammar.chat.linked-videos
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: "linked-videos" }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  channels:
+    aliases: [handles]
+    description: pito.grammar.chat.channels
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: channels }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  breakdowns:
+    aliases: [lifetime, life]
+    description: pito.grammar.chat.breakdowns
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: analyze, segment: breakdowns }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+
+  # The `linked` two-word forms (plan-0.9.5 E14) — a PER-NOUN keyed `segment_of`.
+  # Unlike the flat segment verbs above (where the typed noun routes the entity in
+  # the parent), here the NOUN names WHAT YOU GET (the segment) and the id belongs
+  # to the OTHER entity, so each branch FORCES the parent's entity branch:
+  #   linked game #7  → the linked-game card OF vid #7   (== show vid #7 only linked-game)
+  #   linked vids #3  → the linked-videos table OF game #3 (== show game #3 only linked-videos)
+  # Coexists with the one-word linked-game / linked-videos verbs (untouched). The
+  # branch `aliases:` mirror the `nouns` vocabulary synonyms (videos → vids, …).
+  linked:
+    description: pito.grammar.chat.linked
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of:
+        game: { verb: show, segment: "linked-game",   entity: vid,  aliases: [games, gamez] }
+        vids: { verb: show, segment: "linked-videos", entity: game, aliases: [videos, video, vid] }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
 
   import:
     description: pito.grammar.chat.import

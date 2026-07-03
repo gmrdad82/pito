@@ -71,5 +71,27 @@ RSpec.describe Pito::Lists::OptionsFooter do
       expect(result).to be_a(String)
       expect(result).to include("views")
     end
+
+    # noun: "columns" (default) — the noun appears in the rendered toggle line.
+    it "interpolates noun: 'columns' into the toggles line" do
+      result = described_class.call(
+        addable:   %w[views],
+        removable: %w[channel],
+        sort_keys: [],
+        noun:      "columns"
+      )
+      expect(result).to include("columns")
+    end
+
+    # noun: "segments" — the noun appears in the rendered toggle line.
+    it "interpolates noun: 'segments' into the toggles line" do
+      result = described_class.call(
+        addable:   %w[at-a-glance],
+        removable: %w[detail],
+        sort_keys: [],
+        noun:      "segments"
+      )
+      expect(result).to include("segments")
+    end
   end
 end

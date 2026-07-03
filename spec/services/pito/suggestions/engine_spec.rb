@@ -442,10 +442,18 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:stage]).to eq(:verb)
     end
 
-    it "switches to stage: :arg once the verb is finalised (a second space)" do
+    it "keeps stage: :arg once a NO-ARG verb is finalised (a second space)" do
       stamp("gl-5", "game_list")
-      result = call(input: "#gl-5 with ", cursor: 11, conversation:)
+      result = call(input: "#gl-5 next ", cursor: 11, conversation:)
       expect(result[:stage]).to eq(:arg)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "tags stage: :verb with argument items once an ARG verb is finalised (E13)" do
+      stamp("gl-6", "game_list")
+      result = call(input: "#gl-6 with ", cursor: 11, conversation:)
+      expect(result[:stage]).to eq(:verb)
+      expect(result[:menu_items]).not_to be_empty
     end
 
     it "each palette item inserts `<verb> ` (spliced over the partial verb token)" do
@@ -453,6 +461,166 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       items = call(input: "#vl-6 ", cursor: 6, conversation:)[:menu_items]
       schedule = items.find { |i| i[:label] == "schedule" }
       expect(schedule[:insert]).to eq("schedule ")
+    end
+  end
+
+  # ── Reply ARG-stage argument suggestions (plan-0.9.5 E13) ─────────────────────
+  #
+  # After `#handle <verb> ` the palette suggests the verb's possible ARGUMENT
+  # tokens for the source message's reply_target — config-driven from the verb's
+  # declared reply branch (ref/args resolvers in config/pito/verbs.yml).
+  describe "hashtag follow-up: arg-stage argument suggestions", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :chat, input_text: "list games", position: 1) }
+
+    before { Pito::FollowUp::Registry.register_all! }
+
+    def stamp(handle, target, extra = {})
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => handle, "reply_target" => target, "body" => "x" }.merge(extra)
+      )
+    end
+
+    def labels(input, cursor)
+      call(input:, cursor:, conversation:)[:menu_items].map { |i| i[:label] }
+    end
+
+    context "columns — with/without on list targets" do
+      before { stamp("gl-1", "game_list", "list_columns" => %w[genre]) }
+
+      it "suggests the surface's ADDABLE column tokens for `with` (visible columns excluded)" do
+        expect(labels("#gl-1 with ", 11)).to eq(%w[channel developer footage platform price publisher])
+      end
+
+      it "suggests the REMOVABLE (visible) column tokens for `without`" do
+        expect(labels("#gl-1 without ", 14)).to eq(%w[genre])
+      end
+
+      it "narrows by the mid-token prefix" do
+        expect(labels("#gl-1 with p", 12)).to eq(%w[platform price publisher])
+      end
+
+      it "excludes column tokens already typed in the reply" do
+        expect(labels("#gl-1 with platform ", 20)).to eq(%w[channel developer footage price publisher])
+      end
+
+      it "tags a non-empty argument menu stage: :verb (browsable palette)" do
+        result = call(input: "#gl-1 with ", cursor: 11, conversation:)
+        expect(result[:stage]).to eq(:verb)
+      end
+
+      it "uses the VIDEO surface's display tokens on video_list (comms/length)" do
+        stamp("vl-1", "video_list", "list_columns" => %w[views])
+        expect(labels("#vl-1 with ", 11)).to eq(%w[category channel comms game length likes visibility])
+      end
+
+      it "derives game_linked_videos columns from the VIDEO surface" do
+        stamp("lv-1", "game_linked_videos", "list_columns" => [])
+        expect(labels("#lv-1 without ", 14)).to be_empty
+        expect(labels("#lv-1 with ", 11)).to include("comms", "length")
+      end
+    end
+
+    context "sort keys — sort/order on list targets" do
+      it "suggests base + visible columns' sort tokens on game_list" do
+        stamp("gl-2", "game_list", "list_columns" => %w[price])
+        expect(labels("#gl-2 sort ", 11)).to eq(%w[id price title])
+      end
+
+      it "honours the `order` alias" do
+        stamp("gl-2b", "game_list", "list_columns" => %w[price])
+        expect(labels("#gl-2b order ", 13)).to eq(%w[id price title])
+      end
+
+      it "suggests the fixed channel sort set on channel_list" do
+        stamp("cl-1", "channel_list")
+        expect(labels("#cl-1 sort ", 11)).to eq(%w[handle subs title vids views])
+      end
+
+      it "treats the leading `by` particle as transparent" do
+        stamp("cl-2", "channel_list")
+        expect(labels("#cl-2 sort by ", 14)).to eq(%w[handle subs title vids views])
+      end
+
+      it "suggests nothing once the sort column is committed" do
+        stamp("cl-9", "channel_list")
+        result = call(input: "#cl-9 sort views ", cursor: 17, conversation:)
+        expect(result[:menu_items]).to be_empty
+        expect(result[:stage]).to eq(:arg)
+      end
+    end
+
+    context "metrics — with/without on analyze surfaces" do
+      it "suggests metric tokens for `with` on analyze_message" do
+        stamp("aa-1", "analyze_message")
+        expect(labels("#aa-1 with ", 11)).to eq([ "ctr", "subs", "views", "watch time" ])
+      end
+
+      it "suggests metric tokens for `without` on analytics_glance" do
+        stamp("ag-1", "analytics_glance")
+        expect(labels("#ag-1 without ", 14)).to eq([ "ctr", "subs", "views", "watch time" ])
+      end
+
+      it "excludes metrics already typed (aliases resolved)" do
+        stamp("aa-2", "analyze_message")
+        expect(labels("#aa-2 with subscribers ", 23)).to eq([ "ctr", "views", "watch time" ])
+      end
+    end
+
+    context "row ids — verbs whose ref is a list row id" do
+      before do
+        stamp("gl-3r", "game_list",
+              "list_columns" => [],
+              "table_rows"   => [
+                { "cells" => [ { "text" => "#12" }, { "text" => "A" } ] },
+                { "cells" => [ { "text" => "#3" },  { "text" => "B" } ] },
+                { "cells" => [ { "text" => "#1" },  { "text" => "C" } ] }
+              ])
+      end
+
+      it "suggests the source list's row ids for `show` (numeric ascending)" do
+        expect(labels("#gl-3r show ", 12)).to eq(%w[#1 #3 #12])
+      end
+
+      it "suggests row ids for `delete` via its rm alias" do
+        expect(labels("#gl-3r rm ", 10)).to eq(%w[#1 #3 #12])
+      end
+
+      it "inserts the id token with a trailing space" do
+        items = call(input: "#gl-3r show ", cursor: 12, conversation:)[:menu_items]
+        expect(items.first[:insert]).to eq("#1 ")
+      end
+
+      it "narrows by a typed partial with or without the # prefix" do
+        expect(labels("#gl-3r show 1", 13)).to eq(%w[#1 #12])
+        expect(labels("#gl-3r show #1", 14)).to eq(%w[#1 #12])
+      end
+
+      it "stops suggesting once the row id is committed" do
+        expect(labels("#gl-3r show 3 ", 14)).to be_empty
+      end
+
+      it "suggests the row id first for verbs that interleave id + value (price)" do
+        expect(labels("#gl-3r price ", 13)).to eq(%w[#1 #3 #12])
+        expect(labels("#gl-3r price 3 ", 15)).to be_empty
+      end
+    end
+
+    context "declared args enums — visit destination" do
+      it "suggests the visit_destinations vocabulary on channel_detail" do
+        stamp("cd-9", "channel_detail", "channel_id" => 1)
+        expect(labels("#cd-9 visit ", 12)).to eq(%w[channel studio])
+      end
+    end
+
+    context "no-arg / undeclared verbs" do
+      it "returns an empty :arg menu for a verb with no reply-branch config (share)" do
+        stamp("gl-4n", "game_list")
+        result = call(input: "#gl-4n share ", cursor: 13, conversation:)
+        expect(result[:menu_items]).to be_empty
+        expect(result[:stage]).to eq(:arg)
+      end
     end
   end
 

@@ -75,7 +75,24 @@ Inside `ChatDispatchJob`, the input is routed by its shape:
 
 - `turn.slash?` (leading `/`) → `Pito::Slash::Dispatcher`
 - `turn.hashtag?` (leading `#`) → `Pito::Hashtag::Dispatcher`
-- otherwise → `Pito::Chat::Dispatcher` (natural language)
+- otherwise → `Pito::Dispatch::Router` (natural language)
+
+**Config-driven dispatch (0.9.5).** Every verb — chat, slash, and hashtag-reply
+— is declared ONCE in `config/pito/verbs.yml` (the verb ontology): aliases,
+slots/kwargs with named resolver paths (`lib/pito/dispatch/resolvers.rb`),
+segments with named guard predicates, per-target reply availability + modes,
+the `universal_reply:` set, auth tiers, page sizes, and `dispatch:` targets.
+`Pito::Dispatch::Config` loads and freezes it; `Pito::Dispatch::Schema`
+validates every key and reference at spec time (unknown keys are rejected with
+did-you-mean hints — see `spec/dispatch/schema_integrity_spec.rb`);
+`Pito::Dispatch::Matrix` derives the reply matrix; `Pito::Grammar::ConfigSource`
+builds the recognition Specs and vocabularies; and `Pito::Dispatch::Router`
+executes chat and reply verbs through the uniform handler contract
+`call(kwargs:, context:) → Result`. There is no Ruby verb table, no per-handler
+availability DSL, and no verb→handler conditional: adding a verb is a YAML
+entry plus a handler class (proven end-to-end by
+`spec/dispatch/add_a_verb_proof_spec.rb`); `spec/dispatch/help_sync_spec.rb`
+fails CI when help copy drifts from the config.
 
 The job runs the handler, then hands the result events to
 `Pito::Dispatch::Finalizer`, which persists each one, gives EACH message its own
@@ -88,9 +105,12 @@ resolves just that one. All output is delivered via Turbo Stream broadcasts over
 Action Cable.
 
 `#<handle> <verb> <rest>` replies to an addressable event are intercepted
-**before** async dispatch by `Pito::FollowUp::Router`, which re-runs the same
-chat verb handler via `Pito::FollowUp::VerbDelegator` (handlers under
-`app/services/pito/follow_up/handlers/`).
+**before** async dispatch by `Pito::FollowUp::Router`; availability and modes
+come from the verb's `reply:` branch in verbs.yml (via `Dispatch::Matrix`),
+kwarg/ref extraction from its declared resolver paths (via
+`Dispatch::ReplyBinding`), and execution runs through the SAME
+`Pito::Dispatch::Router` via `Pito::FollowUp::VerbDelegator` (reply-specific
+`call` bodies remain under `app/services/pito/follow_up/handlers/`).
 
 ### Broadcast pipeline
 

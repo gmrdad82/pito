@@ -204,6 +204,23 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
   end
 
+  # ── Game branch — segment alias: similars → similar ──────────────────────────
+
+  context "segment alias 'similars'" do
+    it "'show game N with similars' emits the similar (game_similar) enhanced event" do
+      result = show_real("show game #{game.id} with similars")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      similar_event = result.events.find { |e| e[:payload]["reply_target"] == "game_similar" }
+      expect(similar_event).to be_present
+      expect(similar_event[:kind]).to eq(:enhanced)
+    end
+
+    it "'show game N with similars' does not report similars as unknown (no error event)" do
+      result = show_real("show game #{game.id} with similars")
+      expect(result.events.map { |e| e[:payload]["reply_target"] }).not_to include("error")
+    end
+  end
+
   # ── Game branch — title refs are REJECTED (id-only resolution) ───────────────
 
   it "returns not-found when a title ref is given — NOT a detail card (id-only resolution)" do
@@ -825,6 +842,28 @@ RSpec.describe Pito::Chat::Handlers::Show do
         result = handler_for("first", "game", "full", "with", "detail").call
         expect(result).to be_a(Pito::Chat::Result::Error)
       end
+
+      it "without channels → Ok result; channels segment absent from emitted events" do
+        result = show_real("show game #{game.id} without channels")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        reply_targets = result.events.map { |e| e[:payload]["reply_target"] }
+        expect(reply_targets).not_to include("game_channels")
+        expect(reply_targets).to include("game_detail")
+      end
+
+      it "without at-a-glance,similar → Ok result; emits detail (and linked-videos + channels when present)" do
+        result = show_real("show game #{game.id} without at-a-glance,similar")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        reply_targets = result.events.map { |e| e[:payload]["reply_target"] }
+        expect(reply_targets).to include("game_detail")
+        expect(reply_targets).not_to include("game_similar")
+        expect(reply_targets).not_to include("analytics_glance")
+      end
+
+      it "without + with (conflict) → Error result" do
+        result = show_real("show game #{game.id} without channels with detail")
+        expect(result).to be_a(Pito::Chat::Result::Error)
+      end
     end
 
     # ── Channel entity — bare (cheaper single example) ───────────────────────────
@@ -848,6 +887,36 @@ RSpec.describe Pito::Chat::Handlers::Show do
         events = handler_for("video", "##{sel_video.id}").call.events
         expect(events.map { |e| e[:kind] }).to eq([ :system ])
       end
+    end
+  end
+
+  # ── D18: segments footer on the first emitted message ──────────────────────────
+
+  context "segments footer (D18)" do
+    # Bare `show game` → only detail in selection, so 4 addable and 1 removable.
+    it "bare show game: first event has list_footer with the 4 addable segment names" do
+      payload = handler_for("game", "##{game.id}").call.events.first[:payload]
+      footer  = payload["list_footer"].to_s
+      expect(footer).to include("similar")
+      expect(footer).to include("linked-videos")
+      expect(footer).to include("channels")
+      expect(footer).to include("at-a-glance")
+    end
+
+    # full → all 5 in selection, so 0 addable and 5 removable (footer shows "nothing" addable + lists removable).
+    it "full show game: first event has list_footer with all 5 removable segment names" do
+      events  = handler_for("first", "game", "full").call.events
+      payload = events.first[:payload]
+      footer  = payload["list_footer"].to_s
+      expect(footer).to include("detail")
+      expect(footer).to include("at-a-glance")
+      expect(footer).to include("nothing")
+    end
+
+    # segments noun appears in the footer
+    it "footer uses 'segments' as the noun" do
+      payload = handler_for("game", "##{game.id}").call.events.first[:payload]
+      expect(payload["list_footer"].to_s).to include("segments")
     end
   end
 end

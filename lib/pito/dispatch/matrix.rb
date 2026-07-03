@@ -60,9 +60,13 @@ module Pito
         else
           a = action.to_s.downcase
 
-          # Universal reply verbs are always :append.
+          # Universal reply verbs are always :append, unless this target is in the verb's except: set.
           umode = idx[:universal_modes][a]
-          return umode if umode
+          if umode
+            excepted = idx[:universal_excepts][a]
+            return umode unless excepted&.include?(t)
+            # Excepted: fall through to per-target verb lookup → base mode (HF3) for unknown token.
+          end
 
           # Resolve action token → canonical verb (per-target alias first, then global).
           canonical = resolve_verb_for(t, a)
@@ -111,20 +115,24 @@ module Pito
         build_verb_alias_index(data, verb_index)
 
         # Step 2 — universal reply tokens and their modes.
-        universal_tokens = []
-        universal_modes  = {}
+        universal_tokens  = []
+        universal_modes   = {}
+        universal_excepts = {}   # token => Set<String> of excepted reply_target ids
 
         (data[:universal_reply] || {}).each do |vname, vbody|
           canonical = vname.to_s
           umode     = vbody[:mode]&.to_sym || :append
+          uexcept   = Array(vbody[:except]).map(&:to_s).to_set
 
           universal_tokens << canonical
-          universal_modes[canonical] = umode
+          universal_modes[canonical]   = umode
+          universal_excepts[canonical] = uexcept
 
           Array(vbody[:aliases]).each do |a|
             tok = a.to_s
             universal_tokens << tok
-            universal_modes[tok] = umode
+            universal_modes[tok]   = umode
+            universal_excepts[tok] = uexcept
           end
         end
         universal_tokens = universal_tokens.uniq.freeze
@@ -160,9 +168,11 @@ module Pito
         end
 
         # Step 4 — append universals to each target's action list + derive base modes.
+        # Tokens whose except: set includes this target are skipped for that target.
         targets.each do |tid|
-          specific   = actions[tid] || []
-          actions[tid] = specific.concat(universal_tokens).uniq.freeze
+          specific      = actions[tid] || []
+          injectable    = universal_tokens.reject { |tok| universal_excepts[tok]&.include?(tid) }
+          actions[tid]  = specific.concat(injectable).uniq.freeze
 
           tmodes = (verb_modes[tid] || {}).values
           # :mutate iff every verb mode for this target is :mutate AND there is
@@ -178,7 +188,8 @@ module Pito
           verb_index:            verb_index.freeze,
           per_target_alias_idx:  per_target_alias_idx.transform_values(&:freeze).freeze,
           universal_tokens:      universal_tokens,
-          universal_modes:       universal_modes.freeze
+          universal_modes:       universal_modes.freeze,
+          universal_excepts:     universal_excepts.transform_values(&:freeze).freeze
         }.freeze
       end
 

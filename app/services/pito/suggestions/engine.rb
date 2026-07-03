@@ -16,9 +16,10 @@ module Pito
     # `tab` accept shortcut were removed (owner 2026-06-29): the `/slash` and
     # `#hashtag` selectable palettes are the only suggestion surfaces. `stage:
     # :verb` → the client renders menu_items as a browsable palette (slash verb
-    # choice, the `/config` provider/key set, and the follow-up reply verbs).
-    # FREE input and non-palette arg stages return empty. The `ghost` key is
-    # retained as EMPTY_GHOST only to keep the response shape stable for clients.
+    # choice, the `/config` provider/key set, the follow-up reply verbs, and the
+    # reply verbs' argument tokens — plan-0.9.5 E13). FREE input and non-palette
+    # arg stages return empty. The `ghost` key is retained as EMPTY_GHOST only to
+    # keep the response shape stable for clients.
     #
     # Tasks w + x:
     #   w — slash/hashtag/free mode detection + static slot resolution
@@ -31,6 +32,21 @@ module Pito
 
       # Auth-gated dynamic vocabulary names — never resolved for unauthenticated users.
       AUTH_GATED_VOCABS = %i[channels conversations].freeze
+
+      # Reply-branch REF resolvers whose argument position is a list row id —
+      # the arg-stage palette suggests the source list's "#N" tokens for these
+      # (plan-0.9.5 E13). All three accept a "#N"-or-"N" ref (Dispatch::Resolvers).
+      ROW_ID_REF_RESOLVERS = %w[id_among_rows video_by_id game_by_id].freeze
+
+      # Per-entity ListColumns surface module — the same TARGET_META entity
+      # projection Dispatch::ReplyBinding uses, mapped to the builder module
+      # owning that surface's column/sort vocabulary (lambdas defer autoload,
+      # mirroring ReplyBinding::COLUMN_VOCABULARY).
+      ENTITY_LIST_COLUMNS = {
+        "::Channel" => -> { Pito::MessageBuilder::Channel::ListColumns },
+        "::Game"    => -> { Pito::MessageBuilder::Game::ListColumns },
+        "::Video"   => -> { Pito::MessageBuilder::Video::ListColumns }
+      }.freeze
 
       EMPTY_GHOST = { complete_current: "", next_hint: "" }.freeze
 
@@ -400,12 +416,20 @@ module Pito
           # suggest THAT target's actions (e.g. game_list → show/delete) rather
           # than the generic hashtag verbs. Falls through to the legacy path only
           # when the handle isn't a live follow-up.
-          actions, _target = follow_up_actions_with_target(handle, conversation)
+          actions, target, event = follow_up_actions_with_target(handle, conversation)
           if actions
-            # Verb stage → the reply-verb PALETTE. Arg stage → nothing (owner
-            # 2026-06-29: inline arg suggestions/ghosts removed; the palette is the
-            # only follow-up suggestion surface).
-            return at_verb_stage ? follow_up_action_completions(actions, partial) : { menu_items: [], ghost: EMPTY_GHOST, stage: :arg }
+            # Verb stage → the reply-verb PALETTE. Arg stage → the verb's possible
+            # ARGUMENT tokens for this target (plan-0.9.5 E13).
+            return follow_up_action_completions(actions, partial) if at_verb_stage
+
+            committed = ends_with_space ? after_words.drop(1) : after_words[1..-2].to_a
+            return follow_up_arg_completions(
+              verb_token: after_words.first.to_s,
+              committed:  committed,
+              partial:    partial,
+              target:     target,
+              event:      event
+            )
           end
 
           return hashtag_verb_completions(partial) if at_verb_stage
@@ -414,20 +438,21 @@ module Pito
           hashtag_metric_completions(partial)
         end
 
-        # Returns [actions, reply_target] for a live follow-up event, or [nil, nil].
+        # Returns [actions, reply_target, event] for a live follow-up event, or
+        # [nil, nil, nil].
         #
         # Universal actions: share is ALWAYS appended; revoke/unshare are appended
         # only when a Share record exists for the event (i.e. the message has been
         # shared). This keeps the palette accurate: an un-shared message shows only
         # `share`; once shared it also shows `revoke`/`unshare`.
         def follow_up_actions_with_target(handle, conversation)
-          return [ nil, nil ] if handle.blank? || conversation.nil?
+          return [ nil, nil, nil ] if handle.blank? || conversation.nil?
 
           event = conversation.events
             .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
             .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
             .last
-          return [ nil, nil ] unless event
+          return [ nil, nil, nil ] unless event
 
           target           = event.payload["reply_target"].to_s
           specific_actions = Pito::FollowUp::Registry.actions_for(target)
@@ -438,10 +463,10 @@ module Pito
 
           all_actions = (specific_actions + share_verbs).uniq
 
-          return [ nil, nil ] if all_actions.empty?
+          return [ nil, nil, nil ] if all_actions.empty?
 
           filtered = specific_actions.present? ? filter_link_unlink(all_actions, event) : all_actions
-          [ filtered, target ]
+          [ filtered, target, event ]
         end
 
         # Always offer both link and unlink for any target that declares them.
@@ -464,6 +489,148 @@ module Pito
           menu_items = matches.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
 
           { menu_items: menu_items, ghost: EMPTY_GHOST, stage: :verb }
+        end
+
+        # ── Follow-up ARG stage (plan-0.9.5 E13) ─────────────────────────────
+
+        # After `#handle <verb> ` (and mid-arg-token) the palette suggests the
+        # verb's possible ARGUMENT tokens for the source message's reply_target.
+        # Config-driven: the verb's declared reply branch (config/pito/verbs.yml,
+        # read via Pito::Dispatch::ReplyBinding.target_config) names the ref/args
+        # resolvers, and each suggestible resolver maps to its vocabulary:
+        #
+        #   ref in ROW_ID_REF_RESOLVERS → the source list's row ids ("#N")
+        #   column_list                 → the surface's column tokens (addable
+        #                                 for `with`, removable for `without` —
+        #                                 the same derivation as options_footer)
+        #   sort_clause                 → the surface's sort keys
+        #   metric_list                 → metric tokens (:metrics vocabulary —
+        #                                 the hashtag_metric_completions precedent)
+        #   visit_destination           → the :visit_destinations vocabulary
+        #
+        # Freeform resolvers (amounts, when-phrases, link targets) and no-arg
+        # verbs (e.g. `next`) suggest nothing — the empty menu keeps Enter
+        # submitting. A non-empty menu is tagged stage: :verb so the client
+        # renders it as a browsable palette (the /config arg-stage precedent).
+        def follow_up_arg_completions(verb_token:, committed:, partial:, target:, event:)
+          verb   = Pito::Dispatch::Matrix.verb_for(verb_token.downcase) || verb_token.downcase
+          config = Pito::Dispatch::ReplyBinding.target_config(verb, target)
+          return { menu_items: [], ghost: EMPTY_GHOST, stage: :arg } unless config
+
+          labels = reply_arg_labels(verb:, config:, committed:, partial:, target:, event:)
+          items  = labels.map { |l| { label: l, insert: "#{l} ", description: "", masked: false } }
+
+          { menu_items: items, ghost: EMPTY_GHOST, stage: items.empty? ? :arg : :verb }
+        end
+
+        # Ordered labels for the active argument position. A row-id ref owns the
+        # FIRST position (the interleaved `<id> <value>` reply shape —
+        # ReplyBinding::LEADING_TOKEN_REFS); the declared args take over after it.
+        def reply_arg_labels(verb:, config:, committed:, partial:, target:, event:)
+          if ROW_ID_REF_RESOLVERS.include?(config.dig(:ref, :resolver).to_s)
+            return row_id_labels(event, partial) if committed.empty?
+
+            committed = committed.drop(1)
+          end
+
+          resolver = (config[:args] || {}).values.first.to_h[:resolver].to_s
+          candidates =
+            case resolver
+            when "column_list"       then column_candidates(verb, committed, target, event)
+            when "sort_clause"       then sort_key_candidates(committed, target, event)
+            when "metric_list"       then metric_candidates(committed)
+            when "visit_destination" then destination_candidates(committed)
+            else []
+            end
+
+          # plan-0.9.5 D5: argument vocabularies list alphabetically.
+          prefix_filter(candidates, partial).sort_by { |c| c.to_s.downcase }
+        end
+
+        # The source list's row ids as "#N" labels — numeric ascending (ids are
+        # the rows' canonical order; alphabetical over "#N" strings would put
+        # "#10" between "#1" and "#2"), capped at DYNAMIC_LIMIT. A typed partial
+        # matches with or without its leading "#".
+        def row_id_labels(event, partial)
+          ids = Array(event.payload["table_rows"]).filter_map { |row| row_id_for(row) }
+          ids = ids.uniq.sort.first(DYNAMIC_LIMIT)
+
+          wanted = partial.to_s.delete_prefix("#")
+          ids = ids.select { |id| id.to_s.start_with?(wanted) } unless wanted.empty?
+
+          ids.map { |id| "##{id}" }
+        end
+
+        # A row's leading id — the first cell's "#N" text (or the legacy key
+        # form), mirroring the :id_among_rows resolver's extraction.
+        def row_id_for(row)
+          return nil unless row.is_a?(Hash)
+
+          first_cell = Array(row["cells"] || row[:cells]).first
+          text = first_cell.is_a?(Hash) ? (first_cell["text"] || first_cell[:text]) : (row["key"] || row[:key])
+          digits = text.to_s.sub(/\A#\s*/, "")
+          digits.to_i if digits.match?(/\A\d+\z/)
+        end
+
+        # Column tokens for a `with`/`without` reply on a list surface — the
+        # same derivation the list's options footer uses: addable (declared
+        # minus visible) for `with`, removable (visible) for `without`, minus
+        # tokens already typed in this reply. Labels are display tokens.
+        def column_candidates(verb, committed, target, event)
+          list_columns = list_columns_for(target)
+          return [] unless list_columns.respond_to?(:vocabulary)
+
+          current = Array(event.payload["list_columns"]).map(&:to_sym)
+          vocab   = list_columns.vocabulary
+          typed   = committed.filter_map { |t| vocab[t.to_s.downcase] }
+
+          canonicals = verb == "without" ? current : (list_columns::COLUMNS.keys - current)
+          (canonicals - typed).map { |c| list_columns.display_token(c) }
+        end
+
+        # Sort-key tokens for a `sort`/`order` reply — the surface's sortable
+        # tokens (the fixed set for channels; base + visible columns' primary
+        # aliases for game/video, the options_footer derivation). Offered only
+        # while the column token is unchosen; the leading `by` particle is
+        # transparent.
+        def sort_key_candidates(committed, target, event)
+          effective = committed.first.to_s.downcase == "by" ? committed.drop(1) : committed
+          return [] unless effective.empty?
+
+          list_columns = list_columns_for(target)
+          return [] if list_columns.nil?
+          return list_columns.sortable_tokens if list_columns.respond_to?(:sortable_tokens)
+
+          current = Array(event.payload["list_columns"]).map(&:to_sym)
+          list_columns.base_sort_tokens + current.filter_map { |c| list_columns::SORT_VOCAB.key(c) }
+        end
+
+        # Metric tokens for a `with`/`without` reply on an analyze surface — the
+        # :metrics vocabulary (the same source hashtag_metric_completions uses),
+        # minus metrics already typed in this reply (aliases resolved).
+        def metric_candidates(committed)
+          vocab = Pito::Grammar::Registry.vocabulary(:metrics)
+          return [] unless vocab
+
+          typed = committed.filter_map { |t| vocab.resolve(t.to_s) }
+          vocab.canonical.reject { |m| typed.include?(m) }
+        end
+
+        # Destination tokens for a `visit` reply — the :visit_destinations
+        # vocabulary, offered only for the first argument position.
+        def destination_candidates(committed)
+          return [] unless committed.empty?
+
+          vocab = Pito::Grammar::Registry.vocabulary(:visit_destinations)
+          vocab ? vocab.canonical : []
+        end
+
+        # The ListColumns surface module for a reply target (nil when the
+        # target's entity has no list surface).
+        def list_columns_for(target)
+          entity   = Pito::Dispatch::ReplyBinding::TARGET_META.dig(target.to_s, :entity)
+          provider = ENTITY_LIST_COLUMNS[entity]
+          provider&.call
         end
 
         def hashtag_verb_completions(partial)

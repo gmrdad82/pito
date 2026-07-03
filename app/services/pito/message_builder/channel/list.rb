@@ -57,7 +57,8 @@ module Pito
             "list_footer"     => Pito::Lists::OptionsFooter.call(
               addable:   [],
               removable: [],
-              sort_keys: Pito::MessageBuilder::Channel::ListColumns::SORT_KEYS.keys
+              sort_keys: Pito::MessageBuilder::Channel::ListColumns::SORT_KEYS.keys,
+              noun:      "columns"
             )
           }
           Pito::FollowUp.make_followupable!(payload, target: "channel_list", conversation: conversation)

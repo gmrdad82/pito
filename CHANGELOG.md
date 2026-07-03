@@ -4,10 +4,31 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.9.5] — 2026-07-03
+
+**YAML love** — every verb, alias, kwarg, segment, and reply lives once in
+`config/pito/verbs.yml`; generic code executes it, guard suites keep it honest,
+and adding a verb is an edit, not an engineering project.
 
 ### Added
 
+- **Segment verbs** — every enhanced card is now its own verb, defined purely
+  in `verbs.yml`: `at-a-glance` (`glance`, `overview`), `videos` (`vids`),
+  `linked-game`, `similar` (`similars`), `linked-videos` (`linked-vids`),
+  `channels` (`handles`), `breakdowns` (`lifetime`, `life`) — plus the
+  two-word `linked game #vid` / `linked vids #game` forms where the noun names
+  what you get. All served by one generic handler; byte-identical to the
+  parent verbs' `only` forms.
+- **`without <segments>`** on `show` and `analyze` — everything minus the
+  named segments, alias-aware (`similars`), documented in `--help`, with the
+  selector-conflict copy now naming all four selectors.
+- **Options footers on show/analyze** — the first card states which segments
+  `with` can add and `without` can drop, through one noun-agnostic 50-variant
+  dictionary shared with the list surfaces (`pito.copy.options_footer.*`).
+- **The palette now actually suggests arguments** — reply verbs offer their
+  real options (columns, sort keys, metrics, the list's own row ids) and chat
+  verbs their kwargs; two client gates that silently closed the palette are
+  open.
 - **Config-driven dispatch** — every verb (chat, slash, and hashtag-reply) is
   now declared once in `config/pito/verbs.yml`: aliases, kwargs and their
   resolution paths, segments, reply availability per message type, auth tiers,
@@ -19,6 +40,12 @@ All notable changes to PITO are documented here. The format follows
   drifts from the config, and an add-a-verb proof demonstrates that a new verb
   defined purely in YAML parses, autosuggests, documents itself, and dispatches
   with zero engine changes.
+- **Sharing is declaratively scoped** — `verbs.yml`'s `universal_reply:` block
+  now says exactly where the universal reply verbs apply: `share`/`revoke`
+  (alias `unshare`) carry `kinds: [system, enhanced]` — thinking, echo, error,
+  and confirmation messages are never shareable — and a per-target `except:`
+  list is available for finer opt-outs. Both keys are schema-validated
+  (typos rejected with did-you-mean).
 - **Capped lists state their totals** — "50 rows out of 233"-style lines (a
   50-variant dictionary) on every capped ls page and `next` batch.
 - **The `#` palette lists every live reply handle** (scrollback order,
@@ -53,6 +80,8 @@ All notable changes to PITO are documented here. The format follows
 
 ### Fixed
 
+- **The mini status bar keeps one row** — the presence square and nickname no
+  longer wrap apart on narrow panels.
 - **Nightly IGDB sync no longer reports every game as updated** — the sync
   re-stamped each game's `updated_at` unconditionally (a bookkeeping timestamp
   and an as-is release-date rewrite), so the "checked 60, updated 60"

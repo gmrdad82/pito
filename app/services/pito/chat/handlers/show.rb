@@ -53,6 +53,12 @@ module Pito
         # (NOT a numeric id), mirroring `shinies channel @handle`.
         CHANNEL_NOUN_FILLERS = %w[channel channels].freeze
 
+        # Union of every noun filler — used ONLY on the forced-entity path (the
+        # `linked` keyed verb, plan-0.9.5 E14), where the typed noun names the
+        # OTHER entity than the one resolved (`linked game #7` resolves vid #7), so
+        # the ref extraction must strip whichever noun the user typed.
+        ALL_NOUN_FILLERS = (CHANNEL_NOUN_FILLERS + VIDEO_NOUN_FILLERS + GAME_NOUN_FILLERS).freeze
+
         # Ordinal keywords that trigger first/last resolution instead of ID lookup.
         ORDINAL_WORDS = %w[first last].freeze
 
@@ -81,6 +87,8 @@ module Pito
         }.freeze
 
         def call
+          return drive_forced_entity if @forced_entity
+
           if channel_noun?
             handle_channel
           elsif video_target?(VIDEO_NOUN_FILLERS)
@@ -92,14 +100,48 @@ module Pito
           end
         end
 
+        # The keyed `linked` verb (plan-0.9.5 E14) FORCES the entity: `linked game
+        # #7` names the linked-game segment but resolves VID #7. Route straight to
+        # the forced branch, bypassing the typed-noun routing above (the typed noun
+        # names the OTHER entity). Ref extraction widens to ALL_NOUN_FILLERS.
+        def drive_forced_entity
+          case @forced_entity
+          when :vid     then handle_video
+          when :game    then handle_game
+          when :channel then handle_channel
+          end
+        end
+
+        # Public seam for Pito::Chat::Handlers::SegmentVerb (plan-0.9.5 D20). Runs
+        # this verb forcing an `only <segment>` selection and returns the same
+        # Result the typed `show <noun> <ref> only <segment>` form produces —
+        # resolution, emission, and the not-a-segment-for-this-entity rejection all
+        # flow through the unchanged branch logic. Off (@forced_segment nil) in the
+        # normal typed/reply path, so byte-for-byte behaviour is preserved there.
+        # +entity+ (plan-0.9.5 E14) additionally FORCES the resolved entity branch,
+        # for the `linked` keyed verb whose noun names the segment while the id
+        # belongs to the OTHER entity. nil (the W7 flat segment verbs) leaves the
+        # typed-noun routing untouched, so behaviour there stays byte-identical.
+        def drive_segment(segment, entity: nil)
+          @forced_segment = segment
+          @forced_entity  = entity
+          call
+        end
+
         private
 
         # ── Channel branch (`show channel @handle`) ──────────────────────────────
 
-        # Free-chat: a channel noun token present in the body? (show channel is a
-        # chat verb; the channel @handle is resolved separately, not by id.)
+        # Free-chat: a channel noun token present in the PRE-CLAUSE body?
+        # Checks only tokens that precede any selection-clause starter (with/only/
+        # without/full) so a segment name like "channels" inside a `without channels`
+        # clause does not ghost-trigger the channel branch on
+        # `show game … without channels`. (show channel is a chat verb; the channel
+        # @handle is resolved separately, not by numeric id.)
         def channel_noun?
-          message.body_tokens.any? { |t| CHANNEL_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+          message.body_tokens
+                 .take_while { |t| !%w[with only without full].include?(t.value.to_s.downcase) }
+                 .any? { |t| CHANNEL_NOUN_FILLERS.include?(t.value.to_s.downcase) }
         end
 
         # Free-chat: an EXPLICIT game noun token present? In free chat the 2nd token
@@ -115,7 +157,7 @@ module Pito
           return channel_needs_ref if channel == :needs_ref
           return channel_not_found(channel_ref.presence || scoped_channel_handle) if channel.nil?
 
-          selection = parse_selection(:channel)
+          selection = resolved_selection(:channel)
           return segment_conflict_error if selection.conflict
           return segment_unknown_error(selection.unknown, :channel) if selection.unknown.any?
 
@@ -203,12 +245,12 @@ module Pito
             )
             return video_not_found(ordinal_ref) if video.nil?
           else
-            video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+            video = resolve_target(::Video, id_key: :video_id, noun_fillers: video_noun_fillers)
             return needs_ref if video == :needs_ref
-            return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
+            return video_not_found(target_ref(video_noun_fillers, id_key: :video_id)) if video.nil?
           end
 
-          selection = parse_selection(:vid)
+          selection = resolved_selection(:vid)
           return segment_conflict_error if selection.conflict
           return segment_unknown_error(selection.unknown, :vid) if selection.unknown.any?
 
@@ -251,12 +293,12 @@ module Pito
             )
             return game_not_found(ordinal_ref) if game.nil?
           else
-            game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+            game = resolve_target(::Game, id_key: :game_id, noun_fillers: game_noun_fillers)
             return needs_ref if game == :needs_ref
-            return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
+            return game_not_found(target_ref(game_noun_fillers, id_key: :game_id)) if game.nil?
           end
 
-          selection = parse_selection(:game)
+          selection = resolved_selection(:game)
           return segment_conflict_error if selection.conflict
           return segment_unknown_error(selection.unknown, :game) if selection.unknown.any?
 
@@ -298,6 +340,12 @@ module Pito
         # conversation's persisted stats_period so nil never reaches the analytics layer.
         def analytics_period = period.presence || conversation.stats_period
 
+        # Noun fillers stripped during ref extraction. On the forced-entity path
+        # (the `linked` keyed verb) the typed noun names the OTHER entity, so widen
+        # to ALL_NOUN_FILLERS; otherwise the branch's own fillers (byte-identical).
+        def video_noun_fillers = @forced_entity ? ALL_NOUN_FILLERS : VIDEO_NOUN_FILLERS
+        def game_noun_fillers  = @forced_entity ? ALL_NOUN_FILLERS : GAME_NOUN_FILLERS
+
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.show.needs_ref", message_args: {})
         end
@@ -319,6 +367,19 @@ module Pito
           Pito::Chat::SegmentSelection.parse(message.raw, verb: :show, entity: entity_kind)
         end
 
+        # The selection to emit. Normally the trailing-clause parse. When a segment
+        # verb forced a single segment (drive_segment), returns the SAME Selection
+        # that `only <segment>` would parse to for this entity — validated against
+        # the entity's table so an off-entity segment (e.g. `similar` on a channel)
+        # lands in `unknown` and yields the identical `segments.unknown` rejection.
+        # @param entity_kind [Symbol] :channel, :vid, or :game
+        # @return [Pito::Chat::SegmentSelection::Selection]
+        def resolved_selection(entity_kind)
+          return parse_selection(entity_kind) unless @forced_segment
+
+          Pito::Chat::SegmentSelection.only(verb: :show, entity: entity_kind, segment: @forced_segment)
+        end
+
         # Walks the segment table in declaration order, emitting only the segments
         # whose names appear in +selection.names+, each guarded by its +emit_if+
         # (skipped silently when the guard returns false).
@@ -335,6 +396,21 @@ module Pito
 
             events << send(SEGMENT_EMITTERS.fetch(entity_kind).fetch(seg.name), entity)
           end
+
+          # Append segments footer to the first emitted message (D18).
+          if events.any?
+            all_names = Pito::Chat::Segments.names(verb: :show, entity: entity_kind)
+            addable   = all_names - selection.names
+            removable = selection.names & all_names
+            footer    = Pito::Lists::OptionsFooter.call(
+              addable:   addable,
+              removable: removable,
+              sort_keys: [],
+              noun:      "segments"
+            )
+            events.first[:payload]["list_footer"] = footer if footer
+          end
+
           Pito::Chat::Result::Ok.new(events:)
         end
 

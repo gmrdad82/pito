@@ -94,7 +94,7 @@
       <div style="margin-left: 10px;" data-controller="pito--dots">
         <%= render(Pito::Shell::PostCommandDotsComponent.new) %>
       </div>
-      <div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">
+      <div id="pito-mini-status" class="shrink-0" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">
         <%= render(Pito::Shell::MiniStatusComponent.new(
               mode: :connection,
               state: Current.session.present?,

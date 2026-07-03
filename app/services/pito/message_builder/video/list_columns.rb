@@ -175,7 +175,7 @@ module Pito
           addable   = (COLUMNS.keys - cols).map { |c| display_token(c) }
           removable = cols.map { |c| display_token(c) }
           sort_keys = base_sort_tokens + cols.map { |c| SORT_VOCAB.key(c) }.compact
-          Pito::Lists::OptionsFooter.call(addable:, removable:, sort_keys:)
+          Pito::Lists::OptionsFooter.call(addable:, removable:, sort_keys:, noun: "columns")
         end
 
         # Resolves a single column's heading String (copy-keyed or literal).

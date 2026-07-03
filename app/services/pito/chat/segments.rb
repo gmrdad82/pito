@@ -19,7 +19,7 @@ module Pito
     #   reply_target — Symbol used by the follow-up dispatch table
     #   emit_if      — arity-1 lambda(entity_record) → Boolean, or nil (unconditional)
     class Segments
-      Segment = Data.define(:name, :builder, :kind, :default, :fill, :reply_target, :emit_if)
+      Segment = Data.define(:name, :aliases, :builder, :kind, :default, :fill, :reply_target, :emit_if)
 
       # Returns the ordered, frozen Array of Segments for a verb+entity pair.
       #
@@ -43,6 +43,7 @@ module Pito
         entity_config.map do |name_key, seg|
           Segment.new(
             name:         name_key.to_s,
+            aliases:      Array(seg[:aliases]).map(&:to_s),
             builder:      "Pito::#{seg[:builder]}".constantize,
             kind:         seg[:kind].to_sym,
             default:      seg[:default],
@@ -61,6 +62,21 @@ module Pito
       # @return [Array<String>] names of segments where default: true
       def self.default_names(verb:, entity:)
         self.for(verb:, entity:).select(&:default).map(&:name)
+      end
+
+      # Returns a flat Hash mapping every surface token (alias or canonical name)
+      # to its canonical segment name, for the given verb+entity.
+      # Canonical names are identity-mapped so the parser can use this as a single
+      # look-up for both canonical tokens and aliases.
+      #
+      # @param verb   [Symbol]
+      # @param entity [Symbol]
+      # @return [Hash<String, String>]   { "similars" => "similar", "similar" => "similar", … }
+      def self.alias_map(verb:, entity:)
+        self.for(verb:, entity:).each_with_object({}) do |seg, map|
+          map[seg.name] = seg.name
+          seg.aliases.each { |a| map[a] = seg.name }
+        end
       end
     end
   end

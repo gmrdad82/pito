@@ -38,25 +38,20 @@ module Pito
         Pito::Dispatch::Matrix.universal_tokens
       end
 
-      # Message kinds that carry NO universal share verbs. A :confirmation message
-      # is an ephemeral prompt (confirm/cancel) — sharing it makes no sense
-      # (owner 2026-06-29), so its reply menu shows neither share nor revoke/unshare.
-      # `help` is NOT gated by this — it is offered on every kind.
-      NON_SHAREABLE_KINDS = %w[confirmation].freeze
-
       # The universal verbs to offer for an event's reply menu. `help` is ALWAYS
-      # offered on any reply_handle event. Share verbs are gated: not for
-      # non-shareable kinds (e.g. confirmation) or while the message is still loading.
+      # offered on any reply_handle event. Share verbs are kind-gated per the
+      # `kinds:` declaration in universal_reply config (owner ruling 2026-07-03:
+      # only :system and :enhanced for now), and further gated on resolution state.
       # Centralised so the palette (Suggestions::Engine) and the hashtag-help page
       # (HashtagHelp) stay in agreement.
       def self.verbs_for(event)
         # help is unconditionally available on every followupable message.
         verbs = HELP_VERBS.dup
 
-        # A :confirmation message carries NO share verbs. A nil event is the
-        # generic (event-less) help page → `share` is shown (no revoke/unshare,
-        # since there's no event to check for an existing Share).
-        return verbs if event && NON_SHAREABLE_KINDS.include?(event.kind.to_s)
+        # Share verbs are kind-gated: the `kinds:` key on the `share` universal_reply
+        # entry declares which event kinds may receive them. A nil event is the
+        # generic (event-less) help page → share is shown (no revoke/unshare).
+        return verbs if event && !share_kind_allowed?(event)
         # An UNRESOLVED message (its thinking indicator is still spinning — e.g. an
         # analyze card mid-fan-out) is NOT shareable: sharing an in-flight message
         # would capture a half-rendered/loading state. Share verbs are withheld
@@ -64,6 +59,17 @@ module Pito
         return verbs if event && !resolved?(event)
 
         verbs + ALWAYS_AVAILABLE + (event && ::Share.exists?(event_id: event.id) ? SHARE_REQUIRED : [])
+      end
+
+      # True when the event's kind is in the `kinds:` set declared for the `share`
+      # universal_reply entry. A missing (nil) `kinds:` means no constraint — all
+      # kinds allowed. The YAML declaration is the single source of truth (replaces
+      # the former NON_SHAREABLE_KINDS Ruby constant).
+      def self.share_kind_allowed?(event)
+        kinds = Pito::Dispatch::Config.data.dig(:universal_reply, :share, :kinds)
+        return true if kinds.nil?
+
+        kinds.map(&:to_s).include?(event.kind.to_s)
       end
 
       # True when the message is done rendering — i.e. it has no still-spinning

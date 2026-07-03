@@ -5,11 +5,6 @@
         unhides it on EVERY hashtag segment (each is click-to-reply, prefilling its
         own #handle). Keyboard shift+r (caret at start) reuses the most recent. %>
     <span data-pito-lasthashtag-hint class="hidden ml-2"><%= render(Pito::Keybinding::ShortcutComponent.new(keys: "shift+r", kbd_click: false, data: { controller: "pito--chat-prefill", action: "click->pito--chat-prefill#fill", "pito--chat-prefill-text-value": "##{@handle} " })) %></span>
-    <%# `help` affordance — dim literal token shown on every live reply handle so
-        the owner knows the message is repliable. Rendered serve-time (via
-        fill_meta_slot) so it is cache-safe: handle liveness is already encoded in
-        @handle being non-nil. No JS, no hover — a text cue; the owner types. %>
-    <%= render(Pito::Shell::InlineSeparatorComponent.new) %><span class="text-fg-dim">help</span>
   <% end %>
   <% if @channel.present? %>
     <% if @handle %>

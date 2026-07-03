@@ -125,12 +125,20 @@ invariants you can't discover by reading a single file — keep them.
 
 ## Invariants (don't break these)
 
-- **Dispatch is shape-routed.** One `POST /chat` endpoint routes by input shape:
-  leading `/` → slash, leading `#` → hashtag, else natural-language chat. The
-  slash / chat / hashtag stacks are **isolated — they never reference each
-  other**, sharing only `Pito::Lex` and `Pito::Stream::*`. Every handler returns
-  a `Result` value object; the controller pattern-matches on it and never reads
-  handler internals.
+- **Dispatch is shape-routed and config-declared.** One `POST /chat` endpoint
+  routes by input shape: leading `/` → slash, leading `#` → hashtag, else
+  natural-language chat. Since 0.9.5 every verb (all three shapes) is declared
+  ONCE in `config/pito/verbs.yml` — the single ontology (aliases, kwargs +
+  resolver paths, segments, reply availability, auth, dispatch targets) — and
+  chat + hashtag-reply verbs EXECUTE through one generic
+  `Pito::Dispatch::Router` with the uniform contract
+  `call(kwargs:, context:) → Result` (the softened stack isolation was a
+  deliberate 0.9.5 decision; the slash dispatcher remains separate but is fed
+  by the same config). NEVER re-introduce Ruby verb tables, per-handler
+  availability DSLs, or verb→handler conditionals — new verbs are YAML entries
+  + a handler class; the schema-integrity, help-sync, and add-a-verb proof
+  suites are the guards. The controller still pattern-matches Results and
+  never reads handler internals.
 - **`Pito::Stream::Broadcaster` is the only way to add to the scrollback.** Never
   broadcast from controllers or models. Events persist **structured `jsonb`
   payloads, never rendered HTML** (re-rendering must yield current timestamps and
