@@ -479,6 +479,58 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       expect(intro).to include("lifetime")
       expect(intro).not_to include("7d")
     end
+
+    # ── roles: subset (plan-0.9.5 D3 segment selection) ──────────────────────
+    context "with roles: ['system'] (numbers only)" do
+      subject(:cards) do
+        described_class.pair(
+          level: :channel, entity_ids: [ 42 ], title: "My Channel", period: "7d",
+          conversation:, roles: [ "system" ]
+        )
+      end
+
+      it "returns exactly the :system card" do
+        expect(cards.length).to eq(1)
+        expect(cards.first[:kind]).to eq(:system)
+        expect(cards.first[:payload].dig("analyze", "role")).to eq("system")
+      end
+    end
+
+    context "with roles: ['enhanced'] (breakdowns only)" do
+      subject(:cards) do
+        described_class.pair(
+          level: :channel, entity_ids: [ 42 ], title: "My Channel", period: "7d",
+          conversation:, roles: [ "enhanced" ]
+        )
+      end
+
+      it "returns exactly the :enhanced card, still lifetime-periodised" do
+        expect(cards.length).to eq(1)
+        expect(cards.first[:kind]).to eq(:enhanced)
+        expect(cards.first[:payload].dig("analyze", "period")).to eq("lifetime")
+      end
+    end
+  end
+
+  # ── .roles_for ───────────────────────────────────────────────────────────────
+
+  describe ".roles_for" do
+    it "maps numbers → system, breakdowns → enhanced" do
+      expect(described_class.roles_for(%w[numbers])).to eq(%w[system])
+      expect(described_class.roles_for(%w[breakdowns])).to eq(%w[enhanced])
+    end
+
+    it "returns both in canonical order regardless of input order" do
+      expect(described_class.roles_for(%w[breakdowns numbers])).to eq(%w[system enhanced])
+    end
+
+    it "ignores names outside the segment→role map" do
+      expect(described_class.roles_for(%w[numbers bogus])).to eq(%w[system])
+    end
+
+    it "returns [] for no recognised names" do
+      expect(described_class.roles_for(%w[bogus])).to eq([])
+    end
   end
 
   # ── .rerender ──────────────────────────────────────────────────────────────

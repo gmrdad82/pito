@@ -36,12 +36,12 @@ RSpec.describe Pito::FollowUp::Handlers::ResumeMissing, type: :service do
       expect(described_class.target).to eq("resume_missing")
     end
 
-    it "mode is :append" do
-      expect(described_class.mode).to eq(:append)
+    it "Matrix serves :append mode for resume_missing" do
+      expect(Pito::Dispatch::Matrix.mode_for("resume_missing")).to eq(:append)
     end
 
-    it "declares actions 'new' and 'create'" do
-      expect(described_class.actions).to match_array(%w[new create])
+    it "Matrix advertises 'new' and 'create' for resume_missing" do
+      expect(Pito::Dispatch::Matrix.actions_for("resume_missing")).to include("new", "create")
     end
   end
 

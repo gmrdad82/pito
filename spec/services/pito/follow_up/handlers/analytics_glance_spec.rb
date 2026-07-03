@@ -63,17 +63,20 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyticsGlance, type: :service do
 
   # ── class-level contract ────────────────────────────────────────────────────
 
-  it "registers for the analytics_glance target in :append mode" do
+  it "registers for the analytics_glance target" do
     expect(described_class.target).to eq("analytics_glance")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares 'with' and 'without' as actions" do
-    expect(described_class.actions).to include("with", "without")
+  it "Matrix serves :append mode for analytics_glance" do
+    expect(Pito::Dispatch::Matrix.mode_for("analytics_glance")).to eq(:append)
   end
 
-  it "declares 'analyze' as an action" do
-    expect(described_class.actions).to include("analyze")
+  it "Matrix advertises 'with' and 'without' for analytics_glance" do
+    expect(Pito::Dispatch::Matrix.actions_for("analytics_glance")).to include("with", "without")
+  end
+
+  it "Matrix advertises 'analyze' for analytics_glance" do
+    expect(Pito::Dispatch::Matrix.actions_for("analytics_glance")).to include("analyze")
   end
 
   # ── with <metric> → new analyze pair ────────────────────────────────────────

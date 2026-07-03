@@ -18,8 +18,6 @@ module Pito
       # NAMESPACE: use `::Conversation` for the model.
       class ResumeMissing < Pito::FollowUp::Handler
         self.target "resume_missing"
-        self.mode   :append
-        self.actions "new", "create"
 
         def call(event:, rest:, conversation:, **)
           action, _args = parse_rest(rest)

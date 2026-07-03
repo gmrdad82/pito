@@ -31,13 +31,16 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     )
   end
 
-  it "registers for the channel_detail target in :append mode" do
+  it "registers for the channel_detail target" do
     expect(described_class.target).to eq("channel_detail")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares visit, sync and analyze actions" do
-    expect(described_class.actions).to eq([ "visit", "sync", "analyze" ])
+  it "Matrix serves :append mode for channel_detail" do
+    expect(Pito::Dispatch::Matrix.mode_for("channel_detail")).to eq(:append)
+  end
+
+  it "Matrix advertises visit, sync and analyze for channel_detail" do
+    expect(Pito::Dispatch::Matrix.actions_for("channel_detail")).to include("visit", "sync", "analyze")
   end
 
   it "is NOT internal (appears in help and suggestions)" do

@@ -37,7 +37,7 @@ module Pito
             # reload the same videos and rebuild with an updated column set.
             "video_ids"     => videos.map(&:id),
             "list_columns"  => cols.map(&:to_s),
-            "list_footer"   => ListColumns.addable_footer(cols)
+            "list_footer"   => ListColumns.options_footer(cols)
           }
           Pito::FollowUp.make_followupable!(payload, target: "video_list", conversation: conversation)
           payload

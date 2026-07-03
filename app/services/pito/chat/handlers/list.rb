@@ -61,6 +61,56 @@ module Pito
         COLUMN_BASE_PX    = 360
         COLUMN_PER_PX     = 200
 
+        # ── Shared query builders ────────────────────────────────────────────
+        # Class-level so the `next` follow-up handlers (FollowUp::Handlers::
+        # VideoList/GameList/ChannelList) can replay the EXACT first-page query
+        # from a persisted cursor — one source of truth for scoping /
+        # eager-loading / ordering, so page N+1 can never drift from page 1.
+
+        # Resolve a channel by handle (stored with or without leading "@").
+        def self.find_channel_by_handle(handle)
+          norm = handle.to_s.sub(/\A@+/, "")
+          ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+        end
+
+        # The videos list relation: eager-loads per the selected columns and
+        # orders id DESC (biggest/newest first; sort clauses override later).
+        def self.videos_relation(base, columns:)
+          includes_args = [ :channel ]
+          if columns.any?
+            includes_args << :linked_games
+            includes_args << :stats
+          end
+          base.includes(*includes_args).order(id: :desc)
+        end
+
+        # The games list relation: eager-loads per the selected columns
+        # (no-op when no columns are selected — id+title needs no associations).
+        def self.games_relation(games, columns:)
+          return games if columns.empty?
+
+          includes_args = [ :genres, :developer_companies, :publisher_companies ]
+          includes_args << { linked_videos: :channel } if columns.include?(:channels)
+          games.includes(*includes_args)
+        end
+
+        # Scope games to those with ≥1 linked video on the given channel.
+        def self.games_scoped_to_channel(games, channel)
+          games.joins(video_game_links: :video).where(videos: { channel_id: channel.id }).distinct
+        end
+
+        # The channels list relation: connected channels only (a connection-less
+        # orphan row is never a real channel), ordered by latest upload activity.
+        def self.channels_relation
+          ::Channel.where.not(youtube_connection_id: nil)
+                   .includes(:youtube_connection)
+                   .order(
+                     Arel.sql(
+                       "(SELECT MAX(videos.published_at) FROM videos WHERE videos.channel_id = channels.id) DESC NULLS LAST, channels.id DESC"
+                     )
+                   )
+        end
+
         def call
           # The noun (channels/videos/games) is whatever precedes the first clause
           # keyword. A `with <columns>` clause may legitimately contain "channels"
@@ -136,11 +186,7 @@ module Pito
             channel_scoped = resolved_channel_handle.present?
           end
 
-          if columns.any?
-            includes_args = [ :genres, :developer_companies, :publisher_companies ]
-            includes_args << { linked_videos: :channel } if columns.include?(:channels)
-            games = games.includes(*includes_args)
-          end
+          games = self.class.games_relation(games, columns:)
 
           if games.empty?
             return (filtered || channel_scoped) ? games_filter_empty : games_empty
@@ -167,7 +213,20 @@ module Pito
             games.reverse! if sort[:direction] == :desc
           end
 
-          payload = Pito::MessageBuilder::Game::List.call(games, conversation:, columns:)
+          games   = games.to_a
+          page    = page_size
+          rows    = games.first(page)
+          payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:)
+          if games.size > page
+            cursor = games_cursor(page, sort, columns)
+            payload["list_cursor"] = cursor
+            more_text = Pito::Copy.render(
+              "pito.copy.list_more",
+              count: rows.size,
+              verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
+            )
+            payload["list_footer"] = [ payload["list_footer"].presence, more_text ].compact.join(" ")
+          end
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 
@@ -252,12 +311,7 @@ module Pito
 
           # Order; always eager-load :channel; also load :linked_games and :stats
           # when extra columns are requested to avoid N+1 queries.
-          includes_args = [ :channel ]
-          if columns.any?
-            includes_args << :linked_games
-            includes_args << :stats
-          end
-          videos = scoped.includes(*includes_args).order(id: :desc)
+          videos = self.class.videos_relation(scoped, columns:)
 
           if videos.empty?
             return videos_empty(channel)
@@ -279,7 +333,20 @@ module Pito
             videos.reverse! if sort[:direction] == :desc
           end
 
-          payload = Pito::MessageBuilder::Video::List.call(videos, conversation:, columns:)
+          videos  = videos.to_a
+          page    = page_size
+          rows    = videos.first(page)
+          payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:)
+          if videos.size > page
+            cursor = video_cursor(page, sort, columns, filter_key)
+            payload["list_cursor"] = cursor
+            more_text = Pito::Copy.render(
+              "pito.copy.list_more",
+              count: rows.size,
+              verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
+            )
+            payload["list_footer"] = [ payload["list_footer"].presence, more_text ].compact.join(" ")
+          end
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 
@@ -289,8 +356,7 @@ module Pito
           handle = resolved_channel_handle
           return [ games, nil ] if handle.nil?
 
-          norm = normalized_handle(handle)
-          ch   = ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+          ch = self.class.find_channel_by_handle(handle)
           if ch.nil?
             error_payload = Pito::MessageBuilder::Text.call(
               "pito.copy.channels.not_found",
@@ -301,8 +367,7 @@ module Pito
             ]) ]
           end
 
-          scoped = games.joins(video_game_links: :video).where(videos: { channel_id: ch.id }).distinct
-          [ scoped, nil ]
+          [ self.class.games_scoped_to_channel(games, ch), nil ]
         end
 
         # Returns [relation, nil] or [nil, Result::Ok(error event)] for unknown handle.
@@ -316,8 +381,7 @@ module Pito
 
           # Channel handles may be stored with or without leading "@".
           # Normalise both sides by stripping leading "@" before comparing.
-          norm = normalized_handle(handle)
-          ch   = ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+          ch = self.class.find_channel_by_handle(handle)
           if ch.nil?
             error_payload = Pito::MessageBuilder::Text.call(
               "pito.copy.videos.channel_not_found",
@@ -338,11 +402,6 @@ module Pito
           return nil if ch.blank? || ch.casecmp("@all").zero?
 
           ch
-        end
-
-        # Normalise a handle for DB lookup: strip leading @-signs.
-        def normalized_handle(handle)
-          handle.to_s.sub(/\A@+/, "")
         end
 
         # Returns the Symbol scope name (:published / :unlisted / :scheduled) or nil.
@@ -378,13 +437,7 @@ module Pito
         def list_channels
           # Guard: only connected channels (a youtube_connection). A connection-less
           # orphan row (stray/test data) is never a real channel — never list it.
-          channels = ::Channel.where.not(youtube_connection_id: nil)
-                              .includes(:youtube_connection)
-                              .order(
-                                Arel.sql(
-                                  "(SELECT MAX(videos.published_at) FROM videos WHERE videos.channel_id = channels.id) DESC NULLS LAST, channels.id DESC"
-                                )
-                              )
+          channels = self.class.channels_relation
           if channels.empty?
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }
@@ -406,10 +459,23 @@ module Pito
             channels.reverse! if sort[:direction] == :desc
           end
 
-          payload = Pito::MessageBuilder::Channel::List.call(channels, conversation:)
+          page    = page_size
+          rows    = channels.first(page)
+          payload = Pito::MessageBuilder::Channel::List.call(rows, conversation:)
+          if channels.size > page
+            cursor = channels_cursor(page, sort)
+            payload["list_cursor"] = cursor
+            more_text = Pito::Copy.render(
+              "pito.copy.list_more",
+              count: rows.size,
+              verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
+            )
+            existing_footer = payload["list_footer"].to_s.presence
+            payload["list_footer"] = [ existing_footer, more_text ].compact.join(" ")
+          end
           events  = [ { kind: :system, payload: } ]
 
-          reauth = channels.select { |c| c.youtube_connection&.needs_reauth? }
+          reauth = rows.select { |c| c.youtube_connection&.needs_reauth? }
           if reauth.any?
             events << { kind: :enhanced, payload: Pito::MessageBuilder::Channel::ReauthNeeded.call(reauth) }
           end
@@ -504,6 +570,57 @@ module Pito
         # owner). Pre-rendered so the finalizer routes it to `text:` (keeps :error chrome).
         def unknown_entity
           Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
+        end
+
+        # ── Pager helpers ─────────────────────────────────────────────────────
+
+        # Returns the configured page size from the YAML verb ontology.
+        # Never hardcode 50 — read it here so a config change propagates to all
+        # three list surfaces uniformly.
+        def page_size
+          Pito::Dispatch::Config.pager(verb: :list)[:page_size]
+        end
+
+        # Continuation cursor for a video list page. Stores everything the `next`
+        # follow-up handler (T6.3) needs to re-run the same query from +offset+:
+        # channel scope, visibility filter, sort clause, and column selection.
+        # `nil` filter means no visibility filter (all statuses); `nil` channel
+        # means @all (no channel scope).
+        def video_cursor(offset, sort, columns, filter_key)
+          {
+            "offset"         => offset,
+            "channel"        => resolved_channel_handle,
+            "filter"         => filter_key&.to_s,
+            "sort_token"     => sort&.dig(:token),
+            "sort_direction" => sort&.dig(:direction)&.to_s,
+            "columns"        => columns.map(&:to_s)
+          }
+        end
+
+        # Continuation cursor for a games list page. Stores the full
+        # `message.raw` so the `next` handler can replay
+        # `GameListFilter.call(cursor["raw"])` with the identical genre/platform/
+        # upcoming tokens — GameListFilter ignores unrecognised tokens silently,
+        # so the sort clause and `with` column tokens in the raw string are safe.
+        def games_cursor(offset, sort, columns)
+          {
+            "offset"         => offset,
+            "raw"            => message.raw,
+            "channel"        => resolved_channel_handle,
+            "sort_token"     => sort&.dig(:token),
+            "sort_direction" => sort&.dig(:direction)&.to_s,
+            "columns"        => columns.map(&:to_s)
+          }
+        end
+
+        # Continuation cursor for a channels list page. Channels have no per-column
+        # filter or channel scope — only sort state is required to rerun the query.
+        def channels_cursor(offset, sort)
+          {
+            "offset"         => offset,
+            "sort_token"     => sort&.dig(:token),
+            "sort_direction" => sort&.dig(:direction)&.to_s
+          }
         end
       end
     end

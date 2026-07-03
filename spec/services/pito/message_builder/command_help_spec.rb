@@ -219,9 +219,9 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to eq(noun_result["body"])
         end
 
-        it "usage line is 'platform <id> <name>'" do
+        it "usage line is 'platform #id <name>'" do
           expect(result["body"]).to include("platform")
-          expect(result["body"]).to include("&lt;id&gt;")
+          expect(result["body"]).to include("#id")
           expect(result["body"]).to include("&lt;name&gt;")
         end
 
@@ -317,9 +317,9 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "usage line mentions 'delete game <id>'" do
+        it "usage line mentions 'delete game #id'" do
           expect(result["body"]).to include("delete game")
-          expect(result["body"]).to include("&lt;id&gt;")
+          expect(result["body"]).to include("#id")
         end
 
         it "body describes id-only (never title)" do

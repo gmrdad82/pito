@@ -488,19 +488,25 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
   end
 
-  # ── addable_footer ────────────────────────────────────────────────────────────
+  # ── options_footer ────────────────────────────────────────────────────────────
 
-  describe ".addable_footer" do
+  describe ".options_footer" do
     it "names the still-addable columns when some remain" do
-      footer = described_class.addable_footer([ :genre ])
+      footer = described_class.options_footer([ :genre ])
       expect(footer).to include("platform")
       expect(footer).to include("developer")
     end
 
-    it "uses the all-shown variant (no column names) when every column is present" do
-      footer = described_class.addable_footer(described_class::COLUMNS.keys)
-      expect(footer).not_to include("platform")
-      expect(footer).not_to include("genre")
+    it "renders 'nothing' on the addable side when every optional column is visible" do
+      footer = described_class.options_footer(described_class::COLUMNS.keys)
+      expect(footer).to include("nothing")
+    end
+
+    it "includes the sort key for the visible optional column" do
+      footer = described_class.options_footer([ :genre ])
+      expect(footer).to include("genre")
+      expect(footer).to include("id")
+      expect(footer).to include("title")
     end
   end
 

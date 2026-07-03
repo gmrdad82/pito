@@ -87,8 +87,8 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
       expect(Pito::FollowUp::Handlers::AnalyticsGlance.target).to eq("analytics_glance")
     end
 
-    it "class mode is :append" do
-      expect(Pito::FollowUp::Handlers::AnalyticsGlance.mode).to eq(:append)
+    it "Matrix serves :append mode for analytics_glance" do
+      expect(Pito::Dispatch::Matrix.mode_for("analytics_glance")).to eq(:append)
     end
   end
 

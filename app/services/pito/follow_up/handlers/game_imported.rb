@@ -13,8 +13,6 @@ module Pito
       #     No args needed — the game_id is already in context.
       class GameImported < Pito::FollowUp::Handler
         self.target "game_imported"
-        self.mode   :append
-        self.actions "show"
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, _args = parse_rest(rest)

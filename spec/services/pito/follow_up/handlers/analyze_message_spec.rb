@@ -40,13 +40,16 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
 
   # ── class-level contract ────────────────────────────────────────────────────
 
-  it "registers for the analyze_message target in :mutate mode" do
+  it "registers for the analyze_message target" do
     expect(described_class.target).to eq("analyze_message")
-    expect(described_class.mode).to eq(:mutate)
   end
 
-  it "declares 'with' and 'without' as actions" do
-    expect(described_class.actions).to include("with", "without")
+  it "Matrix serves :mutate mode for analyze_message" do
+    expect(Pito::Dispatch::Matrix.mode_for("analyze_message")).to eq(:mutate)
+  end
+
+  it "Matrix advertises 'with' and 'without' for analyze_message" do
+    expect(Pito::Dispatch::Matrix.actions_for("analyze_message")).to include("with", "without")
   end
 
   # ── without <metric> ────────────────────────────────────────────────────────

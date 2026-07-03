@@ -13,14 +13,18 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
            youtube_channel_id: "UCabc")
   end
 
-  it "registers for the channel_list target in :append mode" do
+  it "registers for the channel_list target" do
     expect(described_class.target).to eq("channel_list")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares shinies, analyze, and sort/order actions (visit was removed)" do
-    expect(described_class.actions).to eq([ "shinies", "analyze", "sort", "order" ])
-    expect(described_class.actions).not_to include("visit")
+  it "Matrix serves :append mode for channel_list" do
+    expect(Pito::Dispatch::Matrix.mode_for("channel_list")).to eq(:append)
+  end
+
+  it "Matrix advertises shinies, analyze, sort/order, and next for channel_list (not visit)" do
+    actions = Pito::Dispatch::Matrix.actions_for("channel_list")
+    expect(actions).to include("shinies", "analyze", "sort", "order", "next")
+    expect(actions).not_to include("visit")
   end
 
   describe "sort / order replies (mutate — table re-sorts in place)" do

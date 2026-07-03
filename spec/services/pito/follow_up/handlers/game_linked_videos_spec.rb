@@ -23,19 +23,22 @@ RSpec.describe Pito::FollowUp::Handlers::GameLinkedVideos do
     })
   end
 
-  it "registers for the game_linked_videos target in :append mode" do
+  it "registers for the game_linked_videos target" do
     expect(described_class.target).to eq("game_linked_videos")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares show, unlink, with, without, sort, order, analyze as actions" do
-    actions = described_class.actions
+  it "Matrix serves :append base mode for game_linked_videos" do
+    expect(Pito::Dispatch::Matrix.mode_for("game_linked_videos")).to eq(:append)
+  end
+
+  it "Matrix advertises show, unlink, with, without, sort, order, analyze for game_linked_videos" do
+    actions = Pito::Dispatch::Matrix.actions_for("game_linked_videos")
     expect(actions).to include("show", "unlink", "with", "without", "sort", "order", "analyze")
   end
 
-  it "declares with, without, sort, order as :mutate mode actions" do
+  it "Matrix serves :mutate for with, without, sort, order on game_linked_videos" do
     %w[with without sort order].each do |a|
-      expect(described_class.mode_for_action(a)).to eq(:mutate)
+      expect(Pito::Dispatch::Matrix.mode_for("game_linked_videos", action: a)).to eq(:mutate)
     end
   end
 

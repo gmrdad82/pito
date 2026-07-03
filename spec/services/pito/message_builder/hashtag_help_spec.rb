@@ -69,6 +69,12 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         it "body includes --help option" do
           expect(result["body"]).to include("--help")
         end
+
+        # plan-0.9.5 E9: universal `help` verb appears on every target page so
+        # the owner can always type `#<handle> help` to print the help page.
+        it "body lists the universal help verb as a distinct action (not --help)" do
+          expect(result["body"]).to include(">help</span>")
+        end
       end
 
       context "action-level page (action: 'footage')" do

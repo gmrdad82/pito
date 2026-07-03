@@ -11,19 +11,17 @@ module Pito
       # - **Unauthenticated**: returns a single `message_key: "pito.slash.help.unauthenticated"`
       #   event with the login instruction only.
       #
-      # The `grammar` block declares `auth :any` so the dispatcher does not block
-      # unauthenticated users — the handler itself branches on `authenticated`.
+      # The slash grammar declares `auth: any` (config/pito/verbs.yml) so the
+      # dispatcher does not block unauthenticated users — the handler itself
+      # branches on `authenticated`.
       #
       # `/help --help` is intercepted by the dispatcher and routed to
       # `Pito::Slash::HelpBuilder` which renders the witty nonsense man page.
       class Help < Pito::Slash::Handler
         self.verb = :help
         self.description_key = "pito.slash.help.descriptions.help"
-
-        grammar do
-          auth :any
-          description_key "pito.grammar.slash.help"
-        end
+        # Grammar (auth :any, dispatch): config/pito/verbs.yml (T8.9). The handler
+        # itself still branches on `authenticated` for full vs restricted output.
 
         def call
           authenticated ? full_help : restricted_help

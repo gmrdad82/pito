@@ -27,9 +27,12 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     )
   end
 
-  it "registers for the game_detail target in :append mode" do
+  it "registers for the game_detail target" do
     expect(described_class.target).to eq("game_detail")
-    expect(described_class.mode).to eq(:append)
+  end
+
+  it "Matrix serves :append mode for game_detail" do
+    expect(Pito::Dispatch::Matrix.mode_for("game_detail")).to eq(:append)
   end
 
   # ── rm / delete ─────────────────────────────────────────────────────────────
@@ -122,8 +125,10 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "declares rm, del, delete, reindex, link, unlink, footage, platform, price, shinies, sync, and analyze actions" do
-    expect(described_class.actions).to eq([ "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync", "analyze" ])
+  it "Matrix advertises rm, del, delete, reindex, link, unlink, footage, platform, price, shinies, sync, analyze for game_detail" do
+    expect(Pito::Dispatch::Matrix.actions_for("game_detail")).to include(
+      "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync", "analyze"
+    )
   end
 
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────

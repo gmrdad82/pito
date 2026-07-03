@@ -163,4 +163,129 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
       expect(resolve("analyze channel", scope: "@nope")).to have_attributes(status: :error, error_key: :channel_not_found)
     end
   end
+
+  # ── Segment selection: which card(s) the analyze handler emits ────────────────
+  #
+  # Calls Pito::Chat::Handlers::Analyze directly (not ScopeResolver in isolation).
+  # Pito::MessageBuilder::Analyze::Message.pair is stubbed to return lightweight
+  # events keyed only by role so no ViewComponent or i18n infrastructure is
+  # exercised — the assertion target is which roles reach pair, not what renders.
+  #
+  # Segment names for analyze (all entities share the same two):
+  #   "numbers"    → :system  (default — emitted by a bare analyze)
+  #   "breakdowns" → :enhanced
+  #
+  # Metric tokens (e.g. `views`, `comms`) feed MetricSelection.parse on the same
+  # raw string; SegmentSelection receives them as extra_vocabulary so they are
+  # silently skipped rather than reported as unknown segments.
+
+  describe "segment selection" do
+    VID_ID  = 5
+    CHAN_ID = 7   # matches the Channel.find_by stub in the outer before block
+
+    let(:conversation) { double("Conversation", stats_period: "28d", scope_channel: "@all") }
+
+    before do
+      # scope_title calls entity_title → entity.title for non-channel records;
+      # re-stub Video doubles to respond to .title so the handler doesn't blow up.
+      allow(::Video).to receive(:where) { |a|
+        double(to_a: Array(a[:id]).map { |i| double(id: i, title: "vid #{i}") })
+      }
+
+      # Stub pair to return predictable {kind:, payload:} events without touching
+      # ViewComponent / i18n / FollowUp.  roles: kwarg is set by roles_for(selection.names)
+      # inside the handler — this lets the segment logic run for real.
+      allow(Pito::MessageBuilder::Analyze::Message).to receive(:pair) do |**kwargs|
+        role_kinds = Pito::MessageBuilder::Analyze::Message::ROLE_KINDS
+        Array(kwargs[:roles] || Pito::MessageBuilder::Analyze::Message::ROLES).map do |role|
+          { kind: role_kinds.fetch(role), payload: { "analyze" => { "role" => role } } }
+        end
+      end
+    end
+
+    # Build and call an Analyze handler from a raw string (free-chat path).
+    def call_analyze(raw)
+      parts       = raw.strip.split(/\s+/)
+      body_words  = parts[1..]
+      body_tokens = body_words.each_with_index.map do |w, i|
+        Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
+      end
+      msg = Pito::Chat::Message.new(
+        verb:        :analyze,
+        body_tokens: body_tokens,
+        kind:        :new_turn,
+        raw:         raw
+      )
+      Pito::Chat::Handlers::Analyze.new(message: msg, conversation: conversation).call
+    end
+
+    # 1. bare (no introducer) → only "numbers" segment → 1 :system event
+    it "bare analyze vid #<id> → 1 event, kind :system" do
+      result = call_analyze("analyze vid ##{VID_ID}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(1)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    # 2. full → both segments → 2 events, :system first then :enhanced
+    it "analyze vid #<id> full → 2 events, kinds [:system, :enhanced]" do
+      result = call_analyze("analyze vid ##{VID_ID} full")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(2)
+      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+    end
+
+    # 3. only breakdowns → "breakdowns" segment only → 1 :enhanced event
+    it "analyze vid #<id> only breakdowns → 1 event, kind :enhanced" do
+      result = call_analyze("analyze vid ##{VID_ID} only breakdowns")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(1)
+      expect(result.events.first[:kind]).to eq(:enhanced)
+    end
+
+    # 4. with breakdowns → default ("numbers") + "breakdowns" → 2 events
+    it "analyze vid #<id> with breakdowns → 2 events" do
+      result = call_analyze("analyze vid ##{VID_ID} with breakdowns")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(2)
+      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+    end
+
+    # 5. metric token only → extra_vocabulary swallows it; no segment selected
+    #    beyond the default → 1 :system event, no error
+    it "analyze vid #<id> with views → 1 :system event (metric token, not an unknown segment)" do
+      result = call_analyze("analyze vid ##{VID_ID} with views")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(1)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    # 6. metric alias + segment mixed → alias silently skipped, segment applied
+    #    → 2 events, not an error
+    it "analyze vid #<id> with comms,breakdowns → 2 events, not an error" do
+      result = call_analyze("analyze vid ##{VID_ID} with comms,breakdowns")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(2)
+    end
+
+    # 7. unknown segment token → Result::Error
+    it "analyze vid #<id> only bogus-thing → Result::Error (unknown segment)" do
+      result = call_analyze("analyze vid ##{VID_ID} only bogus-thing")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+    end
+
+    # 8. conflicting introducers → Result::Error
+    it "analyze vid #<id> full only breakdowns → Result::Error (conflict)" do
+      result = call_analyze("analyze vid ##{VID_ID} full only breakdowns")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+    end
+
+    # 9. channel-level bare → 1 :system event (channel entity shares ANALYZE_SEGMENTS)
+    it "bare analyze channel @handle → 1 :system event" do
+      result = call_analyze("analyze channel @pito")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.count).to eq(1)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+  end
 end

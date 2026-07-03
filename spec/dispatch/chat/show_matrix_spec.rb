@@ -410,8 +410,9 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
 
     def show_from_video_list(rest)
       ctx = Pito::Chat::FollowUpContext.new(source_event: video_list_source, rest: rest)
-      # channel_noun? checks body_tokens even in follow-up mode; empty → false
-      msg = instance_double(Pito::Chat::Message, body_tokens: [])
+      # channel_noun? checks body_tokens even in follow-up mode; empty → false.
+      # raw feeds SegmentSelection.parse (plan-0.9.5 D3) — the delegated rest.
+      msg = instance_double(Pito::Chat::Message, body_tokens: [], raw: rest)
       Pito::Chat::Handlers::Show.new(
         message:      msg,
         conversation: conversation,
@@ -473,7 +474,8 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
 
     def show_from_game_list(rest)
       ctx = Pito::Chat::FollowUpContext.new(source_event: game_list_source, rest: rest)
-      msg = instance_double(Pito::Chat::Message, body_tokens: [])
+      # raw feeds SegmentSelection.parse (plan-0.9.5 D3) — the delegated rest.
+      msg = instance_double(Pito::Chat::Message, body_tokens: [], raw: rest)
       Pito::Chat::Handlers::Show.new(
         message:      msg,
         conversation: conversation,
@@ -527,8 +529,10 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("show")
     end
 
-    it "channel_list declares exactly ['shinies', 'analyze', 'sort', 'order']" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to eq([ "shinies", "analyze", "sort", "order" ])
+    it "channel_list declares exactly ['shinies', 'analyze', 'sort', 'order', 'next']" do
+      # match_array (order-insensitive): actions_for scanning order is verbs.yml-defined,
+      # not DSL-declaration order; the suggestions engine sorts the palette anyway.
+      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to match_array([ "shinies", "analyze", "sort", "order", "next" ])
     end
   end
 

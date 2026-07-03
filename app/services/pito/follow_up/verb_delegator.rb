@@ -43,7 +43,17 @@ module Pito
         end
 
         args    = input.sub(/\A\S+\s*/, "") # everything after the verb word
-        context = Pito::Chat::FollowUpContext.new(source_event:, rest: args)
+
+        # Consult the declarative reply-branch paths (verbs.yml
+        # reply.targets.<target>.ref/args) via Pito::Dispatch::ReplyBinding, and
+        # thread the resolved kwargs onto the follow-up context (plan-0.9.5 T8.7).
+        # P2: the handlers still do their own extraction — `bound` is advisory,
+        # so behaviour is byte-identical (the frozen matrices prove it); the P3
+        # Router is what makes these kwargs authoritative-in-effect.
+        binding = Pito::Dispatch::ReplyBinding.bind(
+          verb:, target: reply_target, rest: args, source_event:, conversation:
+        )
+        context = Pito::Chat::FollowUpContext.new(source_event:, rest: args, bound: binding.kwargs)
         result  = Pito::Chat::Dispatcher.call(
           input:          input,
           conversation:   conversation,

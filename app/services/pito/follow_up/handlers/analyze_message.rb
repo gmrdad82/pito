@@ -16,8 +16,6 @@ module Pito
       # NAMESPACE: use `::Video`/`::Game` for models; `Pito::*` for services.
       class AnalyzeMessage < Pito::FollowUp::Handler
         self.target "analyze_message"
-        self.mode   :mutate
-        self.actions "with", "without"
 
         def call(event:, rest:, conversation:, **)
           action, args = parse_rest(rest)

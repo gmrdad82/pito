@@ -90,5 +90,15 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
     it "renders without raising" do
       expect { payload }.not_to raise_error
     end
+
+    # Channel list is sort-only: addable and removable are both empty (no with/without),
+    # so only the sort line is rendered. The footer mentions sort keys (handle, subs, vids)
+    # but contains no column-add/remove instructions (no `with` / `without` clauses).
+    it "payload list_footer mentions sort keys but no column-manipulation instructions" do
+      expect(payload["list_footer"]).to be_a(String)
+      expect(payload["list_footer"]).to include("subs")
+      expect(payload["list_footer"]).to include("vids")
+      expect(payload["list_footer"]).not_to include("`with")
+    end
   end
 end

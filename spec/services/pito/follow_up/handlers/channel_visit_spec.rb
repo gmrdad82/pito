@@ -15,17 +15,20 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelVisit do
     Struct.new(:payload).new({ "channel_id" => channel_id }.merge(extra))
   end
 
-  it "registers for the channel_visit target in :mutate mode" do
+  it "registers for the channel_visit target" do
     expect(described_class.target).to eq("channel_visit")
-    expect(described_class.mode).to eq(:mutate)
+  end
+
+  it "Matrix serves :mutate mode for channel_visit" do
+    expect(Pito::Dispatch::Matrix.mode_for("channel_visit")).to eq(:mutate)
   end
 
   it "is internal (must not appear as a user-typeable #hashtag or in #help)" do
     expect(described_class.internal?).to be true
   end
 
-  it "declares the consume action" do
-    expect(described_class.actions).to eq([ "consume" ])
+  it "Matrix advertises 'consume' for channel_visit" do
+    expect(Pito::Dispatch::Matrix.actions_for("channel_visit")).to include("consume")
   end
 
   describe "consume" do

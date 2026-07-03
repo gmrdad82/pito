@@ -16,13 +16,16 @@ RSpec.describe Pito::FollowUp::Handlers::GameImported do
     })
   end
 
-  it "registers for the game_imported target in :append mode" do
+  it "registers for the game_imported target" do
     expect(described_class.target).to eq("game_imported")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares 'show' as its only action" do
-    expect(described_class.actions).to eq([ "show" ])
+  it "Matrix serves :append mode for game_imported" do
+    expect(Pito::Dispatch::Matrix.mode_for("game_imported")).to eq(:append)
+  end
+
+  it "Matrix advertises 'show' for game_imported" do
+    expect(Pito::Dispatch::Matrix.actions_for("game_imported")).to include("show")
   end
 
   describe "#call — show" do

@@ -33,9 +33,6 @@ module Pito
       #   #<handle> order by <col> [desc] → alias for sort
       class GameLinkedVideos < Pito::FollowUp::Handler
         self.target "game_linked_videos"
-        self.mode   :append
-        self.action_modes with: :mutate, without: :mutate, sort: :mutate, order: :mutate
-        self.actions "show", "unlink", "with", "without", "sort", "order", "analyze"
 
         # @param event        [Event]        the game-linked-videos list event.
         # @param rest         [String]       text after `#<handle> `.

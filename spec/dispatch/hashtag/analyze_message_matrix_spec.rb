@@ -84,8 +84,8 @@ RSpec.describe "Dispatch matrix — analyze_message follow-up (recognition, DB m
       expect(Pito::FollowUp::Handlers::AnalyzeMessage.target).to eq("analyze_message")
     end
 
-    it "class mode is :mutate" do
-      expect(Pito::FollowUp::Handlers::AnalyzeMessage.mode).to eq(:mutate)
+    it "Matrix serves :mutate mode for analyze_message" do
+      expect(Pito::Dispatch::Matrix.mode_for("analyze_message")).to eq(:mutate)
     end
   end
 

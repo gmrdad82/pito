@@ -7,67 +7,98 @@ en:
       list:
         usage: "list games  |  list vids  |  list channels"
       show:
-        usage: "show game <id>  |  show vid <id>"
+        usage: "show game #id  |  show vid #id  |  show channel @handle"
         game:
-          usage: "show game <id>"
+          usage: "show game #id [full | with <segments> | only <segments>]"
           sections:
             Arguments:
               "game": "Target noun"
-              "<id>": "Local numeric id"
+              "#id": "Local numeric game id"
             Options:
+              "full": "Render every segment (detail, similar, linked-videos, channels, at-a-glance)"
+              "with <segments>": "Add named segments to the default detail card; bare shows detail only"
+              "only <segments>": "Render exactly the named segments"
               "--help": "Print this help message"
+            Segments:
+              "detail": "Game header and metadata (the bare-form default)"
+              "similar": "Voyage-powered similar-game recommendations"
+              "linked-videos": "Vids linked to this game (shown only when linked videos exist)"
+              "channels": "Channels that publish this game (pending-fill)"
+              "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
         video:
-          usage: "show vid <id>"
+          usage: "show vid #id [full | with <segments> | only <segments>]"
           sections:
             Arguments:
               "vid": "Target noun (aliases: vids, video, videos)"
-              "<id>": "Local numeric id"
+              "#id": "Local numeric video id"
             Options:
+              "full": "Render every segment (detail, linked-game, at-a-glance)"
+              "with <segments>": "Add named segments to the default detail card; bare shows detail only"
+              "only <segments>": "Render exactly the named segments"
               "--help": "Print this help message"
+            Segments:
+              "detail": "Video header and metadata (the bare-form default)"
+              "linked-game": "The game linked to this vid (shown only when a game is linked)"
+              "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
+        channel:
+          usage: "show channel @handle [full | with <segments> | only <segments>]"
+          sections:
+            Arguments:
+              "channel": "Target noun (aliases: channels)"
+              "@handle": "Channel handle — omit to use the shift+tab scope"
+            Options:
+              "full": "Render every segment (detail, videos, at-a-glance)"
+              "with <segments>": "Add named segments to the default detail card; bare shows detail only"
+              "only <segments>": "Render exactly the named segments"
+              "--help": "Print this help message"
+            Segments:
+              "detail": "Channel header, stats, and metadata (the bare-form default)"
+              "videos": "Paginated list of the channel's videos (shown only when videos exist)"
+              "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
       delete:
-        usage: "delete game <id>  |  delete video <id>"
+        usage: "delete game #id  |  delete video #id"
         game:
-          usage: "delete game <id>"
+          usage: "delete game #id"
           sections:
             Arguments:
               "game": "Target noun (alias: rm)"
-              "<id>": "Local numeric game id only — not a name string"
+              "#id": "Local numeric game id only — not a name string"
             Options:
               "--help": "Print this help message"
         video:
-          usage: "delete video <id>"
+          usage: "delete video #id"
           sections:
             Arguments:
               "video": "Target noun (alias: rm)"
-              "<id>": "Local numeric video id only — not a name string"
+              "#id": "Local numeric video id only — not a name string"
             Options:
               "--help": "Print this help message"
       reindex:
-        usage: "reindex game <id>  |  reindex video <id>"
+        usage: "reindex game #id  |  reindex video #id"
         game:
-          usage: "reindex game <id>"
+          usage: "reindex game #id"
           sections:
             Arguments:
               "game": "Target noun"
-              "<id>": "Local numeric game id — Voyage re-embeds the record"
+              "#id": "Local numeric game id — Voyage re-embeds the record"
             Options:
               "--help": "Print this help message"
         video:
-          usage: "reindex video <id>"
+          usage: "reindex video #id"
           sections:
             Arguments:
               "video": "Target noun"
-              "<id>": "Local numeric video id — Voyage re-embeds the record"
+              "#id": "Local numeric video id — Voyage re-embeds the record"
             Options:
               "--help": "Print this help message"
       footage:
-        usage: "footage update <id> <hours>  |  footage snippet"
+        usage: "footage update #id <hours>  |  footage snippet"
         update:
-          usage: "footage update <id> <hours>"
+          usage: "footage update #id <hours>"
           sections:
             Arguments:
               "update": "Target noun — set a game's total recorded footage"
-              "<id>": "Local numeric game id"
+              "#id": "Local numeric game id"
               "<hours>": "Total recorded hours (rounded up to the next 0.5)"
             Options:
               "--help": "Print this help message"
@@ -79,92 +110,92 @@ en:
             Options:
               "--help": "Print this help message"
       price:
-        usage: "price set <id> <amount>  |  price unset <id>"
+        usage: "price set #id <amount>  |  price unset #id"
         set:
-          usage: "price set <id> <amount>"
+          usage: "price set #id <amount>"
           sections:
             Arguments:
               "set": "Target noun — set a game's euro price"
-              "<id>": "Local numeric game id"
+              "#id": "Local numeric game id"
               "<amount>": "Price in euros, greater than 0 (e.g. 59.99) — shown as €59.99"
             Options:
               "--help": "Print this help message"
         unset:
-          usage: "price unset <id>"
+          usage: "price unset #id"
           sections:
             Arguments:
               "unset": "Target noun — clear a game's price (back to unpriced)"
-              "<id>": "Local numeric game id"
+              "#id": "Local numeric game id"
             Options:
               "--help": "Print this help message"
       link:
-        usage: "link game <id> to|with video <id>  |  link video <id> to|with game <id>"
+        usage: "link game #id to|with video #id  |  link video #id to|with game #id"
         game:
-          usage: "link game <id> to|with video <id>"
+          usage: "link game #id to|with video #id"
           sections:
             Arguments:
               "game": "Target noun"
-              "<id>": "Local numeric game id"
-              "to|with video <id>": "Local numeric video id to link to"
+              "#id": "Local numeric game id"
+              "to|with video #id": "Local numeric video id to link to"
             Options:
               "--help": "Print this help message"
         video:
-          usage: "link video <id> to|with game <id>"
+          usage: "link video #id to|with game #id"
           sections:
             Arguments:
               "video": "Target noun"
-              "<id>": "Local numeric video id"
-              "to|with game <id>": "Local numeric game id to link to"
+              "#id": "Local numeric video id"
+              "to|with game #id": "Local numeric game id to link to"
             Options:
               "--help": "Print this help message"
       unlink:
-        usage: "unlink game <id> from video <id>  |  unlink video <id> from game <id>"
+        usage: "unlink game #id from video #id  |  unlink video #id from game #id"
         game:
-          usage: "unlink game <id> from video <id>"
+          usage: "unlink game #id from video #id"
           sections:
             Arguments:
               "game": "Target noun"
-              "<id>": "Local numeric game id"
-              "from video <id>": "Local numeric video id to unlink from"
+              "#id": "Local numeric game id"
+              "from video #id": "Local numeric video id to unlink from"
             Options:
               "--help": "Print this help message"
         video:
-          usage: "unlink video <id> from game <id>"
+          usage: "unlink video #id from game #id"
           sections:
             Arguments:
               "video": "Target noun"
-              "<id>": "Local numeric video id"
-              "from game <id>": "Local numeric game id to unlink from"
+              "#id": "Local numeric video id"
+              "from game #id": "Local numeric game id to unlink from"
             Options:
               "--help": "Print this help message"
       publish:
-        usage: "publish video <id>"
+        usage: "publish video #id"
         video:
-          usage: "publish video <id>"
+          usage: "publish video #id"
           sections:
             Arguments:
               "video": "Target noun"
-              "<id>": "Local numeric video id — sets YouTube visibility to public"
+              "#id": "Local numeric video id — sets YouTube visibility to public"
             Options:
               "--help": "Print this help message"
       unlist:
-        usage: "unlist video <id>"
+        usage: "unlist video #id"
         video:
-          usage: "unlist video <id>"
+          usage: "unlist video #id"
           sections:
             Arguments:
               "video": "Target noun"
-              "<id>": "Local numeric video id — sets YouTube visibility to unlisted"
+              "#id": "Local numeric video id — sets YouTube visibility to unlisted"
             Options:
               "--help": "Print this help message"
       schedule:
-        usage: "schedule video <id> <when>  |  schedule <id> slate"
+        usage: "schedule video #id <when>  |  schedule #id slate"
         video:
-          usage: "schedule video <id> <when>  |  schedule <id> slate"
+          usage: "schedule video #id <when>  |  schedule #id slate"
           sections:
             Arguments:
               "video": "Target noun"
-              "<id>": "Local numeric video id"
+              "#id": "Local numeric video id"
               "slate": "Show the upcoming schedule (this week + the rest of your shift+space period), excluding this vid — obeys the shift+tab channel scope"
               "<when>": |-
                 Publish time (local, ≥30 min out). One of:
@@ -228,18 +259,18 @@ en:
             Options:
               "--help": "Print this help message"
       platform:
-        usage: "platform <id> <name>"
+        usage: "platform #id <name>"
         game:
-          usage: "platform <id> <name>"
+          usage: "platform #id <name>"
           sections:
             Arguments:
-              "<id>": "Local numeric game id — the game to add a platform to (omit when replying to a game card: `#<handle> platform <name>`)"
+              "#id": "Local numeric game id — the game to add a platform to (omit when replying to a game card: `#<handle> platform <name>`)"
               "<name>": "Platform name, normalised to a logo family (e.g. ps5, switch, steam)"
             Options:
               "--help": "Print this help message"
 
       shinies:
-        usage: "shinies channel @handle  |  shinies vid <id>  |  shinies game <id>"
+        usage: "shinies channel @handle  |  shinies vid #id  |  shinies game #id"
         channel:
           usage: "shinies channel @handle"
           sections:
@@ -249,48 +280,69 @@ en:
             Options:
               "--help": "Print this help message"
         video:
-          usage: "shinies vid <id>"
+          usage: "shinies vid #id"
           sections:
             Arguments:
               "vid": "Target noun (aliases: vids, video, videos)"
-              "<id>": "Local numeric video id"
+              "#id": "Local numeric video id"
             Options:
               "--help": "Print this help message"
         game:
-          usage: "shinies game <id>"
+          usage: "shinies game #id"
           sections:
             Arguments:
               "game": "Target noun (alias: games)"
-              "<id>": "Local numeric game id"
+              "#id": "Local numeric game id"
             Options:
               "--help": "Print this help message"
 
       analyze:
         usage: "analyze channel [@handle[, @h2…]]  |  analyze vid [#id[, #id…]]  |  analyze game [#id[, #id…]]"
         channel:
-          usage: "analyze channel [@handle[, @h2…]]"
+          usage: "analyze channel [@handle[, @h2…]] [full | with <segments>[,metric…] | only <segments> | without <metrics>]"
           sections:
             Arguments:
               "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are verb aliases"
               "[@handle]": "One or more channel handles; omit to use the shift+tab scope (@all = every channel, else the selected one)"
             Options:
+              "full": "Emit both numbers and breakdowns segments"
+              "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
+              "only <segments>": "Emit exactly the named segments"
+              "without <metrics>": "Exclude named metrics from the numbers card (existing metric filter)"
               "--help": "Print this help message"
+            Segments:
+              "numbers": "Plain-numbers summary card — the bare default"
+              "breakdowns": "Lifetime distribution breakdowns card"
         vid:
-          usage: "analyze vid [#id[, #id…]]"
+          usage: "analyze vid [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <metrics>]"
           sections:
             Arguments:
               "vid": "Target noun (aliases: vids, video, videos) — bare form uses the shift+tab channel scope (same as `analyze channel`)"
               "[#id]": "One or more local numeric video ids"
             Options:
+              "full": "Emit both numbers and breakdowns segments"
+              "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
+              "only <segments>": "Emit exactly the named segments"
+              "without <metrics>": "Exclude named metrics from the numbers card (existing metric filter)"
               "--help": "Print this help message"
+            Segments:
+              "numbers": "Plain-numbers summary card — the bare default"
+              "breakdowns": "Lifetime distribution breakdowns card"
         game:
-          usage: "analyze game [#id[, #id…]]"
+          usage: "analyze game [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <metrics>]"
           sections:
             Arguments:
               "game": "Target noun (aliases: games, gamez) — bare form resolves shift+tab → linked videos → games, presented at game level"
               "[#id]": "One or more local numeric game ids; resolves linked videos and presents results at game level"
             Options:
+              "full": "Emit both numbers and breakdowns segments"
+              "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
+              "only <segments>": "Emit exactly the named segments"
+              "without <metrics>": "Exclude named metrics from the numbers card (existing metric filter)"
               "--help": "Print this help message"
+            Segments:
+              "numbers": "Plain-numbers summary card — the bare default"
+              "breakdowns": "Lifetime distribution breakdowns card"
 
     hashtag_help:
       show-game:
@@ -429,6 +481,13 @@ en:
                 "from <video id>[,id…]": "One or more local numeric vid ids to unlink from (comma or space separated)"
               Options:
                 "--help": "Print this help message"
+          next:
+            usage: "#<list-games-hashtag> next"
+            sections:
+              Description:
+                "next": "Load the next batch of games (only available when the list is capped)"
+              Options:
+                "--help": "Print this help message"
 
       show-video:
         target_usage: "#<show-vid-hashtag> <action>"
@@ -562,6 +621,13 @@ en:
                 "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
               Options:
                 "--help": "Print this help message"
+          next:
+            usage: "#<list-vids-hashtag> next"
+            sections:
+              Description:
+                "next": "Load the next batch of vids (only available when the list is capped)"
+              Options:
+                "--help": "Print this help message"
 
       list-channels:
         target_usage: "#<list-channels-hashtag> <action>"
@@ -578,6 +644,13 @@ en:
             sections:
               Arguments:
                 "@handle": "Channel @handle — show its shinies"
+              Options:
+                "--help": "Print this help message"
+          next:
+            usage: "#<list-channels-hashtag> next"
+            sections:
+              Description:
+                "next": "Load the next batch of channels (only available when the list is capped)"
               Options:
                 "--help": "Print this help message"
       show-channel:
@@ -617,6 +690,7 @@ en:
               Options:
                 "--help": "Print this help message"
     share_help:
+      help: "print this message's hashtag help page"
       share: "share this message — mints a public /share/:uuid link"
       revoke: "revoke the share — deletes the public link (async)"
       unshare: "alias for revoke"

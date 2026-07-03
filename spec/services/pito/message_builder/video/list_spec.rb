@@ -100,6 +100,10 @@ RSpec.describe Pito::MessageBuilder::Video::List do
     it "renders without raising" do
       expect { payload }.not_to raise_error
     end
+
+    it "payload includes list_footer as a String" do
+      expect(payload["list_footer"]).to be_a(String)
+    end
   end
 
   describe ".call with columns: [:channel, :visibility]" do

@@ -385,14 +385,14 @@ RSpec.describe "Chat requests", type: :request do
       end
 
       it "returns 204 No Content" do
-        post "/chat", params: { input: "analyze channel @gmrdad82", uuid: conversation.uuid }
+        post "/chat", params: { input: "analyze channel @gmrdad82 full", uuid: conversation.uuid }
         expect(response).to have_http_status(:no_content)
       end
 
       context "after draining all enqueued jobs" do
         before do
           perform_enqueued_jobs do
-            post "/chat", params: { input: "analyze channel @gmrdad82", uuid: conversation.uuid }
+            post "/chat", params: { input: "analyze channel @gmrdad82 full", uuid: conversation.uuid }
           end
         end
 

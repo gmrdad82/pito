@@ -56,10 +56,9 @@ RSpec.describe "Dispatch pipeline parity (Finalizer)", type: :job do
       chat  = chat_result_events
       reply = reply_result_events
 
-      # detail (:system) + similar-games (:enhanced) + channels (:enhanced) + the
-      # at-a-glance (:enhanced, ALWAYS present — item 5). Linked-vids is guarded out
-      # when the game has no linked videos; the glance is not.
-      expect(chat.map(&:kind)).to eq(%w[system enhanced enhanced enhanced])
+      # Bare show → the detail card ONLY (plan-0.9.5 D3 segment selection);
+      # both pipelines must agree.
+      expect(chat.map(&:kind)).to eq(%w[system])
       expect(reply.map(&:kind)).to eq(chat.map(&:kind))
     end
 

@@ -26,11 +26,7 @@ module Pito
         self.description_key = "pito.slash.games.descriptions.games"
         self.validates_own_arity = true
 
-        grammar do
-          enum :subcommand, source: :games_subcommands, optional: true
-          auth :authenticated_only
-          description_key "pito.grammar.slash.games"
-        end
+        # Grammar (subcommand + title slots, auth): config/pito/verbs.yml (T8.9).
 
         SUBCOMMANDS = %w[import].freeze
 

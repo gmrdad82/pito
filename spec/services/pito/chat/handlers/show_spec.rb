@@ -25,6 +25,40 @@ RSpec.describe Pito::Chat::Handlers::Show do
     described_class.new(message: msg, conversation: Conversation.singleton).call
   end
 
+  # Helpers for full-segment emission when the segment-selection word "full"
+  # cannot be appended to message.raw without corrupting extract_ref_from
+  # (which treats everything after the noun as the entity ref).
+  #
+  # Approach A (video / analytics): follow-up context — resolve_target reads
+  # the entity id from the source-event payload, never from raw.
+  # Approach B (channel): raw: "full" + scoped channel param — channel_ref
+  # is blank so scoped_channel_handle takes over.
+
+  def full_video_handler_for(video_record)
+    source = Struct.new(:payload).new(
+      { "video_id" => video_record.id, "reply_target" => "video_detail" }
+    )
+    fu = Pito::Chat::FollowUpContext.new(source_event: source, rest: "full")
+    described_class.new(
+      message: Pito::Chat::Message.new(verb: :show, body_tokens: tokens("full"), kind: :new_turn, raw: "full"),
+      conversation: Conversation.singleton,
+      follow_up: fu
+    )
+  end
+
+  def full_linked_game_event(video_record)
+    full_video_handler_for(video_record).call.events
+      .find { |e| e[:payload]["reply_target"] == "game_detail" }
+  end
+
+  def full_channel_events_for(channel_handle)
+    described_class.new(
+      message: Pito::Chat::Message.new(verb: :show, body_tokens: tokens("channel"), kind: :new_turn, raw: "full"),
+      conversation: Conversation.singleton,
+      channel: channel_handle
+    ).call.events
+  end
+
   let!(:game) { create(:game, title: "Lies of P") }
 
   # ── Game branch — id resolution ───────────────────────────────────────────────
@@ -67,13 +101,13 @@ RSpec.describe Pito::Chat::Handlers::Show do
   end
 
   it "emits the at-a-glance even for a game with no linked videos (item 5: always present)" do
-    events    = handler_for("game", "##{game.id}").call.events
+    events    = handler_for("first", "game", "full").call.events
     analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
     expect(analytics).not_to be_nil
   end
 
   it "emits two enhanced recommendations messages (SimilarGames + Channels, kind :enhanced, each follow-up-able)" do
-    events = handler_for("game", "##{game.id}").call.events
+    events = handler_for("first", "game", "full").call.events
     recs = events.select { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
     expect(recs.length).to eq(2)
     recs.each do |r|
@@ -86,7 +120,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
   end
 
   it "emits events in order: detail → SimilarGames → Channels (no analytics when no linked videos)" do
-    events = handler_for("game", "##{game.id}").call.events
+    events = handler_for("first", "game", "full").call.events
     detail_idx  = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
     recs        = events.each_with_index.select { |e, _| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
     similar_idx = recs.first&.last
@@ -109,7 +143,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       let!(:vgl)     { create(:video_game_link, video: video, game: game) }
 
       it "emits an :enhanced linked-videos list message after detail and SimilarGames" do
-        events = handler_for("game", "##{game.id}").call.events
+        events = handler_for("first", "game", "full").call.events
         list_index   = events.index { |e| e[:payload]["reply_target"] == "game_linked_videos" }
         detail_index = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
         expect(list_index).to be_present
@@ -119,7 +153,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
 
       it "emits events in order: detail → SimilarGames → linked-videos → Channels → analytics" do
-        events = handler_for("game", "##{game.id}").call.events
+        events = handler_for("first", "game", "full").call.events
         detail_idx    = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
         videos_idx    = events.index { |e| e[:payload]["reply_target"] == "game_linked_videos" }
         recs          = events.each_with_index.select { |e, _| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
@@ -134,7 +168,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
 
       it "emits an analytics pending event for the game (kind :enhanced, scope_type Game)" do
-        events    = handler_for("game", "##{game.id}").call.events
+        events    = handler_for("first", "game", "full").call.events
         analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
 
         expect(analytics).to be_present
@@ -145,20 +179,20 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
 
       it "is repliable via the game_linked_videos follow-up target (game context for unlink)" do
-        payload = linked_videos_event("game", "##{game.id}")[:payload]
+        payload = linked_videos_event("first", "game", "full")[:payload]
         expect(Pito::FollowUp.followupable?(payload)).to be(true)
         expect(payload["reply_target"]).to eq("game_linked_videos")
         expect(payload["game_id"]).to eq(game.id)
       end
 
       it "lists the linked video as a table row" do
-        payload = linked_videos_event("game", "##{game.id}")[:payload]
+        payload = linked_videos_event("first", "game", "full")[:payload]
         expect(payload["table_rows"].size).to eq(1)
         expect(payload["video_ids"]).to eq([ video.id ])
       end
 
       it "names the channel the game appears on in the intro body (witty channels line)" do
-        payload = linked_videos_event("game", "##{game.id}")[:payload]
+        payload = linked_videos_event("first", "game", "full")[:payload]
         expect(payload["body"]).to include(channel.handle)
       end
     end
@@ -270,7 +304,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
 
     it "emits two events — :system detail then :enhanced placeholder" do
-      events = handler_for("video", "##{video.id}").call.events
+      events = full_video_handler_for(video).call.events
       expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
     end
 
@@ -288,7 +322,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
 
     it "emits an analytics pending event for the video (kind :enhanced, scope_type Video)" do
-      events    = handler_for("video", "##{video.id}").call.events
+      events    = full_video_handler_for(video).call.events
       analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
 
       expect(analytics).to be_present
@@ -310,7 +344,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
         let!(:vgl)  { create(:video_game_link, video: video, game: game) }
 
         it "emits the slim linked-game card between the detail and the enhanced placeholder" do
-          events    = handler_for("video", "##{video.id}").call.events
+          events    = full_video_handler_for(video).call.events
           card_index   = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
           detail_index = events.index { |e| e[:payload]["reply_target"] == "video_detail" }
           last_index   = events.size - 1
@@ -321,18 +355,18 @@ RSpec.describe Pito::Chat::Handlers::Show do
         end
 
         it "renders the linked game's title in the card" do
-          payload = linked_game_event("video", "##{video.id}")[:payload]
+          payload = full_linked_game_event(video)[:payload]
           expect(payload["body"]).to include("Lies of P")
         end
 
         it "is repliable via the game_detail follow-up target" do
-          payload = linked_game_event("video", "##{video.id}")[:payload]
+          payload = full_linked_game_event(video)[:payload]
           expect(Pito::FollowUp.followupable?(payload)).to be(true)
           expect(payload["reply_target"]).to eq("game_detail")
         end
 
         it "stamps the linked game's id in the card payload" do
-          payload = linked_game_event("video", "##{video.id}")[:payload]
+          payload = full_linked_game_event(video)[:payload]
           expect(payload["game_id"]).to eq(game.id)
         end
       end
@@ -387,13 +421,14 @@ RSpec.describe Pito::Chat::Handlers::Show do
     let!(:video_for_period)   { create(:video, channel: channel_for_period, title: "Period Test") }
 
     def handler_with(period:, conversation: Conversation.singleton)
-      msg = Pito::Chat::Message.new(
-        verb:         :show,
-        body_tokens:  tokens("video", "##{video_for_period.id}"),
-        kind:         :new_turn,
-        raw:          "show video #{video_for_period.id}"
+      # Use a follow-up context so the video is resolved from the payload
+      # and raw: "full" drives parse_selection without corrupting the ref.
+      source = Struct.new(:payload).new(
+        { "video_id" => video_for_period.id, "reply_target" => "video_detail" }
       )
-      described_class.new(message: msg, conversation: conversation, period: period)
+      fu = Pito::Chat::FollowUpContext.new(source_event: source, rest: "full")
+      msg = Pito::Chat::Message.new(verb: :show, body_tokens: tokens("full"), kind: :new_turn, raw: "full")
+      described_class.new(message: msg, conversation: conversation, period: period, follow_up: fu)
     end
 
     def analytics_period_from(events)
@@ -483,7 +518,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
 
     it "emits :system detail + the :enhanced channel analytics glance when the channel has no videos" do
-      events = show_real("show channel @gmrdad82").events
+      events = full_channel_events_for("@gmrdad82")
       expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
       glance = events.last[:payload]
       expect(glance.dig("analytics", "status")).to eq("pending")
@@ -495,7 +530,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       let!(:vids) { create_list(:video, 2, channel: show_channel) }
 
       it "emits :system detail, a repliable :enhanced vids list, then the :enhanced analytics glance" do
-        events = show_real("show channel @gmrdad82").events
+        events = full_channel_events_for("@gmrdad82")
         expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
 
         list = events[1][:payload]
@@ -711,6 +746,108 @@ RSpec.describe Pito::Chat::Handlers::Show do
       result = show_real("show vid 999999")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.consume).to be(false)
+    end
+  end
+
+  # ── Segment selection ──────────────────────────────────────────────────────────
+  #
+  # Covers the SegmentSelection grammar wired into the show handler.
+  # Assertions use event shape (kinds, reply_target, analytics hash) —
+  # never copy text (50-variant dictionaries).
+
+  describe "segment selection" do
+    # ── Game entity — full coverage ──────────────────────────────────────────────
+
+    context "game entity" do
+      # Uses the outer game fixture (only game in DB for these examples).
+      # Ordinal form "first game" resolves via OrdinalResolver — this keeps
+      # the segment-selection keyword out of the entity-ref extraction path
+      # (extract_ref_from treats everything after the noun as the ref).
+
+      it "bare → emits only the detail segment (:system, no :enhanced)" do
+        # Bare id-based form — the default selection emits detail only.
+        events = handler_for("game", "##{game.id}").call.events
+        expect(events.map { |e| e[:kind] }).to eq([ :system ])
+        expect(events.first[:payload]["reply_target"]).to eq("game_detail")
+      end
+
+      # Regression (found 2026-07-03): a selection clause after a DIRECT id/handle
+      # ref must not leak into reference extraction — `show game 5 full` used to
+      # yield ref "5 full" and fail the numeric check (not-found). The handler now
+      # strips the clause via SegmentSelection.strip before resolution.
+      it "direct id + full → resolves the ref and emits all segments" do
+        events = handler_for("game", "##{game.id}", "full").call.events
+        expect(events.first[:kind]).to eq(:system)
+        expect(events.first[:payload]["reply_target"]).to eq("game_detail")
+        expect(events.size).to be > 1
+      end
+
+      it "direct bare id + only at-a-glance → resolves the ref, emits exactly at-a-glance" do
+        events = handler_for("game", game.id.to_s, "only", "at-a-glance").call.events
+        expect(events.map { |e| e[:kind] }).to eq([ :enhanced ])
+        expect(events.first[:payload].dig("analytics", "status")).to eq("pending")
+      end
+
+      it "full → emits all segments in table order; linked-videos absent when game has none" do
+        # detail(:system) + similar(:enhanced) + channels(:enhanced) + at-a-glance(:enhanced)
+        events = handler_for("first", "game", "full").call.events
+        expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced, :enhanced ])
+        expect(events.first[:payload]["reply_target"]).to eq("game_detail")
+        expect(events.none? { |e| e[:payload]["reply_target"] == "game_linked_videos" }).to be(true)
+      end
+
+      it "with at-a-glance → emits detail then at-a-glance (table order)" do
+        events = handler_for("first", "game", "with", "at-a-glance").call.events
+        expect(events.size).to eq(2)
+        expect(events.first[:payload]["reply_target"]).to eq("game_detail")
+        expect(events.last[:payload].dig("analytics", "status")).to eq("pending")
+      end
+
+      it "only at-a-glance → emits exactly at-a-glance (:enhanced, no :system event)" do
+        events = handler_for("first", "game", "only", "at-a-glance").call.events
+        expect(events.map { |e| e[:kind] }).to eq([ :enhanced ])
+        expect(events.first[:payload].dig("analytics", "status")).to eq("pending")
+      end
+
+      it "only channels,similar (reversed input) → emits in TABLE order: similar then channels" do
+        events = handler_for("first", "game", "only", "channels,similar").call.events
+        expect(events.size).to eq(2)
+        expect(events.first[:payload]["reply_target"]).to eq("game_similar")
+        expect(events.last[:payload]["reply_target"]).to eq("game_channels")
+      end
+
+      it "unknown token → returns an error Result" do
+        result = handler_for("first", "game", "only", "bogus").call
+        expect(result).to be_a(Pito::Chat::Result::Error)
+      end
+
+      it "full with detail (multiple introducers) → returns a conflict error Result" do
+        result = handler_for("first", "game", "full", "with", "detail").call
+        expect(result).to be_a(Pito::Chat::Result::Error)
+      end
+    end
+
+    # ── Channel entity — bare (cheaper single example) ───────────────────────────
+
+    context "channel entity" do
+      let!(:sel_channel) { create(:channel, handle: "@selchan", title: "Sel Chan") }
+
+      it "bare → emits only the detail segment (:system)" do
+        result = show_real("show channel @selchan")
+        expect(result.events.map { |e| e[:kind] }).to eq([ :system ])
+      end
+    end
+
+    # ── Vid entity — bare (cheaper single example) ───────────────────────────────
+
+    context "vid entity" do
+      let!(:sel_vid_channel) { create(:channel) }
+      let!(:sel_video)       { create(:video, channel: sel_vid_channel, title: "Sel Vid") }
+
+      it "bare → emits only the detail segment (:system)" do
+        events = handler_for("video", "##{sel_video.id}").call.events
+        expect(events.map { |e| e[:kind] }).to eq([ :system ])
+      end
     end
   end
 end

@@ -20,6 +20,10 @@ RSpec.describe Pito::Share::UniversalActions do
   let(:handler) { described_class.new }
 
   describe "VERBS constants" do
+    it "HELP_VERBS contains only help" do
+      expect(described_class::HELP_VERBS).to eq(%w[help])
+    end
+
     it "ALWAYS_AVAILABLE contains only share" do
       expect(described_class::ALWAYS_AVAILABLE).to eq(%w[share])
     end
@@ -28,33 +32,34 @@ RSpec.describe Pito::Share::UniversalActions do
       expect(described_class::SHARE_REQUIRED).to match_array(%w[revoke unshare])
     end
 
-    it "VERBS is the union of ALWAYS_AVAILABLE and SHARE_REQUIRED" do
-      expect(described_class::VERBS).to match_array(%w[share revoke unshare])
+    it "VERBS is the union of HELP_VERBS, ALWAYS_AVAILABLE, and SHARE_REQUIRED" do
+      expect(described_class::VERBS).to match_array(%w[help share revoke unshare])
     end
   end
 
   # Regression (owner 2026-06-29): a :confirmation message gets NO share verbs in
   # its reply menu — sharing an ephemeral confirm/cancel prompt makes no sense.
+  # help is offered on every kind.
   describe ".verbs_for" do
-    it "offers `share` for a non-shared :system / :enhanced message" do
-      expect(described_class.verbs_for(event)).to eq(%w[share])
+    it "offers `help` and `share` for a non-shared :system / :enhanced message" do
+      expect(described_class.verbs_for(event)).to match_array(%w[help share])
     end
 
     it "adds revoke/unshare once the event has a Share" do
       Share.find_or_create_by!(event:) { |s| s.conversation = conversation }
-      expect(described_class.verbs_for(event)).to match_array(%w[share revoke unshare])
+      expect(described_class.verbs_for(event)).to match_array(%w[help share revoke unshare])
     end
 
-    it "offers NOTHING for a :confirmation message (no share/revoke/unshare)" do
+    it "offers ONLY `help` for a :confirmation message (no share/revoke/unshare)" do
       confirmation = Event.create_with_position!(
         conversation:, turn:, kind: :confirmation,
         payload: { "text" => "Sync @x?", "reply_handle" => "conf-handle" }
       )
-      expect(described_class.verbs_for(confirmation)).to eq([])
+      expect(described_class.verbs_for(confirmation)).to eq(%w[help])
     end
 
-    it "offers `share` for a nil event (the generic event-less help page)" do
-      expect(described_class.verbs_for(nil)).to eq(%w[share])
+    it "offers `help` and `share` for a nil event (the generic event-less help page)" do
+      expect(described_class.verbs_for(nil)).to match_array(%w[help share])
     end
   end
 
@@ -82,14 +87,14 @@ RSpec.describe Pito::Share::UniversalActions do
       expect(described_class.resolved?(event)).to be(true)
     end
 
-    it ".verbs_for offers NOTHING while the message is unresolved" do
+    it ".verbs_for offers ONLY `help` while the message is unresolved (share verbs withheld)" do
       thinking_for(event, resolved: false)
-      expect(described_class.verbs_for(event)).to eq([])
+      expect(described_class.verbs_for(event)).to eq(%w[help])
     end
 
-    it ".verbs_for offers `share` once the message resolves" do
+    it ".verbs_for offers `help` and `share` once the message resolves" do
       thinking_for(event, resolved: true)
-      expect(described_class.verbs_for(event)).to eq(%w[share])
+      expect(described_class.verbs_for(event)).to match_array(%w[help share])
     end
 
     it "#call refuses `share` with the not_resolved error while unresolved" do
@@ -104,6 +109,17 @@ RSpec.describe Pito::Share::UniversalActions do
       expect {
         handler.call(source_event: event, rest: "share", conversation:)
       }.not_to change(Share, :count)
+    end
+
+    it "#call allows `help` even while the message is unresolved" do
+      event_with_target = Event.create_with_position!(
+        conversation:, turn:, kind: :system,
+        payload: { "text" => "games!", "reply_handle" => "unres-help", "reply_target" => "game_list" }
+      )
+      thinking_for(event_with_target, resolved: false)
+      result = handler.call(source_event: event_with_target, rest: "help", conversation:)
+      # help bypasses the resolution gate — returns Append (not Error)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
     end
   end
 
@@ -237,6 +253,45 @@ RSpec.describe Pito::Share::UniversalActions do
         expect {
           handler.call(source_event: event, rest: "unshare", conversation:)
         }.not_to have_enqueued_job(RevokeShareJob)
+      end
+    end
+  end
+
+  describe "#call — help verb" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    context "when the source event has a known reply_target with copy" do
+      let(:help_event) do
+        Event.create_with_position!(
+          conversation:, turn:, kind: :system,
+          payload: { "text" => "games!", "reply_handle" => "help-handle", "reply_target" => "game_list" }
+        )
+      end
+
+      it "returns a Result::Append" do
+        result = handler.call(source_event: help_event, rest: "help", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+      end
+
+      it "does NOT consume the source event (consume: false)" do
+        result = handler.call(source_event: help_event, rest: "help", conversation:)
+        expect(result.consume).to eq(false)
+      end
+
+      it "returns a single :system event containing the help page" do
+        result = handler.call(source_event: help_event, rest: "help", conversation:)
+        expect(result.events.length).to eq(1)
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["html"]).to be(true)
+        expect(result.events.first[:payload]["body"]).to include("pito-help-block")
+      end
+    end
+
+    context "when the source event has no reply_target" do
+      it "returns a Result::Error referencing help_unavailable" do
+        result = handler.call(source_event: event, rest: "help", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Error)
+        expect(result.message_key).to eq("pito.copy.share.help_unavailable")
       end
     end
   end

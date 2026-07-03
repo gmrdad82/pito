@@ -27,7 +27,7 @@ module Pito
       # Known noun tokens for each verb.  Determines rendering strategy and
       # the order in which nouns are listed on the verb-level page.
       VERB_NOUNS = {
-        show:     %i[game video],
+        show:     %i[game video channel],
         delete:   %i[game video],
         reindex:  %i[game video],
         footage:  %i[update snippet],

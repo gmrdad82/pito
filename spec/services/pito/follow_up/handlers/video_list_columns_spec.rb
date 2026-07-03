@@ -28,24 +28,31 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
 
   # ── Handler class declarations ──────────────────────────────────────────────
 
-  it "declares the video_list target in :append mode (default)" do
+  it "registers the video_list target" do
     expect(described_class.target).to eq("video_list")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares with and without as :mutate per-action overrides" do
-    expect(described_class.action_modes["with"]).to eq(:mutate)
-    expect(described_class.action_modes["without"]).to eq(:mutate)
+  it "Matrix serves :append base mode for video_list" do
+    expect(Pito::Dispatch::Matrix.mode_for("video_list")).to eq(:append)
   end
 
-  it "includes with and without in declared actions" do
-    expect(described_class.actions).to include("with", "without")
+  it "Matrix serves :mutate for with and without on video_list" do
+    expect(Pito::Dispatch::Matrix.mode_for("video_list", action: "with")).to eq(:mutate)
+    expect(Pito::Dispatch::Matrix.mode_for("video_list", action: "without")).to eq(:mutate)
   end
 
-  it "no longer declares the dropped add/remove verbs" do
-    expect(described_class.actions).not_to include("add", "remove")
-    expect(described_class.action_modes).not_to have_key("add")
-    expect(described_class.action_modes).not_to have_key("remove")
+  it "Matrix advertises with and without for video_list" do
+    expect(Pito::Dispatch::Matrix.actions_for("video_list")).to include("with", "without")
+  end
+
+  it "Matrix does not advertise the dropped add/remove verbs for video_list" do
+    actions = Pito::Dispatch::Matrix.actions_for("video_list")
+    expect(actions).not_to include("add", "remove")
+    # Unknown tokens fall back to the target's base mode (HF3 — DSL parity);
+    # non-advertisement is the actions_for assertion above.
+    base = Pito::Dispatch::Matrix.mode_for("video_list", action: nil)
+    expect(Pito::Dispatch::Matrix.mode_for("video_list", action: "add")).to eq(base)
+    expect(Pito::Dispatch::Matrix.mode_for("video_list", action: "remove")).to eq(base)
   end
 
   # ── Registry.mode_for (per-action) ──────────────────────────────────────────

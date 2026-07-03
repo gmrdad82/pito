@@ -5,12 +5,18 @@
 # Interval-aware YouTube analytics scoped to a channel, vid, or game. Resolves the
 # scope via Pito::Analytics::ScopeResolver (entity arg + shift+tab channel scope),
 # the period from shift+space (conversation.stats_period). On a resolvable scope it
-# emits TWO pending messages — a :system and an :enhanced card (each with its own
-# Pito::Copy intro) — and returns immediately; the Finalizer enqueues
-# AnalyzePrepareJob, which fans out per-video / per-channel primitives, aggregates,
-# fills both messages, and resolves each message's own thinking indicator (so each
-# "thought for xx.xxs" spans its full fan-out). Bare `analyze` suggests options;
-# an unresolvable scope surfaces the matching error copy.
+# parses a Pito::Chat::SegmentSelection (segments `numbers` → the :system card,
+# `breakdowns` → the :enhanced card) and emits ONLY the selected pending message(s)
+# — each with its own Pito::Copy intro — then returns immediately; the Finalizer
+# enqueues AnalyzePrepareJob, which fans out per-video / per-channel primitives,
+# fills each created message from the per-metric stashes, and resolves each
+# message's own thinking indicator (so each "thought for xx.xxs" spans its full
+# fan-out). Bare `analyze` → numbers only; `full` → both; `with`/`only` per the
+# selection. Conflicting or unknown segment tokens surface the shared segment error
+# copy. Metric tokens (`with views`, `without comments`) are fed to SegmentSelection
+# as extra_vocabulary so they never read as unknown segments; MetricSelection.parse
+# reads the same raw independently. Bare `analyze` suggests options; an unresolvable
+# scope surfaces the matching error copy.
 module Pito
   module Chat
     module Handlers
@@ -34,18 +40,58 @@ module Pito
 
         private
 
-        # Two pending cards (system + enhanced); AnalyzePrepareJob (enqueued by the
-        # Finalizer's analyze-pending gate) fills + resolves them.
+        # The selected pending card(s) — `numbers` (:system) and/or `breakdowns`
+        # (:enhanced); AnalyzePrepareJob (enqueued by the Finalizer's analyze-pending
+        # gate) fans out only over each created message's own metric_keys, fills +
+        # resolves each. Segment selection (which cards exist) is independent of the
+        # MetricSelection filter (which metrics render inside a card).
         def ok_events(result)
+          entity_kind = result.level
+          selection   = Pito::Chat::SegmentSelection.parse(
+            message.raw, verb: :analyze, entity: entity_kind, extra_vocabulary: metric_vocabulary
+          )
+          return segment_conflict_error if selection.conflict
+          return segment_unknown_error(selection.unknown, entity_kind) if selection.unknown.any?
+
           events = Pito::MessageBuilder::Analyze::Message.pair(
             level:        result.level,
             entity_ids:   result.scopes.map(&:id),
             title:        scope_title(result),
             period:       analytics_period,
             conversation:,
-            selection:    Pito::Analytics::MetricSelection.parse(message.raw)
+            selection:    Pito::Analytics::MetricSelection.parse(message.raw),
+            roles:        Pito::MessageBuilder::Analyze::Message.roles_for(selection.names)
           )
           Pito::Chat::Result::Ok.new(events:)
+        end
+
+        # Metric tokens overlap the raw string with SegmentSelection's clause parse.
+        # Feeding MetricSelection's vocabulary (aliases + canonical metric keys) as
+        # extra_vocabulary keeps a metric token (e.g. `views`) from being flagged as
+        # an unknown segment — the two parsers read the same raw independently.
+        def metric_vocabulary
+          Pito::Analytics::MetricSelection::ALIASES.keys +
+            Pito::Analytics::MetricOrder::METRICS.keys.map(&:to_s)
+        end
+
+        # Segment error copy — mirrors the show handler's exact idiom so `analyze`
+        # and `show` report conflicting / unknown segment tokens identically.
+        def segment_conflict_error
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render("pito.copy.segments.conflict"),
+            message_args: {}
+          )
+        end
+
+        def segment_unknown_error(unknowns, entity_kind)
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render(
+              "pito.copy.segments.unknown",
+              tokens: unknowns.join(", "),
+              names:  Pito::Chat::Segments.names(verb: :analyze, entity: entity_kind).join(", ")
+            ),
+            message_args: {}
+          )
         end
 
         def text_event(key, **args)

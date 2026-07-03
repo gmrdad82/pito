@@ -25,9 +25,6 @@ module Pito
       # Always use `::Video` for the model.
       class VideoDetail < Pito::FollowUp::Handler
         self.target "video_detail"
-        self.mode   :append
-        self.actions "rm", "del", "delete", "reindex", "link", "unlink", "shinies", "sync",
-                     "publish", "pub", "unlist", "schedule", "analyze"
 
         # @param event        [Event]        the video-detail event.
         # @param rest         [String]       text after `#<handle> `.
