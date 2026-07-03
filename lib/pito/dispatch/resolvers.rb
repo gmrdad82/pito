@@ -270,6 +270,143 @@ module Pito
 
         entity_class.find_by(id:) || Invalid.new(reason: "#{entity_class} not found: #{id}")
       })
+
+      # :footage_hours
+      # Parses the `footage [update] <hours>` amount typed on a game-detail reply
+      # into an exact half-step Rational (ceil UP to the next 0.5 h). Wraps the
+      # shared Pito::Games::FootageAmount parser — the SAME one the `footage` chat
+      # verb and its GameDetail follow-up reply use (no fork). `footage snippet`
+      # (game-agnostic) carries no hours, so it resolves Invalid — callers route
+      # the snippet branch before binding the amount.
+      #
+      # Required context: none. Input: the reply args after `footage`.
+      register(:footage_hours, lambda { |input, context:|
+        Pito::Games::FootageAmount.parse(input) ||
+          Invalid.new(reason: "not a footage amount: #{input.inspect}")
+      })
+
+      # :price_amount
+      # Parses the `price [set] <amount>` / `price unset` reply into either a
+      # non-negative BigDecimal euro amount (2dp; 0 = free) or the `:unset`
+      # sentinel. Wraps the shared Pito::Games::PriceAmount parser — the SAME one
+      # the `price` chat verb and its GameDetail follow-up reply use (no fork).
+      # An optional leading `set` is peeled; a leading `unset` short-circuits to
+      # `:unset`. On a list target the leading row id is sliced off by ReplyBinding
+      # before this runs (see LEADING_TOKEN_REFS), so the input is `<amount>` in
+      # both the detail and list flows.
+      #
+      # Required context: none. Input: the reply args (after any sliced row id).
+      register(:price_amount, lambda { |input, context:|
+        tokens = input.to_s.strip.split(/\s+/)
+        sub    = tokens.first&.downcase
+        case sub
+        when "unset"
+          :unset
+        when "set"
+          Pito::Games::PriceAmount.parse(tokens[1]) ||
+            Invalid.new(reason: "not a price amount: #{tokens[1].inspect}")
+        else
+          Pito::Games::PriceAmount.parse(tokens.first) ||
+            Invalid.new(reason: "not a price amount: #{tokens.first.inspect}")
+        end
+      })
+
+      # :platform_value
+      # Normalises the `platform [set|unset] <value>` reply into a canonical stored
+      # platform string (the logo family). Wraps Pito::Games::PlatformInput.normalize
+      # — the SAME normaliser the `platform` chat verb uses (no fork) — after peeling
+      # an optional leading set/unset subcommand and an optional `game(s)` noun filler.
+      # The set-vs-unset OP stays handler-routed (this resolver yields the VALUE, the
+      # bespoke parsing the TODO flagged). On a list target the leading row id is
+      # sliced off by ReplyBinding first, so the input is `<value>` either way.
+      #
+      # Required context: none. Input: the reply args (after any sliced row id).
+      register(:platform_value, lambda { |input, context:|
+        text = input.to_s.strip
+          .sub(/\A(?:set|unset)\b\s*/i, "") # peel optional subcommand
+          .sub(/\A(?:game|games)\b\s*/i, "") # peel optional noun filler
+        Pito::Games::PlatformInput.normalize(text).presence ||
+          Invalid.new(reason: "no platform value in: #{input.inspect}")
+      })
+
+      # ── link / unlink dual-ref (source + target) ────────────────────────────────
+      #
+      # `link 5 to 12` / `unlink 5 from 12` (list) and `link to 12` / `unlink 12`
+      # (detail, incl. game_linked_videos) carry a SOURCE and a TARGET. Both
+      # resolvers derive the source/target model classes from the source event's
+      # reply_target (video* → source Video, else source Game — exactly
+      # Pito::Chat::TargetResolution#video_target?), and split the typed refs on the
+      # connector words (`to`/`with`/`from`) internally, mirroring
+      # Pito::Chat::Handlers::MultiLinkHelpers#follow_up_multi (wrap, don't fork).
+
+      # Split a link/unlink reply into [left-of-connector, right-of-connector].
+      LINK_CONNECTOR = /\b(?:to|with|from)\b/i
+      # A leading game/vid noun filler to peel from a source or target slice.
+      LINK_NOUN = /\A(?:game|games|vid|vids|video|videos)\b\s*/i
+
+      # Source/target model classes for a link/unlink reply, from its reply_target.
+      def self.link_roles(payload)
+        source_class = payload[:reply_target].to_s.start_with?("video") ? ::Video : ::Game
+        target_class = source_class == ::Video ? ::Game : ::Video
+        [ source_class, target_class ]
+      end
+
+      # :link_source
+      # Resolves the SOURCE record of a link/unlink reply. Detail context (the
+      # source class's singular id is in the payload — incl. game_linked_videos,
+      # whose parent game_id marks the Game as source): the entity from the payload.
+      # List context: the id LEFT of the connector, scoped by the handler to a numeric.
+      #
+      # Required context: context[:source_event] (#payload → Hash with :reply_target
+      # and the source id_key). Input: the full reply args.
+      register(:link_source, lambda { |input, context:|
+        source_event = context[:source_event]
+        return Invalid.new(reason: "context[:source_event] required") unless source_event
+
+        payload      = source_event.payload.to_h.with_indifferent_access
+        source_class = link_roles(payload).first
+        detail_key   = source_class == ::Video ? :video_id : :game_id
+
+        if payload[detail_key].present?
+          source_class.find_by(id: payload[detail_key]) ||
+            Invalid.new(reason: "#{source_class} not found: #{payload[detail_key]}")
+        else
+          left = input.to_s.split(LINK_CONNECTOR, 2).first.to_s.strip.sub(LINK_NOUN, "")
+          id   = left.delete_prefix("#").strip
+          next Invalid.new(reason: "no source id in: #{input.inspect}") unless id.match?(/\A\d+\z/)
+
+          source_class.find_by(id:) || Invalid.new(reason: "#{source_class} not found: ##{id}")
+        end
+      })
+
+      # :link_targets
+      # Resolves the TARGET record(s) of a link/unlink reply — the comma/space id
+      # list AFTER the connector (or, with no connector on a detail reply, the rest
+      # minus a leading connector/noun). Returns an Array of records of the opposite
+      # class; Invalid when no id parses or none of the ids resolve (mirroring the
+      # handler's all-missing → not_found path).
+      #
+      # Required context: context[:source_event] (for the reply_target role split).
+      # Input: the reply args (the source id, if any, stays on the connector's left).
+      register(:link_targets, lambda { |input, context:|
+        source_event = context[:source_event]
+        return Invalid.new(reason: "context[:source_event] required") unless source_event
+
+        payload      = source_event.payload.to_h.with_indifferent_access
+        target_class = link_roles(payload).last
+
+        parts        = input.to_s.split(LINK_CONNECTOR, 2)
+        targets_text = parts.size >= 2 ? parts[1] : input.to_s.sub(/\A(?:to|with|from)\b\s*/i, "")
+        targets_text = targets_text.to_s.strip.sub(LINK_NOUN, "")
+
+        ids = targets_text.split(/[\s,]+/).map(&:strip)
+                          .select { |t| t.match?(/\A#?\d+\z/) }
+                          .map { |t| t.delete_prefix("#") }.uniq
+        next Invalid.new(reason: "no target ids in: #{input.inspect}") if ids.empty?
+
+        records = ids.filter_map { |id| target_class.find_by(id:) }
+        records.presence || Invalid.new(reason: "no #{target_class} targets found in: #{input.inspect}")
+      })
     end
   end
 end

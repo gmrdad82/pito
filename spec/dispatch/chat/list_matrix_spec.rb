@@ -951,6 +951,8 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       allow(rel).to receive(:includes).and_return(rel)
       allow(rel).to receive(:empty?).and_return(false)
       allow(rel).to receive(:to_a).and_return([])
+      allow(rel).to receive(:count).and_return(0)   # unsorted path: COUNT + LIMITed fetch
+      allow(rel).to receive(:limit).and_return(rel)
       rel
     end
 
@@ -963,6 +965,8 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       allow(rel).to receive(:order).and_return(rel)
       allow(rel).to receive(:empty?).and_return(false)
       allow(rel).to receive(:to_a).and_return([])
+      allow(rel).to receive(:count).and_return(0)   # unsorted path: COUNT + LIMITed fetch
+      allow(rel).to receive(:limit).and_return(rel)
       rel
     end
 

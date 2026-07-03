@@ -1178,4 +1178,68 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
   end
+
+  # ── Capped list totals (list_more renders count + total) ─────────────────────
+  #
+  # All three surfaces load the full result into memory before paginating, so
+  # the total is an O(1) array-size read — no extra DB queries.  These specs
+  # stub page_size to 2 so we can use tiny fixtures.
+
+  describe "capped list — count + total in list_footer" do
+    let(:pager_stub) { { page_size: 2, more_verb: "next" } }
+
+    before do
+      allow(Pito::Dispatch::Config).to receive(:pager)
+        .with(verb: :list)
+        .and_return(pager_stub)
+    end
+
+    describe "games: 3 games, page_size=2" do
+      let!(:g1) { create(:game, title: "Alpha") }
+      let!(:g2) { create(:game, title: "Beta") }
+      let!(:g3) { create(:game, title: "Gamma") }
+
+      it "list_footer contains count (2) and total (3)" do
+        payload = handler_for("list games").call.events.first[:payload]
+        footer  = payload["list_footer"].to_s
+        # Variant 0 of the new dictionary: "%{count} rows out of %{total}. `%{verb}` for more."
+        expect(footer).to include("2")
+        expect(footer).to include("3")
+      end
+
+      it "list_cursor is stamped on the payload" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["list_cursor"]).to be_a(Hash)
+        expect(payload["list_cursor"]["offset"]).to eq(2)
+      end
+    end
+
+    describe "videos: 3 videos, page_size=2" do
+      let!(:chan) { create(:channel, handle: "@vc") }
+      let!(:v1)   { create(:video, :public, title: "Vid A", channel: chan) }
+      let!(:v2)   { create(:video, :public, title: "Vid B", channel: chan) }
+      let!(:v3)   { create(:video, :public, title: "Vid C", channel: chan) }
+
+      it "list_footer contains count (2) and total (3)" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        footer  = payload["list_footer"].to_s
+        expect(footer).to include("2")
+        expect(footer).to include("3")
+      end
+    end
+
+    describe "channels: 3 connected channels, page_size=2" do
+      # The default :channel factory includes a youtube_connection.
+      let!(:c1) { create(:channel, handle: "@ch1") }
+      let!(:c2) { create(:channel, handle: "@ch2") }
+      let!(:c3) { create(:channel, handle: "@ch3") }
+
+      it "list_footer contains count (2) and total (3)" do
+        payload = handler_for("list channels").call.events.first[:payload]
+        footer  = payload["list_footer"].to_s
+        expect(footer).to include("2")
+        expect(footer).to include("3")
+      end
+    end
+  end
 end

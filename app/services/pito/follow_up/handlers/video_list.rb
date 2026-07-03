@@ -219,9 +219,12 @@ module Pito
               "columns"        => columns.map(&:to_s)
             }
             new_payload["list_cursor"] = new_cursor
+            total = all_videos.size
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
               count: rows.size,
+              total: total,
+              rest:  total - (offset + rows.size),
               verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
             )
             new_payload["list_footer"] = [ new_payload["list_footer"].presence, more_text ].compact.join(" ")

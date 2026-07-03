@@ -72,16 +72,12 @@ module Pito
           [ subcommand&.downcase, ref, raw_amount&.split(/\s+/)&.first ]
         end
 
-        # Parse the euro amount with BigDecimal (exact, not Float), rounded to 2
-        # decimals. Returns a non-negative BigDecimal (0 = free), or nil for
-        # non-numeric / negative input.
+        # Parse the euro amount via the shared Pito::Games::PriceAmount parser
+        # (exact BigDecimal rounded to 2 decimals; non-negative, 0 = free; nil for
+        # non-numeric / negative). One canonical parse across the verb, its reply,
+        # and the `:price_amount` resolver.
         def parse_amount(raw)
-          value = BigDecimal(raw.to_s).round(2)
-          return nil if value.negative?
-
-          value
-        rescue ArgumentError, TypeError
-          nil
+          Pito::Games::PriceAmount.parse(raw)
         end
 
         # Numeric ID only: strip optional leading `#`, require `\A\d+\z`.

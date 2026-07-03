@@ -40,7 +40,13 @@ class Game
           sync_genres(game, game_json["genres"])
           sync_developers(game, game_json["involved_companies"])
           sync_publishers(game, game_json["involved_companies"])
-          game.update!(igdb_synced_at: Time.current, last_sync_error: nil)
+          # BOOKKEEPING stamp, not a data change — update_columns skips the
+          # updated_at touch. The nightly refresh detects "this game changed"
+          # by comparing updated_at before/after the sync (E11): stamping
+          # through update! marked every synced game as updated every night
+          # ("checked 60, updated 60" with nothing actually changed).
+          game.assign_attributes(igdb_synced_at: Time.current, last_sync_error: nil)
+          game.save!(touch: false)
           sync_platform_releases(game, game_json)
         end
 
@@ -145,12 +151,17 @@ class Game
         earliest = game.platform_releases.reload.min_by { |r| r.release_date || Date.new(9999, 12, 31) }
         return if earliest.nil?
 
-        game.update!(
+        # assign + save! writes (and touches updated_at) ONLY when a component
+        # actually changed — an unconditional update! here re-stamped every game
+        # every night even when IGDB returned identical dates (E11 root cause,
+        # introduced with the per-platform releases in 5a9a9642).
+        game.assign_attributes(
           release_year:    earliest.release_year,
           release_quarter: earliest.release_quarter,
           release_month:   earliest.release_month,
           release_day:     earliest.release_day
         )
+        game.save! if game.changed?
       end
 
       def upsert_genre(row)

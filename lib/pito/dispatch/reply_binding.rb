@@ -68,11 +68,24 @@ module Pito
         "game_by_id"          => :args,
         "visit_destination"   => :args,
         "schedule_expression" => :args,
+        "footage_hours"       => :args,
+        "price_amount"        => :args,
+        "platform_value"      => :args,
+        "link_source"         => :args, # reads the full args; splits on the connector itself
+        "link_targets"        => :args, # reads the full args; splits on the connector itself
         "source_entity"       => :source,
         "column_list"         => :full_rest,
         "sort_clause"         => :full_rest,
         "metric_list"         => :full_rest
       }.freeze
+
+      # Ref resolvers that consume a SINGLE leading token (a list row id). When a
+      # target pairs one of these with `args:`, the reply text interleaves the row
+      # id with the arg value (`schedule 5 in 30m`, `price 5 9.99`) — so the ref
+      # sees just the leading token and the args see the tail. Detail refs
+      # (source_entity, or any non-leading ref) leave the args on the full rest.
+      # No-arg targets are never sliced (a multi-word title ref stays intact).
+      LEADING_TOKEN_REFS = %w[id_among_rows].freeze
 
       # Per reply_target: the AR model class name + the payload id-key that
       # identifies the entity the source card is about (for id_among_rows scope
@@ -112,11 +125,12 @@ module Pito
         target_cfg = target_config(verb, target)
         return Result.new(kwargs: {}, invalid: nil) if target_cfg.nil?
 
+        ref_rest, arg_rest = slice_rest(target_cfg, rest)
         kwargs = {}
 
         if (ref_cfg = target_cfg[:ref])
           outcome = resolve_slot(ref_cfg[:resolver], :ref,
-                                 verb:, target:, rest:, source_event:, conversation:)
+                                 verb:, target:, rest: ref_rest, source_event:, conversation:)
           return invalid_result(outcome) if outcome.is_a?(BoundInvalid)
 
           kwargs[:ref] = outcome
@@ -124,7 +138,7 @@ module Pito
 
         (target_cfg[:args] || {}).each do |name, spec|
           outcome = resolve_slot(spec[:resolver], name,
-                                 verb:, target:, rest:, source_event:, conversation:)
+                                 verb:, target:, rest: arg_rest, source_event:, conversation:)
           return invalid_result(outcome) if outcome.is_a?(BoundInvalid)
 
           kwargs[name.to_sym] = outcome
@@ -134,6 +148,19 @@ module Pito
       end
 
       # ── internals ──────────────────────────────────────────────────────────
+
+      # Split +rest+ into [ref_input, arg_input]. When the target pairs a
+      # LEADING_TOKEN_REFS ref with `args:`, the ref gets the first whitespace
+      # token and the args get the remainder (the interleaved `<id> <value>`
+      # reply). Every other target — detail refs, ref-only, args-only — leaves
+      # both slices as the whole +rest+.
+      def slice_rest(target_cfg, rest)
+        ref_resolver = target_cfg.dig(:ref, :resolver).to_s
+        return [ rest, rest ] unless target_cfg[:args]&.any? && LEADING_TOKEN_REFS.include?(ref_resolver)
+
+        head, tail = rest.to_s.strip.split(/\s+/, 2)
+        [ head.to_s, tail.to_s ]
+      end
 
       # The frozen `reply.targets.<target>` Hash for the verb (canonicalizing an
       # alias to its verb first), or nil when the verb / target / reply branch is

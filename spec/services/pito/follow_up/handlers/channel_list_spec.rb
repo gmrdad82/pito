@@ -76,6 +76,84 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("visit")
   end
 
+  # ── `next` pagination ────────────────────────────────────────────────────────
+  # Stub page_size to 2; the default :channel factory includes a youtube_connection
+  # so channels_relation (WHERE youtube_connection_id IS NOT NULL) picks them up.
+
+  describe "`next` pagination" do
+    let(:pager_stub) { { page_size: 2, more_verb: "next" } }
+    let!(:c2) { create(:channel, handle: "@beta") }
+    let!(:c3) { create(:channel, handle: "@gamma") }
+
+    before do
+      allow(Pito::Dispatch::Config).to receive(:pager)
+        .with(verb: :list)
+        .and_return(pager_stub)
+    end
+
+    # Cursor stamped after showing 2 of 3 channels (offset=2).
+    let(:cursor_event) do
+      instance_double(Event, payload: {
+        "reply_target" => "channel_list",
+        "list_cursor"  => {
+          "offset"         => 2,
+          "sort_token"     => nil,
+          "sort_direction" => nil
+        }
+      })
+    end
+
+    it "renders the final batch (1 channel) with no list_cursor" do
+      result = handler.call(event: cursor_event, rest: "next", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:payload]["list_cursor"]).to be_nil
+    end
+
+    context "mid-batch: 5 channels, page_size=2, offset=2" do
+      let!(:c4) { create(:channel, handle: "@delta") }
+      let!(:c5) { create(:channel, handle: "@epsilon") }
+
+      let(:mid_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "channel_list",
+          "list_cursor"  => {
+            "offset"         => 2,
+            "sort_token"     => nil,
+            "sort_direction" => nil
+          }
+        })
+      end
+
+      it "list_footer for mid-batch `next` contains count (2) and total (5)" do
+        result = handler.call(event: mid_cursor_event, rest: "next", conversation:)
+        footer = result.events.first[:payload]["list_footer"].to_s
+        expect(footer).to include("2")
+        expect(footer).to include("5")
+      end
+
+      it "rest = total − (offset + count) = 1 is reflected in footer" do
+        # Force variant 1 which uses %{rest}: "%{count} here, %{rest} more in the system. `%{verb}`."
+        Pito::Copy.sampler = ->(entries) { entries[1] }
+        result = handler.call(event: mid_cursor_event, rest: "next", conversation:)
+        footer = result.events.first[:payload]["list_footer"].to_s
+        expect(footer).to include("1 more in the system")
+      end
+    end
+
+    context "no cursor (completed list)" do
+      let(:no_cursor_event) do
+        instance_double(Event, payload: { "reply_target" => "channel_list" })
+      end
+
+      it "renders list_end copy" do
+        result = handler.call(event: no_cursor_event, rest: "next", conversation:)
+        text = result.events.first[:payload]["text"].to_s
+        expect(text).to be_present
+        expect(text).not_to match(/%\{/)
+      end
+    end
+  end
+
   describe "invalid action" do
     it "returns Result::Error for an unknown action" do
       result = handler.call(event: nil, rest: "open @alpha", conversation:)

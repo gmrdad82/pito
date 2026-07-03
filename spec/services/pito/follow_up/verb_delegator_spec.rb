@@ -53,7 +53,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       expect(captured.bound[:ref]).to eq(game)
     end
 
-    it "leaves FollowUpContext#bound empty for a NARROWED target (link declares no ref/args)" do
+    it "binds the dual-ref for link (T8.15 — source video ref + linked_ref targets)" do
       channel = create(:channel)
       video   = create(:video, channel:)
       video_list_event = instance_double(Event, payload: { "reply_target" => "video_list" })
@@ -65,7 +65,11 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
 
       described_class.call(source_event: video_list_event, rest: "link #{video.id} to #{game.id}", conversation:)
 
-      expect(captured.bound).to eq({})
+      # video_list link declares ref: link_source / args.linked_ref: link_targets
+      # (the D10 narrowed case) — the binding resolves the source video from the
+      # id LEFT of the connector and the target game(s) from the RIGHT.
+      expect(captured.bound[:ref]).to eq(video)
+      expect(captured.bound[:linked_ref]).to eq([ game ])
     end
 
     it "forwards channel / period / viewport_width into the Router (D6/D7/D8)" do

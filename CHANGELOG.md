@@ -8,6 +8,22 @@ All notable changes to PITO are documented here. The format follows
 
 ### Added
 
+- **Config-driven dispatch** — every verb (chat, slash, and hashtag-reply) is
+  now declared once in `config/pito/verbs.yml`: aliases, kwargs and their
+  resolution paths, segments, reply availability per message type, auth tiers,
+  page sizes, and dispatch targets. A generic Router executes from the config
+  through one uniform handler contract; the hand-written grammar tables,
+  per-handler reply matrices, and if/else dispatchers are gone. A
+  schema-integrity suite validates every key and reference (unknown keys are
+  rejected with did-you-mean hints), a help-sync guard fails CI when help copy
+  drifts from the config, and an add-a-verb proof demonstrates that a new verb
+  defined purely in YAML parses, autosuggests, documents itself, and dispatches
+  with zero engine changes.
+- **Capped lists state their totals** — "50 rows out of 233"-style lines (a
+  50-variant dictionary) on every capped ls page and `next` batch.
+- **The `#` palette lists every live reply handle** (scrollback order,
+  uncapped — consumption keeps the set small).
+
 - **Segment selection on `show` and `analyze`** — multi-message verbs now take
   `full` (everything), `with <segments>` (add to the default), and
   `only <segments>` (exactly the named). Bare `show` renders just the detail
@@ -37,6 +53,12 @@ All notable changes to PITO are documented here. The format follows
 
 ### Fixed
 
+- **Nightly IGDB sync no longer reports every game as updated** — the sync
+  re-stamped each game's `updated_at` unconditionally (a bookkeeping timestamp
+  and an as-is release-date rewrite), so the "checked 60, updated 60"
+  notification fired with nothing actually changed. Bookkeeping now writes
+  touch-free and release dates only persist when they differ; the notification
+  counts genuine changes again.
 - **Charts fit the 450px column again** — every braille plot (analyze charts,
   the game channels distribution, at-a-glance sparklines) shrinks from 45 to
   42 cells. Braille glyphs render from a scoped fallback face whose advance
