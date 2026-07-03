@@ -42,9 +42,11 @@ module Pito
         #   unauthenticated (authenticated: false) → keep ONLY :unauthenticated_only specs
         #   authenticated   (authenticated: true)  → keep all EXCEPT :unauthenticated_only specs
         def slash_entries(authenticated:)
+          # plan-0.9.5 D5: slash commands list alphabetically
           Pito::Grammar::Registry.specs(namespace: :slash)
-                  .select { |spec| include_slash_spec?(spec, authenticated:) }
-                  .map    { |spec| spec_to_slash_entry(spec) }
+                  .select  { |spec| include_slash_spec?(spec, authenticated:) }
+                  .sort_by { |spec| spec.name.to_s }
+                  .map     { |spec| spec_to_slash_entry(spec) }
         end
 
         def include_slash_spec?(spec, authenticated:)

@@ -9,24 +9,24 @@ module Pito
     # Subclasses MUST:
     #   - Call `self.target "some_id"` to declare the handler id (the string
     #     stored in event.payload["reply_target"]).
-    #   - Call `self.mode :mutate` or `self.mode :append` to declare the
-    #     processing mode (see below).
     #   - Override `#call(event:, rest:, conversation:)` and return a
     #     Pito::FollowUp::Result value.
     #
-    # == Modes
+    # == Mode and availability
+    #
+    # Reply mode (:mutate or :append) and the set of accepted action tokens are
+    # declared in config/pito/verbs.yml and read at runtime via
+    # Pito::Dispatch::Matrix.  Handlers do NOT declare mode or actions in Ruby —
+    # verbs.yml is the sole source of truth.
     #
     # `:mutate`  — the handler transforms the source event in place.
     #              The controller creates NO echo and NO turn before enqueuing.
     #              FollowUpDispatchJob calls event.update! + replace_event.
-    #              Example: theme preview/apply transforming the list message.
     #
     # `:append`  — the handler appends new events to the conversation.
-    #              The controller creates an echo + turn BEFORE enqueuing
-    #              (the job needs the turn to associate the new events).
+    #              The controller creates an echo + turn BEFORE enqueuing.
     #              FollowUpDispatchJob persists result.events, broadcasts them,
     #              then consumes the source (reply_consumed: true) + replace_event.
-    #              Example: confirmations producing a follow-up outcome message.
     #
     # == Rest-parser helper
     #
@@ -43,7 +43,6 @@ module Pito
     #
     #   class Pito::FollowUp::Handlers::MyHandler < Pito::FollowUp::Handler
     #     self.target "my_handler"
-    #     self.mode   :mutate
     #
     #     def call(event:, rest:, conversation:)
     #       action, _args = parse_rest(rest)
@@ -65,19 +64,7 @@ module Pito
       # Class-level DSL ─────────────────────────────────────────────────────────
 
       class << self
-        attr_reader :target_id, :handler_mode
-
-        # Declare (or read) the action words this follow-up accepts, in the
-        # order they should be suggested when the user types `#<handle> `.
-        # Used by the suggestions engine to offer target-aware completions
-        # (e.g. game_list → show/delete) instead of generic hashtag verbs.
-        def actions(*list)
-          if list.any?
-            @handler_actions = list.flatten.map(&:to_s)
-          else
-            @handler_actions || []
-          end
-        end
+        attr_reader :target_id
 
         # Declare the handler's id (stored in reply_target).
         def target(id = nil)
@@ -86,46 +73,6 @@ module Pito
           else
             @target_id
           end
-        end
-
-        # Declare the processing mode — :mutate or :append.
-        def mode(m = nil)
-          if m
-            unless %i[mutate append].include?(m.to_sym)
-              raise ArgumentError, "mode must be :mutate or :append, got: #{m.inspect}"
-            end
-            @handler_mode = m.to_sym
-          else
-            @handler_mode
-          end
-        end
-
-        # Declare per-action overrides for the processing mode.
-        # Takes a Hash of action_name (String/Symbol) → mode (Symbol).
-        # Actions not listed here fall back to the class-level `self.mode`.
-        #
-        #   self.action_modes(add: :mutate, remove: :mutate)
-        #
-        # @param map [Hash{Symbol, String => Symbol}] action → mode overrides.
-        def action_modes(map = nil)
-          if map
-            map.each_value do |m|
-              unless %i[mutate append].include?(m.to_sym)
-                raise ArgumentError, "action_modes: mode must be :mutate or :append, got: #{m.inspect}"
-              end
-            end
-            @action_modes = map.transform_keys(&:to_s).transform_values(&:to_sym)
-          else
-            @action_modes || {}
-          end
-        end
-
-        # Returns the effective mode for a given action (String or nil).
-        # Falls back to the handler's default mode when the action has no override.
-        def mode_for_action(action)
-          return handler_mode if action.nil?
-
-          action_modes[action.to_s] || handler_mode
         end
 
         # Mark this handler as internal — it is never user-facing.

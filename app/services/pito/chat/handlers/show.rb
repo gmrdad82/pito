@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-# Handler for the `show game <id>` / `show video <id>` chat verb.
+# Handler for `show channel @handle` / `show game <id>` / `show video <id>`.
 #
-# Resolves a single game or video by **ID only** (`#123` or `123`) —
+# Resolves a single entity by ID only (`#123` or `123`) —
 # title (ILIKE) lookup is intentionally disabled (id_only_resolution!).
-# Emits the appropriate detail message (follow-up-able).
 # Unknown reference → witty not-found via `Pito::Copy`. No reference → a usage
 # hint (the no-arg picker fast-path is wired in `ChatController`).
 #
@@ -21,6 +20,19 @@
 #
 # Resolution is delegated to Pito::Chat::OrdinalResolver. Not-found (no entity
 # matches the ordinal + filters + channel scope) → existing show not-found path.
+#
+# == Segment-driven emission (plan-0.9.5 D3)
+#
+# After resolving the entity the handler parses a SegmentSelection from the raw
+# input (SegmentSelection.parse), then walks the Segments table in declaration
+# order, emitting only the segments whose names appear in +selection.names+,
+# each still guarded by its +emit_if+ lambda (skipped silently when false).
+#
+# Bare form → only +detail+ (the single default: true segment for all entities).
+# +full+     → all segments (guards still apply).
+# +with+/+only+ → per the Selection.
+#
+# Conflict (multiple introducers) or unknown token(s) → error Result.
 module Pito
   module Chat
     module Handlers
@@ -43,6 +55,30 @@ module Pito
 
         # Ordinal keywords that trigger first/last resolution instead of ID lookup.
         ORDINAL_WORDS = %w[first last].freeze
+
+        # Maps entity_kind → segment name → private emitter method symbol.
+        # The table-driven loop in #emit_segments_for calls send(method_sym, entity).
+        # No builder arguments live here — each private method below is the sole
+        # source of truth for invocation, kind, and follow-up wiring.
+        SEGMENT_EMITTERS = {
+          channel: {
+            "detail"      => :emit_channel_detail,
+            "videos"      => :emit_channel_videos,
+            "at-a-glance" => :emit_channel_at_a_glance
+          }.freeze,
+          vid: {
+            "detail"      => :emit_vid_detail,
+            "linked-game" => :emit_vid_linked_game,
+            "at-a-glance" => :emit_vid_at_a_glance
+          }.freeze,
+          game: {
+            "detail"        => :emit_game_detail,
+            "similar"       => :emit_game_similar,
+            "linked-videos" => :emit_game_linked_videos,
+            "channels"      => :emit_game_channels,
+            "at-a-glance"   => :emit_game_at_a_glance
+          }.freeze
+        }.freeze
 
         def call
           if channel_noun?
@@ -79,17 +115,11 @@ module Pito
           return channel_needs_ref if channel == :needs_ref
           return channel_not_found(channel_ref.presence || scoped_channel_handle) if channel.nil?
 
-          # :system detail card, then — when the channel has videos — the repliable
-          # :enhanced vids list (video_list follow-up target), then LAST the channel
-          # analytics glance (pending state, filled async by AnalyticsFillJob over
-          # the shift+space period; channel-level metrics need no linked videos).
-          events = [
-            { kind: :system, payload: Pito::MessageBuilder::Channel::Detail.call(channel, conversation:) }
-          ]
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Channel::Videos.call(channel, conversation:) } if channel.videos.any?
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(channel, period: analytics_period, conversation:) }
+          selection = parse_selection(:channel)
+          return segment_conflict_error if selection.conflict
+          return segment_unknown_error(selection.unknown, :channel) if selection.unknown.any?
 
-          Pito::Chat::Result::Ok.new(events: events)
+          emit_segments_for(channel, :channel, selection)
         end
 
         # Resolve the channel by @handle (case-insensitive, @-agnostic). A bare
@@ -121,15 +151,42 @@ module Pito
           ])
         end
 
-        # The @handle token after stripping the verb + channel noun.
+        # The @handle token after stripping the verb + channel noun (and any
+        # trailing segment-selection clause — see resolution_raw).
         def channel_ref
-          extract_ref_from(message.raw, CHANNEL_NOUN_FILLERS)
+          extract_ref_from(resolution_raw, CHANNEL_NOUN_FILLERS)
+        end
+
+        # plan-0.9.5 D3: show's grammar appends selection clauses AFTER the
+        # reference (`show game 5 full`, `show vid #3 only at-a-glance`). Strip
+        # them before reference extraction so `find_by_ref` sees only the ref —
+        # in free chat AND in `#<handle> show 5 full` list replies.
+        def resolution_raw
+          Pito::Chat::SegmentSelection.strip(super)
+        end
+
+        def resolution_rest
+          Pito::Chat::SegmentSelection.strip(super)
         end
 
         def channel_not_found(ref)
           Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.not_found", handle: ref) }
           ])
+        end
+
+        # ── Per-segment emitters: channel ──────────────────────────────────────
+
+        def emit_channel_detail(channel)
+          { kind: :system, payload: Pito::MessageBuilder::Channel::Detail.call(channel, conversation:) }
+        end
+
+        def emit_channel_videos(channel)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Channel::Videos.call(channel, conversation:) }
+        end
+
+        def emit_channel_at_a_glance(channel)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(channel, period: analytics_period, conversation:) }
         end
 
         # ── Video branch ───────────────────────────────────────────────────────
@@ -151,21 +208,11 @@ module Pito
             return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
           end
 
-          # Standard detail card (follow-up-able), then — when the video has a
-          # linked game — the repliable slim linked-game card (game_detail
-          # follow-up target), then the analytics :enhanced message: emitted in
-          # its PENDING state (instant intro), filled async by AnalyticsFillJob.
-          # The linked-game card is omitted entirely when the video has none.
-          # Identical events whether typed in free chat or via a `#<handle>` reply.
-          events = [
-            { kind: :system, payload: Pito::MessageBuilder::Video::Detail.call(video, conversation:) }
-          ]
-          if video.linked_games.first
-            events << { kind: :enhanced, payload: Pito::MessageBuilder::Video::LinkedGame.call(video, conversation:) }
-          end
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: analytics_period, conversation:) }
+          selection = parse_selection(:vid)
+          return segment_conflict_error if selection.conflict
+          return segment_unknown_error(selection.unknown, :vid) if selection.unknown.any?
 
-          Pito::Chat::Result::Ok.new(events: events)
+          emit_segments_for(video, :vid, selection)
         end
 
         # consume: false — on a `#<handle>` reply a not-found must NOT consume the
@@ -174,6 +221,20 @@ module Pito
           Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
           ])
+        end
+
+        # ── Per-segment emitters: vid ──────────────────────────────────────────
+
+        def emit_vid_detail(video)
+          { kind: :system, payload: Pito::MessageBuilder::Video::Detail.call(video, conversation:) }
+        end
+
+        def emit_vid_linked_game(video)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Video::LinkedGame.call(video, conversation:) }
+        end
+
+        def emit_vid_at_a_glance(video)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: analytics_period, conversation:) }
         end
 
         # ── Game branch ────────────────────────────────────────────────────────
@@ -195,28 +256,11 @@ module Pito
             return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
           end
 
-          # Order: the Standard detail message (follow-up-able), then the
-          # SimilarGames card (always), then — when the game has linked videos —
-          # the repliable linked-videos list table (video_list follow-up target),
-          # then the Channels card (always), then LAST the analytics :enhanced
-          # message (pending state, filled async — aggregated across the linked
-          # videos). Analytics goes last because it resolves slowest (the thinking
-          # spinner stays up until the background fill job completes), so the
-          # recommendations land first. Linked-videos is omitted when the game has
-          # none; the analytics glance always shows (no-data cells when there are no
-          # linked videos). Identical whether typed or via a `#<handle>` reply.
-          events = [
-            { kind: :system, payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) }
-          ]
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::SimilarGames.call(game, conversation:) }
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) } if game.linked_videos.any?
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Channels.pending(game, conversation:) }
-          # The at-a-glance is ALWAYS present on a game (item 5: channel/vid/game) —
-          # a game with no linked videos still shows the glance (its metrics resolve
-          # to the no-data cells), matching the channel + video branches.
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period, conversation:) }
+          selection = parse_selection(:game)
+          return segment_conflict_error if selection.conflict
+          return segment_unknown_error(selection.unknown, :game) if selection.unknown.any?
 
-          Pito::Chat::Result::Ok.new(events: events)
+          emit_segments_for(game, :game, selection)
         end
 
         # consume: false — see video_not_found: a not-found reply stays repliable.
@@ -224,6 +268,28 @@ module Pito
           Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
+        end
+
+        # ── Per-segment emitters: game ─────────────────────────────────────────
+
+        def emit_game_detail(game)
+          { kind: :system, payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) }
+        end
+
+        def emit_game_similar(game)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Game::SimilarGames.call(game, conversation:) }
+        end
+
+        def emit_game_linked_videos(game)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) }
+        end
+
+        def emit_game_channels(game)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Game::Channels.pending(game, conversation:) }
+        end
+
+        def emit_game_at_a_glance(game)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period, conversation:) }
         end
 
         # ── Shared helpers ─────────────────────────────────────────────────────
@@ -242,6 +308,52 @@ module Pito
         # finalizer routes it to `text:` while keeping the :error chrome.
         def unknown_entity
           Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
+        end
+
+        # ── Segment-selection helpers ──────────────────────────────────────────
+
+        # Parses the trailing selection clause from the raw input for the given entity.
+        # @param entity_kind [Symbol] :channel, :vid, or :game
+        # @return [Pito::Chat::SegmentSelection::Selection]
+        def parse_selection(entity_kind)
+          Pito::Chat::SegmentSelection.parse(message.raw, verb: :show, entity: entity_kind)
+        end
+
+        # Walks the segment table in declaration order, emitting only the segments
+        # whose names appear in +selection.names+, each guarded by its +emit_if+
+        # (skipped silently when the guard returns false).
+        #
+        # @param entity      [Object]  the resolved entity record
+        # @param entity_kind [Symbol]  :channel, :vid, or :game
+        # @param selection   [Pito::Chat::SegmentSelection::Selection]
+        # @return [Pito::Chat::Result::Ok]
+        def emit_segments_for(entity, entity_kind, selection)
+          events = []
+          Pito::Chat::Segments.for(verb: :show, entity: entity_kind).each do |seg|
+            next unless selection.names.include?(seg.name)
+            next if seg.emit_if && !seg.emit_if.call(entity)
+
+            events << send(SEGMENT_EMITTERS.fetch(entity_kind).fetch(seg.name), entity)
+          end
+          Pito::Chat::Result::Ok.new(events:)
+        end
+
+        def segment_conflict_error
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render("pito.copy.segments.conflict"),
+            message_args: {}
+          )
+        end
+
+        def segment_unknown_error(unknowns, entity_kind)
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render(
+              "pito.copy.segments.unknown",
+              tokens: unknowns.join(", "),
+              names:  Pito::Chat::Segments.names(verb: :show, entity: entity_kind).join(", ")
+            ),
+            message_args: {}
+          )
         end
 
         # ── Ordinal helpers ────────────────────────────────────────────────────

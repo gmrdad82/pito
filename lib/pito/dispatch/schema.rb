@@ -1,0 +1,504 @@
+# frozen_string_literal: true
+
+module Pito
+  module Dispatch
+    # Schema — the structural + vocabulary contract for config/pito/verbs.yml.
+    #
+    # `Pito::Dispatch::Config` LOADS + freezes the file; `Schema` says whether the
+    # loaded document is *well-formed*. It is the single source of truth for "what
+    # shape may a verb entry take", so a future verb author who mistypes a key or
+    # invents an option gets a precise, path-named error instead of a silent
+    # mis-parse. The schema-integrity suite (spec/dispatch/schema_integrity_spec.rb)
+    # runs `validate` over the real, frozen `Config.data`, then resolves every
+    # reference this pure-structural pass cannot see (constants, copy keys,
+    # registries, segment parity).
+    #
+    # Design:
+    #   * UNKNOWN KEYS ARE REJECTED — every level carries an explicit allow-list; an
+    #     unexpected key is an error naming the exact dotted path, with a
+    #     did-you-mean suggestion on near-misses (Levenshtein ≤ 2). Example:
+    #       verbs.show.reply.targets.game_list.mod: unknown key (did you mean mode?)
+    #   * VALUES ARE TYPED / ENUMERATED — modes, kinds, auth tiers, slot kinds,
+    #     entities, and the predicate / resolver / client-action names are closed
+    #     sets. The document is READ, never mutated (works on frozen hashes).
+    #
+    # `validate(doc) -> Array<Error>` returns [] for a valid document; each Error
+    # carries `path` + `message` and renders as "path: message". `alias_collisions`
+    # is a separate cross-cutting pass: within one dispatch namespace (chat / slash
+    # / reply) no token may map to two verbs.
+    module Schema
+      # ── Allowed keys, per level (unknown key ⇒ rejected) ──────────────────────
+      TOP_KEYS             = %i[schema_version universal_reply vocabularies verbs].freeze
+      VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
+      UNIVERSAL_KEYS       = %i[mode aliases].freeze
+      VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns].freeze
+      AVAILABILITY_KEYS    = %i[chat slash].freeze
+      CHAT_KEYS            = %i[slots].freeze
+      SLASH_KEYS           = %i[auth description slots dispatch].freeze
+      REPLY_KEYS           = %i[targets].freeze
+      SLOT_KEYS            = %i[name kind source optional repeatable introducer when].freeze
+      TARGET_KEYS          = %i[mode ref args concern aliases].freeze
+      REF_KEYS             = %i[resolver].freeze
+      ARG_KEYS             = %i[resolver].freeze
+      SEGMENT_KEYS         = %i[builder kind default fill reply_target emit_if].freeze
+      SEGMENT_REQUIRED     = %i[builder kind reply_target].freeze
+      CONCERNS_KEYS        = %i[pager].freeze
+      PAGER_KEYS           = %i[page_size more_verb].freeze
+      # A `dispatch:` Hash routes a verb either client-side (`{ client: … }`) or
+      # through the chat_controller slash path (`{ controller: … }`, no handler class).
+      DISPATCH_HASH_KEYS   = %i[client controller].freeze
+
+      # ── Closed value sets (enums) ─────────────────────────────────────────────
+      REPLY_MODES   = %w[append mutate].freeze
+      SEGMENT_KINDS = %w[system enhanced].freeze
+      # enum/literal/kv resolve against a `source:` vocabulary; free slurps free text.
+      # (literal = exact-match sentinel — also gates `when:` conditional slots; kv =
+      # key=value pairs. Both are the /config provider→keys grammar shape, T8.9.)
+      SLOT_KINDS    = %w[enum free literal kv].freeze
+      VERB_AUTH     = %w[session public].freeze
+      BRANCH_AUTH   = %w[any unauthenticated_only authenticated_only].freeze
+      ENTITIES      = %w[channel vid game].freeze
+      CONCERN_NAMES = %w[pager].freeze
+
+      # ── Allow-lists for constructs whose live registries do not exist yet ──────
+      # These closed sets stand in for registries that later 0.9.5 tasks introduce.
+      # Re-point each at its registry (and delete the constant) once it lands.
+      #
+      # TODO(0.9.5 P2/P3): re-point PREDICATES at the segment-predicate registry
+      # (§8.2 named `emit_if:` guards) once it is defined.
+      PREDICATES = %w[has_any_videos has_linked_game has_linked_videos].freeze
+      # Derived from the live Pito::Dispatch::Resolvers registry (§5 resolver
+      # registry, plan-0.9.5). The registry is the single source of truth — this
+      # constant is a string projection of Resolvers.names for the schema validator.
+      RESOLVERS = Pito::Dispatch::Resolvers.names.map(&:to_s).freeze
+      # Client-side dispatch kinds (`dispatch: { client: … }`) handled in the browser.
+      CLIENT_ACTIONS = %w[theme].freeze
+      # Controller-routed dispatch kinds (`dispatch: { controller: … }`): commands
+      # with NO handler class, executed by the chat_controller slash routing path
+      # (login/logout/connect/new/resume). Declarative today — the Router consumes
+      # this in T8.10; nothing reads it at runtime yet.
+      CONTROLLER_ACTIONS = %w[login logout connect new resume].freeze
+
+      # A single schema violation: a dotted `path` into the document + a `message`.
+      Error = Struct.new(:path, :message) do
+        def to_s
+          "#{path}: #{message}"
+        end
+      end
+
+      module_function
+
+      # Structural validation of a loaded verbs.yml document (symbol-keyed, as
+      # Config.data produces). Returns a path-sorted Array<Error>; [] when valid.
+      def validate(doc)
+        Validator.new(doc).run.errors.sort_by(&:path)
+      end
+
+      # Cross-namespace alias uniqueness. Within one dispatch namespace (chat /
+      # slash / reply) a token (canonical name OR alias) must map to exactly one
+      # verb. universal_reply verbs live in the :reply namespace. Returns
+      # Array<Error>; [] when there are no collisions.
+      def alias_collisions(doc)
+        index = { chat: {}, slash: {}, reply: {} }
+
+        (doc[:universal_reply] || {}).each do |vname, vbody|
+          record_tokens(index[:reply], vname, vbody[:aliases])
+        end
+
+        (doc[:verbs] || {}).each do |vname, vbody|
+          %i[chat slash reply].each do |ns|
+            record_tokens(index[ns], vname, vbody[:aliases]) if vbody.is_a?(Hash) && vbody.key?(ns)
+          end
+        end
+
+        index.flat_map do |ns, tokens|
+          tokens.filter_map do |token, verbs|
+            next if verbs.uniq.size <= 1
+
+            Error.new("#{ns}:#{token}", "token maps to multiple verbs #{verbs.uniq.sort.inspect}")
+          end
+        end
+      end
+
+      # Closest allowed key to +key+ (Levenshtein ≤ 2), or nil. Ties broken
+      # alphabetically for determinism. Exposed for the schema unit spec.
+      def suggest(key, allowed)
+        candidate = allowed
+          .map { |a| [ Pito::Fuzzy.levenshtein(key.to_s, a.to_s), a.to_s ] }
+          .min_by { |distance, name| [ distance, name ] }
+        return nil unless candidate
+
+        distance, name = candidate
+        distance.positive? && distance <= 2 ? name : nil
+      end
+
+      def record_tokens(index, vname, aliases)
+        ([ vname ] + Array(aliases)).each do |token|
+          (index[token.to_s.downcase] ||= []) << vname.to_s
+        end
+      end
+
+      # ── The recursive structural walker ────────────────────────────────────────
+      #
+      # Accumulates Errors as it descends; every method threads a dotted `path`
+      # string so each violation points at the exact location in the document.
+      class Validator
+        attr_reader :errors
+
+        def initialize(doc)
+          @doc    = doc
+          @errors = []
+        end
+
+        def run
+          return self unless expect_hash(@doc, "(root)")
+
+          check_keys(@doc, Schema::TOP_KEYS, "", required: %i[schema_version verbs])
+          validate_schema_version(@doc[:schema_version])
+          validate_universal_reply(@doc[:universal_reply]) if @doc.key?(:universal_reply)
+          validate_vocabularies(@doc[:vocabularies]) if @doc.key?(:vocabularies)
+          validate_verbs(@doc[:verbs]) if @doc.key?(:verbs)
+          self
+        end
+
+        private
+
+        # ── top-level sections ──────────────────────────────────────────────────
+
+        def validate_schema_version(version)
+          err("schema_version", "expected an Integer, got #{version.class}") unless version.is_a?(Integer)
+        end
+
+        def validate_universal_reply(section)
+          return unless expect_hash(section, "universal_reply")
+
+          section.each do |vname, vbody|
+            path = join("universal_reply", vname)
+            next unless expect_hash(vbody, path)
+
+            check_keys(vbody, Schema::UNIVERSAL_KEYS, path, required: %i[mode])
+            validate_enum(vbody[:mode], Schema::REPLY_MODES, join(path, "mode"), "mode") if vbody.key?(:mode)
+            validate_aliases(vbody[:aliases], path) if vbody.key?(:aliases)
+          end
+        end
+
+        def validate_vocabularies(section)
+          return unless expect_hash(section, "vocabularies")
+
+          section.each do |name, body|
+            path = join("vocabularies", name)
+            next unless expect_hash(body, path)
+
+            check_keys(body, Schema::VOCAB_KEYS, path)
+          end
+        end
+
+        def validate_verbs(section)
+          return unless expect_hash(section, "verbs")
+
+          section.each { |name, body| validate_verb(name, body) }
+        end
+
+        # ── one verb ────────────────────────────────────────────────────────────
+
+        def validate_verb(name, body)
+          path = join("verbs", name)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::VERB_KEYS, path)
+          if (body.keys & %i[chat slash reply]).empty?
+            err(path, "verb declares no branch (expected one of chat/slash/reply)")
+          end
+
+          validate_aliases(body[:aliases], path) if body.key?(:aliases)
+          validate_string(body[:description], join(path, "description")) if body.key?(:description)
+          validate_availability(body[:availability], join(path, "availability")) if body.key?(:availability)
+          validate_enum(body[:auth], Schema::VERB_AUTH, join(path, "auth"), "auth") if body.key?(:auth)
+          validate_boolean(body[:internal], join(path, "internal")) if body.key?(:internal)
+          validate_chat(body[:chat], join(path, "chat")) if body.key?(:chat)
+          validate_slash(body[:slash], join(path, "slash")) if body.key?(:slash)
+          validate_reply(body[:reply], join(path, "reply")) if body.key?(:reply)
+          validate_segments(body[:segments], join(path, "segments")) if body.key?(:segments)
+          validate_concerns(body[:concerns], join(path, "concerns")) if body.key?(:concerns)
+        end
+
+        def validate_availability(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::AVAILABILITY_KEYS, path)
+          Schema::AVAILABILITY_KEYS.each do |key|
+            validate_boolean(body[key], join(path, key)) if body.key?(key)
+          end
+        end
+
+        # ── branches ──────────────────────────────────────────────────────────────
+
+        def validate_chat(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::CHAT_KEYS, path)
+          validate_slots(body[:slots], join(path, "slots")) if body.key?(:slots)
+        end
+
+        def validate_slash(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::SLASH_KEYS, path)
+          validate_enum(body[:auth], Schema::BRANCH_AUTH, join(path, "auth"), "auth") if body.key?(:auth)
+          validate_string(body[:description], join(path, "description")) if body.key?(:description)
+          validate_slots(body[:slots], join(path, "slots")) if body.key?(:slots)
+          validate_dispatch(body[:dispatch], join(path, "dispatch")) if body.key?(:dispatch)
+        end
+
+        def validate_reply(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::REPLY_KEYS, path)
+          validate_targets(body[:targets], join(path, "targets")) if body.key?(:targets)
+        end
+
+        # ── slots ─────────────────────────────────────────────────────────────────
+
+        def validate_slots(slots, path)
+          return err(path, "expected an Array, got #{slots.class}") unless slots.is_a?(Array)
+
+          slots.each_with_index { |slot, i| validate_slot(slot, "#{path}[#{i}]") }
+        end
+
+        def validate_slot(slot, path)
+          return unless expect_hash(slot, path)
+
+          check_keys(slot, Schema::SLOT_KEYS, path, required: %i[name kind])
+          validate_string(slot[:name], join(path, "name")) if slot.key?(:name)
+          validate_slot_kind(slot, path) if slot.key?(:kind)
+          validate_string(slot[:source], join(path, "source")) if slot.key?(:source)
+          validate_boolean(slot[:optional], join(path, "optional")) if slot.key?(:optional)
+          validate_boolean(slot[:repeatable], join(path, "repeatable")) if slot.key?(:repeatable)
+          validate_string(slot[:introducer], join(path, "introducer")) if slot.key?(:introducer)
+          validate_when(slot[:when], join(path, "when")) if slot.key?(:when)
+        end
+
+        def validate_slot_kind(slot, path)
+          validate_enum(slot[:kind], Schema::SLOT_KINDS, join(path, "kind"), "slot kind")
+          case slot[:kind]
+          when "enum", "literal", "kv"
+            err(join(path, "source"), "missing required key (#{slot[:kind]} slots need a source vocabulary)") unless slot.key?(:source)
+          when "free"
+            err(join(path, "source"), "free slots must not declare a source") if slot.key?(:source)
+          end
+        end
+
+        # A `when:` conditional gates a slot on an already-resolved prior slot's
+        # value — a Hash of { prior_slot_name => [allowed scalar values] } (the
+        # /config provider→keys pattern). Shape-only: it does not cross-check that
+        # the named prior slot exists (that is a runtime/grammar concern).
+        def validate_when(clause, path)
+          return unless expect_hash(clause, path)
+
+          clause.each do |slot_name, allowed|
+            cond_path = join(path, slot_name)
+            unless allowed.is_a?(Array)
+              err(cond_path, "expected an Array of allowed values, got #{allowed.class}")
+              next
+            end
+            allowed.each_with_index do |value, i|
+              err("#{cond_path}[#{i}]", "condition value must be a scalar, got #{value.class}") unless scalar?(value)
+            end
+          end
+        end
+
+        # ── reply targets ───────────────────────────────────────────────────────
+
+        def validate_targets(targets, path)
+          return unless expect_hash(targets, path)
+
+          targets.each { |name, body| validate_target(name, body, join(path, name)) }
+        end
+
+        def validate_target(_name, body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::TARGET_KEYS, path, required: %i[mode])
+          validate_enum(body[:mode], Schema::REPLY_MODES, join(path, "mode"), "mode") if body.key?(:mode)
+          validate_ref(body[:ref], join(path, "ref")) if body.key?(:ref)
+          validate_args(body[:args], join(path, "args")) if body.key?(:args)
+          validate_enum(body[:concern], Schema::CONCERN_NAMES, join(path, "concern"), "concern") if body.key?(:concern)
+          validate_aliases(body[:aliases], path) if body.key?(:aliases)
+        end
+
+        def validate_ref(ref, path)
+          return unless expect_hash(ref, path)
+
+          check_keys(ref, Schema::REF_KEYS, path, required: %i[resolver])
+          validate_resolver(ref[:resolver], join(path, "resolver")) if ref.key?(:resolver)
+        end
+
+        def validate_args(args, path)
+          return unless expect_hash(args, path)
+
+          args.each do |name, spec|
+            arg_path = join(path, name)
+            next unless expect_hash(spec, arg_path)
+
+            check_keys(spec, Schema::ARG_KEYS, arg_path, required: %i[resolver])
+            validate_resolver(spec[:resolver], join(arg_path, "resolver")) if spec.key?(:resolver)
+          end
+        end
+
+        # ── segments ────────────────────────────────────────────────────────────
+
+        def validate_segments(segments, path)
+          return unless expect_hash(segments, path)
+
+          segments.each do |entity, segs|
+            entity_path = join(path, entity)
+            validate_membership(entity, Schema::ENTITIES, entity_path, "entity")
+            next unless expect_hash(segs, entity_path)
+
+            segs.each { |name, body| validate_segment(body, join(entity_path, name)) }
+          end
+        end
+
+        def validate_segment(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::SEGMENT_KEYS, path, required: Schema::SEGMENT_REQUIRED)
+          validate_string(body[:builder], join(path, "builder")) if body.key?(:builder)
+          validate_enum(body[:kind], Schema::SEGMENT_KINDS, join(path, "kind"), "segment kind") if body.key?(:kind)
+          validate_boolean(body[:default], join(path, "default")) if body.key?(:default)
+          validate_string(body[:reply_target], join(path, "reply_target")) if body.key?(:reply_target)
+          validate_string(body[:fill], join(path, "fill")) if present?(body, :fill)
+          validate_predicate(body[:emit_if], join(path, "emit_if")) if present?(body, :emit_if)
+        end
+
+        # ── concerns ────────────────────────────────────────────────────────────
+
+        def validate_concerns(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::CONCERNS_KEYS, path)
+          validate_pager(body[:pager], join(path, "pager")) if body.key?(:pager)
+        end
+
+        def validate_pager(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::PAGER_KEYS, path)
+          validate_integer(body[:page_size], join(path, "page_size")) if body.key?(:page_size)
+          validate_string(body[:more_verb], join(path, "more_verb")) if body.key?(:more_verb)
+        end
+
+        # ── leaf validators ───────────────────────────────────────────────────────
+
+        def validate_dispatch(dispatch, path)
+          case dispatch
+          when String
+            err(path, "dispatch class must not be blank") if dispatch.strip.empty?
+          when Hash
+            check_keys(dispatch, Schema::DISPATCH_HASH_KEYS, path)
+            unless dispatch.key?(:client) || dispatch.key?(:controller)
+              err(path, "dispatch hash must declare a client or controller action")
+            end
+            validate_enum(dispatch[:client], Schema::CLIENT_ACTIONS, join(path, "client"), "client action") if dispatch.key?(:client)
+            validate_enum(dispatch[:controller], Schema::CONTROLLER_ACTIONS, join(path, "controller"), "controller action") if dispatch.key?(:controller)
+          else
+            err(path, "expected a class String, { client: … }, or { controller: … } Hash, got #{dispatch.class}")
+          end
+        end
+
+        def validate_aliases(aliases, path)
+          alias_path = join(path, "aliases")
+          return err(alias_path, "expected an Array of tokens, got #{aliases.class}") unless aliases.is_a?(Array)
+
+          aliases.each_with_index do |token, i|
+            if token == true || token == false
+              # YAML 1.1 coerces bare on/off/yes/no to booleans (HF2) — the
+              # author meant a word token; demand quoting instead of guessing.
+              err("#{alias_path}[#{i}]", "boolean #{token} — quote YAML-boolean tokens (\"on\"/\"off\"/\"yes\"/\"no\")")
+            elsif !scalar?(token)
+              err("#{alias_path}[#{i}]", "alias token must be a scalar, got #{token.class}")
+            end
+          end
+        end
+
+        def validate_resolver(name, path)
+          return err(path, "expected a resolver name String, got #{name.class}") unless name.is_a?(String)
+
+          validate_membership(name, Schema::RESOLVERS, path, "resolver")
+        end
+
+        def validate_predicate(name, path)
+          return err(path, "expected a predicate name String, got #{name.class}") unless name.is_a?(String)
+
+          validate_membership(name, Schema::PREDICATES, path, "predicate")
+        end
+
+        def validate_membership(value, allowed, path, label)
+          return if allowed.include?(value.to_s)
+
+          hint = Schema.suggest(value, allowed)
+          err(path, "unknown #{label} #{value.inspect}#{did_you_mean(hint)} (allowed: #{allowed.join(', ')})")
+        end
+
+        def validate_enum(value, allowed, path, label)
+          return if allowed.include?(value)
+
+          hint = scalar?(value) ? Schema.suggest(value, allowed) : nil
+          err(path, "invalid #{label} #{value.inspect}#{did_you_mean(hint)} (allowed: #{allowed.join(', ')})")
+        end
+
+        def validate_string(value, path)
+          err(path, "expected a String, got #{value.class}") unless value.is_a?(String)
+        end
+
+        def validate_boolean(value, path)
+          err(path, "expected true/false, got #{value.class}") unless [ true, false ].include?(value)
+        end
+
+        def validate_integer(value, path)
+          err(path, "expected an Integer, got #{value.class}") unless value.is_a?(Integer)
+        end
+
+        # ── shared helpers ────────────────────────────────────────────────────────
+
+        # Reject unknown keys (with a did-you-mean hint) + report missing required.
+        def check_keys(hash, allowed, path, required: [])
+          hash.each_key do |key|
+            next if allowed.include?(key)
+
+            hint = Schema.suggest(key, allowed)
+            err(join(path, key), "unknown key#{did_you_mean(hint)}")
+          end
+          required.each { |key| err(join(path, key), "missing required key") unless hash.key?(key) }
+        end
+
+        def expect_hash(value, path)
+          return true if value.is_a?(Hash)
+
+          err(path, "expected a Hash, got #{value.class}")
+          false
+        end
+
+        def present?(hash, key)
+          hash.key?(key) && !hash[key].nil?
+        end
+
+        def scalar?(value)
+          !(value.is_a?(Hash) || value.is_a?(Array) || value.nil?)
+        end
+
+        def did_you_mean(hint)
+          hint ? " (did you mean #{hint}?)" : ""
+        end
+
+        def err(path, message)
+          @errors << Schema::Error.new(path.to_s, message)
+        end
+
+        def join(parent, key)
+          parent.to_s.empty? ? key.to_s : "#{parent}.#{key}"
+        end
+      end
+    end
+  end
+end

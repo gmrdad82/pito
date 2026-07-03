@@ -21,8 +21,6 @@ module Pito
       # repeat dispatch resolves no target and no-ops.
       class ChannelVisit < Pito::FollowUp::Handler
         self.target   "channel_visit"
-        self.mode     :mutate
-        self.actions  "consume"
         self.internal true
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil) # rubocop:disable Lint/UnusedMethodArgument

@@ -83,12 +83,12 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
       expect(Pito::FollowUp::Handlers::ChannelDetail.target).to eq("channel_detail")
     end
 
-    it "mode is :append" do
-      expect(Pito::FollowUp::Handlers::ChannelDetail.mode).to eq(:append)
+    it "Matrix serves :append mode for channel_detail" do
+      expect(Pito::Dispatch::Matrix.mode_for("channel_detail")).to eq(:append)
     end
 
-    it "declares 'visit' and 'sync' actions" do
-      expect(Pito::FollowUp::Handlers::ChannelDetail.actions).to eq([ "visit", "sync", "analyze" ])
+    it "Matrix advertises visit, sync, and analyze for channel_detail" do
+      expect(Pito::Dispatch::Matrix.actions_for("channel_detail")).to include("visit", "sync", "analyze")
     end
 
     it "actions_for('channel_detail') contains 'visit', 'sync' and 'analyze'" do

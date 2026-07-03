@@ -29,11 +29,7 @@ module Pito
         self.description_key      = "pito.slash.jobs.descriptions.jobs"
         self.validates_own_arity  = true
 
-        grammar do
-          enum :subcommand, source: :jobs_subcommands, optional: true
-          auth :authenticated_only
-          description_key "pito.grammar.slash.jobs"
-        end
+        # Grammar (subcommand slot, auth): config/pito/verbs.yml (T8.9).
 
         SUBCOMMANDS = %w[status requeue run pause resume].freeze
 

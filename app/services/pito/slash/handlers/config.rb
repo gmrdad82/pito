@@ -32,14 +32,7 @@ module Pito
       class Config < Pito::Slash::Handler
         self.verb = :config
         self.description_key = "pito.slash.config.descriptions.config"
-
-        grammar do
-          literal :provider, source: :config_providers
-          enum    :state,    source: :on_off,      optional: true,              when: { provider: %w[sound] }
-          kv      :settings, source: :config_keys, repeatable: true, optional: true, when: { provider: %w[google voyage igdb webhook me] }
-          auth :authenticated_only
-          description_key "pito.grammar.slash.config"
-        end
+        # Grammar (provider/state/settings slots, auth, aliases): config/pito/verbs.yml (T8.9).
 
         KNOWN_PROVIDERS   = %w[google voyage igdb webhook me].freeze
         TOGGLE_PROVIDERS  = %w[sound].freeze

@@ -27,9 +27,8 @@ RSpec.describe "Chat ≡ #hashtag parity", type: :service do
     free  = free_events("show game #{game.id}")
     reply = reply_events("game_list", "show #{game.id}")
 
-    # detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced) + the
-    # at-a-glance (:enhanced, ALWAYS present — item 5).
-    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :system, :enhanced, :enhanced, :enhanced ])
+    # Bare show → detail only (plan-0.9.5 D3); parity between the two paths.
+    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :system ])
     expect(reply.first[:payload].with_indifferent_access[:game_id])
       .to eq(free.first[:payload].with_indifferent_access[:game_id]).and eq(game.id)
   end
@@ -38,7 +37,7 @@ RSpec.describe "Chat ≡ #hashtag parity", type: :service do
     free  = free_events("show video #{video.id}")
     reply = reply_events("video_list", "show #{video.id}")
 
-    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :system, :enhanced ])
+    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :system ])
     expect(reply.first[:payload].with_indifferent_access[:video_id])
       .to eq(free.first[:payload].with_indifferent_access[:video_id]).and eq(video.id)
   end

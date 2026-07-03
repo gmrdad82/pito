@@ -66,12 +66,12 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
       expect(Pito::FollowUp::Handlers::Confirmation.target).to eq("confirmation")
     end
 
-    it "mode is :append" do
-      expect(Pito::FollowUp::Handlers::Confirmation.mode).to eq(:append)
+    it "Matrix serves :append mode for confirmation" do
+      expect(Pito::Dispatch::Matrix.mode_for("confirmation")).to eq(:append)
     end
 
-    it "declares exactly 'confirm' and 'cancel' as handler actions" do
-      expect(Pito::FollowUp::Handlers::Confirmation.actions).to match_array(%w[confirm cancel])
+    it "Matrix advertises 'confirm' and 'cancel' for confirmation" do
+      expect(Pito::Dispatch::Matrix.actions_for("confirmation")).to include("confirm", "cancel")
     end
 
     it "VALID_ACTIONS contains confirm and cancel" do

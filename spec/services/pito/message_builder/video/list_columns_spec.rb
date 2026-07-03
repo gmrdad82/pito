@@ -130,17 +130,26 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     end
   end
 
-  describe ".addable_footer" do
+  # ── options_footer ───────────────────────────────────────────────────────────
+
+  describe ".options_footer" do
     it "names the still-addable columns when some remain" do
-      footer = described_class.addable_footer([ :channel ])
+      footer = described_class.options_footer([ :channel ])
       expect(footer).to include("views")
-      expect(footer).to include("comments")
+      # :comments display_token is "comms" (first alias in COLUMNS)
+      expect(footer).to include("comms")
     end
 
-    it "uses the all-shown variant (no column names) when every column is present" do
-      footer = described_class.addable_footer(described_class::COLUMNS.keys)
-      expect(footer).not_to include("views")
-      expect(footer).not_to include("channel")
+    it "renders 'nothing' on the addable side when every optional column is visible" do
+      footer = described_class.options_footer(described_class::COLUMNS.keys)
+      expect(footer).to include("nothing")
+    end
+
+    it "includes the sort key for the visible optional column" do
+      footer = described_class.options_footer([ :channel ])
+      expect(footer).to include("channel")
+      expect(footer).to include("id")
+      expect(footer).to include("title")
     end
   end
 

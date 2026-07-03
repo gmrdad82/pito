@@ -73,21 +73,20 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(Pito::FollowUp::Handlers::GameList.target).to eq("game_list")
     end
 
-    it "default mode is :append" do
-      expect(Pito::FollowUp::Handlers::GameList.mode).to eq(:append)
+    it "Matrix serves :append base mode for game_list" do
+      expect(Pito::Dispatch::Matrix.mode_for("game_list")).to eq(:append)
     end
 
-    it "with/without/sort/order have :mutate action-mode overrides" do
-      modes = Pito::FollowUp::Handlers::GameList.action_modes
-      expect(modes["with"]).to eq(:mutate)
-      expect(modes["without"]).to eq(:mutate)
-      expect(modes["sort"]).to   eq(:mutate)
-      expect(modes["order"]).to  eq(:mutate)
+    it "Matrix serves :mutate for with/without/sort/order on game_list" do
+      expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "with")).to    eq(:mutate)
+      expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "without")).to eq(:mutate)
+      expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "sort")).to    eq(:mutate)
+      expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "order")).to   eq(:mutate)
     end
 
-    it "declares all 14 actions" do
-      expect(Pito::FollowUp::Handlers::GameList.actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze]
+    it "Registry.actions_for('game_list') is exactly the 15 verb actions (universals excluded)" do
+      expect(Pito::FollowUp::Registry.actions_for("game_list")).to match_array(
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze next]
       )
     end
   end
@@ -475,10 +474,10 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       end
     end
 
-    it "actions_for returns all 14 declared actions" do
+    it "actions_for returns all 15 declared actions" do
       actions = Pito::FollowUp::Registry.actions_for("game_list").map(&:to_s)
       expect(actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze next]
       )
     end
   end

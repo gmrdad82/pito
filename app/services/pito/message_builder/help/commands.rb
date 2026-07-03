@@ -24,9 +24,12 @@ module Pito
       # Each verb appears in exactly one group; the `help` verb itself is not
       # listed (it IS the page the user is reading).
       VERB_GROUPS = {
-        "pito.copy.help.games_group_title"    => %w[list show import delete reindex link unlink footage],
-        "pito.copy.help.videos_group_title"   => %w[publish unlist schedule],
-        "pito.copy.help.channels_group_title" => %w[sync]
+        "pito.copy.help.games_group_title"     => %w[list show import delete reindex link unlink footage],
+        "pito.copy.help.videos_group_title"    => %w[publish unlist schedule],
+        "pito.copy.help.channels_group_title"  => %w[sync],
+        # analyze spans channel/vid/game — its own group (was missing from the
+        # main help entirely; found during the 0.9.5 help audit).
+        "pito.copy.help.analytics_group_title" => %w[analyze]
       }.freeze
 
       module Commands

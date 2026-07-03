@@ -4,6 +4,45 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Segment selection on `show` and `analyze`** — multi-message verbs now take
+  `full` (everything), `with <segments>` (add to the default), and
+  `only <segments>` (exactly the named). Bare `show` renders just the detail
+  card; bare `analyze` just the plain-numbers card. Segments have dash-case
+  names (`at-a-glance`, `similar`, `linked-videos`, `channels`, `numbers`,
+  `breakdowns`, …), documented per verb in `--help`.
+- **ls lists cap at 50 with a `next` verb** — `ls vids` / `ls games` /
+  `ls channels` show the first 50 rows (the value lives in
+  `config/pito/verbs.yml`, the seed of the config-driven dispatch system); a
+  capped list says more rows exist, and `#<handle> next` appends the next
+  batch as a fresh message with identical filters, sort, and columns.
+- **Every message tells you what it can do** — a universal `#<handle> help`
+  reply verb renders that message type's option page, and every live reply
+  handle's meta line carries a dim `help` cue.
+- **List footers describe their real options** — each list ends with which
+  columns `with`/`without` can add or drop and which keys `sort` accepts,
+  derived per surface (so `ls channels` no longer implies columns it lacks).
+- **Chat argument palette** — chat verbs now autosuggest their arguments
+  (segment names, nouns, subcommands, live game titles, …), and typing `#`
+  lists the live reply handles in scrollback order.
+
+### Changed
+
+- Palette listings are alphabetical (slash commands, verb arguments, config
+  keys); `show channel` gained its missing `--help` page; `analyze` joined the
+  main `help` output; vid/game refs read `#id` across all help pages.
+
+### Fixed
+
+- **Charts fit the 450px column again** — every braille plot (analyze charts,
+  the game channels distribution, at-a-glance sparklines) shrinks from 45 to
+  42 cells. Braille glyphs render from a scoped fallback face whose advance
+  (≈10.25px at the 14px base) is 22% wider than the mono `1ch`, so 45-cell
+  plots overflowed the locked two-column width by ~23px.
+
 ## [0.9.0] — 2026-07-02
 
 **cache the cache** — a dedicated caching, code-optimization, and

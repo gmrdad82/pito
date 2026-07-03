@@ -36,6 +36,12 @@ module Pito
         ROLES = INTRO_KEYS.keys.freeze
         ROLE_KINDS = { "system" => :system, "enhanced" => :enhanced }.freeze
 
+        # Segment name (plan-0.9.5 D3) → scaffold role. `numbers` selects the
+        # :system card, `breakdowns` the :enhanced card. Kept beside ROLES so the
+        # name↔role mapping lives in ONE obvious place; the analyze handler maps
+        # its parsed SegmentSelection through #roles_for below.
+        SEGMENT_ROLES = { "numbers" => "system", "breakdowns" => "enhanced" }.freeze
+
         # Metrics that render as bespoke AreaChart cells (persisted + re-rendered on
         # mutate replies). views…avg_viewed_pct are :system; retention + comments are
         # :enhanced (comments moved scalar → Area, LAST enhanced metric, 2026-07-01).
@@ -95,17 +101,28 @@ module Pito
           Pito::FollowUp.make_followupable!(payload, target: "analyze_message", conversation:)
         end
 
-        # The two pending analyze events ({kind:, payload:}) — a `:system` + an
-        # `:enhanced` — for one scope. Used by the chat handler AND the
-        # glance→new-pair follow-up handler so both build identical messages.
+        # Map selected segment names (a Pito::Chat::SegmentSelection result) to
+        # scaffold roles, in canonical ROLES order. Names outside SEGMENT_ROLES are
+        # ignored (the analyze handler validates + reports unknowns before this).
+        def roles_for(names)
+          wanted = Array(names).filter_map { |n| SEGMENT_ROLES[n.to_s] }.to_set
+          ROLES.select { |role| wanted.include?(role) }
+        end
+
+        # The pending analyze events ({kind:, payload:}) for one scope — a `:system`
+        # card, an `:enhanced` card, or both, per `roles:`. Used by the chat handler
+        # AND the glance→new-pair follow-up handler so both build identical messages.
+        # `roles:` defaults to BOTH so every existing caller is unaffected; the
+        # analyze handler narrows it from the parsed segment selection (plan-0.9.5
+        # D3: bare `analyze` → numbers only; `full` → both).
         # The :enhanced message is ALWAYS lifetime (owner 2026-06-29) — its
         # audience-composition bars + retention are lifetime, so the whole card
         # ignores shift+space. This also makes it cacheable with a 1-day TTL (0.9.0).
         # The :system card keeps the shift+space period.
         ENHANCED_PERIOD = "lifetime"
 
-        def pair(level:, entity_ids:, title:, period:, conversation:, selection: nil)
-          ROLES.map do |role|
+        def pair(level:, entity_ids:, title:, period:, conversation:, selection: nil, roles: ROLES)
+          roles.map do |role|
             role_period = role == "enhanced" ? ENHANCED_PERIOD : period
             {
               kind:    ROLE_KINDS.fetch(role),

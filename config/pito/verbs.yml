@@ -1,0 +1,964 @@
+# Verb ontology — seed of the D7 config-driven dispatch system.
+# Verb declarations migrate here in P1–P3 (see docs/claude/0.9.5-yaml-schema.md §3
+# for the full schema and the plan doc for migration phases).
+# The schema governing this file's shape is docs/claude/0.9.5-yaml-schema.md.
+schema_version: 1
+
+# Universal reply actions injected on every followupable event (Share::UniversalActions).
+# help:   always available; share: withheld on :confirmation kind + unresolved messages;
+# revoke: additionally gated on Share record existing for the event.
+universal_reply:
+  share:  { mode: append }
+  revoke: { mode: append, aliases: [unshare] }
+  help:   { mode: append }
+
+# Static + dynamic vocabulary declarations. Faithful transcription of
+# lib/pito/grammar/vocabularies.rb — implementations remain in Ruby (P3 target).
+vocabularies:
+  nouns:
+    members: [channels, vids, games]
+    synonyms: {channel: channels, video: vids, videos: vids, vid: vids, game: games, gamez: games}
+  slash_verbs:
+    members: [config, disconnect, help, themes]
+  config_providers:
+    members: [google, voyage, igdb, webhook, me, sound, timezone]
+  config_keys:
+    members: [client_id, client_secret, redirect_uri, api_key, slack, discord, nickname]
+  genres:
+    members: [Shooter, Simulation, RPG, Racing, Strategy, Sports, Puzzle, Platformer, Fighting, Adventure]
+    synonyms: {fps: Shooter, shooter: Shooter, sim: Simulation, simulation: Simulation,
+               rpg: RPG, racing: Racing, strategy: Strategy, sports: Sports,
+               puzzle: Puzzle, platformer: Platformer, fighting: Fighting, adventure: Adventure}
+  platforms:
+    members: ["PlayStation 5", "Nintendo Switch", PC, "Xbox Series X",
+              "PlayStation 4", "Xbox One", iOS, Android]
+    synonyms: {ps5: "PlayStation 5", playstation: "PlayStation 5", ps: "PlayStation 5",
+               sony: "PlayStation 5", switch: "Nintendo Switch", steam: PC, pc: PC,
+               xbox: "Xbox Series X"}
+  release_status:
+    members: [released, upcoming, tba]
+    synonyms: {unreleased: upcoming, "to be announced": tba, tbd: tba}
+  metrics:
+    members: [subs, views, ctr, "watch time"]
+    synonyms: {subscriber: subs, subscribers: subs, "watched hours": "watch time", hours: "watch time"}
+    fillers: [count, ratio]
+  on_off:
+    # QUOTED — YAML 1.1 coerces bare on/off/yes/no to booleans (HF2).
+    members: ["on", "off"]
+    synonyms: {"true": "on", "false": "off", enable: "on", disable: "off", "yes": "on", "no": "off",
+               enabled: "on", disabled: "off"}
+  hashtag_verbs:
+    members: [with, without]
+    synonyms: {drop: without, delete: without, include: with}
+  fillers:
+    members: []
+    fillers: [the, a, an, games, game, please, by, ordered, sorted, show, me]
+  connectives:
+    members: [and, for]
+  games_subcommands:
+    members: [import]
+  jobs_subcommands:
+    members: [status, requeue, run, pause, resume]
+  import_nouns:
+    members: [game]
+    synonyms: {games: game}
+  sync_targets:
+    members: [channels, vids]
+    synonyms: {channel: channels, video: vids, videos: vids, vid: vids}
+  schedule_whens:
+    members: [slate]
+  price_subcommands:
+    members: [set, unset]
+  platform_subcommands:
+    members: [set, unset]
+  visit_destinations:
+    members: [channel, studio]
+    synonyms: {youtube: channel, yt: channel}
+  full_flag:
+    members: [full]
+  show_segments:
+    members: ["at-a-glance", channels, detail, "linked-game", "linked-videos", similar, videos]
+  # Dynamic vocabularies — resolved at runtime via Grammar::Vocabulary resolver lambdas.
+  channels:      { resolver: channels }
+  conversations: { resolver: conversations }
+  game_titles:   { resolver: game_titles }
+  video_titles:  { resolver: video_titles }
+
+verbs:
+  # ─── Chat verbs ──────────────────────────────────────────────────────────────
+
+  list:
+    # Aliases sourced from lib/pito/grammar/specs.rb — :list spec, aliases: [:ls]
+    aliases: [ls]
+    description: pito.grammar.chat.list
+    availability:
+      chat: true
+      slash: false
+    auth: session
+    chat:
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+    concerns:
+      pager:
+        page_size: 50
+        more_verb: next
+
+  show:
+    description: pito.grammar.chat.show
+    auth: session
+    chat:
+      slots:
+        - name: id
+          kind: free
+          optional: true
+        - name: full
+          kind: enum
+          source: full_flag
+          optional: true
+        - name: with
+          kind: enum
+          source: show_segments
+          optional: true
+          repeatable: true
+          introducer: with
+        - name: only
+          kind: enum
+          source: show_segments
+          optional: true
+          repeatable: true
+          introducer: only
+      # id_only_resolution! active — title lookup is disabled; handler reads message.raw.
+    segments:
+      # Ordered emission list per entity; faithfully transcribed from Pito::Chat::Segments::TABLE.
+      channel:
+        detail:
+          builder: MessageBuilder::Channel::Detail
+          kind: system
+          default: true
+          fill: ~
+          reply_target: channel_detail
+          emit_if: ~
+        videos:
+          builder: MessageBuilder::Channel::Videos
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: video_list
+          emit_if: has_any_videos
+        "at-a-glance":
+          builder: MessageBuilder::Analytics::Enhanced
+          kind: enhanced
+          default: false
+          fill: AnalyticsFillJob
+          reply_target: analytics_glance
+          emit_if: ~
+      vid:
+        detail:
+          builder: MessageBuilder::Video::Detail
+          kind: system
+          default: true
+          fill: ~
+          reply_target: video_detail
+          emit_if: ~
+        "linked-game":
+          builder: MessageBuilder::Video::LinkedGame
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: game_detail
+          emit_if: has_linked_game
+        "at-a-glance":
+          builder: MessageBuilder::Analytics::Enhanced
+          kind: enhanced
+          default: false
+          fill: AnalyticsFillJob
+          reply_target: analytics_glance
+          emit_if: ~
+      game:
+        detail:
+          builder: MessageBuilder::Game::Detail
+          kind: system
+          default: true
+          fill: ~
+          reply_target: game_detail
+          emit_if: ~
+        similar:
+          builder: MessageBuilder::Game::SimilarGames
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: game_similar
+          emit_if: ~
+        "linked-videos":
+          builder: MessageBuilder::Game::LinkedVideos
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: game_linked_videos
+          emit_if: has_linked_videos
+        channels:
+          builder: MessageBuilder::Game::Channels
+          kind: enhanced
+          default: false
+          fill: ChannelDistributionFillJob
+          reply_target: game_channels
+          emit_if: ~
+        "at-a-glance":
+          builder: MessageBuilder::Analytics::Enhanced
+          kind: enhanced
+          default: false
+          fill: AnalyticsFillJob
+          reply_target: analytics_glance
+          emit_if: ~
+    reply:
+      targets:
+        game_channels:
+          mode: append
+          ref: { resolver: channel_by_handle }   # `show @handle` → that channel (args = @handle)
+        game_imported:
+          mode: append
+          ref: { resolver: source_entity }        # imported game from the card's game_id payload
+        game_linked_videos:
+          mode: append
+          ref: { resolver: video_by_id }          # `show <id>` → that linked vid (id-only)
+        game_list:
+          mode: append
+          ref: { resolver: id_among_rows }        # `show <id>` scoped to the listed games
+        game_similar:
+          mode: append
+          ref: { resolver: game_by_id }           # `show <id>` → that similar game (id-only)
+        video_list:
+          mode: append
+          ref: { resolver: id_among_rows }        # `show <id>` scoped to the listed vids
+
+  analyze:
+    aliases: [analytics, stats]
+    description: pito.grammar.chat.analyze
+    auth: session
+    chat:
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+      # Handler reads message.raw for entity/id/handle/period; slot drives ghost only.
+    segments:
+      # All three entities share ANALYZE_SEGMENTS (MessageBuilder::Analyze::Message::SEGMENT_ROLES).
+      # numbers → system scaffold; breakdowns → enhanced scaffold.
+      channel:
+        numbers:
+          builder: MessageBuilder::Analyze::Message
+          kind: system
+          default: true
+          fill: ~
+          reply_target: analyze_message
+          emit_if: ~
+        breakdowns:
+          builder: MessageBuilder::Analyze::Message
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: analyze_message
+          emit_if: ~
+      vid:
+        numbers:
+          builder: MessageBuilder::Analyze::Message
+          kind: system
+          default: true
+          fill: ~
+          reply_target: analyze_message
+          emit_if: ~
+        breakdowns:
+          builder: MessageBuilder::Analyze::Message
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: analyze_message
+          emit_if: ~
+      game:
+        numbers:
+          builder: MessageBuilder::Analyze::Message
+          kind: system
+          default: true
+          fill: ~
+          reply_target: analyze_message
+          emit_if: ~
+        breakdowns:
+          builder: MessageBuilder::Analyze::Message
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: analyze_message
+          emit_if: ~
+    reply:
+      targets:
+        analytics_glance:
+          mode: append
+          # Bare `analyze` re-runs full analysis on glance's scope entity (scope_type/scope_id).
+        channel_detail:
+          mode: append
+          # Entity from event payload channel_id.
+        channel_list:
+          mode: append
+          # analyze @handle → single channel; bare analyze → all listed channel_ids.
+        game_detail:
+          mode: append
+          # Entity from event payload game_id.
+        game_linked_videos:
+          mode: append
+          # Scope is video_ids array from event payload.
+        game_list:
+          mode: append
+          # analyze #3 → single game by id; bare analyze → all listed game_ids.
+        video_detail:
+          mode: append
+          # Entity from event payload video_id.
+        video_list:
+          mode: append
+          # analyze #3 → single vid; bare analyze → all listed video_ids.
+
+  import:
+    description: pito.grammar.chat.import
+    auth: session
+    chat:
+      slots:
+        - name: noun
+          kind: enum
+          source: import_nouns
+          optional: false
+        - name: title
+          kind: free
+          optional: true
+
+  sync:
+    description: pito.grammar.chat.sync
+    auth: session
+    chat:
+      slots:
+        - name: target
+          kind: enum
+          source: sync_targets
+          optional: true
+      # Handler reads message.raw for noun/ref routing.
+    reply:
+      targets:
+        channel_detail:
+          mode: append
+          ref: { resolver: source_entity }   # channel from payload channel_id
+        game_detail:
+          mode: append
+          ref: { resolver: source_entity }   # game from payload game_id
+        video_detail:
+          mode: append
+          ref: { resolver: source_entity }   # video from payload video_id
+
+  footage:
+    description: pito.grammar.chat.footage
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: enum
+          source: game_titles
+          optional: true
+    reply:
+      targets:
+        game_detail:
+          mode: append
+          ref: { resolver: source_entity }   # game from payload game_id
+          # NARROWED TODO(P3): the `footage [update] <hours>` amount (BigDecimal
+          # ceil to the next 0.5 h) and the game-agnostic `footage snippet` branch
+          # are bespoke arg parsing with no registered resolver; GameDetail stays
+          # authoritative until the P3 Router absorbs it.
+
+  price:
+    description: pito.grammar.chat.price
+    auth: session
+    chat:
+      slots:
+        - name: subcommand
+          kind: enum
+          source: price_subcommands
+          optional: true
+        - name: title
+          kind: free
+          optional: true
+    reply:
+      targets:
+        game_detail:
+          mode: append
+          ref: { resolver: source_entity }   # game from payload game_id
+          # NARROWED TODO(P3): `price [set] <amount>` / `price unset` amount parsing
+          # (BigDecimal, 2dp, 0 = free) is bespoke — no registered resolver.
+        game_list:
+          mode: append
+          ref: { resolver: id_among_rows }   # `price <id> …` scoped to the listed games
+          # NARROWED TODO(P3): amount parsing bespoke (as above).
+
+  delete:
+    aliases: [rm, del]
+    description: pito.grammar.chat.delete
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: enum
+          source: game_titles
+          optional: true
+    reply:
+      targets:
+        game_detail:
+          mode: append
+          aliases: [rm, del]
+          ref: { resolver: source_entity }   # game from payload game_id
+        game_list:
+          mode: append
+          aliases: [rm, del]
+          ref: { resolver: id_among_rows }   # `delete <id>` scoped to the listed games
+        video_detail:
+          mode: append
+          aliases: [rm, del]
+          ref: { resolver: source_entity }   # video from payload video_id
+        video_list:
+          mode: append
+          aliases: [rm, del]
+          ref: { resolver: id_among_rows }   # `delete <id>` scoped to the listed vids
+
+  reindex:
+    description: pito.grammar.chat.reindex
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: enum
+          source: game_titles
+          optional: true
+    reply:
+      targets:
+        game_detail:
+          mode: append
+          ref: { resolver: source_entity }   # game from payload game_id
+        video_detail:
+          mode: append
+          ref: { resolver: source_entity }   # video from payload video_id
+
+  platform:
+    description: pito.grammar.chat.platform
+    auth: session
+    chat:
+      slots:
+        - name: subcommand
+          kind: enum
+          source: platform_subcommands
+          optional: true
+        - name: title
+          kind: free
+          optional: true
+    reply:
+      targets:
+        game_detail:
+          mode: append
+          ref: { resolver: source_entity }   # game from payload game_id
+          # NARROWED TODO(P3): `platform [set|unset] <value>` value parsing is bespoke.
+        game_list:
+          mode: append
+          ref: { resolver: id_among_rows }   # `platform <id> …` scoped to the listed games
+          # NARROWED TODO(P3): value parsing bespoke (as above).
+
+  publish:
+    aliases: [pub]
+    description: pito.grammar.chat.publish
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: free
+          optional: true
+    reply:
+      targets:
+        video_detail:
+          mode: append
+          aliases: [pub]
+          ref: { resolver: source_entity }   # video from payload video_id
+        video_list:
+          mode: append
+          aliases: [pub]
+          ref: { resolver: id_among_rows }   # `publish <id>` scoped to the listed vids
+
+  unlist:
+    description: pito.grammar.chat.unlist
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: free
+          optional: true
+    reply:
+      targets:
+        video_detail:
+          mode: append
+          ref: { resolver: source_entity }   # video from payload video_id
+        video_list:
+          mode: append
+          ref: { resolver: id_among_rows }   # `unlist <id>` scoped to the listed vids
+
+  schedule:
+    description: pito.grammar.chat.schedule
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: free
+          optional: true
+        - name: slate
+          kind: enum
+          source: schedule_whens
+          optional: true
+      # Handler parses id + <when> from message.raw via Schedule::TimeParser.
+    reply:
+      targets:
+        video_detail:
+          mode: append
+          ref: { resolver: source_entity }   # video from payload video_id
+          args:
+            when: { resolver: schedule_expression }   # reply args ARE the when-phrase
+        video_list:
+          mode: append
+          ref: { resolver: id_among_rows }
+          args:
+            when: { resolver: schedule_expression }
+          # NARROWED TODO(P3): `schedule <id> <when>` interleaves the row ref with
+          # the when-phrase in ONE args string; isolating each needs the Schedule
+          # handler's when-stripping seam (no single resolver splits them). The
+          # resolvers named ARE correct — only the input split is deferred to P3.
+
+  find:
+    description: pito.grammar.chat.find
+    auth: session
+    chat:
+      slots:
+        - name: status
+          kind: enum
+          source: release_status
+          optional: true
+        - name: genre
+          kind: enum
+          source: genres
+          optional: true
+          repeatable: true
+        - name: platform
+          kind: enum
+          source: platforms
+          optional: true
+          introducer: for
+
+  link:
+    description: pito.grammar.chat.link
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: free
+          optional: true
+      # Handler splits on ` to ` to extract game ref and video ref.
+    reply:
+      targets:
+        # NARROWED TODO(P3) for ALL link targets: `link [to] [noun] <ref>` needs
+        # TWO entities — the SOURCE (from the card's payload, or a listed row) AND
+        # the TARGET (the ref after an optional `to`/noun). Dual-ref splitting is
+        # not a single ref/args resolver; the Link handler stays authoritative.
+        game_detail:
+          mode: append   # source: game_id from payload; target: video ref from args
+        game_list:
+          mode: append   # source: game id among rows; target: video ref from args
+        video_detail:
+          mode: append   # source: video_id from payload; target: game ref from args
+        video_list:
+          mode: append   # source: video id among rows; target: game ref from args
+
+  unlink:
+    description: pito.grammar.chat.unlink
+    auth: session
+    chat:
+      slots:
+        - name: title
+          kind: free
+          optional: true
+    reply:
+      targets:
+        # NARROWED TODO(P3) for ALL unlink targets: same dual-ref shape as `link` —
+        # a source entity (payload id, or a listed row) AND a target ref. The
+        # game_linked_videos case additionally reads game_id from the payload to
+        # mark the Game as source (reply_target ≠ "video*"). Not a single resolver;
+        # the Unlink handler stays authoritative.
+        game_detail:
+          mode: append   # source: game_id from payload; target: video ref
+        game_linked_videos:
+          mode: append   # source: Game (payload game_id); target: typed video id
+        game_list:
+          mode: append   # source: game id among rows; target: video ref
+        video_detail:
+          mode: append   # source: video_id from payload; target: game ref
+        video_list:
+          mode: append   # source: video id among rows; target: game ref
+
+  help:
+    # Chat branch: displays all follow-up targets grouped by entity.
+    # Slash branch: full sectioned help (authenticated) or login hint (unauthenticated).
+    description: pito.grammar.chat.help
+    auth: session
+    chat:
+      slots: []
+    slash:
+      auth: any
+      description: pito.grammar.slash.help
+      slots: []
+      dispatch: Slash::Handlers::Help
+
+  shinies:
+    description: pito.grammar.chat.shinies
+    auth: session
+    chat:
+      slots:
+        - name: target
+          kind: free
+          optional: true
+      # Handler reads noun (channel/video/game) + ref from message.raw.
+    reply:
+      targets:
+        channel_list:
+          mode: append
+          ref: { resolver: channel_by_handle }   # `shinies @handle` (args = @handle)
+        game_detail:
+          mode: append
+          ref: { resolver: source_entity }        # game from payload game_id
+        game_list:
+          mode: append
+          ref: { resolver: id_among_rows }        # `shinies <id>` scoped to the listed games
+        video_detail:
+          mode: append
+          ref: { resolver: source_entity }        # video from payload video_id
+        video_list:
+          mode: append
+          ref: { resolver: id_among_rows }        # `shinies <id>` scoped to the listed vids
+
+  greet:
+    description: pito.grammar.chat.greet
+    auth: session
+    chat:
+      slots: []
+      # Recognised by whole-input phrase match in Pito::Chat::Parser (single or multi-word,
+      # case-insensitive, punctuation-tolerant). Spec exists for handler↔spec parity + help.
+
+  farewell:
+    description: pito.grammar.chat.farewell
+    auth: session
+    chat:
+      slots: []
+      # Recognised by whole-input phrase match in Pito::Chat::Parser. Spec for parity + help.
+
+  # ─── Reply-only verbs (no chat branch) ───────────────────────────────────────
+
+  next:
+    # Pager verb: `more_verb: next` in the list pager concern.
+    # No chat branch — only available as a follow-up reply on paginated list targets.
+    reply:
+      targets:
+        channel_list:
+          mode: append
+          concern: pager
+        game_list:
+          mode: append
+          concern: pager
+        video_list:
+          mode: append
+          concern: pager
+
+  visit:
+    # Reply-only verb on channel_detail — opens YouTube channel page or Studio in browser.
+    # Bare `visit` (no destination) returns needs_destination error.
+    reply:
+      targets:
+        channel_detail:
+          mode: append
+          ref: { resolver: source_entity }              # channel from payload channel_id
+          args:
+            destination: { resolver: visit_destination } # reply args = the destination word
+
+  sort:
+    aliases: [order]
+    # Reply-only verb on list targets — re-sorts the stamped list in place.
+    # Accepts optional leading `by` particle; trailing `desc`/`asc` direction.
+    # Unknown column token is a lenient no-op (rows stay in stamped order).
+    reply:
+      targets:
+        channel_list:
+          mode: mutate
+          aliases: [order]
+          args:
+            clause: { resolver: sort_clause }
+        game_linked_videos:
+          mode: mutate
+          aliases: [order]
+          args:
+            clause: { resolver: sort_clause }
+        game_list:
+          mode: mutate
+          aliases: [order]
+          args:
+            clause: { resolver: sort_clause }
+        video_list:
+          mode: mutate
+          aliases: [order]
+          args:
+            clause: { resolver: sort_clause }
+
+  with:
+    # Reply verb with two distinct semantics depending on target:
+    #   analytics cards → metric inclusion (MetricSelection)
+    #   list targets    → column inclusion (ListColumns vocabulary)
+    # Mode differs per target (append on analytics_glance, mutate on others).
+    reply:
+      targets:
+        analytics_glance:
+          mode: append
+          args:
+            metrics: { resolver: metric_list }
+        analyze_message:
+          mode: mutate
+          args:
+            metrics: { resolver: metric_list }
+        game_linked_videos:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+        game_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+        video_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+
+  without:
+    # Inverse of `with`: metric exclusion (analytics) or column removal (lists).
+    reply:
+      targets:
+        analytics_glance:
+          mode: append
+          args:
+            metrics: { resolver: metric_list }
+        analyze_message:
+          mode: mutate
+          args:
+            metrics: { resolver: metric_list }
+        game_linked_videos:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+        game_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+        video_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+
+  confirm:
+    # Reply verb on confirmation events — executes the pending command.
+    # Aliases per Confirmation::ACTION_ALIASES: yes/y/ok/approve/true → confirm.
+    aliases: ["yes", y, ok, approve, "true"]
+    reply:
+      targets:
+        confirmation:
+          mode: append
+
+  cancel:
+    # Reply verb on confirmation events — cancels the pending command.
+    # Aliases per Confirmation::ACTION_ALIASES: no/n/false/discard → cancel.
+    aliases: ["no", "n", "false", discard]  # "no" QUOTED — YAML 1.1 boolean (HF2)
+    reply:
+      targets:
+        confirmation:
+          mode: append
+
+  consume:
+    # Internal reply verb on channel_visit events.
+    # Triggered programmatically by pito--auto-visit Stimulus controller via
+    # Channels::VisitsController#consume; NOT shown in user-facing palettes.
+    # Flips the visit card from :visiting → :visited state (mutate in place).
+    internal: true
+    reply:
+      targets:
+        channel_visit:
+          mode: mutate
+
+  # ─── Slash verbs ─────────────────────────────────────────────────────────────
+  # Controller-routed specs (login/logout/connect/new/resume): NO handler class in
+  # app/services/pito/slash/handlers/ — the chat_controller slash path executes them,
+  # declared via `dispatch: { controller: <verb> }`. Grammar comes from config (T8.9).
+
+  login:
+    aliases: [authenticate]
+    slash:
+      auth: unauthenticated_only
+      description: pito.grammar.slash.login
+      slots:
+        - name: code
+          kind: free
+          optional: false
+      dispatch:
+        controller: login
+
+  logout:
+    aliases: [exit, quit]
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.logout
+      slots: []
+      dispatch:
+        controller: logout
+
+  connect:
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.connect
+      slots: []
+      dispatch:
+        controller: connect
+
+  new:
+    # Slash: create a new named conversation (controller-routed).
+    # Reply: create the named conversation from a resume_missing card (aliases: create).
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.new
+      slots:
+        - name: name
+          kind: free
+          optional: true
+      dispatch:
+        controller: new
+    reply:
+      targets:
+        resume_missing:
+          mode: append
+          aliases: [create]
+          # Name taken from event payload `resume_name`; creates + renames Conversation.
+
+  resume:
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.resume
+      slots:
+        - name: name
+          kind: free
+          optional: true
+      dispatch:
+        controller: resume
+
+  # Slash verbs with handler files in app/services/pito/slash/handlers/
+
+  games:
+    # Grammar from config (namespace: :slash) + Slash::Handlers::Games.
+    # `/games import [title]` opens the IGDB search sidebar (sidebar_open: "games_import").
+    # Controller intercepts `/games import` before async pipeline; handler covers job path.
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.games
+      slots:
+        - name: subcommand
+          kind: enum
+          source: games_subcommands
+          optional: true
+        - name: title
+          kind: free
+          optional: true
+      dispatch: Slash::Handlers::Games
+
+  config:
+    # `/config <provider> [key=value …]` — credential + toggle provider management.
+    # The grammar uses the `literal` sentinel provider, a conditional `when:` enum
+    # (only `sound` takes on/off), and a repeatable `kv` for credential keys — the
+    # provider→keys palette shape (T8.9 schema extension).
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.config
+      slots:
+        - name: provider
+          kind: literal
+          source: config_providers
+        - name: state
+          kind: enum
+          source: on_off
+          optional: true
+          when:
+            provider: [sound]
+        - name: settings
+          kind: kv
+          source: config_keys
+          optional: true
+          repeatable: true
+          when:
+            provider: [google, voyage, igdb, webhook, me]
+      dispatch: Slash::Handlers::Config
+
+  disconnect:
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.disconnect
+      slots:
+        - name: channel
+          kind: enum
+          source: channels
+          optional: true
+      dispatch: Slash::Handlers::Disconnect
+
+  jobs:
+    # `/jobs [subcommand] [id|key]` — SolidQueue operator control.
+    # validates_own_arity: true — handler manages polymorphic arity (requeue <id>, run <key>).
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.jobs
+      slots:
+        - name: subcommand
+          kind: enum
+          source: jobs_subcommands
+          optional: true
+      dispatch: Slash::Handlers::Jobs
+
+  notifications:
+    aliases: [notifs]
+    # Opens the notifications sidebar panel (sidebar_open: "notifications").
+    # Broadcasts via Pito::Stream::Broadcaster#broadcast_notifications_sidebar.
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.notifications
+      slots: []
+      dispatch: Slash::Handlers::Notifications
+
+  rename:
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.rename
+      slots:
+        - name: title
+          kind: free
+          optional: true
+      dispatch: Slash::Handlers::Rename
+
+  themes:
+    # Opens the theme picker sidebar entirely client-side (sidebar_open: "theme").
+    # Theme selection and preview happen in the sidebar UI via PATCH /settings/theme;
+    # there are no subcommands. The dispatcher's arity guard rejects any extra token.
+    slash:
+      auth: authenticated_only
+      description: pito.grammar.slash.theme
+      slots: []
+      dispatch:
+        client: theme

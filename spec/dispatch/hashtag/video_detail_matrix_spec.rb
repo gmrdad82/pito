@@ -68,8 +68,8 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
       expect(Pito::FollowUp::Handlers::VideoDetail.target).to eq("video_detail")
     end
 
-    it "mode is :append" do
-      expect(Pito::FollowUp::Handlers::VideoDetail.mode).to eq(:append)
+    it "Matrix serves :append mode for video_detail" do
+      expect(Pito::Dispatch::Matrix.mode_for("video_detail")).to eq(:append)
     end
   end
 

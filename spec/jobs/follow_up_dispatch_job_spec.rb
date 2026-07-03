@@ -5,7 +5,6 @@ require "rails_helper"
 # Fake mutate handler — registered only during this spec file.
 class FakeMutateHandler < Pito::FollowUp::Handler
   target "fake_mutate"
-  mode   :mutate
 
   def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Mutation.new(
@@ -18,7 +17,6 @@ end
 # Fake append handler — registered only during this spec file.
 class FakeAppendHandler < Pito::FollowUp::Handler
   target "fake_append"
-  mode   :append
 
   def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Append.new(
@@ -32,7 +30,6 @@ end
 # Fake append handler that passes consume: false so the source event stays live.
 class FakeAppendNoConsumeHandler < Pito::FollowUp::Handler
   target "fake_append_no_consume"
-  mode   :append
 
   def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Append.new(
@@ -46,7 +43,6 @@ end
 # Uses a minimal hardcoded payload so no DB models are needed in the handler itself.
 class FakeAppendAnalyticsHandler < Pito::FollowUp::Handler
   target "fake_append_analytics"
-  mode   :append
 
   PENDING_ANALYTICS_PAYLOAD = {
     "html"      => true,
@@ -73,7 +69,6 @@ end
 # Fake error handler.
 class FakeErrorHandler < Pito::FollowUp::Handler
   target "fake_error"
-  mode   :mutate
 
   def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Error.new(
@@ -86,7 +81,6 @@ end
 # Fake raising handler — used to exercise the D4 rescue path.
 class FakeRaisingHandler < Pito::FollowUp::Handler
   target "fake_raising"
-  mode   :mutate
 
   def call(event:, rest:, conversation:, **)
     raise RuntimeError, "handler exploded"
@@ -95,7 +89,6 @@ end
 
 class FakeRaisingAppendHandler < Pito::FollowUp::Handler
   target "fake_raising_append"
-  mode   :append
 
   def call(event:, rest:, conversation:, **)
     raise RuntimeError, "append handler exploded"

@@ -62,7 +62,7 @@ module Pito
               next if handler_class.respond_to?(:internal?) && handler_class.internal?
 
               entity  = entity_for(target_id)
-              actions = handler_class.actions
+              actions = Pito::FollowUp::Registry.actions_for(target_id)
               label   = actions.any? ? actions.join(", ") : "—"
               grouped[entity] << { "key" => target_id, "value" => label }
             end

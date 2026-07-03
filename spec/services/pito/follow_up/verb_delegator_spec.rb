@@ -13,9 +13,9 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       result = described_class.call(source_event:, rest: "show #{game.id}", conversation:)
 
       expect(result).to be_a(Pito::FollowUp::Result::Append)
-      # detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced) + the
-      # at-a-glance (:enhanced, ALWAYS present — item 5).
-      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced, :enhanced ])
+      # Bare show → the detail card ONLY (plan-0.9.5 D3 segment selection;
+      # `show <id> full` restores the multi-segment output).
+      expect(result.events.map { |e| e[:kind] }).to eq([ :system ])
       detail = result.events.first[:payload].with_indifferent_access
       expect(detail[:game_id]).to eq(game.id)
     end
@@ -35,6 +35,37 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       expect(result).to be_a(Pito::FollowUp::Result::Append)
       expect(result.events.first[:kind]).to eq(:system)
       expect(result.consume).to be(false)
+    end
+
+    it "consults ReplyBinding and threads the resolved kwargs onto FollowUpContext#bound (T8.7)" do
+      captured = nil
+      allow(Pito::Chat::Dispatcher).to receive(:call) do |**kwargs|
+        captured = kwargs[:follow_up]
+        Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: {} } ])
+      end
+
+      described_class.call(source_event:, rest: "show #{game.id}", conversation:)
+
+      # game_list `show <id>` declares `ref: { resolver: id_among_rows }` — the
+      # binding resolves it and the delegator threads it onto the context. The
+      # handler still does its OWN extraction in P2 (bound is advisory).
+      expect(captured).to be_a(Pito::Chat::FollowUpContext)
+      expect(captured.bound[:ref]).to eq(game)
+    end
+
+    it "leaves FollowUpContext#bound empty for a NARROWED target (link declares no ref/args)" do
+      channel = create(:channel)
+      video   = create(:video, channel:)
+      video_list_event = instance_double(Event, payload: { "reply_target" => "video_list" })
+      captured = nil
+      allow(Pito::Chat::Dispatcher).to receive(:call) do |**kwargs|
+        captured = kwargs[:follow_up]
+        Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: {} } ])
+      end
+
+      described_class.call(source_event: video_list_event, rest: "link #{video.id} to #{game.id}", conversation:)
+
+      expect(captured.bound).to eq({})
     end
 
     it "forwards channel / period / viewport_width into Chat::Dispatcher (D6/D7/D8)" do

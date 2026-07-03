@@ -173,18 +173,23 @@ module Pito
           end
         end
 
-        # Witty footer copy naming the columns that can still be added — or the
-        # "everything's shown" variant when none remain. `shown` is the canonical
-        # added columns currently in the table (id/title excluded). Recomputes on
+        # E7 options footer — per-surface column and sort summary.
+        #
+        # Derives the three OptionsFooter inputs from the currently-visible column
+        # set and delegates rendering to Pito::Lists::OptionsFooter. Recomputes on
         # every List.call, so with/without follow-ups update it automatically.
-        def addable_footer(shown)
-          addable = COLUMNS.keys - shown
-          if addable.any?
-            names = addable.map { |c| COLUMNS.fetch(c)[:heading].to_s.downcase }.join(", ")
-            Pito::Copy.render("pito.copy.list.addable_columns_hint", columns: names)
-          else
-            Pito::Copy.render("pito.copy.list.all_columns_shown")
-          end
+        #
+        # addable   — available columns not yet shown (COLUMNS.keys − cols)
+        # removable — all currently-visible optional columns (cols; id+title/game
+        #             heading are hardcoded and cannot be removed)
+        # sort_keys — base sort tokens (id, title) + the primary sort token for
+        #             each visible optional column (all game columns are sortable,
+        #             so compact is a no-op here but kept for safety).
+        def options_footer(cols)
+          addable   = (COLUMNS.keys - cols).map { |c| display_token(c) }
+          removable = cols.map { |c| display_token(c) }
+          sort_keys = base_sort_tokens + cols.map { |c| SORT_VOCAB.key(c) }.compact
+          Pito::Lists::OptionsFooter.call(addable:, removable:, sort_keys:)
         end
 
         # Returns an Array of cell hashes for the requested canonical columns.

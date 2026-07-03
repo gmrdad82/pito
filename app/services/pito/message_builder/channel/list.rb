@@ -50,7 +50,15 @@ module Pito
             "table_rows"      => channels.map { |channel| row_for(channel) },
             # Stamped so `sort` replies reload the same set and `analyze` can
             # scope the analysis to these channels.
-            "channel_ids"     => channels.map(&:id)
+            "channel_ids"     => channels.map(&:id),
+            # Sort-only footer: channels has no with/without (all columns fixed),
+            # so addable and removable are empty. Sort keys are the full set from
+            # ListColumns::SORT_KEYS (handle, title, subs, views, vids).
+            "list_footer"     => Pito::Lists::OptionsFooter.call(
+              addable:   [],
+              removable: [],
+              sort_keys: Pito::MessageBuilder::Channel::ListColumns::SORT_KEYS.keys
+            )
           }
           Pito::FollowUp.make_followupable!(payload, target: "channel_list", conversation: conversation)
           payload

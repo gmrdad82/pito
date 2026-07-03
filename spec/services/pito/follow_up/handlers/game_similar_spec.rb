@@ -16,13 +16,16 @@ RSpec.describe Pito::FollowUp::Handlers::GameSimilar do
     })
   end
 
-  it "registers for the game_similar target in :append mode" do
+  it "registers for the game_similar target" do
     expect(described_class.target).to eq("game_similar")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares 'show' as its only action" do
-    expect(described_class.actions).to eq([ "show" ])
+  it "Matrix serves :append mode for game_similar" do
+    expect(Pito::Dispatch::Matrix.mode_for("game_similar")).to eq(:append)
+  end
+
+  it "Matrix advertises 'show' for game_similar" do
+    expect(Pito::Dispatch::Matrix.actions_for("game_similar")).to include("show")
   end
 
   describe "#call — show <id>" do

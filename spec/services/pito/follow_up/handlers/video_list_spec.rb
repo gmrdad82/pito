@@ -19,9 +19,12 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     })
   end
 
-  it "registers for the video_list target in :append mode" do
+  it "registers for the video_list target" do
     expect(described_class.target).to eq("video_list")
-    expect(described_class.mode).to eq(:append)
+  end
+
+  it "Matrix serves :append mode for video_list" do
+    expect(Pito::Dispatch::Matrix.mode_for("video_list")).to eq(:append)
   end
 
   describe "analyze" do
@@ -41,17 +44,16 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     end
   end
 
-  it "delegates `show <id>` to the video verb handler: detail card + enhanced message" do
+  it "delegates `show <id>` to the video verb handler: bare → the detail card only" do
     result = handler.call(event:, rest: "show ##{video.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)
 
-    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+    # Bare show → detail only (plan-0.9.5 D3).
+    expect(result.events.map { |e| e[:kind] }).to eq([ :system ])
     detail = result.events.find { |e| e[:kind] == :system }[:payload]
     expect(detail["body"]).to include("Boss Rush")
     expect(detail["reply_target"]).to eq("video_detail")
     expect(detail["video_id"]).to eq(video.id)
-    enhanced = result.events.find { |e| e[:kind] == :enhanced }[:payload]
-    expect(enhanced["body"]).to include("Boss Rush")
   end
 
   it "resolves `show <id>` by VIDEO id (not game) — reply_target fixes entity type" do

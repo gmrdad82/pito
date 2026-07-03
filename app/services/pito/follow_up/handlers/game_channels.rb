@@ -15,8 +15,6 @@ module Pito
       #       + analytics event set.
       class GameChannels < Pito::FollowUp::Handler
         self.target "game_channels"
-        self.mode   :append
-        self.actions "show"
 
         # @param event        [Event]        the channel-matches card event.
         # @param rest         [String]       text after `#<handle> ` (e.g. "show @gmrdad82").

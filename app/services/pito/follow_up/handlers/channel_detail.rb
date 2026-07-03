@@ -23,8 +23,6 @@ module Pito
       # follow-up-able so the user can visit channel AND studio in sequence.
       class ChannelDetail < Pito::FollowUp::Handler
         self.target "channel_detail"
-        self.mode   :append
-        self.actions "visit", "sync", "analyze"
 
         DESTINATION_MAP = {
           "channel" => :channel,

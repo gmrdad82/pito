@@ -18,8 +18,6 @@ module Pito
       # NAMESPACE: use `::Video`/`::Game` for models; `Pito::*` for services.
       class AnalyticsGlance < Pito::FollowUp::Handler
         self.target "analytics_glance"
-        self.mode   :append
-        self.actions "with", "without", "analyze"
 
         def call(event:, rest:, conversation:, period: nil, **)
           action, args = parse_rest(rest)

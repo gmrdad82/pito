@@ -23,8 +23,6 @@ module Pito
       # Mode: :append — the controller creates an echo + turn before enqueuing.
       class Confirmation < Pito::FollowUp::Handler
         self.target "confirmation"
-        self.mode   :append
-        self.actions "confirm", "cancel"
 
         VALID_ACTIONS = %w[confirm cancel].freeze
         # Commands whose confirmed outcome kicks off background work and read

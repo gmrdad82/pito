@@ -2,9 +2,13 @@
 
 require "rails_helper"
 
-# Handler for the `analyze` chat verb. On a resolvable scope it emits TWO
-# pending events (:system + :enhanced) that AnalyzePrepareJob fills. Bare
-# `analyze` returns the suggest copy; an unresolvable scope surfaces the
+# Handler for the `analyze` chat verb. On a resolvable scope it parses a
+# SegmentSelection (`numbers` → :system card, `breakdowns` → :enhanced card) and
+# emits ONLY the selected pending events for AnalyzePrepareJob to fill
+# (plan-0.9.5 D3): bare `analyze` → numbers only; `full` → both; `only`/`with`
+# per the clause. Metric tokens are fed to SegmentSelection as extra_vocabulary
+# so they never read as unknown segments. Bare `analyze` returns the suggest
+# copy; an unresolvable scope / conflicting / unknown segment surfaces the
 # matching error copy.
 RSpec.describe Pito::Chat::Handlers::Analyze do
   def analyze(input, channel: "@all")
@@ -34,67 +38,130 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
   context "with a resolvable channel scope" do
     let!(:channel) { create(:channel, handle: "gmrdad82") }
 
-    subject(:result) { analyze("analyze channel @gmrdad82") }
+    # Bare `analyze` → the numbers (:system) card only (plan-0.9.5 D3).
+    context "bare (numbers only)" do
+      subject(:result) { analyze("analyze channel @gmrdad82") }
 
-    it "returns exactly two events" do
-      expect(result.events.length).to eq(2)
-    end
+      it "returns exactly one event" do
+        expect(result.events.length).to eq(1)
+      end
 
-    it "first event has kind :system" do
-      expect(result.events.first[:kind]).to eq(:system)
-    end
+      it "the single event is the :system (numbers) card" do
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload].dig("analyze", "role")).to eq("system")
+      end
 
-    it "second event has kind :enhanced" do
-      expect(result.events.second[:kind]).to eq(:enhanced)
-    end
+      it "the event has analyze.status 'pending'" do
+        expect(result.events.first[:payload].dig("analyze", "status")).to eq("pending")
+      end
 
-    it "both events have analyze.status 'pending'" do
-      result.events.each do |event|
-        expect(event[:payload].dig("analyze", "status")).to eq("pending")
+      it "the event records the channel entity id + level 'channel'" do
+        marker = result.events.first[:payload]["analyze"]
+        expect(marker["entity_ids"]).to include(channel.id)
+        expect(marker["level"]).to eq("channel")
+      end
+
+      it "the event is followupable (reply_target: 'analyze_message') with a non-blank reply_handle" do
+        expect(result.events.first[:payload]["reply_target"]).to eq("analyze_message")
+        expect(result.events.first[:payload]["reply_handle"]).to be_a(String).and(be_present)
       end
     end
 
-    it "first event has analyze.role 'system'" do
-      expect(result.events.first[:payload].dig("analyze", "role")).to eq("system")
-    end
+    # `full` → both cards, in canonical order (today's output).
+    context "full (both cards)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 full") }
 
-    it "second event has analyze.role 'enhanced'" do
-      expect(result.events.second[:payload].dig("analyze", "role")).to eq("enhanced")
-    end
+      it "returns exactly two events" do
+        expect(result.events.length).to eq(2)
+      end
 
-    it "both events store a non-blank intro" do
-      result.events.each do |event|
-        expect(event[:payload].dig("analyze", "intro")).to be_a(String).and(be_present)
+      it "first event has kind :system / role 'system'" do
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload].dig("analyze", "role")).to eq("system")
+      end
+
+      it "second event has kind :enhanced / role 'enhanced'" do
+        expect(result.events.second[:kind]).to eq(:enhanced)
+        expect(result.events.second[:payload].dig("analyze", "role")).to eq("enhanced")
+      end
+
+      it "both events have analyze.status 'pending'" do
+        result.events.each do |event|
+          expect(event[:payload].dig("analyze", "status")).to eq("pending")
+        end
+      end
+
+      it "both events store a non-blank intro" do
+        result.events.each do |event|
+          expect(event[:payload].dig("analyze", "intro")).to be_a(String).and(be_present)
+        end
+      end
+
+      it "both events record the channel entity id + level 'channel'" do
+        result.events.each do |event|
+          expect(event[:payload].dig("analyze", "entity_ids")).to include(channel.id)
+          expect(event[:payload].dig("analyze", "level")).to eq("channel")
+        end
+      end
+
+      it "both events are followupable with distinct, non-blank reply_handles" do
+        handles = result.events.map { |e| e[:payload]["reply_handle"] }
+        result.events.each { |e| expect(e[:payload]["reply_target"]).to eq("analyze_message") }
+        expect(handles).to all(be_a(String).and(be_present))
+        expect(handles.uniq.length).to eq(2)
       end
     end
 
-    it "both events record the channel entity id" do
-      result.events.each do |event|
-        expect(event[:payload].dig("analyze", "entity_ids")).to include(channel.id)
+    # `only breakdowns` → the breakdowns (:enhanced) card only.
+    context "only breakdowns (enhanced only)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 only breakdowns") }
+
+      it "returns exactly one event, the :enhanced (breakdowns) card" do
+        expect(result.events.length).to eq(1)
+        expect(result.events.first[:kind]).to eq(:enhanced)
+        expect(result.events.first[:payload].dig("analyze", "role")).to eq("enhanced")
       end
     end
 
-    it "both events record level 'channel'" do
-      result.events.each do |event|
-        expect(event[:payload].dig("analyze", "level")).to eq("channel")
+    # `with breakdowns` → defaults (numbers) + breakdowns → both cards.
+    context "with breakdowns (numbers + breakdowns)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 with breakdowns") }
+
+      it "returns both cards in canonical order" do
+        expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])
       end
     end
 
-    it "both events are followupable (reply_target: 'analyze_message')" do
-      result.events.each do |event|
-        expect(event[:payload]["reply_target"]).to eq("analyze_message")
+    # A metric token (`views`) belongs to MetricSelection, not SegmentSelection —
+    # it must NOT read as an unknown segment; bare-clause `with views` keeps
+    # numbers only (no extra segment requested).
+    context "with a metric token (views)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 with views") }
+
+      it "is not an error and emits numbers only" do
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system])
       end
     end
 
-    it "both events carry a non-blank reply_handle" do
-      result.events.each do |event|
-        expect(event[:payload]["reply_handle"]).to be_a(String).and(be_present)
+    # Conflicting introducers (full + only) → the shared conflict error copy.
+    context "conflicting selectors (full + only)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 full only breakdowns") }
+
+      it "returns an Error result" do
+        expect(result).to be_a(Pito::Chat::Result::Error)
       end
     end
 
-    it "the two events have distinct reply_handles" do
-      handles = result.events.map { |e| e[:payload]["reply_handle"] }
-      expect(handles.uniq.length).to eq(2)
+    # An unknown segment token → the shared unknown error copy naming the token.
+    context "unknown segment token" do
+      subject(:result) { analyze("analyze channel @gmrdad82 only bogus") }
+
+      it "returns an Error result naming the unknown token" do
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        # segment_unknown_error stores the ALREADY-rendered copy in message_key.
+        expect(result.message_key).to include("bogus")
+      end
     end
   end
 end

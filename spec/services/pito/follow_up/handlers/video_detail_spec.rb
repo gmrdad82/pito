@@ -27,16 +27,19 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     )
   end
 
-  it "registers for the video_detail target in :append mode" do
+  it "registers for the video_detail target" do
     expect(described_class.target).to eq("video_detail")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares rm/del/delete, reindex, link, unlink, shinies, sync + the video-card ops (publish/pub/unlist/schedule) + analyze" do
-    expect(described_class.actions).to eq([
+  it "Matrix serves :append mode for video_detail" do
+    expect(Pito::Dispatch::Matrix.mode_for("video_detail")).to eq(:append)
+  end
+
+  it "Matrix advertises rm/del/delete, reindex, link, unlink, shinies, sync, publish/pub/unlist/schedule, analyze for video_detail" do
+    expect(Pito::Dispatch::Matrix.actions_for("video_detail")).to include(
       "rm", "del", "delete", "reindex", "link", "unlink", "shinies", "sync",
       "publish", "pub", "unlist", "schedule", "analyze"
-    ])
+    )
   end
 
   # ── reindex (delegated to Chat::Handlers::Reindex) ────────────────────────────

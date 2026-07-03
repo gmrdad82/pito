@@ -9,6 +9,10 @@ module Pito
     # so all handlers must be loaded (eager-load in production; spec helpers
     # require them explicitly).
     #
+    # Mode and availability are sourced exclusively from Pito::Dispatch::Matrix
+    # (config/pito/verbs.yml).  The handler class itself carries only the target
+    # id and the call body.
+    #
     # In tests, register fake handlers directly:
     #   Pito::FollowUp::Registry.register(MyFakeHandler)
     # or reset the registry between examples:
@@ -17,7 +21,8 @@ module Pito
     # API:
     #   Registry.register(handler_class)     — add a handler class.
     #   Registry.for(target_id)              — handler class (or nil if unknown).
-    #   Registry.mode_for(target_id)         — :mutate / :append (or nil).
+    #   Registry.mode_for(target_id)         — :mutate / :append (or nil; reads Matrix).
+    #   Registry.actions_for(target_id)      — verb tokens without universals (reads Matrix).
     #   Registry.all                         — Hash { target_id => handler_class }.
     #   Registry.reset!                      — clear all registrations (test use only).
     module Registry
@@ -36,26 +41,23 @@ module Pito
         end
 
         # Returns the mode (:mutate / :append) for the given target id, or nil.
-        #
-        # When +action+ is provided, first checks whether the handler declares a
-        # per-action mode override (via `action_modes`); falls back to the
-        # handler's default mode when no override exists.
+        # Reads exclusively from Pito::Dispatch::Matrix (verbs.yml config-driven).
         #
         # @param target_id [String] the reply_target string.
         # @param action    [String, nil] the action word (first token of rest), or nil.
         # @return [Symbol, nil] :mutate, :append, or nil if the target is unknown.
         def mode_for(target_id, action: nil)
-          handler = @handlers[target_id.to_s]
-          return nil unless handler
-
-          handler.mode_for_action(action)
+          Pito::Dispatch::Matrix.mode_for(target_id.to_s, action:)
         end
 
-        # Returns the declared action words for the given target id (the verbs a
-        # user can type after `#<handle> `), or [] if unknown. Used by the
-        # suggestions engine to offer target-aware follow-up completions.
+        # Returns the verb-specific action tokens for the given target id, or []
+        # if unknown. Reads exclusively from Pito::Dispatch::Matrix (verbs.yml
+        # config-driven). Universal tokens (share/revoke/unshare/help) are
+        # excluded — callers add those via Pito::Share::UniversalActions.verbs_for(event).
         def actions_for(target_id)
-          @handlers[target_id.to_s]&.actions || []
+          matrix_actions = Pito::Dispatch::Matrix.actions_for(target_id.to_s)
+          universals     = Pito::Dispatch::Matrix.universal_tokens
+          matrix_actions.reject { |a| universals.include?(a) }
         end
 
         # Force-load every handler under Pito::FollowUp::Handlers so the

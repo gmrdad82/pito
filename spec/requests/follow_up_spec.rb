@@ -8,7 +8,6 @@ require "action_cable/test_helper"
 unless defined?(ControllerSpecFakeMutate)
   class ControllerSpecFakeMutate < Pito::FollowUp::Handler
     target "ctrl_fake_mutate"
-    mode   :mutate
 
     def call(event:, rest:, conversation:)
       Pito::FollowUp::Result::Mutation.new(kind: :enhanced, payload: { text: rest })
@@ -19,7 +18,6 @@ end
 unless defined?(ControllerSpecFakeAppend)
   class ControllerSpecFakeAppend < Pito::FollowUp::Handler
     target "ctrl_fake_append"
-    mode   :append
 
     def call(event:, rest:, conversation:)
       Pito::FollowUp::Result::Append.new(events: [ { kind: :system, payload: { text: rest } } ])
@@ -42,6 +40,14 @@ RSpec.describe "Follow-up engine — controller routing", type: :request do
     # already; register is idempotent for the same class).
     Pito::FollowUp::Registry.register(ControllerSpecFakeMutate)
     Pito::FollowUp::Registry.register(ControllerSpecFakeAppend)
+
+    # Fake targets are not in verbs.yml — stub their modes at the Matrix seam
+    # (the availability DSL is gone; T8.4 established this pattern).
+    allow(Pito::Dispatch::Matrix).to receive(:mode_for).and_call_original
+    allow(Pito::Dispatch::Matrix).to receive(:mode_for)
+      .with("ctrl_fake_mutate", action: anything).and_return(:mutate)
+    allow(Pito::Dispatch::Matrix).to receive(:mode_for)
+      .with("ctrl_fake_append", action: anything).and_return(:append)
   end
 
   # ── Mutate path ────────────────────────────────────────────────────────────

@@ -56,6 +56,28 @@ module Pito
         @dynamic
       end
 
+      # Value equality — two Vocabularies are equal when they carry the same name,
+      # canonical list, synonyms, fillers, dynamic flag, and resolver identity.
+      # This allows ConfigSource (which builds fresh instances on each call) to produce
+      # Vocabulary objects that compare equal to identically-configured ones in tests
+      # and assertions without requiring the caller to hold a reference to the exact instance.
+      def ==(other)
+        return false unless other.is_a?(Vocabulary)
+
+        name == other.name &&
+          canonical == other.canonical &&
+          synonyms == other.synonyms &&
+          fillers == other.fillers &&
+          dynamic? == other.dynamic? &&
+          resolver.equal?(other.resolver)
+      end
+
+      alias eql? ==
+
+      def hash
+        [ name, canonical, synonyms, fillers.to_a.sort, dynamic?, resolver.object_id ].hash
+      end
+
       # Resolves a raw token to its canonical form, or nil if not found.
       def resolve(raw)
         return nil if raw.nil? || raw.to_s.strip.empty?

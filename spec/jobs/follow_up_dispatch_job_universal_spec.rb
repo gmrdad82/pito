@@ -5,7 +5,6 @@ require "rails_helper"
 # Fake registered handler for testing the non-universal path still works.
 class FakeTargetedHandler < Pito::FollowUp::Handler
   target "fake_targeted_for_universal_spec"
-  mode   :append
 
   def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Append.new(

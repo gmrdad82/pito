@@ -53,18 +53,18 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
       expect(Pito::FollowUp::Handlers::ChannelList.target).to eq("channel_list")
     end
 
-    it "mode is :append" do
-      expect(Pito::FollowUp::Handlers::ChannelList.mode).to eq(:append)
+    it "Matrix serves :append mode for channel_list" do
+      expect(Pito::Dispatch::Matrix.mode_for("channel_list")).to eq(:append)
     end
 
-    it "declares shinies, analyze, and the sort/order pair as actions" do
-      expect(Pito::FollowUp::Handlers::ChannelList.actions)
-        .to eq([ "shinies", "analyze", "sort", "order" ])
+    it "Matrix advertises shinies, analyze, the sort/order pair, and next for channel_list" do
+      expect(Pito::Dispatch::Matrix.actions_for("channel_list"))
+        .to include("shinies", "analyze", "sort", "order", "next")
     end
 
     it "actions_for('channel_list') matches the declared set" do
       expect(Pito::FollowUp::Registry.actions_for("channel_list"))
-        .to match_array(%w[shinies analyze sort order])
+        .to match_array(%w[shinies analyze sort order next])
     end
 
     it "sort and order are :mutate actions (re-render in place, no consume)" do

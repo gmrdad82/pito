@@ -16,8 +16,6 @@ module Pito
       #       standard game detail + recommendations event set.
       class GameSimilar < Pito::FollowUp::Handler
         self.target "game_similar"
-        self.mode   :append
-        self.actions "show"
 
         # @param event        [Event]        the similar-games strip event.
         # @param rest         [String]       text after `#<handle> ` (e.g. "show 42").

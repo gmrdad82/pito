@@ -10,7 +10,7 @@ RSpec.describe "Pito::Grammar slash specs" do
     Pito::Grammar::Registry.register_all!
   end
 
-  describe "/config spec (handler-declared)" do
+  describe "/config spec (from config)" do
     subject(:spec) { Pito::Grammar::Registry.spec(namespace: :slash, name: :config) }
 
     it "is registered" do
@@ -41,7 +41,7 @@ RSpec.describe "Pito::Grammar slash specs" do
     end
   end
 
-  describe "/disconnect spec (handler-declared)" do
+  describe "/disconnect spec (from config)" do
     subject(:spec) { Pito::Grammar::Registry.spec(namespace: :slash, name: :disconnect) }
 
     it "is registered" do
@@ -61,7 +61,7 @@ RSpec.describe "Pito::Grammar slash specs" do
     end
   end
 
-  describe "/help spec (handler-declared)" do
+  describe "/help spec (from config)" do
     subject(:spec) { Pito::Grammar::Registry.spec(namespace: :slash, name: :help) }
 
     it "is registered" do
@@ -73,7 +73,7 @@ RSpec.describe "Pito::Grammar slash specs" do
     end
   end
 
-  describe "/login spec (handler-less, from Specs.all)" do
+  describe "/login spec (from config)" do
     subject(:spec) { Pito::Grammar::Registry.spec(namespace: :slash, name: :login) }
 
     it "is registered" do
@@ -91,7 +91,7 @@ RSpec.describe "Pito::Grammar slash specs" do
     end
   end
 
-  describe "/logout spec (handler-less, from Specs.all)" do
+  describe "/logout spec (from config)" do
     subject(:spec) { Pito::Grammar::Registry.spec(namespace: :slash, name: :logout) }
 
     it "is registered" do
@@ -103,7 +103,7 @@ RSpec.describe "Pito::Grammar slash specs" do
     end
   end
 
-  describe "/connect spec (handler-less, from Specs.all)" do
+  describe "/connect spec (from config)" do
     subject(:spec) { Pito::Grammar::Registry.spec(namespace: :slash, name: :connect) }
 
     it "is registered" do

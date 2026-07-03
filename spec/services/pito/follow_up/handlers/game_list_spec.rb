@@ -16,23 +16,23 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     })
   end
 
-  it "registers for the game_list target in :append mode" do
+  it "registers for the game_list target" do
     expect(described_class.target).to eq("game_list")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "delegates `show <id>` to the verb handler: detail card + recommendations" do
+  it "Matrix serves :append mode for game_list" do
+    expect(Pito::Dispatch::Matrix.mode_for("game_list")).to eq(:append)
+  end
+
+  it "delegates `show <id>` to the verb handler: bare → the detail card only" do
     result = handler.call(event:, rest: "show ##{game.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)
 
-    # A game emits: detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced)
-    # + the at-a-glance (:enhanced, ALWAYS present — item 5).
-    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced, :enhanced ])
+    # Bare show → detail only (plan-0.9.5 D3; `show <id> full` restores the rest).
+    expect(result.events.map { |e| e[:kind] }).to eq([ :system ])
     detail = result.events.find { |e| e[:kind] == :system }[:payload]
     expect(detail["body"]).to include("Lies of P")
     expect(detail["reply_target"]).to eq("game_detail")
-    enhanced = result.events.find { |e| e[:kind] == :enhanced }[:payload]
-    expect(enhanced["body"]).to include("pito-game-enhanced-message")
   end
 
   it "resolves `show <id>` by GAME id (not video) — reply_target fixes entity type" do

@@ -21,6 +21,12 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
         expect(slash_names(authenticated: false)).to include("login")
       end
 
+      # T8.9 auth-gating pin: the unauthenticated palette is EXACTLY today's set —
+      # the sole :unauthenticated_only slash verb, sourced from config/pito/verbs.yml.
+      it "is exactly ['login'] — the full unauthenticated set" do
+        expect(slash_names(authenticated: false)).to eq(%w[login])
+      end
+
       it "does not include /config (an authenticated spec)" do
         expect(slash_names(authenticated: false)).not_to include("config")
       end
@@ -64,6 +70,14 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
       it "includes /logout and /connect and /disconnect" do
         names = slash_names(authenticated: true)
         expect(names).to include("logout", "connect", "disconnect")
+      end
+
+      # T8.9 auth-gating pin: the authenticated palette is EXACTLY today's set —
+      # every slash verb EXCEPT :unauthenticated_only login, alphabetical, from config.
+      it "is exactly the 12 non-login slash verbs, alphabetical" do
+        expect(slash_names(authenticated: true)).to eq(
+          %w[config connect disconnect games help jobs logout new notifications rename resume themes]
+        )
       end
     end
   end
@@ -120,8 +134,12 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
       described_class.to_h(authenticated: true)[:chat].find { |e| e[:name] == name.to_s }
     end
 
-    it "show emits no slots (free :id slot is not emitted)" do
-      expect(chat_entry("show")[:slots]).to eq([])
+    it "show emits its selection slots (free :id slot is not emitted)" do
+      expect(chat_entry("show")[:slots]).to eq([
+        { name: "full", source: "full_flag" },
+        { name: "with", source: "show_segments" },
+        { name: "only", source: "show_segments" }
+      ])
     end
 
     it "list emits one slot: noun/nouns" do

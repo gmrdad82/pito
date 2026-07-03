@@ -79,25 +79,38 @@ module Pito
       # mirroring the three modes `resolve_target` uses: the typed ref (free-chat
       # or list reply), or the source card's entity id (detail reply).
       def target_ref(noun_fillers, id_key:)
-        return extract_ref_from(message.raw, noun_fillers) unless follow_up?
+        return extract_ref_from(resolution_raw, noun_fillers) unless follow_up?
 
         payload = follow_up.source_event.payload.to_h.with_indifferent_access
         return payload[id_key].to_s if payload[id_key].present?
 
-        strip_noun(follow_up.rest, noun_fillers)
+        strip_noun(resolution_rest, noun_fillers)
+      end
+
+      # The raw text reference extraction reads. Verbs whose grammar appends
+      # trailing clauses AFTER the reference (segment selection on `show`:
+      # `show game 5 full` — plan-0.9.5 D3) override these to return the input
+      # with those clauses stripped, so `find_by_ref` sees only the ref.
+      def resolution_raw
+        message.raw
+      end
+
+      # Reply-mode sibling of +resolution_raw+ (the `<verb> <rest>` reply text).
+      def resolution_rest
+        follow_up.rest
       end
 
       private
 
       def resolve_free_chat(entity_class, noun_fillers)
-        ref = extract_ref_from(message.raw, noun_fillers)
+        ref = extract_ref_from(resolution_raw, noun_fillers)
         return :needs_ref if ref.blank?
 
         find_by_ref(entity_class, ref)
       end
 
       def resolve_in_list(entity_class, payload, noun_fillers)
-        ref = strip_noun(follow_up.rest, noun_fillers)
+        ref = strip_noun(resolution_rest, noun_fillers)
         return :needs_ref if ref.blank?
 
         record = find_by_ref(entity_class, ref)

@@ -98,9 +98,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(Pito::FollowUp::Registry.mode_for("video_list", action: "order")).to eq(:mutate)
     end
 
-    it "actions_for('video_list') lists all 16 declared actions" do
+    it "actions_for('video_list') lists all 17 declared actions" do
       expect(Pito::FollowUp::Registry.actions_for("video_list")).to match_array(
-        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze]
+        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze next]
       )
     end
 
@@ -108,8 +108,8 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(Pito::FollowUp::Handlers::VideoList.target).to eq("video_list")
     end
 
-    it "target class default mode is :append" do
-      expect(Pito::FollowUp::Handlers::VideoList.mode).to eq(:append)
+    it "Matrix serves :append base mode for video_list" do
+      expect(Pito::Dispatch::Matrix.mode_for("video_list")).to eq(:append)
     end
   end
 

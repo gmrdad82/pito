@@ -23,11 +23,7 @@ module Pito
         self.verb        = :notifications
         self.description_key = "pito.slash.notifications.descriptions.notifications"
 
-        grammar do
-          aliases :notifs
-          auth :authenticated_only
-          description_key "pito.grammar.slash.notifications"
-        end
+        # Grammar (auth + :notifs alias): config/pito/verbs.yml (T8.9).
 
         def call
           open_sidebar

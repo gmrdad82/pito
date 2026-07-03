@@ -68,8 +68,8 @@ module Pito
         target_usage = Pito::Copy.render_soft("pito.hashtag_help.#{indicator}.target_usage")
         return nil if target_usage.blank?
 
-        # Collect action rows from the handler's declared actions.
-        action_rows = handler.actions.filter_map do |act|
+        # Collect action rows from Matrix (verbs.yml — sole source of availability).
+        action_rows = Pito::FollowUp::Registry.actions_for(handler.target_id).filter_map do |act|
           data = Pito::Copy.subtree("pito.hashtag_help.#{indicator}.actions.#{act}")
           next unless data
 

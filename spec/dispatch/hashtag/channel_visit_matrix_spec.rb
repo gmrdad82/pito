@@ -79,11 +79,11 @@ RSpec.describe "Dispatch matrix — #channel_visit follow-up (recognition, DB mo
       expect(Pito::FollowUp::Handlers::ChannelVisit.target).to eq("channel_visit")
     end
 
-    it "mode is :mutate (transforms event in place; no echo, no new turn)" do
-      expect(Pito::FollowUp::Handlers::ChannelVisit.mode).to eq(:mutate)
+    it "Matrix serves :mutate mode for channel_visit (transforms event in place; no echo, no new turn)" do
+      expect(Pito::Dispatch::Matrix.mode_for("channel_visit")).to eq(:mutate)
     end
 
-    it "mode_for('channel_visit') is :mutate" do
+    it "mode_for('channel_visit') is :mutate via Registry → Matrix" do
       expect(Pito::FollowUp::Registry.mode_for("channel_visit")).to eq(:mutate)
     end
 
@@ -91,8 +91,8 @@ RSpec.describe "Dispatch matrix — #channel_visit follow-up (recognition, DB mo
       expect(Pito::FollowUp::Handlers::ChannelVisit.internal?).to be true
     end
 
-    it "declares only 'consume' as an action" do
-      expect(Pito::FollowUp::Handlers::ChannelVisit.actions).to eq([ "consume" ])
+    it "Matrix advertises only 'consume' for channel_visit" do
+      expect(Pito::Dispatch::Matrix.actions_for("channel_visit")).to include("consume")
     end
 
     it "actions_for('channel_visit') contains 'consume'" do

@@ -17,13 +17,16 @@ RSpec.describe Pito::FollowUp::Handlers::GameChannels do
     })
   end
 
-  it "registers for the game_channels target in :append mode" do
+  it "registers for the game_channels target" do
     expect(described_class.target).to eq("game_channels")
-    expect(described_class.mode).to eq(:append)
   end
 
-  it "declares 'show' as its only action" do
-    expect(described_class.actions).to eq([ "show" ])
+  it "Matrix serves :append mode for game_channels" do
+    expect(Pito::Dispatch::Matrix.mode_for("game_channels")).to eq(:append)
+  end
+
+  it "Matrix advertises 'show' for game_channels" do
+    expect(Pito::Dispatch::Matrix.actions_for("game_channels")).to include("show")
   end
 
   describe "#call — show @handle" do

@@ -26,8 +26,6 @@ module Pito
       #       implied by the card). Reachable via shift+r, which seeds `#<handle> `.
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
-        self.mode   :append
-        self.actions "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync", "analyze"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.

@@ -19,10 +19,7 @@ module Pito
         self.verb        = :themes
         self.description_key = "pito.slash.theme.descriptions.theme"
 
-        grammar do
-          auth :authenticated_only
-          description_key "pito.grammar.slash.theme"
-        end
+        # Grammar (auth, client dispatch): config/pito/verbs.yml (T8.9).
 
         def call
           open_sidebar
