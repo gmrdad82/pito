@@ -31,6 +31,12 @@ WebMock.disable_net_connect!(allow_localhost: true)
 # Suppress OmniAuth's per-request DEBUG log lines in test output.
 OmniAuth.config.logger = Logger.new(IO::NULL)
 
+# Test-support seams must load for EVERY process (CI shards files across
+# parallel workers — relying on another spec file's require_relative made the
+# dispatch-config injection helper vanish from chunks that lacked the proof
+# spec, failing 7 matrix examples on CI only; 2026-07-04).
+require Rails.root.join("spec/support/dispatch_config_injection").to_s
+
 RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods
 
