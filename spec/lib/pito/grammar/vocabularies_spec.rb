@@ -175,8 +175,8 @@ RSpec.describe Pito::Grammar::Vocabularies do
       expect(platforms.resolve("pc")).to eq("PC")
     end
 
-    it 'resolves "xbox" to "Xbox Series X"' do
-      expect(platforms.resolve("xbox")).to eq("Xbox Series X")
+    it 'resolves "xbox" to the bare Xbox family (matches every Xbox platform by substring)' do
+      expect(platforms.resolve("xbox")).to eq("Xbox")
     end
   end
 
