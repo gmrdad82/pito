@@ -47,7 +47,7 @@ module Pito
             # branch — video_target? in follow_up mode reads reply_target, which
             # is "game_linked_videos" (does not start with "video"), so we MUST
             # not pass a follow_up context here.
-            result = Pito::Chat::Dispatcher.call(
+            result = Pito::Dispatch::Router.call(
               input:          "show vid #{args}",
               conversation:   conversation,
               channel:        channel,

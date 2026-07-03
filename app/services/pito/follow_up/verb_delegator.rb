@@ -7,10 +7,11 @@ module Pito
     #
     # A follow-up handler (game_list, game_detail, …) becomes a thin shim: it
     # passes the live source event + the reply's `rest` here. We reconstruct the
-    # chat invocation, run it through `Chat::Dispatcher` with a `FollowUpContext`
-    # attached (so resolution can scope to the source list's rows or read the
-    # source card's entity), then adapt the chat result into a follow-up
-    # result. One code path builds + sends; no duplication.
+    # chat invocation, run it through `Pito::Dispatch::Router` (the SAME path the
+    # typed pipeline uses) with a `FollowUpContext` attached (so resolution can
+    # scope to the source list's rows or read the source card's entity), then
+    # adapt the chat result into a follow-up result. One code path builds + sends;
+    # no duplication.
     #
     #   VerbDelegator.call(source_event: ev, rest: "show 5", conversation: c)
     #   # → runs Chat::Handlers::Show with follow_up context → FollowUp::Result::Append
@@ -47,14 +48,16 @@ module Pito
         # Consult the declarative reply-branch paths (verbs.yml
         # reply.targets.<target>.ref/args) via Pito::Dispatch::ReplyBinding, and
         # thread the resolved kwargs onto the follow-up context (plan-0.9.5 T8.7).
-        # P2: the handlers still do their own extraction — `bound` is advisory,
-        # so behaviour is byte-identical (the frozen matrices prove it); the P3
-        # Router is what makes these kwargs authoritative-in-effect.
+        # The P3 Router (T8.10) CONSUMES this `bound` into the uniform contract's
+        # `kwargs:` — flipping it from an advisory field nothing read into a
+        # first-class dispatch argument. The handlers' own resolution is still
+        # authoritative (byte-identical under the frozen matrices) until the P3
+        # generic executors absorb it.
         binding = Pito::Dispatch::ReplyBinding.bind(
           verb:, target: reply_target, rest: args, source_event:, conversation:
         )
         context = Pito::Chat::FollowUpContext.new(source_event:, rest: args, bound: binding.kwargs)
-        result  = Pito::Chat::Dispatcher.call(
+        result  = Pito::Dispatch::Router.call(
           input:          input,
           conversation:   conversation,
           channel:        channel,

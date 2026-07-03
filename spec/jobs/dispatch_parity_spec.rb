@@ -10,7 +10,7 @@ require "rails_helper"
 # finalizer unification closed:
 #
 #   D1 — reply-appended events get the same :system/:enhanced canonicalisation.
-#   D6/D7/D8 — period / viewport_width / channel reach Chat::Dispatcher on reply.
+#   D6/D7/D8 — period / viewport_width / channel reach the Router on reply.
 RSpec.describe "Dispatch pipeline parity (Finalizer)", type: :job do
   let(:conversation) { create(:conversation) }
   let!(:game)        { create(:game, title: "Dead Space") }
@@ -74,7 +74,7 @@ RSpec.describe "Dispatch pipeline parity (Finalizer)", type: :job do
   end
 
   describe "D6/D7/D8 — period / viewport_width / channel reach the dispatcher on reply" do
-    it "threads all three kwargs from the job through to Chat::Dispatcher.call" do
+    it "threads all three kwargs from the job through to the Router.call" do
       source_turn = conversation.turns.create!(
         position: Turn.next_position_for(conversation), input_kind: :chat, input_text: "list games"
       )
@@ -87,7 +87,7 @@ RSpec.describe "Dispatch pipeline parity (Finalizer)", type: :job do
         input_text: "#dead-0002 show #{game.id}"
       )
 
-      expect(Pito::Chat::Dispatcher).to receive(:call).with(
+      expect(Pito::Dispatch::Router).to receive(:call).with(
         hash_including(period: "28d", viewport_width: "1024", channel: "@xyz")
       ).and_return(Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { "text" => "ok" } } ]))
 

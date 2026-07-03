@@ -101,7 +101,7 @@ RSpec.describe ChatDispatchJob, type: :job do
       let(:turn)     { setup_turn(input_text: "show video #{video.id}", input_kind: :chat) }
 
       before do
-        allow(Pito::Chat::Dispatcher).to receive(:call).and_return(
+        allow(Pito::Dispatch::Router).to receive(:call).and_return(
           Pito::Chat::Result::Ok.new(events: [
             {
               kind:    :enhanced,

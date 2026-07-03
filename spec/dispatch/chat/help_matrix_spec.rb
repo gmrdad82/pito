@@ -62,10 +62,10 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
   end
 
   # Full dispatcher pipeline — exercises KeywordSanitizer, Parser, and the
-  # `--help` intercept in Pito::Chat::Dispatcher.
+  # `--help` intercept in Pito::Dispatch::Router.
   # `conversation` is passed through but never read on the help path.
   def dispatch(raw)
-    Pito::Chat::Dispatcher.call(input: raw, conversation: double("conversation"))
+    Pito::Dispatch::Router.call(input: raw, conversation: double("conversation"))
   end
 
   # ── 1. Result shape — bare `help` ────────────────────────────────────────────
@@ -208,7 +208,7 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
 
   # ── 5. `help --help` → dispatcher intercept → nonsense easter-egg body ────────
   #
-  # Pito::Chat::Dispatcher#dispatch_new_turn checks:
+  # Pito::Dispatch::Router#dispatch_new_turn checks:
   #   message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/) && message.verb == :help
   # → Pito::Slash::HelpBuilder.nonsense_body (the "manual's manual" easter egg)
   # → Result::Ok with a :system event; payload body differs from Commands.call body.

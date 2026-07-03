@@ -34,7 +34,7 @@ module Pito
           # so that Show's `channel_noun?` check fires and `channel_ref` reads
           # the @handle directly from message.raw — independent of the source
           # event's game_id context.
-          result = Pito::Chat::Dispatcher.call(
+          result = Pito::Dispatch::Router.call(
             input:          "show channel #{args}",
             conversation:   conversation,
             channel:        channel,

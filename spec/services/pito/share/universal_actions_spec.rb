@@ -32,8 +32,8 @@ RSpec.describe Pito::Share::UniversalActions do
       expect(described_class::SHARE_REQUIRED).to match_array(%w[revoke unshare])
     end
 
-    it "VERBS is the union of HELP_VERBS, ALWAYS_AVAILABLE, and SHARE_REQUIRED" do
-      expect(described_class::VERBS).to match_array(%w[help share revoke unshare])
+    it ".verbs derives from Matrix.universal_tokens (share, revoke, unshare, help)" do
+      expect(described_class.verbs).to match_array(%w[help share revoke unshare])
     end
   end
 

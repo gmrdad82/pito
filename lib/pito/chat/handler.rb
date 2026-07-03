@@ -39,15 +39,16 @@ module Pito
       extend Pito::Grammar::HandlerDsl
       include Pito::Chat::TargetResolution
 
-      attr_reader :message, :conversation, :channel, :period, :follow_up, :viewport_width
+      attr_reader :message, :conversation, :channel, :period, :follow_up, :viewport_width, :kwargs
 
-      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil)
+      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil, kwargs: {})
         @message = message
         @conversation = conversation
         @channel = channel
         @period = period
         @follow_up = follow_up
         @viewport_width = viewport_width
+        @kwargs = kwargs
       end
 
       # True when this verb was invoked from a `#<handle>` follow-up reply rather
@@ -62,6 +63,30 @@ module Pito
       end
 
       class << self
+        # The uniform dispatch contract (plan-0.9.5 T8.10). Pito::Dispatch::Router
+        # invokes EVERY chat verb through this single class-level entry:
+        #
+        #   * +context+ (Pito::Dispatch::Context) carries what handlers read today —
+        #     message / conversation / follow_up / channel / period / viewport_width.
+        #   * +kwargs+ carries the Router-bound arguments (a reply path's
+        #     ReplyBinding output; empty for free chat).
+        #
+        # It simply unpacks the context into the existing keyword initializer and
+        # runs the instance #call — so each concrete handler's body stays exactly
+        # as written. This is the "add a verb by config + a handler" foundation:
+        # any Pito::Chat::Handler subclass answers the contract for free.
+        def call(kwargs:, context:)
+          new(
+            message:        context.message,
+            conversation:   context.conversation,
+            channel:        context.channel,
+            period:         context.period,
+            follow_up:      context.follow_up,
+            viewport_width: context.viewport_width,
+            kwargs:         kwargs
+          ).call
+        end
+
         def verb
           @verb or raise NotImplementedError, "#{name} must define self.verb"
         end

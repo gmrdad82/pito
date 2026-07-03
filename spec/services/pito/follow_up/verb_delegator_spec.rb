@@ -21,7 +21,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
     end
 
     it "produces the SAME events as the free-chat verb (chat ≡ #hashtag)" do
-      free      = Pito::Chat::Dispatcher.call(input: "show game #{game.id}", conversation:)
+      free      = Pito::Dispatch::Router.call(input: "show game #{game.id}", conversation:)
       delegated = described_class.call(source_event:, rest: "show #{game.id}", conversation:)
 
       expect(delegated.events.map { |e| e[:kind] }).to eq(free.events.map { |e| e[:kind] })
@@ -39,7 +39,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
 
     it "consults ReplyBinding and threads the resolved kwargs onto FollowUpContext#bound (T8.7)" do
       captured = nil
-      allow(Pito::Chat::Dispatcher).to receive(:call) do |**kwargs|
+      allow(Pito::Dispatch::Router).to receive(:call) do |**kwargs|
         captured = kwargs[:follow_up]
         Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: {} } ])
       end
@@ -58,7 +58,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       video   = create(:video, channel:)
       video_list_event = instance_double(Event, payload: { "reply_target" => "video_list" })
       captured = nil
-      allow(Pito::Chat::Dispatcher).to receive(:call) do |**kwargs|
+      allow(Pito::Dispatch::Router).to receive(:call) do |**kwargs|
         captured = kwargs[:follow_up]
         Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: {} } ])
       end
@@ -68,8 +68,8 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       expect(captured.bound).to eq({})
     end
 
-    it "forwards channel / period / viewport_width into Chat::Dispatcher (D6/D7/D8)" do
-      expect(Pito::Chat::Dispatcher).to receive(:call).with(
+    it "forwards channel / period / viewport_width into the Router (D6/D7/D8)" do
+      expect(Pito::Dispatch::Router).to receive(:call).with(
         hash_including(channel: "@xyz", period: "28d", viewport_width: "1024")
       ).and_return(Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: {} } ]))
 

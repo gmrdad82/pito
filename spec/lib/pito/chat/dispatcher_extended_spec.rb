@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-# Extended edge-case coverage for Pito::Chat::Dispatcher.
+# Extended edge-case coverage for Pito::Dispatch::Router.
 # The main dispatcher_spec.rb covers the primary dispatch paths.
 # This file adds: empty input, whitespace-only, slash-prefixed input,
 # unknown verb (not in registry), malformed kwargs pattern.
 
 require "rails_helper"
 
-RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
+RSpec.describe Pito::Dispatch::Router, "edge cases" do
   let(:conversation) { Conversation.singleton }
 
   before { conversation.turns.destroy_all }

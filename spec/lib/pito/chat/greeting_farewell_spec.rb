@@ -8,7 +8,7 @@ RSpec.describe "Chat greetings, farewells & the witty unknown reply" do
   let(:conversation) { Conversation.singleton }
 
   def reply(input)
-    Pito::Chat::Dispatcher.call(input:, conversation:)
+    Pito::Dispatch::Router.call(input:, conversation:)
   end
 
   def system_text(result)

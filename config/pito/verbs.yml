@@ -96,6 +96,7 @@ verbs:
       slash: false
     auth: session
     chat:
+      dispatch: Chat::Handlers::List
       slots:
         - name: noun
           kind: enum
@@ -110,6 +111,7 @@ verbs:
     description: pito.grammar.chat.show
     auth: session
     chat:
+      dispatch: Chat::Handlers::Show
       slots:
         - name: id
           kind: free
@@ -239,6 +241,7 @@ verbs:
     description: pito.grammar.chat.analyze
     auth: session
     chat:
+      dispatch: Chat::Handlers::Analyze
       slots:
         - name: noun
           kind: enum
@@ -324,6 +327,7 @@ verbs:
     description: pito.grammar.chat.import
     auth: session
     chat:
+      dispatch: Chat::Handlers::Import
       slots:
         - name: noun
           kind: enum
@@ -337,6 +341,7 @@ verbs:
     description: pito.grammar.chat.sync
     auth: session
     chat:
+      dispatch: Chat::Handlers::Sync
       slots:
         - name: target
           kind: enum
@@ -359,6 +364,7 @@ verbs:
     description: pito.grammar.chat.footage
     auth: session
     chat:
+      dispatch: Chat::Handlers::Footage
       slots:
         - name: title
           kind: enum
@@ -378,6 +384,7 @@ verbs:
     description: pito.grammar.chat.price
     auth: session
     chat:
+      dispatch: Chat::Handlers::Price
       slots:
         - name: subcommand
           kind: enum
@@ -403,6 +410,7 @@ verbs:
     description: pito.grammar.chat.delete
     auth: session
     chat:
+      dispatch: Chat::Handlers::Delete
       slots:
         - name: title
           kind: enum
@@ -431,6 +439,7 @@ verbs:
     description: pito.grammar.chat.reindex
     auth: session
     chat:
+      dispatch: Chat::Handlers::Reindex
       slots:
         - name: title
           kind: enum
@@ -449,6 +458,7 @@ verbs:
     description: pito.grammar.chat.platform
     auth: session
     chat:
+      dispatch: Chat::Handlers::Platform
       slots:
         - name: subcommand
           kind: enum
@@ -473,6 +483,7 @@ verbs:
     description: pito.grammar.chat.publish
     auth: session
     chat:
+      dispatch: Chat::Handlers::Publish
       slots:
         - name: title
           kind: free
@@ -492,6 +503,7 @@ verbs:
     description: pito.grammar.chat.unlist
     auth: session
     chat:
+      dispatch: Chat::Handlers::Unlist
       slots:
         - name: title
           kind: free
@@ -509,6 +521,7 @@ verbs:
     description: pito.grammar.chat.schedule
     auth: session
     chat:
+      dispatch: Chat::Handlers::Schedule
       slots:
         - name: title
           kind: free
@@ -559,6 +572,7 @@ verbs:
     description: pito.grammar.chat.link
     auth: session
     chat:
+      dispatch: Chat::Handlers::Link
       slots:
         - name: title
           kind: free
@@ -583,6 +597,7 @@ verbs:
     description: pito.grammar.chat.unlink
     auth: session
     chat:
+      dispatch: Chat::Handlers::Unlink
       slots:
         - name: title
           kind: free
@@ -611,6 +626,7 @@ verbs:
     description: pito.grammar.chat.help
     auth: session
     chat:
+      dispatch: Chat::Handlers::Help
       slots: []
     slash:
       auth: any
@@ -622,6 +638,7 @@ verbs:
     description: pito.grammar.chat.shinies
     auth: session
     chat:
+      dispatch: Chat::Handlers::Shinies
       slots:
         - name: target
           kind: free
@@ -649,6 +666,7 @@ verbs:
     description: pito.grammar.chat.greet
     auth: session
     chat:
+      dispatch: Chat::Handlers::Greeting
       slots: []
       # Recognised by whole-input phrase match in Pito::Chat::Parser (single or multi-word,
       # case-insensitive, punctuation-tolerant). Spec exists for handler↔spec parity + help.
@@ -657,6 +675,7 @@ verbs:
     description: pito.grammar.chat.farewell
     auth: session
     chat:
+      dispatch: Chat::Handlers::Farewell
       slots: []
       # Recognised by whole-input phrase match in Pito::Chat::Parser. Spec for parity + help.
 
