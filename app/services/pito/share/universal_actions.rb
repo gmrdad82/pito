@@ -31,8 +31,12 @@ module Pito
       # revoke/unshare are only available when a Share row exists for the event.
       SHARE_REQUIRED = %w[revoke unshare].freeze
 
-      # Full set — the union used for short-circuit detection in the dispatch job.
-      VERBS = (HELP_VERBS + ALWAYS_AVAILABLE + SHARE_REQUIRED).freeze
+      # Full token set, derived from Pito::Dispatch::Matrix.universal_tokens
+      # (the universal_reply: block in verbs.yml). Used for short-circuit detection
+      # in the dispatch job and controller. Replaces the former VERBS constant.
+      def self.verbs
+        Pito::Dispatch::Matrix.universal_tokens
+      end
 
       # Message kinds that carry NO universal share verbs. A :confirmation message
       # is an ephemeral prompt (confirm/cancel) — sharing it makes no sense

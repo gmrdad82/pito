@@ -15,7 +15,7 @@ RSpec.describe "Chat ≡ #hashtag parity", type: :service do
   let!(:video)       { create(:video, :public, title: "Boss Rush", channel:) }
 
   def free_events(input)
-    Pito::Chat::Dispatcher.call(input:, conversation:).events
+    Pito::Dispatch::Router.call(input:, conversation:).events
   end
 
   def reply_events(reply_target, rest, **extra)

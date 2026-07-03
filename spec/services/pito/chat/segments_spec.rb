@@ -216,10 +216,10 @@ RSpec.describe Pito::Chat::Segments do
       end
     end
 
-    describe "shared identity" do
-      it "channel/vid/game analyze arrays are the same object (ANALYZE_SEGMENTS)" do
-        expect(analyze_channel).to equal(analyze_vid)
-        expect(analyze_vid).to equal(analyze_game)
+    describe "shared definition" do
+      it "channel/vid/game analyze segments are equal (all share the same schema definition)" do
+        expect(analyze_channel).to eq(analyze_vid)
+        expect(analyze_vid).to eq(analyze_game)
       end
     end
   end

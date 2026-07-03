@@ -182,13 +182,17 @@ RSpec.describe "verbs.yml schema integrity", type: :dispatch do
       end
     end
 
-    describe "the config segment table matches Pito::Chat::Segments exactly" do
-      Pito::Chat::Segments::TABLE.each_key do |verb|
+    describe "Segments.for reads config coherently — each Segment mirrors its config entry" do
+      # TABLE is gone; iterate only verbs that declare a segments: block in verbs.yml.
+      VERBS.select { |_, body| body[:segments] }.each_key do |verb|
         %i[channel vid game].each do |entity|
           next unless VERBS.dig(verb, :segments, entity)
 
           it "#{verb}/#{entity}: names, order, kinds, defaults, builders, fills, targets, guards" do
-            config_rows = VERBS.dig(verb, :segments, entity).map do |name, seg|
+            raw  = VERBS.dig(verb, :segments, entity)
+            segs = Pito::Chat::Segments.for(verb:, entity:)
+
+            config_rows = raw.map do |name, seg|
               {
                 name:         name.to_s,
                 kind:         seg[:kind],
@@ -199,7 +203,7 @@ RSpec.describe "verbs.yml schema integrity", type: :dispatch do
                 guarded:      !seg[:emit_if].nil?
               }
             end
-            ruby_rows = Pito::Chat::Segments.for(verb:, entity:).map do |seg|
+            seg_rows = segs.map do |seg|
               {
                 name:         seg.name,
                 kind:         seg.kind.to_s,
@@ -210,7 +214,7 @@ RSpec.describe "verbs.yml schema integrity", type: :dispatch do
                 guarded:      !seg.emit_if.nil?
               }
             end
-            expect(config_rows).to eq(ruby_rows)
+            expect(seg_rows).to eq(config_rows)
           end
         end
       end

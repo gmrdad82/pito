@@ -26,7 +26,7 @@ module Pito
 
           game_id = event.payload["game_id"]
 
-          result = Pito::Chat::Dispatcher.call(
+          result = Pito::Dispatch::Router.call(
             input:          "show game ##{game_id}",
             conversation:   conversation,
             channel:        channel,

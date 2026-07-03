@@ -708,7 +708,7 @@ class ChatController < ApplicationController
     # regardless of its reply_target. Force :append mode so a turn + echo are
     # created before FollowUpDispatchJob runs its universal short-circuit.
     mode =
-      if Pito::Share::UniversalActions::VERBS.include?(action)
+      if Pito::Share::UniversalActions.verbs.include?(action)
         :append
       else
         Pito::FollowUp::Registry.mode_for(target, action:)
@@ -718,7 +718,7 @@ class ChatController < ApplicationController
     # handle_async): channel scope, analytics period, and scrollback width — so
     # the delegated chat verb runs identically to the same verb typed in chat.
     # Missing any one of these silently drops it, so they travel in lockstep
-    # across every hop down to Chat::Dispatcher.
+    # across every hop down to Pito::Dispatch::Router.
     channel        = params[:channel].presence || "@all"
     period         = params[:period].presence
     viewport_width = params[:viewport_width].presence

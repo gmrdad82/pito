@@ -42,7 +42,7 @@ class ChatDispatchJob < ApplicationJob
     elsif turn.hashtag?
       Pito::Hashtag::Dispatcher.call(input:, conversation:)
     else
-      Pito::Chat::Dispatcher.call(input:, conversation:, channel:, period:, viewport_width:)
+      Pito::Dispatch::Router.call(input:, conversation:, channel:, period:, viewport_width:)
     end
 
     # The shared finalizer canonicalises kinds, persists + broadcasts each event,

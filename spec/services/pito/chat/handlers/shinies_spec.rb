@@ -209,7 +209,7 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
 
   describe "--help" do
     it "returns man-style html for shinies --help" do
-      result = Pito::Chat::Dispatcher.call(
+      result = Pito::Dispatch::Router.call(
         input:        "shinies --help",
         conversation: Conversation.singleton
       )
@@ -219,7 +219,7 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
     end
 
     it "returns noun-level help for shinies game --help" do
-      result = Pito::Chat::Dispatcher.call(
+      result = Pito::Dispatch::Router.call(
         input:        "shinies game --help",
         conversation: Conversation.singleton
       )

@@ -33,7 +33,7 @@ module Pito
       UNIVERSAL_KEYS       = %i[mode aliases].freeze
       VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns].freeze
       AVAILABILITY_KEYS    = %i[chat slash].freeze
-      CHAT_KEYS            = %i[slots].freeze
+      CHAT_KEYS            = %i[slots dispatch].freeze
       SLASH_KEYS           = %i[auth description slots dispatch].freeze
       REPLY_KEYS           = %i[targets].freeze
       SLOT_KEYS            = %i[name kind source optional repeatable introducer when].freeze
@@ -64,9 +64,8 @@ module Pito
       # These closed sets stand in for registries that later 0.9.5 tasks introduce.
       # Re-point each at its registry (and delete the constant) once it lands.
       #
-      # TODO(0.9.5 P2/P3): re-point PREDICATES at the segment-predicate registry
-      # (§8.2 named `emit_if:` guards) once it is defined.
-      PREDICATES = %w[has_any_videos has_linked_game has_linked_videos].freeze
+      # Derived from the live Pito::Dispatch::Predicates registry (§8.2 named emit_if: guards).
+      PREDICATES = Pito::Dispatch::Predicates.names.freeze
       # Derived from the live Pito::Dispatch::Resolvers registry (§5 resolver
       # registry, plan-0.9.5). The registry is the single source of truth — this
       # constant is a string projection of Resolvers.names for the schema validator.
@@ -238,6 +237,7 @@ module Pito
 
           check_keys(body, Schema::CHAT_KEYS, path)
           validate_slots(body[:slots], join(path, "slots")) if body.key?(:slots)
+          validate_dispatch(body[:dispatch], join(path, "dispatch")) if body.key?(:dispatch)
         end
 
         def validate_slash(body, path)

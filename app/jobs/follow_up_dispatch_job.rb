@@ -44,7 +44,7 @@ class FollowUpDispatchJob < ApplicationJob
     # is actually using.
     action = rest.to_s.split(/\s+/).first&.downcase
     result =
-      if Pito::Share::UniversalActions::VERBS.include?(action)
+      if Pito::Share::UniversalActions.verbs.include?(action)
         Pito::Share::UniversalActions.new.call(source_event: event, rest:, conversation:, origin:)
       else
         target        = event.payload["reply_target"].to_s

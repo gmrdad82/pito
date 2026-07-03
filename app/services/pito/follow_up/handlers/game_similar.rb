@@ -34,7 +34,7 @@ module Pito
           # Dispatch as free-chat (no follow_up context) so that `show game #<id>`
           # resolves the SIMILAR game by id — not the source card's game_id.
           # id_only_resolution! already gates non-numeric refs before any DB call.
-          result = Pito::Chat::Dispatcher.call(
+          result = Pito::Dispatch::Router.call(
             input:          "show game #{args}",
             conversation:   conversation,
             channel:        channel,

@@ -36,12 +36,6 @@ module Pito
         ROLES = INTRO_KEYS.keys.freeze
         ROLE_KINDS = { "system" => :system, "enhanced" => :enhanced }.freeze
 
-        # Segment name (plan-0.9.5 D3) → scaffold role. `numbers` selects the
-        # :system card, `breakdowns` the :enhanced card. Kept beside ROLES so the
-        # name↔role mapping lives in ONE obvious place; the analyze handler maps
-        # its parsed SegmentSelection through #roles_for below.
-        SEGMENT_ROLES = { "numbers" => "system", "breakdowns" => "enhanced" }.freeze
-
         # Metrics that render as bespoke AreaChart cells (persisted + re-rendered on
         # mutate replies). views…avg_viewed_pct are :system; retention + comments are
         # :enhanced (comments moved scalar → Area, LAST enhanced metric, 2026-07-01).
@@ -102,11 +96,22 @@ module Pito
         end
 
         # Map selected segment names (a Pito::Chat::SegmentSelection result) to
-        # scaffold roles, in canonical ROLES order. Names outside SEGMENT_ROLES are
+        # scaffold roles, in canonical ROLES order. Names outside segment_roles are
         # ignored (the analyze handler validates + reports unknowns before this).
         def roles_for(names)
-          wanted = Array(names).filter_map { |n| SEGMENT_ROLES[n.to_s] }.to_set
+          wanted = Array(names).filter_map { |n| segment_roles[n.to_s] }.to_set
           ROLES.select { |role| wanted.include?(role) }
+        end
+
+        # Derives the segment-name → role mapping from the analyze verb's config.
+        # Replaces the former SEGMENT_ROLES constant — now read from verbs.yml.
+        # Memoized per process (config is frozen at boot; Config.reload! in dev
+        # clears Config, so we re-derive lazily on next access).
+        def segment_roles
+          @segment_roles ||= begin
+            segs = Pito::Chat::Segments.for(verb: :analyze, entity: :channel)
+            segs.each_with_object({}) { |s, h| h[s.name] = s.kind.to_s }
+          end
         end
 
         # The pending analyze events ({kind:, payload:}) for one scope — a `:system`
