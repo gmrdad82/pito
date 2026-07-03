@@ -69,17 +69,12 @@ module Pito
           [ subcommand&.downcase, ref, raw_hours&.split(/\s+/)&.first ]
         end
 
-        # Parse the hours value with BigDecimal (exact, not Float), then ceil UP
-        # to the next 0.5 using integer math. Returns an exact Rational, or nil
-        # for non-numeric / negative input.
+        # Parse the hours value via the shared Pito::Games::FootageAmount parser
+        # (exact BigDecimal, ceil UP to the next 0.5 → Rational; nil for
+        # non-numeric / negative). One canonical parse across the verb, its reply,
+        # and the `:footage_hours` resolver.
         def parse_hours(raw)
-          value = BigDecimal(raw.to_s)
-          return nil if value.negative?
-
-          half_units = (value * 2).ceil # BigDecimal#ceil → Integer
-          half_units / 2r               # exact Rational on a clean 0.5 step
-        rescue ArgumentError, TypeError
-          nil
+          Pito::Games::FootageAmount.parse(raw)
         end
 
         # Numeric ID only: strip optional leading `#`, require `\A\d+\z`.

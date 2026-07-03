@@ -375,10 +375,10 @@ verbs:
         game_detail:
           mode: append
           ref: { resolver: source_entity }   # game from payload game_id
-          # NARROWED TODO(P3): the `footage [update] <hours>` amount (BigDecimal
-          # ceil to the next 0.5 h) and the game-agnostic `footage snippet` branch
-          # are bespoke arg parsing with no registered resolver; GameDetail stays
-          # authoritative until the P3 Router absorbs it.
+          args:
+            hours: { resolver: footage_hours }   # `footage [update] <hours>` → 0.5-step Rational
+          # `footage snippet` (game-agnostic) carries no hours — it resolves
+          # Invalid and stays a GameDetail branch (routed before the amount binds).
 
   price:
     description: pito.grammar.chat.price
@@ -398,12 +398,13 @@ verbs:
         game_detail:
           mode: append
           ref: { resolver: source_entity }   # game from payload game_id
-          # NARROWED TODO(P3): `price [set] <amount>` / `price unset` amount parsing
-          # (BigDecimal, 2dp, 0 = free) is bespoke — no registered resolver.
+          args:
+            amount: { resolver: price_amount }   # `price [set] <amount>` → BigDecimal (2dp) | :unset
         game_list:
           mode: append
           ref: { resolver: id_among_rows }   # `price <id> …` scoped to the listed games
-          # NARROWED TODO(P3): amount parsing bespoke (as above).
+          args:
+            amount: { resolver: price_amount }   # `<amount>` after the sliced row id
 
   delete:
     aliases: [rm, del]
@@ -472,11 +473,13 @@ verbs:
         game_detail:
           mode: append
           ref: { resolver: source_entity }   # game from payload game_id
-          # NARROWED TODO(P3): `platform [set|unset] <value>` value parsing is bespoke.
+          args:
+            value: { resolver: platform_value }   # `platform [set|unset] <value>` → canonical logo family
         game_list:
           mode: append
           ref: { resolver: id_among_rows }   # `platform <id> …` scoped to the listed games
-          # NARROWED TODO(P3): value parsing bespoke (as above).
+          args:
+            value: { resolver: platform_value }   # `<value>` after the sliced row id
 
   publish:
     aliases: [pub]
@@ -540,13 +543,9 @@ verbs:
             when: { resolver: schedule_expression }   # reply args ARE the when-phrase
         video_list:
           mode: append
-          ref: { resolver: id_among_rows }
+          ref: { resolver: id_among_rows }   # row id sliced from the leading token
           args:
-            when: { resolver: schedule_expression }
-          # NARROWED TODO(P3): `schedule <id> <when>` interleaves the row ref with
-          # the when-phrase in ONE args string; isolating each needs the Schedule
-          # handler's when-stripping seam (no single resolver splits them). The
-          # resolvers named ARE correct — only the input split is deferred to P3.
+            when: { resolver: schedule_expression }   # `<when>` after the sliced row id
 
   find:
     description: pito.grammar.chat.find
@@ -580,18 +579,30 @@ verbs:
       # Handler splits on ` to ` to extract game ref and video ref.
     reply:
       targets:
-        # NARROWED TODO(P3) for ALL link targets: `link [to] [noun] <ref>` needs
-        # TWO entities — the SOURCE (from the card's payload, or a listed row) AND
-        # the TARGET (the ref after an optional `to`/noun). Dual-ref splitting is
-        # not a single ref/args resolver; the Link handler stays authoritative.
+        # Dual-ref: `link [5] to [video] 12` carries a SOURCE (the card's payload
+        # entity, or the id LEFT of the connector) AND a TARGET list (the ids after
+        # `to`/`with`). `link_source` + `link_targets` split on the connector
+        # themselves and derive the source/target class from the reply_target.
         game_detail:
-          mode: append   # source: game_id from payload; target: video ref from args
+          mode: append
+          ref: { resolver: link_source }              # source game (payload game_id)
+          args:
+            linked_ref: { resolver: link_targets }    # target video(s) after `to`/`with`
         game_list:
-          mode: append   # source: game id among rows; target: video ref from args
+          mode: append
+          ref: { resolver: link_source }              # source game (id LEFT of the connector)
+          args:
+            linked_ref: { resolver: link_targets }    # target video(s) after `to`/`with`
         video_detail:
-          mode: append   # source: video_id from payload; target: game ref from args
+          mode: append
+          ref: { resolver: link_source }              # source video (payload video_id)
+          args:
+            linked_ref: { resolver: link_targets }    # target game(s) after `to`/`with`
         video_list:
-          mode: append   # source: video id among rows; target: game ref from args
+          mode: append
+          ref: { resolver: link_source }              # source video (id LEFT of the connector)
+          args:
+            linked_ref: { resolver: link_targets }    # target game(s) after `to`/`with`
 
   unlink:
     description: pito.grammar.chat.unlink
@@ -604,21 +615,34 @@ verbs:
           optional: true
     reply:
       targets:
-        # NARROWED TODO(P3) for ALL unlink targets: same dual-ref shape as `link` —
-        # a source entity (payload id, or a listed row) AND a target ref. The
-        # game_linked_videos case additionally reads game_id from the payload to
-        # mark the Game as source (reply_target ≠ "video*"). Not a single resolver;
-        # the Unlink handler stays authoritative.
+        # Same dual-ref shape as `link` (connector = `from`). game_linked_videos
+        # resolves its SOURCE as the parent Game via the payload game_id (its
+        # reply_target ≠ "video*"), and its TARGET as the typed video id.
         game_detail:
-          mode: append   # source: game_id from payload; target: video ref
+          mode: append
+          ref: { resolver: link_source }              # source game (payload game_id)
+          args:
+            linked_ref: { resolver: link_targets }    # target video(s) after `from`
         game_linked_videos:
-          mode: append   # source: Game (payload game_id); target: typed video id
+          mode: append
+          ref: { resolver: link_source }              # source Game (payload game_id)
+          args:
+            linked_ref: { resolver: link_targets }    # target video id (among the listed videos)
         game_list:
-          mode: append   # source: game id among rows; target: video ref
+          mode: append
+          ref: { resolver: link_source }              # source game (id LEFT of the connector)
+          args:
+            linked_ref: { resolver: link_targets }    # target video(s) after `from`
         video_detail:
-          mode: append   # source: video_id from payload; target: game ref
+          mode: append
+          ref: { resolver: link_source }              # source video (payload video_id)
+          args:
+            linked_ref: { resolver: link_targets }    # target game(s) after `from`
         video_list:
-          mode: append   # source: video id among rows; target: game ref
+          mode: append
+          ref: { resolver: link_source }              # source video (id LEFT of the connector)
+          args:
+            linked_ref: { resolver: link_targets }    # target game(s) after `from`
 
   help:
     # Chat branch: displays all follow-up targets grouped by entity.

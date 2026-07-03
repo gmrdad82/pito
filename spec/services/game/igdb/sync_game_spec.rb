@@ -74,6 +74,57 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     expect(GameVoyageIndexJob).to have_received(:perform_later).with(game.id)
   end
 
+  describe "idempotent re-sync (E11 — false nightly \"updated\" flags)" do
+    include ActiveSupport::Testing::TimeHelpers
+    # The nightly refresh detects change by comparing game.updated_at before and
+    # after the sync. A re-sync with IDENTICAL IGDB data must therefore leave
+    # updated_at untouched — the unconditional update! calls that re-stamped
+    # every game every night ("checked 60, updated 60") are the E11 root cause.
+    it "does not advance game.updated_at when IGDB returns identical data" do
+      described_class.new(client: client).call(game)
+      stamp = game.reload.updated_at
+
+      travel 1.hour do
+        described_class.new(client: client).call(game)
+      end
+
+      expect(game.reload.updated_at).to eq(stamp)
+    end
+
+    it "still stamps igdb_synced_at on every sync (bookkeeping, touch-free)" do
+      described_class.new(client: client).call(game)
+      first = game.reload.igdb_synced_at
+
+      travel 1.hour do
+        described_class.new(client: client).call(game)
+      end
+
+      expect(game.reload.igdb_synced_at).to be > first
+    end
+
+    it "advances updated_at when a release date genuinely changes" do
+      # Seed with real release dates first (the base fixture carries none).
+      seeded = game_json.merge(
+        "release_dates" => [
+          { "platform" => { "name" => "PlayStation 5" }, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 }
+        ]
+      )
+      allow(client).to receive(:fetch_game).with(1020).and_return([ seeded ])
+      described_class.new(client: client).call(game)
+      stamp = game.reload.updated_at
+
+      moved = seeded.deep_dup
+      moved["release_dates"].each { |rd| rd["y"] = 2031 if rd["y"] }
+      allow(client).to receive(:fetch_game).with(1020).and_return([ moved ])
+
+      travel 1.hour do
+        described_class.new(client: client).call(game)
+      end
+
+      expect(game.reload.updated_at).to be > stamp
+    end
+  end
+
   describe "per-platform release dates (Item 24)" do
     let(:releases_json) do
       game_json.merge(

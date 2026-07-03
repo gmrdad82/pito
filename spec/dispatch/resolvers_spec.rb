@@ -45,7 +45,8 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       expect(described_class.names).to include(
         :channel_by_handle, :video_by_id, :game_by_id, :id_among_rows,
         :schedule_expression, :column_list, :sort_clause, :metric_list,
-        :game_titles, :visit_destination, :source_entity
+        :game_titles, :visit_destination, :source_entity,
+        :footage_hours, :price_amount, :platform_value, :link_source, :link_targets
       )
     end
   end
@@ -299,6 +300,157 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       result = described_class.resolve(:source_entity, nil, context: {})
       expect(result).to be_a(invalid_class)
       expect(result.reason).to match(/entity_class/)
+    end
+  end
+
+  # ── :footage_hours (T8.15 — wraps Pito::Games::FootageAmount) ─────────────────
+
+  describe ":footage_hours" do
+    it "happy: parses `update 12.5` to the shared parser's half-step Rational" do
+      result = described_class.resolve(:footage_hours, "update 12.5")
+      expect(result).to eq(Pito::Games::FootageAmount.parse("update 12.5"))
+      expect(result).to eq(25r / 2)
+    end
+
+    it "invalid: `snippet` (no hours) resolves Invalid" do
+      result = described_class.resolve(:footage_hours, "snippet")
+      expect(result).to be_a(invalid_class)
+      expect(result.reason).to match(/not a footage amount/)
+    end
+
+    it "invalid: a negative value resolves Invalid" do
+      expect(described_class.resolve(:footage_hours, "-1")).to be_a(invalid_class)
+    end
+  end
+
+  # ── :price_amount (T8.15 — wraps Pito::Games::PriceAmount) ────────────────────
+
+  describe ":price_amount" do
+    it "happy: parses a bare `9.99` to a 2dp BigDecimal" do
+      expect(described_class.resolve(:price_amount, "9.99")).to eq(BigDecimal("9.99"))
+    end
+
+    it "happy: peels a leading `set` (`set 9.99`)" do
+      expect(described_class.resolve(:price_amount, "set 9.99")).to eq(BigDecimal("9.99"))
+    end
+
+    it "happy: `unset` short-circuits to the :unset sentinel" do
+      expect(described_class.resolve(:price_amount, "unset")).to eq(:unset)
+    end
+
+    it "happy: an explicit `0` is a valid (free) price" do
+      expect(described_class.resolve(:price_amount, "0")).to eq(BigDecimal("0"))
+    end
+
+    it "invalid: non-numeric input resolves Invalid" do
+      result = described_class.resolve(:price_amount, "free")
+      expect(result).to be_a(invalid_class)
+      expect(result.reason).to match(/not a price amount/)
+    end
+  end
+
+  # ── :platform_value (T8.15 — wraps Pito::Games::PlatformInput.normalize) ──────
+
+  describe ":platform_value" do
+    it "happy: normalises `ps5` to the canonical PlayStation family string" do
+      expect(described_class.resolve(:platform_value, "ps5")).to eq("PlayStation 5")
+    end
+
+    it "happy: peels a leading `set` subcommand (`set switch`)" do
+      expect(described_class.resolve(:platform_value, "set switch")).to eq("Nintendo Switch")
+    end
+
+    it "happy: peels a leading `unset` subcommand (the name to remove)" do
+      expect(described_class.resolve(:platform_value, "unset ps5")).to eq("PlayStation 5")
+    end
+
+    it "invalid: a blank value resolves Invalid" do
+      result = described_class.resolve(:platform_value, "set")
+      expect(result).to be_a(invalid_class)
+      expect(result.reason).to match(/no platform value/)
+    end
+  end
+
+  # ── :link_source / :link_targets (T8.15 — dual-ref, from reply_target) ────────
+
+  describe ":link_source" do
+    let(:game)  { create(:game) }
+    let(:video) { create(:video) }
+
+    def source_event(payload) = Struct.new(:payload).new(payload)
+
+    it "detail: resolves the SOURCE game from the payload game_id (game_detail)" do
+      ev = source_event({ reply_target: "game_detail", game_id: game.id })
+      result = described_class.resolve(:link_source, "to #{video.id}", context: { source_event: ev })
+      expect(result).to eq(game)
+    end
+
+    it "detail: game_linked_videos resolves its SOURCE as the parent Game (game_id)" do
+      ev = source_event({ reply_target: "game_linked_videos", game_id: game.id, video_ids: [ video.id ] })
+      result = described_class.resolve(:link_source, "#{video.id}", context: { source_event: ev })
+      expect(result).to eq(game)
+    end
+
+    it "list: resolves the SOURCE from the id LEFT of the connector (game_list)" do
+      ev = source_event({ reply_target: "game_list" })
+      result = described_class.resolve(:link_source, "#{game.id} to #{video.id}", context: { source_event: ev })
+      expect(result).to eq(game)
+    end
+
+    it "list: video_list source is a Video (reply_target starts with `video`)" do
+      ev = source_event({ reply_target: "video_list" })
+      result = described_class.resolve(:link_source, "#{video.id} to #{game.id}", context: { source_event: ev })
+      expect(result).to eq(video)
+    end
+
+    it "invalid: a missing source record resolves Invalid" do
+      ev = source_event({ reply_target: "game_list" })
+      result = described_class.resolve(:link_source, "9999999 to 1", context: { source_event: ev })
+      expect(result).to be_a(invalid_class)
+    end
+  end
+
+  describe ":link_targets" do
+    let(:game)  { create(:game) }
+    let(:video) { create(:video) }
+
+    def source_event(payload) = Struct.new(:payload).new(payload)
+
+    it "resolves the TARGET video(s) after the connector (game source → video targets)" do
+      ev = source_event({ reply_target: "game_list" })
+      result = described_class.resolve(:link_targets, "#{game.id} to #{video.id}", context: { source_event: ev })
+      expect(result).to eq([ video ])
+    end
+
+    it "resolves a comma/space id LIST of targets" do
+      v2 = create(:video)
+      ev = source_event({ reply_target: "game_detail", game_id: game.id })
+      result = described_class.resolve(:link_targets, "to #{video.id},#{v2.id}", context: { source_event: ev })
+      expect(result).to contain_exactly(video, v2)
+    end
+
+    it "video source → game targets (reply_target starts with `video`)" do
+      ev = source_event({ reply_target: "video_list" })
+      result = described_class.resolve(:link_targets, "#{video.id} to #{game.id}", context: { source_event: ev })
+      expect(result).to eq([ game ])
+    end
+
+    it "no-connector detail reply strips a leading noun (game_linked_videos)" do
+      ev = source_event({ reply_target: "game_linked_videos", game_id: game.id, video_ids: [ video.id ] })
+      result = described_class.resolve(:link_targets, "video #{video.id}", context: { source_event: ev })
+      expect(result).to eq([ video ])
+    end
+
+    it "invalid: no numeric id resolves Invalid" do
+      ev = source_event({ reply_target: "game_list" })
+      result = described_class.resolve(:link_targets, "#{game.id} to nothing", context: { source_event: ev })
+      expect(result).to be_a(invalid_class)
+    end
+
+    it "invalid: all target ids missing resolves Invalid (mirrors all-not-found)" do
+      ev = source_event({ reply_target: "game_list" })
+      result = described_class.resolve(:link_targets, "#{game.id} to 9999999", context: { source_event: ev })
+      expect(result).to be_a(invalid_class)
     end
   end
 

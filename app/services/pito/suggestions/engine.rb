@@ -24,7 +24,9 @@ module Pito
     #   w — slash/hashtag/free mode detection + static slot resolution
     #   x — dynamic vocab resolution with auth-gating
     module Engine
-      # Maximum number of dynamic suggestions returned per query.
+      # Maximum number of dynamic VOCABULARY suggestions per query (game titles,
+      # channels, conversations — sources that can grow large). The reply-handle
+      # palette is deliberately uncapped (D11); this limit is not.
       DYNAMIC_LIMIT = 20
 
       # Auth-gated dynamic vocabulary names — never resolved for unauthenticated users.
@@ -582,12 +584,12 @@ module Pito
 
         # ── Helpers ───────────────────────────────────────────────────────────
 
-        # plan-0.9.5 D5: reply-HANDLE palette — fires while the user is still
+        # plan-0.9.5 D5/D11: reply-HANDLE palette — fires while the user is still
         # typing the handle token (bare `#` or `#partial`, no space yet).
-        # Lists live (unconsumed) reply handles ordered by their source event's
-        # created_at ASC (scrollback reading order). When candidates exceed
-        # DYNAMIC_LIMIT the oldest are dropped so the cap always retains the
-        # newest handles (tail of the ASC-ordered set).
+        # Lists ALL live (unconsumed) reply handles ordered by their source event's
+        # created_at ASC (scrollback reading order). No cap: every new message
+        # consumes/clears prior handles so the live set cannot grow unbounded
+        # (owner ruling, plan-0.9.5 D11).
         def reply_handle_completions(partial, conversation: nil)
           return { menu_items: [], ghost: EMPTY_GHOST, stage: :verb } if conversation.nil?
 
@@ -599,11 +601,9 @@ module Pito
             .uniq
             .compact
 
-          # Prefix-filter FIRST (a typed prefix must be able to reach ANY live
-          # handle), THEN cap to the newest DYNAMIC_LIMIT (tail of the ASC array).
-          # Result stays in ASC (scrollback) order within the window.
+          # Prefix-filter: a typed prefix scopes to matching live handles.
+          # Result stays in ASC (scrollback) order.
           candidates = partial.empty? ? handles : handles.select { |h| h.start_with?(partial) }
-          candidates = candidates.last(DYNAMIC_LIMIT) if candidates.size > DYNAMIC_LIMIT
 
           items = candidates.map do |handle|
             { label: "##{handle}", insert: "##{handle} ", description: "", masked: false }

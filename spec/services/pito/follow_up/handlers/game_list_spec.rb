@@ -164,4 +164,106 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
       expect(result.consume).to be(false)
     end
   end
+
+  # ── `next` pagination ────────────────────────────────────────────────────────
+  # Stub page_size to 2 so we can use tiny fixtures.
+
+  describe "`next` pagination" do
+    let(:pager_stub) { { page_size: 2, more_verb: "next" } }
+    let!(:g1) { create(:game, title: "Alpha") }
+    let!(:g2) { create(:game, title: "Beta") }
+    let!(:g3) { create(:game, title: "Gamma") }
+
+    before do
+      allow(Pito::Dispatch::Config).to receive(:pager)
+        .with(verb: :list)
+        .and_return(pager_stub)
+    end
+
+    # A cursor that was stamped after showing 2 of 3 games (offset = 2).
+    let(:cursor_event) do
+      instance_double(Event, payload: {
+        "reply_target" => "game_list",
+        "list_cursor"  => {
+          "offset"         => 2,
+          "raw"            => "list games",
+          "channel"        => nil,
+          "sort_token"     => nil,
+          "sort_direction" => nil,
+          "columns"        => []
+        }
+      })
+    end
+
+    it "renders the final batch with consume: false (no more rows after it)" do
+      result = handler.call(event: cursor_event, rest: "next", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      # 1 row left (g3). No more_text — this IS the final batch.
+      expect(result.events.first[:payload]["list_cursor"]).to be_nil
+    end
+
+    it "final batch has no list_more footer fragment" do
+      result = handler.call(event: cursor_event, rest: "next", conversation:)
+      footer = result.events.first[:payload]["list_footer"].to_s
+      # No %{total}/%{rest} copy — it's the last page, list_more is not appended.
+      expect(footer).not_to include("next")
+    end
+
+    # The outer `let!(:game)` fixture adds 1 game on top of g1..g5, giving 6
+    # total. With page_size=2 and offset=2: shown = 4, rest = 6 - 4 = 2.
+    context "mid-batch (6 games: outer game + g1..g5, page_size=2, offset=2)" do
+      let!(:g4) { create(:game, title: "Delta") }
+      let!(:g5) { create(:game, title: "Epsilon") }
+
+      let(:mid_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "game_list",
+          "list_cursor"  => {
+            "offset"         => 2,
+            "raw"            => "list games",
+            "channel"        => nil,
+            "sort_token"     => nil,
+            "sort_direction" => nil,
+            "columns"        => []
+          }
+        })
+      end
+
+      it "list_footer for a mid-batch `next` contains count (2) and total (6)" do
+        result = handler.call(event: mid_cursor_event, rest: "next", conversation:)
+        footer = result.events.first[:payload]["list_footer"].to_s
+        # Variant 0: "%{count} rows out of %{total}. `%{verb}` for more."
+        expect(footer).to include("2")
+        expect(footer).to include("6")
+      end
+
+      it "rest = total − (offset + rows.size) = 2 is passed to Copy.render" do
+        # Force variant 1 which uses %{rest}: "%{count} here, %{rest} more in the system. `%{verb}`."
+        Pito::Copy.sampler = ->(entries) { entries[1] }
+        result = handler.call(event: mid_cursor_event, rest: "next", conversation:)
+        footer = result.events.first[:payload]["list_footer"].to_s
+        # count=2, rest=2 → "2 here, 2 more in the system. `next`."
+        expect(footer).to include("2 more in the system")
+      end
+    end
+
+    context "no cursor (completed list)" do
+      let(:no_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "game_list"
+          # no list_cursor key
+        })
+      end
+
+      it "renders list_end copy" do
+        result = handler.call(event: no_cursor_event, rest: "next", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        text = result.events.first[:payload]["text"].to_s
+        expect(text).to be_present
+        # The list_end copy does NOT contain "next" (it's not a list_more variant).
+        expect(text).not_to match(/%\{/)
+      end
+    end
+  end
 end

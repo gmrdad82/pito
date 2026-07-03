@@ -151,9 +151,12 @@ module Pito
               "sort_direction" => sort_dir
             }
             new_payload["list_cursor"] = new_cursor
+            total = all_channels.size
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
               count: rows.size,
+              total: total,
+              rest:  total - (offset + rows.size),
               verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
             )
             existing_footer = new_payload["list_footer"].to_s.presence

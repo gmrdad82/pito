@@ -197,4 +197,87 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
       expect(result.consume).to be(false)
     end
   end
+
+  # ── `next` pagination ────────────────────────────────────────────────────────
+  # Stub page_size to 2 so we can use tiny fixtures.
+
+  describe "`next` pagination" do
+    let(:pager_stub) { { page_size: 2, more_verb: "next" } }
+    let!(:v2) { create(:video, :public, title: "Raid Run",   channel:) }
+    let!(:v3) { create(:video, :public, title: "Boss Guide", channel:) }
+
+    before do
+      allow(Pito::Dispatch::Config).to receive(:pager)
+        .with(verb: :list)
+        .and_return(pager_stub)
+    end
+
+    # Cursor stamped after showing 2 of 3 videos (offset=2).
+    let(:cursor_event) do
+      instance_double(Event, payload: {
+        "reply_target" => "video_list",
+        "list_cursor"  => {
+          "offset"         => 2,
+          "channel"        => nil,
+          "filter"         => nil,
+          "sort_token"     => nil,
+          "sort_direction" => nil,
+          "columns"        => []
+        }
+      })
+    end
+
+    it "renders the final batch (1 video) with no list_cursor" do
+      result = handler.call(event: cursor_event, rest: "next", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:payload]["list_cursor"]).to be_nil
+    end
+
+    context "mid-batch: 5 videos, page_size=2, offset=2" do
+      let!(:v4) { create(:video, :public, title: "Speed Run", channel:) }
+      let!(:v5) { create(:video, :public, title: "Unboxing",  channel:) }
+
+      let(:mid_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "video_list",
+          "list_cursor"  => {
+            "offset"         => 2,
+            "channel"        => nil,
+            "filter"         => nil,
+            "sort_token"     => nil,
+            "sort_direction" => nil,
+            "columns"        => []
+          }
+        })
+      end
+
+      it "list_footer for mid-batch `next` contains count (2) and total (5)" do
+        result = handler.call(event: mid_cursor_event, rest: "next", conversation:)
+        footer = result.events.first[:payload]["list_footer"].to_s
+        expect(footer).to include("2")
+        expect(footer).to include("5")
+      end
+
+      it "rest = total − (offset + count) = 1 is reflected in footer" do
+        # Force variant 1 which uses %{rest}: "%{count} here, %{rest} more in the system. `%{verb}`."
+        Pito::Copy.sampler = ->(entries) { entries[1] }
+        result = handler.call(event: mid_cursor_event, rest: "next", conversation:)
+        footer = result.events.first[:payload]["list_footer"].to_s
+        expect(footer).to include("1 more in the system")
+      end
+    end
+
+    context "no cursor (completed list)" do
+      let(:no_cursor_event) do
+        instance_double(Event, payload: { "reply_target" => "video_list" })
+      end
+
+      it "renders list_end copy" do
+        result = handler.call(event: no_cursor_event, rest: "next", conversation:)
+        text = result.events.first[:payload]["text"].to_s
+        expect(text).to be_present
+        expect(text).not_to match(/%\{/)
+      end
+    end
+  end
 end

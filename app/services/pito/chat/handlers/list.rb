@@ -213,16 +213,26 @@ module Pito
             games.reverse! if sort[:direction] == :desc
           end
 
-          games   = games.to_a
-          page    = page_size
-          rows    = games.first(page)
+          page = page_size
+          # Sorted path already materialized (in-memory sort) — size is free.
+          # Unsorted path: ONE COUNT on the scoped relation + a LIMITed fetch,
+          # never a full load just to render 50 rows (T6.2 design, kept).
+          if games.is_a?(Array)
+            total = games.size
+            rows  = games.first(page)
+          else
+            total = games.count
+            rows  = games.limit(page).to_a
+          end
           payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:)
-          if games.size > page
+          if total > page
             cursor = games_cursor(page, sort, columns)
             payload["list_cursor"] = cursor
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
               count: rows.size,
+              total: total,
+              rest:  total - rows.size,
               verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
             )
             payload["list_footer"] = [ payload["list_footer"].presence, more_text ].compact.join(" ")
@@ -333,16 +343,25 @@ module Pito
             videos.reverse! if sort[:direction] == :desc
           end
 
-          videos  = videos.to_a
-          page    = page_size
-          rows    = videos.first(page)
+          page = page_size
+          # Same shape as the games path: sorted branch is already an Array;
+          # unsorted branch pays ONE COUNT + a LIMITed fetch, never a full load.
+          if videos.is_a?(Array)
+            total = videos.size
+            rows  = videos.first(page)
+          else
+            total = videos.count
+            rows  = videos.limit(page).to_a
+          end
           payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:)
-          if videos.size > page
+          if total > page
             cursor = video_cursor(page, sort, columns, filter_key)
             payload["list_cursor"] = cursor
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
               count: rows.size,
+              total: total,
+              rest:  total - rows.size,
               verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
             )
             payload["list_footer"] = [ payload["list_footer"].presence, more_text ].compact.join(" ")
@@ -465,9 +484,12 @@ module Pito
           if channels.size > page
             cursor = channels_cursor(page, sort)
             payload["list_cursor"] = cursor
+            total = channels.size
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
               count: rows.size,
+              total: total,
+              rest:  total - rows.size,
               verb:  Pito::Dispatch::Config.pager(verb: :list)[:more_verb]
             )
             existing_footer = payload["list_footer"].to_s.presence

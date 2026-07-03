@@ -94,17 +94,11 @@ module Pito
         end
 
         # Parse the `footage` args tail into footage hours, ceil'd UP to the next
-        # 0.5 (1800 s = 0.5 h). Tolerates an optional leading `update` token so both
-        # `footage <hours>` and `footage update <hours>` work. Non-numeric/negative
-        # → nil (usage hint). BigDecimal keeps the 0.5 step exact.
+        # 0.5 (1800 s = 0.5 h) via the shared Pito::Games::FootageAmount parser
+        # (the same one the `:footage_hours` reply resolver wraps — one canonical
+        # parse, no fork). Tolerates an optional leading `update` token.
         def parse_footage_hours(args)
-          text  = args.to_s.strip.sub(/\Aupdate\b\s*/i, "").strip
-          value = BigDecimal(text)
-          return nil if value.negative?
-
-          (value * 2).ceil / 2r
-        rescue ArgumentError, TypeError
-          nil
+          Pito::Games::FootageAmount.parse(args)
         end
 
         # ── price [set] <amount> | price unset ────────────────────────────────────
@@ -139,16 +133,11 @@ module Pito
           ))
         end
 
-        # Parse a euro amount (BigDecimal, 2 decimals, non-negative — 0 = free), or nil.
+        # Parse a euro amount (BigDecimal, 2 decimals, non-negative — 0 = free), or
+        # nil — via the shared Pito::Games::PriceAmount parser (the same one the
+        # `:price_amount` reply resolver wraps — one canonical parse, no fork).
         def parse_price_amount(raw)
-          return nil if raw.blank?
-
-          value = BigDecimal(raw.to_s).round(2)
-          return nil if value.negative?
-
-          value
-        rescue ArgumentError, TypeError
-          nil
+          Pito::Games::PriceAmount.parse(raw)
         end
 
         def price_append(payload)
