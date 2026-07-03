@@ -30,11 +30,15 @@ vocabularies:
                rpg: RPG, racing: Racing, strategy: Strategy, sports: Sports,
                puzzle: Puzzle, platformer: Platformer, fighting: Fighting, adventure: Adventure}
   platforms:
-    members: ["PlayStation 5", "Nintendo Switch", PC, "Xbox Series X",
-              "PlayStation 4", "Xbox One", iOS, Android]
+    # "Xbox" (the bare family) is a deliberate member: as an ILIKE substring it
+    # matches One / Series X / Series S / the combined "Series X|S" — so plain
+    # `xbox` tracks the whole family (owner 2026-07-03: Series S too, not only X).
+    members: ["PlayStation 5", "Nintendo Switch", PC, Xbox, "Xbox Series X",
+              "Xbox Series S", "PlayStation 4", "Xbox One", iOS, Android]
     synonyms: {ps5: "PlayStation 5", playstation: "PlayStation 5", ps: "PlayStation 5",
                sony: "PlayStation 5", switch: "Nintendo Switch", steam: PC, pc: PC,
-               xbox: "Xbox Series X"}
+               xbox: Xbox, xsx: "Xbox Series X", "series x": "Xbox Series X",
+               xss: "Xbox Series S", "series s": "Xbox Series S"}
   release_status:
     members: [released, upcoming, tba]
     synonyms: {unreleased: upcoming, "to be announced": tba, tbd: tba}
