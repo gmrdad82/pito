@@ -1981,9 +1981,8 @@ html {
   white-space: nowrap;
 }
 
-/* Extra top margin so the ScoreBarComponent's floating bubble (which sits
-   ~1.75rem above the bar track) clears the id/title line above it. Mirrors
-   .pito-channel-item__score which uses the same 0.5rem pattern. */
+/* ScoreBarComponent's floating bubble sits ~1.75rem above the bar track and
+   must clear the id/title line above it. */
 .pito-game-enhanced-message__similar-game-score {
   /* No extra top gap — the card's own 0.2rem row gap is the spacing toward the
      cover/title (13.23a). The score bar fills the 180px card width so the [ ]
@@ -2017,37 +2016,6 @@ html {
   width: 180px;
   flex: 0 0 auto;
   min-width: 0;
-}
-
-/* ── Channel item (Pito::Channel::ItemComponent) ────────────────────────────
- *
- * Shared single-channel item: handle / title / id, with optional plain [view]
- * link (show_visit:) and/or ScoreBarComponent below the id (score:).
- * Used in ListComponent (show_visit: true, no score) and in the enhanced
- * game message channel grid (show_visit: false, with score bar).
- */
-/* The ONE channel item, identical everywhere (list channels + recommended
-   channels). Centered column, 120px circular avatar — only [view] vs the
-   ScoreBarComponent differ, controlled by ItemComponent kwargs. */
-.pito-channel-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.2rem;
-  /* Fill the column width so the single-row title clips to it (otherwise the
-     centered item shrinks to content and the title never truncates). */
-  width: 100%;
-  min-width: 0;
-}
-
-.pito-channel-item__avatar {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 50%;
-  /* Theme-contrast ring so the round avatar reads against the page bg. */
-  border: 1px solid var(--fg-default);
 }
 
 /* ── Missing-image placeholder (Pito::ImageFallbackComponent) ──────────────────
@@ -2134,30 +2102,19 @@ html {
   border: 1px solid var(--fg-default);
 }
 
-/* Title: trimmed to a single row (…) so it never wraps. */
-.pito-channel-item__title {
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Score bar sits below the #id with a little breathing room. */
-.pito-channel-item__score {
-  margin-top: 0.5rem;
-  width: 100%;
+/* Tiny (35px) list-table avatar — the `list channels` Avatar column. Same
+   ring as show game's recommendation-column avatars; :xs variant is 70px (2×). */
+.pito-channel-tiny-avatar {
+  width: 35px;
+  height: 35px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--border-faded);
 }
 
 /* Stats — two rows: row 1 "N Subs · M Views", row 2 "P Vids" (list channels
    only). Column layout stacks the two CountersComponent rows; each counter row
    is already centered by align: :center. */
-.pito-channel-item__stats {
-  margin-top: 0.25rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 
 /* ── Data table grid (Pito::Event::SystemComponent table_rows) ─────
    Column template is driven by the `data-cols` attribute (like data-accent) —
@@ -2174,6 +2131,9 @@ html {
   grid-template-columns: repeat(2, minmax(0, max-content));
   column-gap: 1.5rem;   /* breathing room between columns */
   row-gap: 0.25rem;
+  /* Rows with a tall cell (the 35px channels-list avatar) center their text
+     to the cell's middle; uniform text-only rows are visually unaffected. */
+  align-items: center;
   max-width: 100%;      /* never overflow the message segment — columns shrink and
                            the capped text cells ellipsis-truncate instead of stacking */
 }
@@ -2392,18 +2352,29 @@ html {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-/* "Copied!" feedback OVERLAYS to the right of the icon instead of occupying
-   flex space — a host row (e.g. the footage snippet's wrapping <code> bar)
-   must never re-wrap when the feedback appears/clears (0.9.0: the layout-jump
-   bug, owner 2026-07-02). pointer-events off: it is a transient label. */
+/* "Copied!" feedback — ONE rule for every host (owner 2026-07-02): the label
+   overlays to the LEFT of the icon, its right edge anchored at the icon, so it
+   can NEVER clip the container's right edge (footage: icon at the bar's right
+   edge; share link: icon mid-line after the sentence). It occupies zero flex
+   space — a host row never re-wraps when it appears/clears (the layout-jump
+   bug) — and wears an opaque page-bg backdrop so briefly covering host content
+   (code chars, the yellow link) reads as a deliberate label, not a collision.
+   pointer-events off: it is a transient label. */
 .pito-copy__feedback {
   position: absolute;
-  left: 100%;
+  right: 100%;
   top: 50%;
   transform: translateY(-50%);
-  margin-left: 0.5ch;
+  margin-right: 0.25ch;
+  padding: 0 0.5ch;
+  background: var(--bg-root);
   white-space: nowrap;
   pointer-events: none;
+}
+/* :empty — no backdrop sliver when the label has no text (pre-click state). */
+.pito-copy__feedback:empty {
+  padding: 0;
+  background: transparent;
 }
 
 /* Icon shimmer: pulse currentColor between the action base (pito-blue) and band

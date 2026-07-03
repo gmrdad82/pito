@@ -1,0 +1,10 @@
+# pitomd marketing page shots (against `npx astro preview --port 4321` in
+# ~/Dev/pitomd). Outputs stay in tmp/captures — promoting into the site's
+# assets is a manual copy, never automatic.
+name: mkt-landing
+base_url: http://localhost:4321
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - visit: /
+  - sleep: 1.0
+  - shot: landing.png

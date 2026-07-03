@@ -83,21 +83,11 @@ RSpec.describe Channel, type: :model do
       channel.avatar.attach(io: StringIO.new(raw_bytes), filename: "avatar-#{channel.id}.jpg", content_type: "image/jpeg")
     end
 
-    it "declares :lg (120×120) and :sm (60×60) named variants" do
+    it "declares the :sm (60×60) and :xs (35×35) named variants (:lg retired with the card form)" do
       reflection = Channel.attachment_reflections["avatar"]
-      expect(reflection.named_variants).to have_key(:lg)
       expect(reflection.named_variants).to have_key(:sm)
-    end
-
-    it "#avatar_variant_url is nil when no avatar is attached" do
-      expect(channel.avatar_variant_url).to be_nil
-    end
-
-    it "#avatar_variant_url returns a host-less proxy path once an avatar is attached" do
-      attach_avatar
-      url = channel.avatar_variant_url
-      expect(url).to be_present
-      expect(url).to start_with("/")
+      expect(reflection.named_variants).to have_key(:xs)
+      expect(reflection.named_variants).not_to have_key(:lg)
     end
 
     it "#avatar_inline_url is nil when no avatar is attached" do

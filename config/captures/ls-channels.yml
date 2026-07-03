@@ -1,0 +1,12 @@
+# `ls channels` — the kv-table with tiny avatars: one PNG + a short GIF of the
+# reply-sort mutating the table in place. Dev only (fixed /login TOTP).
+name: ls-channels
+base_url: http://localhost:3027
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - login: true
+  - command: "ls channels"
+  - wait_for: { text: "channels", timeout: 15 }
+  - sleep: 0.6
+  - shot: ls-channels.png
+  - gif: { name: ls-channels.gif, duration: 4, fps: 5 }

@@ -16,12 +16,6 @@ module Pito
         @intro   = intro
       end
 
-      def avatar_url
-        @channel.avatar_variant_url
-      rescue StandardError
-        nil
-      end
-
       # Small (60×60) avatar variant (:sm) for the kv-table row.
       def avatar_inline_url
         @channel.avatar_inline_url

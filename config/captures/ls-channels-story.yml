@@ -1,0 +1,20 @@
+# STORYBOARD validation (owner 2026-07-03): deliberate keyframes — the typed
+# command building up, the thinking block, the rendered table — assembled as a
+# slow GIF; the numbered keyframe PNGs stay alongside as a playable suite.
+name: ls-channels-story
+base_url: http://localhost:3027
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - login: true
+  - sleep: 0.5
+  - type: "ls"
+  - keyframe: 01-ls.png
+  - type: " channels"
+  - keyframe: 02-ls-channels.png
+  - submit: true
+  - sleep: 0.2
+  - keyframe: 03-thinking.png
+  - wait_for: { text: "channels", timeout: 15 }
+  - sleep: 0.6
+  - keyframe: 04-message.png
+  - storyboard: { name: ls-channels-story.gif, seconds_per_frame: 1.6 }

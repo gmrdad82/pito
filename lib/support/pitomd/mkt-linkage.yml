@@ -1,0 +1,24 @@
+# Slide 2 — "Games <-> Videos <-> Channels." (long, complete GIF): show game 3
+# with the FOCUS on the enhanced messages — the linked-videos table and the
+# channel distribution + matches.
+name: mkt-linkage
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - login: true
+  - sleep: 0.8
+  - type: "show"
+  - keyframe: 010-show.png
+  - type: " game 3"
+  - burst: { prefix: 020-cmd-show-game-3, frames: 4, fps: 8 }
+  - submit: true
+  - burst: { prefix: 030-thinking, frames: 8, fps: 10 }
+  - wait_for: { text: "Pragmata", timeout: 20 }
+  - wait_for: { selector: ".pito-game-channels", timeout: 20 }
+  - sleep: 0.5
+  - burst: { prefix: 040-bottom, frames: 6, fps: 6 }          # natural bottom view
+  - scroll_to: ".pito-data-grid"                               # linked videos table
+  - burst: { prefix: 050-videos, frames: 8, fps: 6 }
+  - scroll_to: ".pito-game-channels"                           # distribution + matches
+  - burst: { prefix: 060-channels, frames: 8, fps: 6 }
+  - storyboard: { name: mkt-linkage.gif, fps: 5 }

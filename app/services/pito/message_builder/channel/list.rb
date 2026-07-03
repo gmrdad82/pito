@@ -3,36 +3,89 @@
 module Pito
   module MessageBuilder
     module Channel
-      # Builds the payload for the channel list message.
+      # Builds the payload for the `list channels` kv-table message (the card
+      # strip retired 2026-07-02 — channels list like every other list verb).
       #
-      # Renders a Pito::Channel::ListComponent for the connected channels and
-      # wraps it with a plain-text intro line. Stamped follow-up-able
-      # (reply_target: "channel_list") so the user can reply
-      # `#<handle> visit @<handle>` to open a channel page.
+      # Columns: Avatar · Handle · Title · Subs · Views · Vids. No `#id`
+      # column, no `with`/`without` (all columns always shown); `sort` is
+      # supported on every column except Avatar (see ListColumns). Counts are
+      # compact (2.2K); the Avatar cell is the tiny (35px) ringed variant and
+      # the data-grid middle-aligns row text to it.
       #
-      # NOTE: The caller is responsible for checking channels.empty? and returning
-      # an appropriate empty-state before calling this builder.
+      # The Handle cell is the click-to-open seam (auto-submits
+      # `show channel @handle`) — same affordance as the vids list's #id cell.
+      #
+      # Stamped follow-up-able (reply_target: "channel_list") with the listed
+      # channel_ids, so replies (`sort`, `analyze`, `shinies`) can reload the
+      # same set.
+      #
+      # NOTE: The caller is responsible for checking channels.empty? and
+      # returning an appropriate empty-state before calling this builder.
       module List
         extend Pito::MessageBuilder::Helpers
         module_function
 
-        # @param channels     [ActiveRecord::Relation | Array<::Channel>] non-empty, pre-fetched.
-        # @param conversation [Conversation] used to generate the reply handle.
-        # @return [Hash] string-keyed payload with body, html: true, and follow-up fields.
-        def call(channels, conversation:)
-          intro = Pito::Copy.render_html(
-            "pito.copy.channels.list_intro",
-            { count: channels.size, noun: channels.size == 1 ? "channel" : "channels" },
-            shimmer: [ :count, :noun ]
-          )
-          strip_html = render_component(Pito::Channel::ListComponent.new(channels:))
+        HEADING = [
+          "", # Avatar column — no label
+          "Handle",
+          "Title",
+          { "text" => "Subs",  "class" => "text-right" },
+          { "text" => "Views", "class" => "text-right" },
+          { "text" => "Vids",  "class" => "text-right" }
+        ].freeze
 
-          payload = html_payload(body: "#{intro}\n#{strip_html}")
-          # Stamped so an `analyze` reply can scope the analysis to these channels.
-          payload["channel_ids"] = channels.map(&:id)
+        # @param channels     [Array<::Channel>] non-empty, pre-fetched, pre-sorted.
+        # @param conversation [Conversation] used to generate the reply handle.
+        # @return [Hash] string-keyed payload with body, table, follow-up fields.
+        def call(channels, conversation:)
+          payload = {
+            "body" => Pito::Copy.render_html(
+              "pito.copy.channels.list_intro",
+              { count: channels.size, noun: channels.size == 1 ? "channel" : "channels" },
+              shimmer: [ :count, :noun ]
+            ),
+            "html"            => true,
+            "table_heading"   => HEADING.map(&:dup),
+            "shimmer_heading" => true,
+            "table_rows"      => channels.map { |channel| row_for(channel) },
+            # Stamped so `sort` replies reload the same set and `analyze` can
+            # scope the analysis to these channels.
+            "channel_ids"     => channels.map(&:id)
+          }
           Pito::FollowUp.make_followupable!(payload, target: "channel_list", conversation: conversation)
           payload
         end
+
+        def row_for(channel)
+          handle = channel.at_handle
+          {
+            cells: [
+              {
+                text:  render_component(Pito::Channel::TinyAvatarComponent.new(channel:)),
+                html:  true,
+                class: "pito-cell-avatar"
+              },
+              {
+                text:  handle,
+                class: Pito::Shimmer::TokenComponent.css_class(handle, extra: "whitespace-nowrap", clickable: true),
+                data:  Pito::Shimmer::TokenComponent.prefill_data("show channel #{handle}", submit: true)
+              },
+              { text: channel.title.to_s, class: "text-fg pito-cell-title" },
+              count_cell(channel.subscriber_count),
+              count_cell(channel.view_count),
+              count_cell(channel.videos.count)
+            ]
+          }
+        end
+        private_class_method :row_for
+
+        def count_cell(value)
+          {
+            text:  Pito::Formatter::CompactCount.call(value.to_i),
+            class: "text-fg-dim text-right tabular-nums whitespace-nowrap"
+          }
+        end
+        private_class_method :count_cell
       end
     end
   end

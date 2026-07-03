@@ -12,21 +12,13 @@ class Channel < ApplicationRecord
   # yt3.ggpht.com (which 429s). Display resizing is handled by named variants —
   # each variant is 2× its CSS display size so hiDPI/retina screens (every
   # phone) get a sharp render; the display size is pinned in CSS:
-  #   :lg — 240×240 fill, displayed 120px (item lists, recommended channels)
   #   :sm — 120×120 fill, displayed  60px (show-channel kv-table inline row)
   #   :xs —  70×70  fill, displayed  35px (game channel-recommendation rows,
   #          item 16) — a DISTINCT variant sized to ONE braille bar
   #          (2.5em @ 14px = 35px) so each avatar row aligns with its bar (17.9)
   has_one_attached :avatar do |attachable|
-    attachable.variant :lg, resize_to_fill: [ 240, 240 ]
     attachable.variant :sm, resize_to_fill: [ 120, 120 ]
     attachable.variant :xs, resize_to_fill: [ 70, 70 ]
-  end
-
-  # Host-less ActiveStorage proxy path for the :lg avatar variant (120×120),
-  # or nil when none is attached (the view falls back to the placeholder).
-  def avatar_variant_url
-    Pito::ImagePath.call(avatar, variant: :lg)
   end
 
   # Host-less proxy path for the :sm avatar variant (60×60) — used in the

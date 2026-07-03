@@ -47,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for green CI on the tagged commit
+        id: gate
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
@@ -63,11 +64,15 @@ jobs:
                           | map("\(.name): \(.conclusion)") | join(", ")' <<<"$runs")
 
             if [ -n "$bad" ]; then
+              # CI already posts its OWN failure message — mark the reason so
+              # the refusal notify below stays silent (one message per event).
+              echo "reason=ci-red" >> "$GITHUB_OUTPUT"
               echo "::error::CI is NOT green on $SHA — $bad. Refusing to build the image."
               exit 1
             fi
             if [ "$total" -eq 0 ]; then
               if [ "$SECONDS" -ge "$evidence_deadline" ]; then
+                echo "reason=no-evidence" >> "$GITHUB_OUTPUT"
                 echo "::error::No CI runs found for $SHA — refusing to build without CI evidence (fail closed)."
                 exit 1
               fi
@@ -79,11 +84,30 @@ jobs:
               echo "waiting: $pending of $total run(s) still in progress…"
             fi
             if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "reason=timeout" >> "$GITHUB_OUTPUT"
               echo "::error::Timed out (30m) waiting for CI on $SHA."
               exit 1
             fi
             sleep 30
           done
+
+      # Failure-only, and ONLY for refusal modes nothing else announces
+      # (timeout / no CI evidence). A ci-red refusal stays silent here — CI
+      # posts its own failure message, and the owner wants exactly ONE
+      # notification per event (2026-07-02).
+      - name: Checkout code
+        if: failure() && steps.gate.outputs.reason != 'ci-red'
+        uses: actions/checkout@v7
+
+      - name: Notify Slack (release refused with no CI verdict)
+        if: failure() && steps.gate.outputs.reason != 'ci-red'
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          headline: ":no_entry: *Release refused — no green CI verdict for the tagged commit (${{ steps.gate.outputs.reason || 'unknown' }}). No image built.*"
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
 
   build:
     # One job per architecture, each on a NATIVE runner (no emulation).
@@ -169,6 +193,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      # The Slack notifier is a LOCAL composite action — without a checkout the
+      # runner has no ./.github/actions/slack-notify and the notify step errors
+      # (swallowed by continue-on-error: the v0.9.0 image notice was silently
+      # lost exactly this way).
+      - name: Checkout code
+        uses: actions/checkout@v7
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:

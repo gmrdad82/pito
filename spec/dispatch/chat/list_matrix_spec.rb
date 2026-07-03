@@ -972,6 +972,7 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       allow(rel).to receive(:includes).and_return(rel)
       allow(rel).to receive(:order).and_return(rel)
       allow(rel).to receive(:empty?).and_return(false)
+      allow(rel).to receive(:to_a).and_return([]) # Phase LS: sort works on the loaded array
       allow(rel).to receive(:select).and_return([])
       rel
     end

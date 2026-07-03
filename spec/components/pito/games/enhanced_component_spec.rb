@@ -69,34 +69,32 @@ RSpec.describe Pito::Games::EnhancedComponent do
       expect(headers).not_to be_empty
     end
 
-    it "renders the @handle for each channel (via ItemComponent)" do
+    # Channel matches render as the SAME tiny-avatar + score-bar rows as show
+    # game's recommendation column (the 120px ItemComponent card grid retired
+    # 2026-07-02 — ChannelScoreTableComponent everywhere).
+    it "renders one tiny-avatar score row per channel" do
       node = render_component
-      handles = node.css(".pito-channel-item__handle").map(&:text).map(&:strip)
-      expect(handles).to include("@gamegrumps", "@markiplier")
+      rows = node.css(".pito-game-channels__reco-row")
+      expect(rows.length).to eq(2)
+      expect(node.css(".pito-game-channels__reco-avatar").length).to eq(2)
     end
 
-    it "renders the title for each channel (via ItemComponent)" do
+    it "renders a .pito-score-bar element for each channel" do
       node = render_component
-      titles = node.css(".pito-channel-item__title").map(&:text).map(&:strip)
-      expect(titles).to include("Game Grumps", "Markiplier")
-    end
-
-    it "renders a .pito-score-bar element for each channel (via ItemComponent)" do
-      node = render_component
-      score_bars = node.css(".pito-channel-item__score .pito-score-bar")
+      score_bars = node.css(".pito-game-channels__reco-score .pito-score-bar")
       expect(score_bars.length).to eq(2)
     end
 
     it "passes the result score to each ScoreBarComponent (Part 1 regression guard)" do
       node = render_component
-      score_bars = node.css(".pito-channel-item__score .pito-score-bar")
+      score_bars = node.css(".pito-game-channels__reco-score .pito-score-bar")
       scores = score_bars.map { |el| el["data-score"] }
       expect(scores).to include("78", "65")
     end
 
-    it "does not render a VisitComponent in the channel grid" do
+    it "does not render a VisitComponent among the channel rows" do
       node = render_component
-      expect(node.css(".pito-game-enhanced-message__channel-grid .pito-channel-visit")).to be_empty
+      expect(node.css(".pito-game-channels__reco .pito-channel-visit")).to be_empty
     end
 
     it "does not render stat rows in the channel grid (show_stats: false by default)" do

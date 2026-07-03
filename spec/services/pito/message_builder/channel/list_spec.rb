@@ -20,14 +20,42 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
       expect(payload["html"]).to be true
     end
 
-    it "includes channel titles in body" do
-      expect(payload["body"]).to include("Alpha Tube")
-      expect(payload["body"]).to include("Beta Cast")
+    # The kv-table (Phase LS): titles/handles live in table_rows cells now —
+    # the body carries only the intro line.
+    it "renders the table heading Avatar(blank)/Handle/Title/Subs/Views/Vids" do
+      texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+      expect(texts).to eq([ "", "Handle", "Title", "Subs", "Views", "Vids" ])
     end
 
-    it "includes channel handles in body" do
-      expect(payload["body"]).to include("@alpha")
-      expect(payload["body"]).to include("@beta")
+    it "right-aligns the count headings" do
+      right = payload["table_heading"].select { |h| h.is_a?(Hash) }
+      expect(right.map { |h| h["class"] }).to all(include("text-right"))
+    end
+
+    it "includes channel titles as Title cells" do
+      titles = payload["table_rows"].map { |r| r[:cells][2][:text] }
+      expect(titles).to contain_exactly("Alpha Tube", "Beta Cast")
+    end
+
+    it "renders the Handle cell as the click-to-open seam (show channel prefill)" do
+      handle_cell = payload["table_rows"].first[:cells][1]
+      expect(handle_cell[:text]).to eq("@alpha")
+      expect(handle_cell[:data].to_h.values.join(" ")).to include("show channel @alpha")
+    end
+
+    it "renders the Avatar cell as html with the tiny ringed avatar class" do
+      avatar_cell = payload["table_rows"].first[:cells][0]
+      expect(avatar_cell[:html]).to be true
+      expect(avatar_cell[:text]).to include("pito-channel-tiny-avatar")
+    end
+
+    it "renders compact right-aligned count cells" do
+      subs_cell = payload["table_rows"].first[:cells][3]
+      expect(subs_cell[:class]).to include("text-right")
+    end
+
+    it "stamps channel_ids in listed order" do
+      expect(payload["channel_ids"]).to eq(channels.map(&:id))
     end
 
     it "wraps the intro count in a subject-shimmer span" do

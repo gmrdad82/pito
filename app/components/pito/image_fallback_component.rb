@@ -19,7 +19,7 @@ module Pito
     # @param shape        [Symbol] :rect | :circle (unknown → :rect)
     # @param sync_command [String] the chat command the click prefills + submits
     # @param extra_class  [String, nil] the host SIZING class (the same class the
-    #   image would carry — e.g. "pito-channel-item__avatar"), so the placeholder
+    #   image would carry — e.g. "pito-channel-tiny-avatar"), so the placeholder
     #   occupies the exact box the image would. Mirrors the `--placeholder` pattern.
     def initialize(shape:, sync_command:, extra_class: nil)
       @shape        = SHAPES.include?(shape) ? shape : :rect

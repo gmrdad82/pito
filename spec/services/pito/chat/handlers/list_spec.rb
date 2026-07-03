@@ -304,8 +304,9 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
 
     it "ignores filler on `list channels please` and still lists channels" do
-      body = handler_for("list channels please").call.events.first[:payload]["body"]
-      expect(body).to include("Filler Chan")
+      payload = handler_for("list channels please").call.events.first[:payload]
+      titles  = payload["table_rows"].map { |r| r[:cells][2][:text] }
+      expect(titles).to include("Filler Chan")
     end
   end
 
@@ -356,23 +357,27 @@ RSpec.describe Pito::Chat::Handlers::List do
     let!(:beta)  { create(:channel, title: "Beta Cast",  handle: "@beta",  youtube_channel_id: "UCb") }
     let!(:alpha) { create(:channel, title: "Alpha Tube", handle: "@alpha", youtube_channel_id: "UCa") }
 
-    it "returns an html body including each channel title" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body).to include("Alpha Tube")
-      expect(body).to include("Beta Cast")
+    # The kv-table (Phase LS): rows carry Avatar/Handle/Title/Subs/Views/Vids
+    # cells; the body is the intro line only.
+    def channel_rows(raw = "list channels")
+      handler_for(raw).call.events.first[:payload]["table_rows"]
     end
 
-    it "includes each channel @handle in the body" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body).to include("@alpha")
-      expect(body).to include("@beta")
+    it "lists each channel title as a Title cell" do
+      titles = channel_rows.map { |r| r[:cells][2][:text] }
+      expect(titles).to contain_exactly("Alpha Tube", "Beta Cast")
     end
 
-    it "makes each channel @handle run `show channel @handle` (prefill, not a YouTube link)" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body).to include("show channel @alpha")
-      expect(body).to include("show channel @beta")
-      expect(body).not_to include("https://www.youtube.com")
+    it "lists each channel @handle as a Handle cell" do
+      handles = channel_rows.map { |r| r[:cells][1][:text] }
+      expect(handles).to contain_exactly("@alpha", "@beta")
+    end
+
+    it "makes each Handle cell run `show channel @handle` (prefill, not a YouTube link)" do
+      cells = channel_rows.map { |r| r[:cells][1] }
+      prefills = cells.map { |c| c[:data].to_h.values.join(" ") }
+      expect(prefills.join(" ")).to include("show channel @alpha", "show channel @beta")
+      expect(prefills.join(" ")).not_to include("https://www.youtube.com")
     end
 
     it "sets html: true on the payload" do
@@ -391,16 +396,34 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(payload["reply_target"]).to eq("channel_list")
     end
 
-    # Channels are the kv-table exception: they stay avatar cards, so `with`/
-    # `sorted by` clauses are simply ignored — no kv-table, no heading row.
-    it "ignores `with` / `sorted by` clauses and stays avatar cards (no kv-table)" do
-      [ "list channels with foo", "list channels sorted by title" ].each do |raw|
-        payload = handler_for(raw).call.events.first[:payload]
-        expect(payload["html"]).to be(true)
-        expect(payload["table_heading"]).to be_nil
-        expect(payload["table_rows"]).to be_nil
-        expect(payload["body"]).to include("Alpha Tube").and include("Beta Cast")
-      end
+    # Channels have NO with/without (all columns always shown) — a `with`
+    # clause is ignored and the table renders anyway.
+    it "ignores a `with` clause and renders the table" do
+      payload = handler_for("list channels with foo").call.events.first[:payload]
+      expect(payload["table_rows"].size).to eq(2)
+    end
+
+    # ── sort (every column except Avatar) ────────────────────────────────────
+    it "sorts by title ascending with `sorted by title`" do
+      titles = channel_rows("list channels sorted by title").map { |r| r[:cells][2][:text] }
+      expect(titles).to eq([ "Alpha Tube", "Beta Cast" ])
+    end
+
+    it "sorts by handle descending with `list channels sort handle desc`" do
+      handles = channel_rows("list channels sort handle desc").map { |r| r[:cells][1][:text] }
+      expect(handles).to eq([ "@beta", "@alpha" ])
+    end
+
+    it "accepts the canonical-noun aliases (subscribers → subs)" do
+      payload = handler_for("list channels sort subscribers").call.events.first[:payload]
+      expect(payload["table_rows"].size).to eq(2)
+    end
+
+    it "returns the channels-specific error (never suggesting `with`) for an unknown sort column" do
+      payload = handler_for("list channels sort price").call.events.first[:payload]
+      expect(payload["text"]).to include("price")
+      expect(payload["text"]).not_to include("with")
+      expect(payload["table_rows"]).to be_nil
     end
 
     it "includes a reply_handle in the channel list payload" do
@@ -430,13 +453,9 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
 
     it "orders channels newest-latest-vid first, no-vid channel last" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      newest_pos = body.index("@newest")
-      older_pos  = body.index("@older")
-      novid_pos  = body.index("@novid")
-
-      expect(newest_pos).to be < older_pos
-      expect(older_pos).to  be < novid_pos
+      payload = handler_for("list channels").call.events.first[:payload]
+      handles = payload["table_rows"].map { |r| r[:cells][1][:text] }
+      expect(handles).to eq([ "@newest", "@older", "@novid" ])
     end
   end
 
@@ -1033,8 +1052,9 @@ RSpec.describe Pito::Chat::Handlers::List do
     let!(:zebra_ch) { create(:channel, title: "Zebra Default Chan", handle: "@zebra_def", youtube_channel_id: "UCzdef1") }
 
     it "returns channels in id-DESC order (highest id first) by default" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body.index("@zebra_def")).to be < body.index("@alpha_def")
+      rows    = handler_for("list channels").call.events.first[:payload]["table_rows"]
+      handles = rows.map { |r| r[:cells][1][:text] }
+      expect(handles.index("@zebra_def")).to be < handles.index("@alpha_def")
     end
   end
 

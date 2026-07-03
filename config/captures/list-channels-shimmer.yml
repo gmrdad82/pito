@@ -1,0 +1,26 @@
+# Owner-specified storyboard (2026-07-03): login → typed "list channels" →
+# TWO thinking-block keyframes (braille/word advance between them) → THREE
+# message keyframes spaced so the intro shimmer sweep visibly moves.
+# The message wait is a SELECTOR (the kv-table) — a text wait on "channels"
+# would trip on the echo line itself.
+name: list-channels-shimmer
+base_url: http://localhost:3027
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - login: true                       # 1. /login 123456
+  - sleep: 0.8                        # 2. let the auth swap + page settle
+  - type: "list"                      # 3.
+  - type: " channels"                 # 4.
+  - submit: true
+  - sleep: 0.15
+  - keyframe: 01-thinking.png         # 5.
+  - sleep: 0.5
+  - keyframe: 02-thinking.png         # 6.
+  - wait_for: { selector: ".pito-data-grid", timeout: 15 }   # 7.
+  - sleep: 0.4
+  - keyframe: 03-message.png          # 8.
+  - sleep: 0.5
+  - keyframe: 04-message.png          # 9.  (shimmer advanced)
+  - sleep: 0.5
+  - keyframe: 05-message.png          # 10. (shimmer advanced again)
+  - storyboard: { name: list-channels.gif, seconds_per_frame: 1.0 }

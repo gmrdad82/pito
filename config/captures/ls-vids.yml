@@ -1,0 +1,11 @@
+# `ls vids` — the library table; GIF long enough to catch the intro shimmer.
+name: ls-vids
+base_url: http://localhost:3027
+viewport: { width: 1000, height: 950, scale: 2 }
+steps:
+  - login: true
+  - command: "ls vids"
+  - wait_for: { selector: ".pito-data-grid", timeout: 15 }
+  - sleep: 0.6
+  - shot: ls-vids.png
+  - gif: { name: ls-vids.gif, duration: 4, fps: 5 }

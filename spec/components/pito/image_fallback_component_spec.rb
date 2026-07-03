@@ -40,7 +40,7 @@ RSpec.describe Pito::ImageFallbackComponent, type: :component do
   end
 
   it "applies the host sizing class passed as extra_class" do
-    expect(render_fallback(extra_class: "pito-channel-item__avatar").at_css(".pito-image-fallback.pito-channel-item__avatar")).to be_present
+    expect(render_fallback(extra_class: "pito-channel-tiny-avatar").at_css(".pito-image-fallback.pito-channel-tiny-avatar")).to be_present
   end
 
   it "is keyboard-reachable (role=button, tabindex=0)" do

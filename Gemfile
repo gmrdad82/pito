@@ -51,6 +51,10 @@ gem "ruby-vips", "~> 2.2", require: false
 gem "neighbor", "~> 1.2"
 
 group :development, :test do
+  # Pure-Ruby CDP driver for the capture tool (rake pito:capture) — drives the
+  # ms-playwright Chrome Headless Shell already on disk; no Node toolchain.
+  gem "ferrum", "~> 0.17"
+
   gem "pry-rails", "~> 0.3"
   gem "debug", "~> 1.11", platforms: %i[ mri windows ], require: "debug/prelude"
   gem "bundler-audit", "~> 0.9", require: false

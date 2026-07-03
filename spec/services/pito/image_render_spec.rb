@@ -39,9 +39,9 @@ RSpec.describe Pito::ImageRender, type: :component do
       it "passes the host sizing class through to the placeholder" do
         component = described_class.call(
           url: nil, shape: :circle, sync_command: "sync channel @pito",
-          fallback_class: "pito-channel-item__avatar"
+          fallback_class: "pito-channel-tiny-avatar"
         )
-        expect(render_inline(component).at_css(".pito-image-fallback.pito-channel-item__avatar")).to be_present
+        expect(render_inline(component).at_css(".pito-image-fallback.pito-channel-tiny-avatar")).to be_present
       end
     end
   end

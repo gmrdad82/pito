@@ -1,0 +1,40 @@
+# Slide 1 — "PITO speaks human" (long GIF): three commands typed in chunks with
+# an explicit full-verb+kwargs frame each, thinking + message bursts. Frames
+# stay on disk for the keep-every-Nth optimization pass.
+name: mkt-language
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - login: true
+  - sleep: 0.8
+  # ── list vids ──────────────────────────────────────────
+  - type: "list"
+  - keyframe: 010-list.png
+  - type: " vids"
+  - burst: { prefix: 020-cmd-list-vids, frames: 4, fps: 8 }   # explicit full command
+  - submit: true
+  - burst: { prefix: 030-thinking, frames: 8, fps: 10 }
+  - wait_for: { selector: ".pito-data-grid", timeout: 20 }
+  - sleep: 0.3
+  - burst: { prefix: 040-message, frames: 8, fps: 8 }
+  # ── show game 3 ────────────────────────────────────────
+  - type: "show"
+  - keyframe: 050-show.png
+  - type: " game 3"
+  - burst: { prefix: 060-cmd-show-game-3, frames: 4, fps: 8 }
+  - submit: true
+  - burst: { prefix: 070-thinking, frames: 8, fps: 10 }
+  - wait_for: { text: "Pragmata", timeout: 20 }
+  - sleep: 0.4
+  - burst: { prefix: 080-message, frames: 8, fps: 8 }
+  # ── list games rpg ─────────────────────────────────────
+  - type: "list"
+  - keyframe: 090-list.png
+  - type: " games rpg"
+  - burst: { prefix: 100-cmd-list-games-rpg, frames: 4, fps: 8 }
+  - submit: true
+  - burst: { prefix: 110-thinking, frames: 8, fps: 10 }
+  - wait_for: { selector: ".pito-data-grid", timeout: 20 }
+  - sleep: 0.3
+  - burst: { prefix: 120-message, frames: 8, fps: 8 }
+  - storyboard: { name: mkt-language.gif, fps: 6 }

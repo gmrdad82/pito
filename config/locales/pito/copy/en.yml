@@ -2591,6 +2591,10 @@ en:
         chat:
           body: "Follow-up targets and accepted actions, grouped by entity. Type any listed action after a #handle reply."
       channels:
+        # `list channels sort <col>` with an unknown column — channels has NO
+        # with/without, so (unlike the games/vids sort error) never suggest
+        # adding a column; name the sortable set instead.
+        sort_unknown_column: "Can't sort by \"%{column}\" — channels sort by handle, title, subs, views, or vids."
         # 50-variant witty intro for the `show channel @handle` :enhanced vids list.
         videos_intro:
           - "The %{count} vids on %{title}."
@@ -3103,8 +3107,10 @@ en:
           col_comments_desc: "Comment count"
           col_category_desc: "YouTube category (Gaming, People & Blogs, …)"
         channels_help:
-          usage: "list channels"
+          usage: "list channels [sorted by <column> [desc]]"
           options_title: "Options:"
+          opt_sort: "sorted by <column> [desc]"
+          opt_sort_desc: "Sort by handle, title, subs, views, or vids (Avatar isn't sortable). `sort`/`order` work too; default is latest upload first."
           opt_help: "--help"
           opt_help_desc: "Print this help message"
 

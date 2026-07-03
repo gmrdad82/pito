@@ -369,10 +369,12 @@ module Pito
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 
-        # `list channels` → inline channel cards rendered by Pito::Channel::ListComponent.
-        # Returns a :system event with an html body (intro line + wrapping card strip).
-        # If any connected channel's youtube_connection needs reauth, appends a second
-        # :enhanced event listing those channels with a reconnect hint.
+        # `list channels` → the channels kv-table (Avatar/Handle/Title/Subs/Views/
+        # Vids — Pito::MessageBuilder::Channel::List). Default order = latest upload
+        # activity; a `sort <col> [desc]` clause re-orders by any column except
+        # Avatar (no with/without — all columns are always shown). If any connected
+        # channel's youtube_connection needs reauth, appends a second :enhanced
+        # event listing those channels with a reconnect hint.
         def list_channels
           # Guard: only connected channels (a youtube_connection). A connection-less
           # orphan row (stray/test data) is never a real channel — never list it.
@@ -387,6 +389,21 @@ module Pito
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }
             ])
+          end
+
+          channels = channels.to_a
+          sort     = Pito::Chat::SortClause.parse(message.raw)
+          if sort
+            key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(sort[:token])
+            if key.nil?
+              payload = Pito::MessageBuilder::Text.call(
+                "pito.copy.channels.sort_unknown_column",
+                column: sort[:token]
+              )
+              return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+            end
+            channels = channels.sort_by { |c| key.call(c) }
+            channels.reverse! if sort[:direction] == :desc
           end
 
           payload = Pito::MessageBuilder::Channel::List.call(channels, conversation:)

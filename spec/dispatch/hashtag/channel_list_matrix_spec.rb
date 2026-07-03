@@ -57,12 +57,19 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
       expect(Pito::FollowUp::Handlers::ChannelList.mode).to eq(:append)
     end
 
-    it "declares only 'shinies' as an action" do
-      expect(Pito::FollowUp::Handlers::ChannelList.actions).to eq([ "shinies", "analyze" ])
+    it "declares shinies, analyze, and the sort/order pair as actions" do
+      expect(Pito::FollowUp::Handlers::ChannelList.actions)
+        .to eq([ "shinies", "analyze", "sort", "order" ])
     end
 
-    it "actions_for('channel_list') contains 'shinies' and 'analyze'" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to match_array(%w[shinies analyze])
+    it "actions_for('channel_list') matches the declared set" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_list"))
+        .to match_array(%w[shinies analyze sort order])
+    end
+
+    it "sort and order are :mutate actions (re-render in place, no consume)" do
+      expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "sort")).to eq(:mutate)
+      expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "order")).to eq(:mutate)
     end
 
     it "does NOT include 'visit' (visit moved to channel_detail)" do

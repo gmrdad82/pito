@@ -17,7 +17,7 @@ module Pito
       # longer reserves a dead scrollbar gutter (see application.css).
       tag.div(
         Pito::Copy.render(BANNER_KEY),
-        class: "fixed bottom-0 left-0 right-0 z-40 bg-red text-fg text-center " \
+        class: "pito-dev-banner fixed bottom-0 left-0 right-0 z-40 bg-red text-fg text-center " \
                "font-bold py-0.5 pointer-events-none select-none"
       )
     end

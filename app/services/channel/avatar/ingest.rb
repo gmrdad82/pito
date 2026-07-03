@@ -10,7 +10,7 @@ class Channel
     # Downloads the YouTube avatar from the given source URL, fetches the RAW
     # source bytes, and attaches them unchanged as `channel.avatar` (the master
     # blob). Display resizing is handled by ActiveStorage named variants at
-    # render time (:lg → 120×120, :sm → 60×60).
+    # render time (:sm → 60×60, :xs → 35×35).
     #
     # Digest-gate: re-attaches ONLY when the raw source bytes' checksum changes,
     # so a sync that returns the same avatar leaves the blob — and its derived
