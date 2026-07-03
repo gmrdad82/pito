@@ -42,7 +42,12 @@
 # via `config/pito.yml.example`; the actual file is per-install.
 /config/pito.yml
 
-.claude/
+# Claude guardrails ship with the repo (E12, pitomd model): hooks + settings.json
+# are committed; everything else in .claude/ (local settings, runtime state)
+# stays machine-local.
+.claude/*
+!.claude/hooks/
+!.claude/settings.json
 
 # Local-only agent/working docs (plans, briefs, the 0.7.0 checklist) — never checked in.
 /docs/claude/
