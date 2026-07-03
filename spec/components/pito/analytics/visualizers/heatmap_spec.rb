@@ -52,12 +52,12 @@ RSpec.describe Pito::Analytics::Visualizers::Heatmap, type: :component do
     # by its cumulative width so the 135° sweep reads as a single diagonal, not a
     # per-bar sweep (owner 2026-07-01).
     plot = node.at_css(".pito-heatmap__bars")
-    expect(plot["style"]).to include("--pito-plot-w: 45ch")
+    expect(plot["style"]).to include("--pito-plot-w: 42ch")
 
     offsets = node.css(".pito-heatmap__bar").map { |b| b["style"][/--pito-bar-offset: (\d+)ch/, 1].to_i }
     expect(offsets.first).to eq(0)
     expect(offsets).to eq(offsets.sort)                 # strictly non-decreasing (cumulative)
-    expect(offsets.last).to be < 45                     # last bar starts inside the plot
+    expect(offsets.last).to be < Pito::Analytics::Visualizers::Base::COLS # last bar starts inside the plot
     # all bars share the same shimmer-delay bucket so they sweep as one
     buckets = node.css(".pito-heatmap__bar").map { |b| b["class"][/pito-shimmer-d\d+/] }
     expect(buckets.uniq.size).to eq(1)

@@ -17,10 +17,14 @@ module Pito
       # template that draws the plot inside this chrome.
       class Base < ViewComponent::Base
         # Braille CELL grid: COLS ≈ a vid thumbnail width; ROWS ≈ a 16:9 box at the
-        # 14px base line-height. COLS trimmed to 45 (owner 2026-06-28) so the chart
-        # never overruns a narrow/portrait column. (The likes hearts are a SEPARATE
-        # locked width — Pito::Analytics::Visualizers::Heart::HEART_COLS — not derived from this.)
-        COLS = 45
+        # 14px base line-height. Braille glyphs come from the scoped fallback face
+        # (dejavu-braille.woff2) whose advance is 0.7324em ≈ 10.25px @14px — WIDER
+        # than the mono 1ch (8.43px) — so COLS is budgeted against 10.25px/cell:
+        # 42 × 10.25 + 12px .pito-metric padding ≈ 442px < the locked 450px column
+        # (owner 2026-07-03, plan-0.9.5 D1; was 45 ≈ 473px, which overflowed).
+        # (The likes hearts are a SEPARATE locked width —
+        # Pito::Analytics::Visualizers::Heart::HEART_COLS — not derived from this.)
+        COLS = 42
         ROWS = 11
 
         # @param caption [String] pre-rendered, html-safe caption (the builder

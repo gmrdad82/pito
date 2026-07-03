@@ -275,18 +275,20 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
   describe "free mode — footage dynamic game_titles slot", :db do
     let!(:game) { create(:game, title: "Zelda") }
 
-    it "returns empty menu_items (free mode suggests nothing)" do
+    it "returns game titles matching the partial (plan-0.9.5 E8: footage zel → Zelda)" do
       result = call(input: "footage zel", cursor: 11, authenticated: true)
-      expect(result[:menu_items]).to eq([])
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Zelda")
     end
   end
 
   describe "free mode — reindex dynamic game_titles slot", :db do
     let!(:game) { create(:game, title: "Zelda") }
 
-    it "returns empty menu_items (free mode suggests nothing)" do
+    it "returns game titles matching the partial (plan-0.9.5 E8: reindex zel → Zelda)" do
       result = call(input: "reindex zel", cursor: 11, authenticated: true)
-      expect(result[:menu_items]).to eq([])
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Zelda")
     end
   end
 
@@ -842,6 +844,307 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         result = call(input: "/config sound on ", cursor: 17, authenticated: true)
         expect(result[:menu_items]).to be_empty
       end
+    end
+  end
+
+  # ── FREE MODE — chat verb slot palette suggestions (plan-0.9.5 E8/D5) ─────────
+  #
+  # Every chat verb's declared enum kwargs now autosuggest once the verb is
+  # committed (a space has been typed after it).  Ghost text is always empty
+  # (removed owner 2026-06-29); only menu_items are populated.
+
+  describe "free mode — list/ls noun slot" do
+    it "suggests all nouns after 'list '" do
+      result = call(input: "list ", cursor: 5, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels", "vids", "games")
+    end
+
+    it "filters nouns by prefix ('list g' → games only)" do
+      result = call(input: "list g", cursor: 6, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("games")
+      expect(labels).not_to include("channels", "vids")
+    end
+
+    it "suggests nouns for the 'ls' alias" do
+      result = call(input: "ls ", cursor: 3, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels", "vids", "games")
+    end
+
+    it "tags stage: :verb for the palette" do
+      result = call(input: "list ", cursor: 5, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+    end
+
+    it "insert strings end with a space" do
+      result = call(input: "list ", cursor: 5, authenticated: true)
+      result[:menu_items].each { |i| expect(i[:insert]).to end_with(" ") }
+    end
+
+    it "returns items sorted alphabetically" do
+      result = call(input: "list ", cursor: 5, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to eq(labels.sort_by(&:downcase))
+    end
+  end
+
+  describe "free mode — show full/with/only slots" do
+    it "suggests full, with, only before any introducer is typed ('show game 5 ')" do
+      result = call(input: "show game 5 ", cursor: 12, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("full", "with", "only")
+    end
+
+    it "tags stage: :verb when suggestions are present" do
+      result = call(input: "show game 5 ", cursor: 12, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+    end
+
+    it "returns items sorted alphabetically (full, only, with)" do
+      result = call(input: "show game 5 ", cursor: 12, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to eq(labels.sort_by(&:downcase))
+    end
+
+    it "suggests show_segments after 'show game 5 with '" do
+      result = call(input: "show game 5 with ", cursor: 17, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("at-a-glance", "channels", "detail",
+                                "linked-game", "linked-videos", "similar", "videos")
+      expect(labels).not_to include("full", "only")
+    end
+
+    it "suggests show_segments after 'show game 5 only '" do
+      result = call(input: "show game 5 only ", cursor: 17, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("at-a-glance", "detail", "videos")
+      expect(labels).not_to include("full", "with")
+    end
+
+    it "filters segment names by partial ('show game 5 with det' → detail)" do
+      result = call(input: "show game 5 with det", cursor: 20, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("detail")
+      expect(labels).not_to include("channels", "videos")
+    end
+
+    it "filters introducer keywords by partial ('show game 5 wi' → with)" do
+      result = call(input: "show game 5 wi", cursor: 14, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("with")
+      expect(labels).not_to include("only", "full")
+    end
+
+    it "last-typed introducer wins — 'show game 5 with detail only ' → only's segments" do
+      result = call(input: "show game 5 with detail only ", cursor: 29, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("at-a-glance", "detail", "videos")
+      # The :only slot's vocab is shown (same source as :with — show_segments).
+      expect(labels).not_to include("full", "with")
+    end
+  end
+
+  describe "free mode — analyze/analytics/stats noun slot" do
+    it "suggests all nouns after 'analyze '" do
+      result = call(input: "analyze ", cursor: 8, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels", "vids", "games")
+    end
+
+    it "suggests nouns for the 'analytics' alias" do
+      result = call(input: "analytics ", cursor: 10, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels", "vids", "games")
+    end
+
+    it "suggests nouns for the 'stats' alias" do
+      result = call(input: "stats ", cursor: 6, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels", "vids", "games")
+    end
+  end
+
+  describe "free mode — import noun slot" do
+    it "suggests 'game' after 'import '" do
+      result = call(input: "import ", cursor: 7, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("game")
+    end
+
+    it "does not suggest 'games' (canonical is 'game' only)" do
+      result = call(input: "import ", cursor: 7, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("games")
+    end
+  end
+
+  describe "free mode — sync target slot" do
+    it "suggests sync targets after 'sync '" do
+      result = call(input: "sync ", cursor: 5, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels", "vids")
+    end
+
+    it "filters targets by prefix ('sync c' → channels)" do
+      result = call(input: "sync c", cursor: 6, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("channels")
+      expect(labels).not_to include("vids")
+    end
+  end
+
+  describe "free mode — footage game_titles dynamic slot", :db do
+    let!(:game) { create(:game, title: "Celeste") }
+
+    it "returns game titles matching the partial ('footage cel' → Celeste)" do
+      result = call(input: "footage cel", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Celeste")
+    end
+
+    it "tags stage: :verb for the dynamic palette" do
+      result = call(input: "footage cel", cursor: 11, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+    end
+  end
+
+  describe "free mode — price subcommand slot" do
+    it "suggests set and unset after 'price '" do
+      result = call(input: "price ", cursor: 6, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("set", "unset")
+    end
+
+    it "filters subcommands by prefix ('price s' → set)" do
+      result = call(input: "price s", cursor: 7, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("set")
+      expect(labels).not_to include("unset")
+    end
+  end
+
+  describe "free mode — delete/rm/del game_titles dynamic slot", :db do
+    let!(:game) { create(:game, title: "Dark Souls") }
+
+    it "suggests game titles matching the partial ('delete dark' → Dark Souls)" do
+      result = call(input: "delete dark", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Dark Souls")
+    end
+
+    it "suggests game titles for the 'rm' alias" do
+      result = call(input: "rm dark", cursor: 7, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Dark Souls")
+    end
+
+    it "suggests game titles for the 'del' alias" do
+      result = call(input: "del dark", cursor: 8, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Dark Souls")
+    end
+  end
+
+  describe "free mode — reindex game_titles dynamic slot", :db do
+    let!(:game) { create(:game, title: "Hollow Knight") }
+
+    it "suggests game titles matching the partial ('reindex hol' → Hollow Knight)" do
+      result = call(input: "reindex hol", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("Hollow Knight")
+    end
+  end
+
+  describe "free mode — platform subcommand slot" do
+    it "suggests set and unset after 'platform '" do
+      result = call(input: "platform ", cursor: 9, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("set", "unset")
+    end
+  end
+
+  describe "free mode — schedule slate slot" do
+    it "suggests 'slate' after 'schedule some-id '" do
+      result = call(input: "schedule some-id ", cursor: 17, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("slate")
+    end
+
+    it "filters 'slate' by partial ('schedule some-id sl' → slate)" do
+      result = call(input: "schedule some-id sl", cursor: 19, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("slate")
+    end
+  end
+
+  describe "free mode — find status/genre/platform slots" do
+    it "suggests release_status members, genre names, and 'for' after 'find '" do
+      result = call(input: "find ", cursor: 5, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("released", "upcoming", "tba")
+      expect(labels).to include("Shooter", "RPG", "Racing")
+      expect(labels).to include("for")
+    end
+
+    it "returns items sorted alphabetically" do
+      result = call(input: "find ", cursor: 5, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to eq(labels.sort_by(&:downcase))
+    end
+
+    it "suggests platform names after 'find for '" do
+      result = call(input: "find for ", cursor: 9, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("PlayStation 5", "Nintendo Switch", "PC")
+      expect(labels).not_to include("released", "upcoming", "Shooter")
+    end
+
+    it "filters platform names by partial ('find for pl' → PlayStation names)" do
+      result = call(input: "find for pl", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("PlayStation 5", "PlayStation 4")
+      expect(labels).not_to include("PC", "Nintendo Switch")
+    end
+
+    it "filters 'for' introducer by partial ('find fo' → for)" do
+      result = call(input: "find fo", cursor: 7, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("for")
+      expect(labels).not_to include("released", "Shooter")
+    end
+  end
+
+  describe "free mode — verbs with no suggestable slots yield empty menu_items" do
+    it "returns empty for 'publish ' (free slot only)" do
+      result = call(input: "publish ", cursor: 8, authenticated: true)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "returns empty for 'link ' (free slot only)" do
+      result = call(input: "link ", cursor: 5, authenticated: true)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "returns empty for 'unlink ' (free slot only)" do
+      result = call(input: "unlink ", cursor: 7, authenticated: true)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "returns empty for 'help ' (no slots)" do
+      result = call(input: "help ", cursor: 5, authenticated: true)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "returns empty for unknown verb 'frobnicate '" do
+      result = call(input: "frobnicate ", cursor: 11, authenticated: true)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "mode stays :free even when items are returned" do
+      result = call(input: "list ", cursor: 5, authenticated: true)
+      expect(result[:mode]).to eq(:free)
     end
   end
 end

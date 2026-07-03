@@ -3,7 +3,7 @@
 require "rails_helper"
 
 RSpec.describe Pito::Analytics::Visualizers::Bar, type: :component do
-  COLS = Pito::Analytics::Visualizers::Base::COLS # 45
+  COLS = Pito::Analytics::Visualizers::Base::COLS # 42
   ROWS = Pito::Analytics::Visualizers::Base::ROWS # 11
 
   BAR_FILL  = [ 0x28FF ].pack("U") # ⣿
@@ -75,7 +75,7 @@ RSpec.describe Pito::Analytics::Visualizers::Bar, type: :component do
     expect(rows.map { |r| r["style"][/--i:\s*(\d+)/, 1].to_i }).to eq((0..10).to_a)
   end
 
-  # ── Total char count per row = COLS (45) ─────────────────────────────────────
+  # ── Total char count per row = COLS ──────────────────────────────────────────
 
   it "renders each bar row as exactly #{COLS} braille chars" do
     node = render_bars(bars: two_bars)
@@ -84,7 +84,7 @@ RSpec.describe Pito::Analytics::Visualizers::Bar, type: :component do
     end
   end
 
-  it "renders each bar row as exactly 45 chars for 5 bars" do
+  it "renders each bar row as exactly #{COLS} chars for 5 bars" do
     node = render_bars(bars: five_bars)
     node.css(".pito-metric__brow").each do |row|
       expect(row.text.length).to eq(COLS)

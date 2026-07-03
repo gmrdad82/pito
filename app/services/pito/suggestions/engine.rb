@@ -130,8 +130,10 @@ module Pito
 
           filtered = all_slash_specs.select { |spec| include_slash_spec?(spec, authenticated:) }
 
+          # plan-0.9.5 D5: slash commands list alphabetically
           items = filtered
             .select { |spec| spec.name.to_s.start_with?(partial.downcase) }
+            .sort_by { |spec| spec.name.to_s }
             .map    { |spec| slash_verb_item(spec) }
 
           { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
@@ -282,9 +284,10 @@ module Pito
             suggest_dynamic(vocab, vocab_name, partial, authenticated:)
           else
             # Static vocab — filter canonical members by prefix.
-            prefix_filter(vocab.canonical, partial).map do |member|
-              { label: member, insert: "#{member} ", description: "", masked: false }
-            end
+            # plan-0.9.5 D5: enum/literal argument members list alphabetically
+            prefix_filter(vocab.canonical, partial)
+              .sort_by { |m| m.to_s.downcase }
+              .map { |member| { label: member, insert: "#{member} ", description: "", masked: false } }
           end
         end
 
@@ -315,6 +318,9 @@ module Pito
           if partial.present?
             candidate_keys = candidate_keys.select { |k| k.to_s.downcase.start_with?(partial.downcase) }
           end
+
+          # plan-0.9.5 D5: provider config keys list alphabetically (D5 overrides prior credentials-first semantic order)
+          candidate_keys = candidate_keys.sort
 
           candidate_keys.map do |key|
             {
@@ -362,6 +368,16 @@ module Pito
           # Input looks like "#handle verb metric". The handle can contain a
           # hyphen (e.g. follow-up handles `alpha-1266`), which the lexer would
           # split — so extract the full `#<handle>` directly from the raw text.
+
+          # plan-0.9.5 D5: bare `#` or `#partial` (no space typed yet) → show the
+          # HANDLE palette: all live unconsumed reply handles, ordered by the source
+          # event's created_at ASC (scrollback / conversation order).
+          stripped = text.lstrip
+          if stripped.match?(/\A#\S*\z/)
+            partial = stripped.delete_prefix("#").downcase
+            return reply_handle_completions(partial, conversation:)
+          end
+
           m = text.match(/\A\s*#(\S+)(.*)\z/m)
           return { menu_items: [], ghost: EMPTY_GHOST, stage: :none } unless m
 
@@ -440,7 +456,9 @@ module Pito
         # with/without). stage: :verb → the client surfaces the whole list as a
         # selectable palette. (Inline ghost removed — owner 2026-06-29.)
         def follow_up_action_completions(actions, partial)
+          # plan-0.9.5 D5: follow-up reply verbs list alphabetically
           matches    = partial.empty? ? actions : actions.select { |a| a.to_s.start_with?(partial.downcase) }
+          matches    = matches.sort_by { |a| a.to_s }
           menu_items = matches.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
 
           { menu_items: menu_items, ghost: EMPTY_GHOST, stage: :verb }
@@ -448,8 +466,10 @@ module Pito
 
         def hashtag_verb_completions(partial)
           specs  = Pito::Grammar::Registry.specs(namespace: :hashtag)
+          # plan-0.9.5 D5: hashtag (chat-namespace) verb completions list alphabetically
           items  = specs
-            .select { |s| s.name.to_s.start_with?(partial.downcase) }
+            .select  { |s| s.name.to_s.start_with?(partial.downcase) }
+            .sort_by { |s| s.name.to_s }
             .map do |s|
               {
                 label:       s.name.to_s,
@@ -465,23 +485,132 @@ module Pito
           vocab = Pito::Grammar::Registry.vocabulary(:metrics)
           return { menu_items: [], ghost: EMPTY_GHOST } unless vocab
 
-          items = prefix_filter(vocab.canonical, partial).map do |member|
-            { label: member, insert: "#{member} ", description: "", masked: false }
-          end
+          # plan-0.9.5 D5: metric argument members list alphabetically
+          items = prefix_filter(vocab.canonical, partial)
+            .sort_by { |m| m.to_s.downcase }
+            .map { |member| { label: member, insert: "#{member} ", description: "", masked: false } }
           { menu_items: items, ghost: EMPTY_GHOST, stage: :arg }
         end
 
         # ── FREE mode ────────────────────────────────────────────────────────
 
-        # Free (natural-language) input gets NO suggestions (owner 2026-06-29:
-        # inline free-chat typeahead removed — the `/slash` + `#hashtag` palettes
-        # are the only suggestion surfaces). Kept as an explicit no-op so the
-        # mode dispatch in `call` stays symmetric.
-        def free_completions(_text, authenticated: false)
-          { menu_items: [], ghost: EMPTY_GHOST }
+        # Free (natural-language) input: produces PALETTE suggestions for chat
+        # verb enum slots once the verb token is committed (a space has been typed).
+        #
+        # Ghost text was removed (owner 2026-06-29); only menu_items are populated.
+        # Slash/hashtag palettes are unchanged.
+        #
+        # Stage logic (plan-0.9.5 E8/D5):
+        #   - Verb not yet committed (no space) → empty.
+        #   - Verb not in :chat namespace → empty.
+        #   - Introducer word typed (e.g. "with", "only", "for") → suggest the
+        #     matching slot's vocabulary members.
+        #   - Otherwise → suggest non-introduced enum slots' members plus the
+        #     introducer keywords themselves (palette entries for the user to
+        #     select the branch they want next).
+        def free_completions(text, authenticated: false)
+          stripped  = text.lstrip
+          space_idx = stripped.index(" ")
+          return { menu_items: [], ghost: EMPTY_GHOST } unless space_idx
+
+          verb_token = stripped[0...space_idx].downcase.to_sym
+          spec = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: verb_token)
+          return { menu_items: [], ghost: EMPTY_GHOST } unless spec
+
+          ends_with_space  = text.end_with?(" ")
+          after_verb_words = stripped[space_idx..].split
+          partial          = ends_with_space ? "" : (after_verb_words.last || "")
+          typed_tokens     = ends_with_space ? after_verb_words : after_verb_words[0..-2]
+
+          items = chat_verb_completions(spec, typed_tokens.to_a, partial, authenticated:)
+          return { menu_items: [], ghost: EMPTY_GHOST } if items.empty?
+
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
+        end
+
+        # Builds palette menu_items for a free-mode chat verb at the current
+        # typing stage.
+        #
+        # typed_tokens — tokens the user has fully committed after the verb
+        #                (everything before the current partial).
+        # partial      — token currently being typed ("" when text ends with
+        #                a space).
+        #
+        # Only :enum / :literal slots with a Symbol source are suggestable;
+        # :free, :kv, and :connective slots carry no completion vocabulary.
+        #
+        # Introducer logic:
+        #   If the most recently committed introducer keyword (e.g. "with",
+        #   "only", "for") appears in typed_tokens, suggest the matching slot's
+        #   vocabulary members.  Otherwise, suggest non-introduced slots' members
+        #   PLUS the introducer keywords themselves as selectable items so the
+        #   user sees the gated branches they can enter.
+        def chat_verb_completions(spec, typed_tokens, partial, authenticated:)
+          suggestable_slots = spec.slots.select do |s|
+            (s.kind == :enum || s.kind == :literal) && s.source.is_a?(Symbol)
+          end
+          return [] if suggestable_slots.empty?
+
+          # Find the most recently committed introducer keyword in typed_tokens.
+          last_introduced_slot = nil
+          typed_tokens.each do |token|
+            suggestable_slots.each do |slot|
+              last_introduced_slot = slot if slot.introducer && token.downcase == slot.introducer.to_s
+            end
+          end
+
+          # An introducer was committed → suggest that slot's vocabulary members.
+          return suggest_for_slot(last_introduced_slot, partial, authenticated:) if last_introduced_slot
+
+          # No introducer yet: suggest non-introduced slot members and the
+          # introducer keywords themselves.
+          items = []
+          suggestable_slots.each do |slot|
+            if slot.introducer
+              intro = slot.introducer.to_s
+              if partial.empty? || intro.start_with?(partial.downcase)
+                items << { label: intro, insert: "#{intro} ", description: "", masked: false }
+              end
+            else
+              items.concat(suggest_for_slot(slot, partial, authenticated:))
+            end
+          end
+
+          # plan-0.9.5 D5: list alphabetically; deduplicate by label.
+          items.sort_by { |i| i[:label].to_s.downcase }.uniq { |i| i[:label] }
         end
 
         # ── Helpers ───────────────────────────────────────────────────────────
+
+        # plan-0.9.5 D5: reply-HANDLE palette — fires while the user is still
+        # typing the handle token (bare `#` or `#partial`, no space yet).
+        # Lists live (unconsumed) reply handles ordered by their source event's
+        # created_at ASC (scrollback reading order). When candidates exceed
+        # DYNAMIC_LIMIT the oldest are dropped so the cap always retains the
+        # newest handles (tail of the ASC-ordered set).
+        def reply_handle_completions(partial, conversation: nil)
+          return { menu_items: [], ghost: EMPTY_GHOST, stage: :verb } if conversation.nil?
+
+          handles = conversation.events
+            .where("payload->>'reply_handle' IS NOT NULL")
+            .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
+            .order(created_at: :asc)
+            .pluck(Arel.sql("payload->>'reply_handle'"))
+            .uniq
+            .compact
+
+          # Prefix-filter FIRST (a typed prefix must be able to reach ANY live
+          # handle), THEN cap to the newest DYNAMIC_LIMIT (tail of the ASC array).
+          # Result stays in ASC (scrollback) order within the window.
+          candidates = partial.empty? ? handles : handles.select { |h| h.start_with?(partial) }
+          candidates = candidates.last(DYNAMIC_LIMIT) if candidates.size > DYNAMIC_LIMIT
+
+          items = candidates.map do |handle|
+            { label: "##{handle}", insert: "##{handle} ", description: "", masked: false }
+          end
+
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
+        end
 
         # Returns members where the downcased member starts with downcased partial.
         # If partial is empty, returns all members.

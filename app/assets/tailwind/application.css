@@ -31,8 +31,11 @@
 /* Braille block (U+2800–28FF) — DejaVu Sans Mono has no braille glyphs, so this
    scoped face supplies them from DejaVu Sans (proportional sibling) under the
    SAME family name. The browser composes by unicode-range: braille codepoints
-   (the `⠋⠙…` loading spinner + the `⣾` card) use this file, everything else uses
-   the mono faces above. Used for isolated single glyphs, so width is a non-issue. */
+   (the `⠋⠙…` spinner AND every chart plot row) use this file, everything else
+   uses the mono faces above. WIDTH WARNING: these glyphs advance 1500/2048 =
+   0.7324em ≈ 10.25px @14px — 22% WIDER than the mono 1ch (8.43px). A row of N
+   braille cells is N × 10.25px, NOT N ch; chart column budgets (COLS=42 in
+   visualizers/base.rb, plan-0.9.5 D1) are computed against 10.25px/cell. */
 @font-face {
   font-family: "DejaVu Sans Mono";
   font-style: normal;
@@ -2200,9 +2203,12 @@ html {
 
   /* LOCKED 2-up layout invariant (same as .pito-game-channels): desktop = two
      450px columns (450 + 450 + 16 gap = 916 = the 964px column content width);
-     mobile stacks to one column. Charts are COLS=45 (~378px) so they fit a 450px
-     column without clipping. Each cell contributes exactly ONE grid item — the
-     cell wrapper is display:contents, so its single child becomes the grid item. */
+     mobile stacks to one column. Charts are COLS=42 braille cells; braille glyphs
+     render at the SCOPED FALLBACK face's advance (0.7324em ≈ 10.25px @14px, NOT
+     the mono 1ch = 8.43px), so 42 cells ≈ 430px + 12px metric padding ≈ 442px —
+     fits a 450px column without clipping. Each cell contributes exactly ONE grid
+     item — the cell wrapper is display:contents, so its single child becomes the
+     grid item. */
   display: grid;
   grid-template-columns: minmax(0, 1fr);   /* mobile: one column, stacked */
   gap: 1.6rem 16px;    /* row-gap = breathing room; column-gap = the locked 16px */
@@ -2224,7 +2230,7 @@ html {
   column-gap: 1ch;    /* breathing room between the label and the value */
 }
 
-/* A charted glance cell = a Visualizers::Sparkline (chart-width, ~COLS=45ch) stacked
+/* A charted glance cell = a Visualizers::Sparkline (chart-width, COLS=42 braille cells) stacked
    over its label/value pair. The cell takes the sparkline's width so it matches
    the analyze chart wrappers; the pair spans that full width (label left, value
    right) instead of the fixed label/value columns a bare pair uses.
@@ -2758,7 +2764,8 @@ html {
 
 /* ── Analytics metric chart (Pito::Analytics::Visualizers::*) ───────────────────────
    A bespoke metric widget: a braille area chart in a ~thumbnail-wide box near
-   16:9 at the 14px base (45 cols ≈ thumbnail wide; 11 rows ≈ 16:9 tall).
+   16:9 at the 14px base (42 cols ≈ thumbnail wide at the braille 10.25px/cell
+   advance; 11 rows ≈ 16:9 tall).
 
    NO axis lines/names (locked): the braille baseline dot-floor IS the x baseline;
    the scale is discrete tick VALUES — y overlaid inside-left at their data
@@ -3059,7 +3066,7 @@ html {
 }
 
 /* ── Horizontal bar group (Pito::Analytics::Visualizers::Bar) — 1–5 braille ⣿ bars centred
-   vertically on the full area-chart canvas (COLS=45, ROWS=11). Each bar is
+   vertically on the full area-chart canvas (COLS=42, ROWS=11). Each bar is
    2 identical glyph rows; 1-row gaps for n≤4. Reuses .pito-metric chrome +
    pito--area-chart-reveal controller verbatim. */
 
