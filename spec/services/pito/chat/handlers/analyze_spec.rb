@@ -163,5 +163,64 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
         expect(result.message_key).to include("bogus")
       end
     end
+
+    # `without breakdowns` → the numbers (:system) card only — segment excluded.
+    context "without breakdowns (numbers only)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 without breakdowns") }
+
+      it "returns exactly one event, the :system (numbers) card" do
+        expect(result.events.length).to eq(1)
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload].dig("analyze", "role")).to eq("system")
+      end
+    end
+
+    # `without comments` → metric token silently passed to MetricSelection;
+    # segment selection returns full base (both cards). Pin this behavior.
+    context "without a metric token (comments) — both cards emitted" do
+      subject(:result) { analyze("analyze channel @gmrdad82 without comments") }
+
+      it "is not an error (Ok result)" do
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "emits both cards (metric token passes through to MetricSelection, segment base = full)" do
+        expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])
+      end
+    end
+
+    # `without` + `only` is a conflict.
+    context "conflicting selectors (without + only)" do
+      subject(:result) { analyze("analyze channel @gmrdad82 without breakdowns only numbers") }
+
+      it "returns an Error result" do
+        expect(result).to be_a(Pito::Chat::Result::Error)
+      end
+    end
+
+    # ── D18: segments footer on the first emitted message ──────────────────────────
+
+    context "segments footer (D18)" do
+      # Bare `analyze channel` → numbers only in selection, so 1 addable (breakdowns) and 1 removable (numbers).
+      it "bare analyze: first event has list_footer naming the addable segment (breakdowns)" do
+        result  = analyze("analyze channel @gmrdad82")
+        footer  = result.events.first[:payload]["list_footer"].to_s
+        expect(footer).to include("breakdowns")
+      end
+
+      # full → both in selection, so 0 addable and 2 removable.
+      it "full analyze: first event has list_footer with both segments as removable" do
+        result  = analyze("analyze channel @gmrdad82 full")
+        footer  = result.events.first[:payload]["list_footer"].to_s
+        expect(footer).to include("numbers")
+        expect(footer).to include("breakdowns")
+        expect(footer).to include("nothing")
+      end
+
+      it "footer uses 'segments' as the noun" do
+        result = analyze("analyze channel @gmrdad82")
+        expect(result.events.first[:payload]["list_footer"].to_s).to include("segments")
+      end
+    end
   end
 end

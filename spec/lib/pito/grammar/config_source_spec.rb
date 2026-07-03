@@ -561,8 +561,8 @@ RSpec.describe Pito::Grammar::ConfigSource do
     context ":show spec" do
       subject(:spec) { specs.find { |s| s.name == :show } }
 
-      it "has four slots in order: id, full, with, only" do
-        expect(spec.slots.map(&:name)).to eq([ :id, :full, :with, :only ])
+      it "has five slots in order: id, full, with, only, without (W5/D17)" do
+        expect(spec.slots.map(&:name)).to eq([ :id, :full, :with, :only, :without ])
       end
 
       it ":id slot is a :free optional slot" do
@@ -600,9 +600,10 @@ RSpec.describe Pito::Grammar::ConfigSource do
         expect(spec.aliases).to match_array([ :analytics, :stats ])
       end
 
-      it "has a single :noun enum slot sourced from :nouns" do
-        expect(spec.slots.length).to eq(1)
+      it "has :noun (nouns) + :without (analyze_segments) slots (W5/D17)" do
+        expect(spec.slots.map(&:name)).to eq([ :noun, :without ])
         expect(spec.slot(:noun).source).to eq(:nouns)
+        expect(spec.slot(:without).source).to eq(:analyze_segments)
       end
     end
 

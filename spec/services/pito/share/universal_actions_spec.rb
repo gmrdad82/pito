@@ -37,12 +37,35 @@ RSpec.describe Pito::Share::UniversalActions do
     end
   end
 
-  # Regression (owner 2026-06-29): a :confirmation message gets NO share verbs in
-  # its reply menu — sharing an ephemeral confirm/cancel prompt makes no sense.
-  # help is offered on every kind.
-  describe ".verbs_for" do
-    it "offers `help` and `share` for a non-shared :system / :enhanced message" do
+  # Owner ruling 2026-07-03 (widened same day, D14): share applies to :system, :enhanced
+  # AND their follow-up kinds (kinds: [system, enhanced, system_follow_up, enhanced_follow_up]
+  # in universal_reply config). These tests pin that policy literally — one example per
+  # excluded kind (thinking/echo/error/confirmation) and one per included kind.
+  describe ".verbs_for — kind gating (owner ruling 2026-07-03)" do
+    def event_of_kind(k)
+      Event.create_with_position!(
+        conversation:, turn:, kind: k,
+        payload: { "text" => "x", "reply_handle" => "h-#{k}" }
+      )
+    end
+
+    it "offers `help` and `share` for a non-shared :system message" do
       expect(described_class.verbs_for(event)).to match_array(%w[help share])
+    end
+
+    it "offers `help` and `share` for a non-shared :system_follow_up message (owner D14: follow-ups shareable)" do
+      ev = event_of_kind("system_follow_up")
+      expect(described_class.verbs_for(ev)).to include("help", "share")
+    end
+
+    it "offers `help` and `share` for a non-shared :enhanced_follow_up message (owner D14)" do
+      ev = event_of_kind("enhanced_follow_up")
+      expect(described_class.verbs_for(ev)).to include("help", "share")
+    end
+
+    it "offers `help` and `share` for a non-shared :enhanced message" do
+      ev = event_of_kind(:enhanced)
+      expect(described_class.verbs_for(ev)).to match_array(%w[help share])
     end
 
     it "adds revoke/unshare once the event has a Share" do
@@ -50,12 +73,25 @@ RSpec.describe Pito::Share::UniversalActions do
       expect(described_class.verbs_for(event)).to match_array(%w[help share revoke unshare])
     end
 
-    it "offers ONLY `help` for a :confirmation message (no share/revoke/unshare)" do
-      confirmation = Event.create_with_position!(
-        conversation:, turn:, kind: :confirmation,
-        payload: { "text" => "Sync @x?", "reply_handle" => "conf-handle" }
-      )
-      expect(described_class.verbs_for(confirmation)).to eq(%w[help])
+    # Excluded kinds — owner ruling: NO share/revoke/unshare on any of these.
+    it "offers ONLY `help` for a :confirmation message (owner 2026-06-29/2026-07-03)" do
+      ev = event_of_kind(:confirmation)
+      expect(described_class.verbs_for(ev)).to eq(%w[help])
+    end
+
+    it "offers ONLY `help` for a :thinking message" do
+      ev = event_of_kind(:thinking)
+      expect(described_class.verbs_for(ev)).to eq(%w[help])
+    end
+
+    it "offers ONLY `help` for an :echo message" do
+      ev = event_of_kind(:echo)
+      expect(described_class.verbs_for(ev)).to eq(%w[help])
+    end
+
+    it "offers ONLY `help` for an :error message" do
+      ev = event_of_kind(:error)
+      expect(described_class.verbs_for(ev)).to eq(%w[help])
     end
 
     it "offers `help` and `share` for a nil event (the generic event-less help page)" do

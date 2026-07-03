@@ -19,8 +19,8 @@ module Pito
     #
     # == Copy keys used
     #
-    #   pito.copy.list_footer.columns  — vars: %{addable}, %{removable}
-    #   pito.copy.list_footer.sort     — var:  %{keys}
+    #   pito.copy.options_footer.toggles  — vars: %{addable}, %{removable}, %{noun}
+    #   pito.copy.options_footer.sort      — var:  %{keys}
     #
     # Both are 1-or-50 dictionaries rendered via Pito::Copy.render.
     #
@@ -34,33 +34,33 @@ module Pito
 
       # Builds a footer string describing the surface's real options.
       #
-      # @param addable   [Array<String>] column names that `with` can add
-      #                  (available columns minus currently visible ones).
-      #                  Pass [] when no columns can be added.
-      # @param removable [Array<String>] column names that `without` can drop
-      #                  (currently visible non-default columns).
-      #                  Pass [] when no columns can be removed.
+      # @param addable   [Array<String>] column/segment names that `with` can add
+      #                  (available options minus currently visible ones).
+      #                  Pass [] when nothing can be added.
+      # @param removable [Array<String>] column/segment names that `without` can drop
+      #                  (currently visible non-default options).
+      #                  Pass [] when nothing can be removed.
       # @param sort_keys [Array<String>] sortable key tokens for this surface.
       #                  Pass [] when sorting is not supported or no keys exist.
+      # @param noun      [String] the word used for the addable/removable things
+      #                  (e.g. "columns" for list surfaces, "segments" for show/analyze).
       # @return [String, nil] html-safe-safe plain String, or nil when there is
       #                       nothing to display (all inputs are empty).
-      def call(addable:, removable:, sort_keys:)
+      def call(addable:, removable:, sort_keys:, noun: "columns")
         lines = []
 
         unless addable.empty? && removable.empty?
-          # One side may be empty (e.g. every optional column already added) —
-          # the dictionaries assume both vars read as lists, so an empty side
-          # renders as the literal "nothing" rather than a dangling gap.
           lines << Pito::Copy.render(
-            "pito.copy.list_footer.columns",
+            "pito.copy.options_footer.toggles",
             addable:   addable.join(", ").presence || "nothing",
-            removable: removable.join(", ").presence || "nothing"
+            removable: removable.join(", ").presence || "nothing",
+            noun:      noun
           )
         end
 
         unless sort_keys.empty?
           lines << Pito::Copy.render(
-            "pito.copy.list_footer.sort",
+            "pito.copy.options_footer.sort",
             keys: sort_keys.join(", ")
           )
         end

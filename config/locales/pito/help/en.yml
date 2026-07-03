@@ -9,7 +9,7 @@ en:
       show:
         usage: "show game #id  |  show vid #id  |  show channel @handle"
         game:
-          usage: "show game #id [full | with <segments> | only <segments>]"
+          usage: "show game #id [full | with <segments> | only <segments> | without <segments>]"
           sections:
             Arguments:
               "game": "Target noun"
@@ -18,6 +18,7 @@ en:
               "full": "Render every segment (detail, similar, linked-videos, channels, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
               "only <segments>": "Render exactly the named segments"
+              "without <segments>": "Render all segments except the named ones (full base minus named)"
               "--help": "Print this help message"
             Segments:
               "detail": "Game header and metadata (the bare-form default)"
@@ -26,7 +27,7 @@ en:
               "channels": "Channels that publish this game (pending-fill)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
         video:
-          usage: "show vid #id [full | with <segments> | only <segments>]"
+          usage: "show vid #id [full | with <segments> | only <segments> | without <segments>]"
           sections:
             Arguments:
               "vid": "Target noun (aliases: vids, video, videos)"
@@ -35,13 +36,14 @@ en:
               "full": "Render every segment (detail, linked-game, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
               "only <segments>": "Render exactly the named segments"
+              "without <segments>": "Render all segments except the named ones (full base minus named)"
               "--help": "Print this help message"
             Segments:
               "detail": "Video header and metadata (the bare-form default)"
               "linked-game": "The game linked to this vid (shown only when a game is linked)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
         channel:
-          usage: "show channel @handle [full | with <segments> | only <segments>]"
+          usage: "show channel @handle [full | with <segments> | only <segments> | without <segments>]"
           sections:
             Arguments:
               "channel": "Target noun (aliases: channels)"
@@ -50,11 +52,136 @@ en:
               "full": "Render every segment (detail, videos, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
               "only <segments>": "Render exactly the named segments"
+              "without <segments>": "Render all segments except the named ones (full base minus named)"
               "--help": "Print this help message"
             Segments:
               "detail": "Channel header, stats, and metadata (the bare-form default)"
               "videos": "Paginated list of the channel's videos (shown only when videos exist)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
+      # Segment verbs (D20/D21): each promotes one show/analyze :enhanced segment
+      # into its own verb. Behaviour equals `<parent> <noun> <ref> only <segment>`.
+      "at-a-glance":
+        usage: "at-a-glance channel @handle  |  at-a-glance vid #id  |  at-a-glance game #id"
+        channel:
+          usage: "at-a-glance channel @handle"
+          sections:
+            Arguments:
+              "channel": "Target noun (aliases: glance, overview)"
+              "@handle": "Channel handle — omit to use the shift+tab scope"
+            Options:
+              "--help": "Print this help message"
+        vid:
+          usage: "at-a-glance vid #id"
+          sections:
+            Arguments:
+              "vid": "Target noun"
+              "#id": "Local numeric vid id"
+            Options:
+              "--help": "Print this help message"
+        game:
+          usage: "at-a-glance game #id"
+          sections:
+            Arguments:
+              "game": "Target noun"
+              "#id": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+      videos:
+        usage: "videos channel @handle"
+        channel:
+          usage: "videos channel @handle"
+          sections:
+            Arguments:
+              "channel": "Target noun (alias: vids)"
+              "@handle": "Channel handle — omit to use the shift+tab scope"
+            Options:
+              "--help": "Print this help message"
+      "linked-game":
+        usage: "linked-game vid #id"
+        vid:
+          usage: "linked-game vid #id"
+          sections:
+            Arguments:
+              "vid": "Target noun"
+              "#id": "Local numeric vid id"
+            Options:
+              "--help": "Print this help message"
+      similar:
+        usage: "similar game #id"
+        game:
+          usage: "similar game #id"
+          sections:
+            Arguments:
+              "game": "Target noun (alias: similars)"
+              "#id": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+      "linked-videos":
+        usage: "linked-videos game #id"
+        game:
+          usage: "linked-videos game #id"
+          sections:
+            Arguments:
+              "game": "Target noun (alias: linked-vids)"
+              "#id": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+      channels:
+        usage: "channels game #id"
+        game:
+          usage: "channels game #id"
+          sections:
+            Arguments:
+              "game": "Target noun (alias: handles)"
+              "#id": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+      breakdowns:
+        usage: "breakdowns channel [@handle]  |  breakdowns vid [#id]  |  breakdowns game [#id]"
+        channel:
+          usage: "breakdowns channel [@handle[, @h2…]]"
+          sections:
+            Arguments:
+              "channel": "Target noun (aliases: lifetime, life)"
+              "[@handle]": "One or more channel handles; omit for the shift+tab scope"
+            Options:
+              "--help": "Print this help message"
+        vid:
+          usage: "breakdowns vid [#id[, #id…]]"
+          sections:
+            Arguments:
+              "vid": "Target noun"
+              "[#id]": "One or more local numeric vid ids"
+            Options:
+              "--help": "Print this help message"
+        game:
+          usage: "breakdowns game [#id[, #id…]]"
+          sections:
+            Arguments:
+              "game": "Target noun"
+              "[#id]": "One or more local numeric game ids"
+            Options:
+              "--help": "Print this help message"
+      # The `linked` two-word forms (E14): the NOUN names what you GET (the
+      # segment) and the id belongs to the OTHER entity — a crossed reference.
+      linked:
+        usage: "linked game #vid  |  linked vids #game"
+        game:
+          usage: "linked game #vid"
+          sections:
+            Arguments:
+              "game": "Target noun — names what you GET: the game linked to a vid (aliases: games)"
+              "#vid": "Local numeric VID id — the crossed ref is the vid, not the game (== show vid #id only linked-game)"
+            Options:
+              "--help": "Print this help message"
+        vids:
+          usage: "linked vids #game"
+          sections:
+            Arguments:
+              "vids": "Target noun (aliases: videos, video, vid) — names what you GET: the vids linked to a game"
+              "#game": "Local numeric GAME id — the crossed ref is the game, not the vids (== show game #id only linked-videos)"
+            Options:
+              "--help": "Print this help message"
       delete:
         usage: "delete game #id  |  delete video #id"
         game:
@@ -299,7 +426,7 @@ en:
       analyze:
         usage: "analyze channel [@handle[, @h2…]]  |  analyze vid [#id[, #id…]]  |  analyze game [#id[, #id…]]"
         channel:
-          usage: "analyze channel [@handle[, @h2…]] [full | with <segments>[,metric…] | only <segments> | without <metrics>]"
+          usage: "analyze channel [@handle[, @h2…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
               "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are verb aliases"
@@ -308,13 +435,13 @@ en:
               "full": "Emit both numbers and breakdowns segments"
               "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
               "only <segments>": "Emit exactly the named segments"
-              "without <metrics>": "Exclude named metrics from the numbers card (existing metric filter)"
+              "without <segments|metrics>": "Exclude named segments from the full base, or metric tokens from the numbers card — each routes to its own parser"
               "--help": "Print this help message"
             Segments:
               "numbers": "Plain-numbers summary card — the bare default"
               "breakdowns": "Lifetime distribution breakdowns card"
         vid:
-          usage: "analyze vid [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <metrics>]"
+          usage: "analyze vid [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
               "vid": "Target noun (aliases: vids, video, videos) — bare form uses the shift+tab channel scope (same as `analyze channel`)"
@@ -323,13 +450,13 @@ en:
               "full": "Emit both numbers and breakdowns segments"
               "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
               "only <segments>": "Emit exactly the named segments"
-              "without <metrics>": "Exclude named metrics from the numbers card (existing metric filter)"
+              "without <segments|metrics>": "Exclude named segments from the full base, or metric tokens from the numbers card — each routes to its own parser"
               "--help": "Print this help message"
             Segments:
               "numbers": "Plain-numbers summary card — the bare default"
               "breakdowns": "Lifetime distribution breakdowns card"
         game:
-          usage: "analyze game [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <metrics>]"
+          usage: "analyze game [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
               "game": "Target noun (aliases: games, gamez) — bare form resolves shift+tab → linked videos → games, presented at game level"
@@ -338,7 +465,7 @@ en:
               "full": "Emit both numbers and breakdowns segments"
               "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
               "only <segments>": "Emit exactly the named segments"
-              "without <metrics>": "Exclude named metrics from the numbers card (existing metric filter)"
+              "without <segments|metrics>": "Exclude named segments from the full base, or metric tokens from the numbers card — each routes to its own parser"
               "--help": "Print this help message"
             Segments:
               "numbers": "Plain-numbers summary card — the bare default"

@@ -283,6 +283,134 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     end
   end
 
+  describe ".validate — universal_reply kinds: and except:" do
+    def universal_doc(entry)
+      doc = valid_doc
+      doc[:universal_reply] = { share: { mode: "append" }.merge(entry) }
+      doc
+    end
+
+    # ── kinds: ──────────────────────────────────────────────────────────────────
+
+    it "accepts a valid kinds: array of event kinds" do
+      expect(described_class.validate(universal_doc(kinds: %w[system enhanced]))).to eq([])
+    end
+
+    it "accepts a single-element kinds: array" do
+      expect(described_class.validate(universal_doc(kinds: %w[system]))).to eq([])
+    end
+
+    it "rejects an unknown event kind in kinds: and lists the allowed set" do
+      expect(messages(universal_doc(kinds: %w[magical]))).to include(
+        a_string_matching(/universal_reply\.share\.kinds\[0\]: unknown event kind "magical" \(allowed:/)
+      )
+    end
+
+    it "suggests a near-miss event kind name" do
+      expect(messages(universal_doc(kinds: %w[syste]))).to include(
+        a_string_matching(/universal_reply\.share\.kinds\[0\].*did you mean system\?/)
+      )
+    end
+
+    it "rejects kinds: when it is not an Array" do
+      expect(messages(universal_doc(kinds: "system"))).to include(
+        "universal_reply.share.kinds: expected an Array, got String"
+      )
+    end
+
+    # ── except: ─────────────────────────────────────────────────────────────────
+
+    it "accepts a valid except: entry naming a reply target in the document" do
+      doc = valid_doc
+      doc[:verbs][:show] = { reply: { targets: { game_list: { mode: "append" } } } }
+      doc[:universal_reply] = { share: { mode: "append", except: %w[game_list] } }
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "accepts an empty except: array" do
+      expect(described_class.validate(universal_doc(except: []))).to eq([])
+    end
+
+    it "rejects an except: entry that is not a declared reply target" do
+      expect(messages(universal_doc(except: %w[no_such_target]))).to include(
+        a_string_matching(/universal_reply\.share\.except\[0\]: unknown reply target "no_such_target"/)
+      )
+    end
+
+    it "suggests a near-miss target name (did-you-mean) for except: entries" do
+      doc = valid_doc
+      doc[:verbs][:show] = { reply: { targets: { game_list: { mode: "append" } } } }
+      doc[:universal_reply] = { share: { mode: "append", except: %w[game_lis] } }
+      expect(messages(doc)).to include(
+        a_string_matching(/universal_reply\.share\.except\[0\].*did you mean game_list\?/)
+      )
+    end
+
+    it "rejects except: when it is not an Array" do
+      expect(messages(universal_doc(except: "game_list"))).to include(
+        "universal_reply.share.except: expected an Array, got String"
+      )
+    end
+  end
+
+  describe ".validate — segment aliases" do
+    # Build a doc with one or two segments in show/game.
+    # A verb must declare at least one branch, so include a minimal chat branch.
+    def segment_doc_with(segs)
+      doc = valid_doc
+      doc[:verbs][:show] = { chat: { slots: [] }, segments: { game: segs } }
+      doc
+    end
+
+    it "accepts a segment with a valid aliases array" do
+      doc = segment_doc_with("detail" => { builder: "B", kind: "system", reply_target: "t",
+                                           aliases: %w[alt-name] })
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "accepts a segment with an empty aliases array" do
+      doc = segment_doc_with("detail" => { builder: "B", kind: "system", reply_target: "t",
+                                           aliases: [] })
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "rejects a boolean alias token (HF2) with the quote hint" do
+      doc = segment_doc_with("detail" => { builder: "B", kind: "system", reply_target: "t",
+                                           aliases: [ false, "ok" ] })
+      expect(messages(doc)).to include(
+        a_string_matching(/segments\.game\.detail\.aliases\[0\]: boolean false — quote YAML-boolean tokens/)
+      )
+    end
+
+    it "rejects a non-scalar alias token" do
+      doc = segment_doc_with("detail" => { builder: "B", kind: "system", reply_target: "t",
+                                           aliases: [ %w[nested] ] })
+      expect(messages(doc)).to include(
+        a_string_matching(/segments\.game\.detail\.aliases\[0\]: alias token must be a scalar/)
+      )
+    end
+
+    it "rejects an alias that collides with another segment's canonical name" do
+      doc = segment_doc_with(
+        "detail"  => { builder: "B1", kind: "system",   reply_target: "t1" },
+        "similar" => { builder: "B2", kind: "enhanced", reply_target: "t2",
+                       aliases: %w[detail] }
+      )
+      expect(messages(doc)).to include(
+        a_string_matching(/segments\.game\.similar\.aliases\[0\]: alias "detail" collides with segment/)
+      )
+    end
+
+    it "does not flag an error when aliases are unique across all segments in the entity" do
+      doc = segment_doc_with(
+        "detail"  => { builder: "B1", kind: "system",   reply_target: "t1" },
+        "similar" => { builder: "B2", kind: "enhanced", reply_target: "t2",
+                       aliases: %w[similars] }
+      )
+      expect(described_class.validate(doc)).to eq([])
+    end
+  end
+
   describe ".validate — YAML-boolean token rejection (HF2)" do
     it "rejects a boolean alias token with the quote hint" do
       doc = valid_doc

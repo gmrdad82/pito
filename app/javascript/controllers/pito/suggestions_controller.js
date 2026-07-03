@@ -228,8 +228,11 @@ export default class extends Controller {
           return
         }
 
-        // Other arg-stage: close palette (server returns empty for these now)
-        this._closePalette()
+        // Other arg-stage (E13): the engine now serves ARGUMENT menus for
+        // hashtag reply verbs (columns for with/without, sort keys, metrics,
+        // row ids, enum args) — ask it; an empty menu closes the palette via
+        // the fetch handler, so no-arg verbs behave exactly as before.
+        this._scheduleArgFetch(value, cursor)
         return
       }
 
@@ -237,8 +240,11 @@ export default class extends Controller {
       this._cancelArgFetch()
       this._refreshVerbPalette(value, cursor)
     } else if (this._mode === "free") {
-      // Free mode: close palette (no suggestions for free input)
-      this._closePalette()
+      // Free mode (E8/T3.4): chat verbs have server-side argument suggestions
+      // (segment names after `show game 5 `, nouns, subcommands, game titles…).
+      // Debounced fetch; the engine returns empty for genuinely free prose and
+      // the empty menu keeps the palette closed.
+      this._scheduleArgFetch(value, cursor)
     } else {
       // none — clear everything
       this._closePalette()

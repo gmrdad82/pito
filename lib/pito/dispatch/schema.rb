@@ -30,17 +30,24 @@ module Pito
       # ── Allowed keys, per level (unknown key ⇒ rejected) ──────────────────────
       TOP_KEYS             = %i[schema_version universal_reply vocabularies verbs].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
-      UNIVERSAL_KEYS       = %i[mode aliases].freeze
+      UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
       VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns].freeze
       AVAILABILITY_KEYS    = %i[chat slash].freeze
-      CHAT_KEYS            = %i[slots dispatch].freeze
+      CHAT_KEYS            = %i[slots dispatch segment_of].freeze
+      # A `segment_of:` block (plan-0.9.5 D20) marks a chat verb as a "segment verb":
+      # a top-level promotion of one parent (show/analyze) segment into its own verb.
+      # FLAT form: `{ verb:, segment: }` (the typed noun routes the parent entity).
+      SEGMENT_OF_KEYS      = %i[verb segment].freeze
+      # KEYED (per-noun) form (plan-0.9.5 E14): `{ <noun>: <branch>, … }` where each
+      # branch also FORCES the parent entity and may carry noun `aliases:`.
+      SEGMENT_OF_BRANCH_KEYS = %i[verb segment entity aliases].freeze
       SLASH_KEYS           = %i[auth description slots dispatch].freeze
       REPLY_KEYS           = %i[targets].freeze
       SLOT_KEYS            = %i[name kind source optional repeatable introducer when].freeze
       TARGET_KEYS          = %i[mode ref args concern aliases].freeze
       REF_KEYS             = %i[resolver].freeze
       ARG_KEYS             = %i[resolver].freeze
-      SEGMENT_KEYS         = %i[builder kind default fill reply_target emit_if].freeze
+      SEGMENT_KEYS         = %i[builder kind default fill reply_target emit_if aliases].freeze
       SEGMENT_REQUIRED     = %i[builder kind reply_target].freeze
       CONCERNS_KEYS        = %i[pager].freeze
       PAGER_KEYS           = %i[page_size more_verb].freeze
@@ -51,6 +58,13 @@ module Pito
       # ── Closed value sets (enums) ─────────────────────────────────────────────
       REPLY_MODES   = %w[append mutate].freeze
       SEGMENT_KINDS = %w[system enhanced].freeze
+      # Canonical event kind set — derived from Event::KINDS in app/models/event.rb.
+      # Validated against the kinds: key in universal_reply entries.
+      EVENT_KINDS   = %w[
+        echo system error enhanced thinking confirmation
+        system_follow_up enhanced_follow_up confirmation_follow_up
+        theme_diff
+      ].freeze
       # enum/literal/kv resolve against a `source:` vocabulary; free slurps free text.
       # (literal = exact-match sentinel — also gates `when:` conditional slots; kv =
       # key=value pairs. Both are the /config provider→keys grammar shape, T8.9.)
@@ -178,7 +192,35 @@ module Pito
             check_keys(vbody, Schema::UNIVERSAL_KEYS, path, required: %i[mode])
             validate_enum(vbody[:mode], Schema::REPLY_MODES, join(path, "mode"), "mode") if vbody.key?(:mode)
             validate_aliases(vbody[:aliases], path) if vbody.key?(:aliases)
+            validate_universal_kinds(vbody[:kinds], join(path, "kinds")) if vbody.key?(:kinds)
+            validate_universal_except(vbody[:except], join(path, "except")) if vbody.key?(:except)
           end
+        end
+
+        def validate_universal_kinds(kinds, path)
+          return err(path, "expected an Array, got #{kinds.class}") unless kinds.is_a?(Array)
+
+          kinds.each_with_index do |kind, i|
+            validate_membership(kind.to_s, Schema::EVENT_KINDS, "#{path}[#{i}]", "event kind")
+          end
+        end
+
+        def validate_universal_except(except_list, path)
+          return err(path, "expected an Array, got #{except_list.class}") unless except_list.is_a?(Array)
+
+          targets = all_reply_targets
+          except_list.each_with_index do |target, i|
+            validate_membership(target.to_s, targets, "#{path}[#{i}]", "reply target")
+          end
+        end
+
+        # Collect all reply_target ids declared in the document (used to validate except: entries).
+        def all_reply_targets
+          @all_reply_targets ||= (@doc[:verbs] || {}).flat_map do |_, vbody|
+            next [] unless vbody.is_a?(Hash)
+
+            (vbody.dig(:reply, :targets) || {}).keys.map(&:to_s)
+          end.uniq
         end
 
         def validate_vocabularies(section)
@@ -238,6 +280,83 @@ module Pito
           check_keys(body, Schema::CHAT_KEYS, path)
           validate_slots(body[:slots], join(path, "slots")) if body.key?(:slots)
           validate_dispatch(body[:dispatch], join(path, "dispatch")) if body.key?(:dispatch)
+          validate_segment_of(body[:segment_of], join(path, "segment_of")) if body.key?(:segment_of)
+        end
+
+        # A `segment_of:` block binds a segment verb to its parent segment(s). Two
+        # shapes are accepted (plan-0.9.5 D20 + E14):
+        #
+        #   FLAT   `{ verb:, segment: }`  — one pair; the typed noun routes the
+        #                                   entity in the parent.
+        #   KEYED  `{ <noun>: { verb:, segment:, entity:[, aliases:] }, … }` — the
+        #                                   `linked` two-word forms: the noun names
+        #                                   the segment and `entity:` FORCES the
+        #                                   parent's branch (the id is the OTHER
+        #                                   entity's), so each segment is validated
+        #                                   against that forced entity specifically.
+        #
+        # Either way the parent verb must exist AND declare a segments block, and
+        # the segment name must appear in that parent's table (a typo names its
+        # exact path). Detection: the block itself carries the pair (flat) or its
+        # keys are nouns (keyed).
+        def validate_segment_of(body, path)
+          return unless expect_hash(body, path)
+
+          if body.key?(:verb) || body.key?(:segment)
+            validate_segment_of_flat(body, path)
+          else
+            validate_segment_of_keyed(body, path)
+          end
+        end
+
+        # FLAT form — the noun routes the entity in the parent (any-entity segment).
+        def validate_segment_of_flat(body, path)
+          check_keys(body, Schema::SEGMENT_OF_KEYS, path, required: %i[verb segment])
+          validate_string(body[:verb], join(path, "verb")) if body.key?(:verb)
+          validate_string(body[:segment], join(path, "segment")) if body.key?(:segment)
+          validate_segment_binding(body, path)
+        end
+
+        # KEYED form — one branch per noun; `entity:` FORCES (and scopes) the segment.
+        def validate_segment_of_keyed(body, path)
+          body.each do |noun, branch|
+            bpath = join(path, noun)
+            next unless expect_hash(branch, bpath)
+
+            check_keys(branch, Schema::SEGMENT_OF_BRANCH_KEYS, bpath, required: %i[verb segment entity])
+            validate_string(branch[:verb], join(bpath, "verb")) if branch.key?(:verb)
+            validate_string(branch[:segment], join(bpath, "segment")) if branch.key?(:segment)
+            validate_enum(branch[:entity], Schema::ENTITIES, join(bpath, "entity"), "entity") if branch.key?(:entity)
+            validate_aliases(branch[:aliases], bpath) if branch.key?(:aliases)
+            validate_segment_binding(branch, bpath, entity: branch[:entity])
+          end
+        end
+
+        # Shared cross-validation: parent verb exists + declares a segments block,
+        # and `segment` is a segment of that parent — scoped to `entity` when given.
+        def validate_segment_binding(body, path, entity: nil)
+          return unless body[:verb].is_a?(String) && body[:segment].is_a?(String)
+
+          parent_cfg = @doc.dig(:verbs, body[:verb].to_sym)
+          unless parent_cfg.is_a?(Hash) && parent_cfg[:segments].is_a?(Hash)
+            return err(join(path, "verb"),
+                       "segment_of.verb #{body[:verb].inspect} is not a verb declaring a segments block")
+          end
+
+          segs  = parent_cfg[:segments]
+          scoped = entity.is_a?(String) && segs[entity.to_sym].is_a?(Hash)
+          known =
+            if scoped
+              segs[entity.to_sym].keys.map(&:to_s)
+            else
+              segs.values.flat_map { |s| s.is_a?(Hash) ? s.keys.map(&:to_s) : [] }.uniq
+            end
+          return if known.include?(body[:segment])
+
+          scope = scoped ? " for #{entity}" : ""
+          err(join(path, "segment"),
+              "segment_of.segment #{body[:segment].inspect} is not a segment of #{body[:verb]}#{scope} " \
+              "(known: #{known.sort.join(', ')})")
         end
 
         def validate_slash(body, path)
@@ -356,6 +475,38 @@ module Pito
             next unless expect_hash(segs, entity_path)
 
             segs.each { |name, body| validate_segment(body, join(entity_path, name)) }
+            validate_segment_alias_uniqueness(segs, entity_path)
+          end
+        end
+
+        # Checks that no token (segment name or alias) appears more than once
+        # within the same verb+entity block.
+        def validate_segment_alias_uniqueness(segs, entity_path)
+          seen = {}   # token_string → first segment name that claimed it
+          segs.each do |seg_name, body|
+            name_str = seg_name.to_s
+            if seen.key?(name_str)
+              err(join(entity_path, name_str),
+                  "segment name #{name_str.inspect} collides with #{seen[name_str].inspect}")
+            else
+              seen[name_str] = name_str
+            end
+
+            next unless body.is_a?(Hash) && body[:aliases].is_a?(Array)
+
+            body[:aliases].each_with_index do |token, i|
+              # Booleans and non-scalars are already caught by validate_aliases — skip them here.
+              next unless scalar?(token) && token != true && token != false
+
+              alias_str  = token.to_s
+              alias_path = "#{join(entity_path, name_str)}.aliases[#{i}]"
+              if seen.key?(alias_str)
+                err(alias_path,
+                    "alias #{alias_str.inspect} collides with segment #{seen[alias_str].inspect}")
+              else
+                seen[alias_str] = name_str
+              end
+            end
           end
         end
 
@@ -369,6 +520,7 @@ module Pito
           validate_string(body[:reply_target], join(path, "reply_target")) if body.key?(:reply_target)
           validate_string(body[:fill], join(path, "fill")) if present?(body, :fill)
           validate_predicate(body[:emit_if], join(path, "emit_if")) if present?(body, :emit_if)
+          validate_aliases(body[:aliases], path) if body.key?(:aliases)
         end
 
         # ── concerns ────────────────────────────────────────────────────────────

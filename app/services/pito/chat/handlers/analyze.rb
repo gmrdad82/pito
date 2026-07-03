@@ -38,6 +38,16 @@ module Pito
           end
         end
 
+        # Public seam for Pito::Chat::Handlers::SegmentVerb (plan-0.9.5 D20). Runs
+        # `analyze` forcing an `only <segment>` selection and returns the same
+        # Result the typed `analyze <noun> <ref> only <segment>` form produces —
+        # scope resolution, emission, and error copy all flow through the unchanged
+        # path. Off (@forced_segment nil) in the normal typed/reply path.
+        def drive_segment(segment)
+          @forced_segment = segment
+          call
+        end
+
         private
 
         # The selected pending card(s) — `numbers` (:system) and/or `breakdowns`
@@ -47,9 +57,7 @@ module Pito
         # MetricSelection filter (which metrics render inside a card).
         def ok_events(result)
           entity_kind = result.level
-          selection   = Pito::Chat::SegmentSelection.parse(
-            message.raw, verb: :analyze, entity: entity_kind, extra_vocabulary: metric_vocabulary
-          )
+          selection   = resolved_selection(entity_kind)
           return segment_conflict_error if selection.conflict
           return segment_unknown_error(selection.unknown, entity_kind) if selection.unknown.any?
 
@@ -62,7 +70,35 @@ module Pito
             selection:    Pito::Analytics::MetricSelection.parse(message.raw),
             roles:        Pito::MessageBuilder::Analyze::Message.roles_for(selection.names)
           )
+
+          # Append segments footer to the first emitted message (D18).
+          if events.any?
+            all_names = Pito::Chat::Segments.names(verb: :analyze, entity: entity_kind)
+            addable   = all_names - selection.names
+            removable = selection.names & all_names
+            footer    = Pito::Lists::OptionsFooter.call(
+              addable:   addable,
+              removable: removable,
+              sort_keys: [],
+              noun:      "segments"
+            )
+            events.first[:payload]["list_footer"] = footer if footer
+          end
+
           Pito::Chat::Result::Ok.new(events:)
+        end
+
+        # The segment selection to emit. Normally the trailing-clause parse (with
+        # metric tokens shielded as extra_vocabulary). When a segment verb forced a
+        # single segment (drive_segment), returns the SAME Selection `only
+        # <segment>` would parse to for this entity, byte-identical to the typed
+        # `analyze <noun> <ref> only <segment>` form.
+        def resolved_selection(entity_kind)
+          return Pito::Chat::SegmentSelection.only(verb: :analyze, entity: entity_kind, segment: @forced_segment) if @forced_segment
+
+          Pito::Chat::SegmentSelection.parse(
+            message.raw, verb: :analyze, entity: entity_kind, extra_vocabulary: metric_vocabulary
+          )
         end
 
         # Metric tokens overlap the raw string with SegmentSelection's clause parse.

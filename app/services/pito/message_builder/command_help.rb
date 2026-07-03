@@ -43,7 +43,19 @@ module Pito
         import:   %i[game videos],
         sync:     %i[videos channels],
         shinies:  %i[channel video game],
-        analyze:  %i[channel vid game]
+        analyze:  %i[channel vid game],
+        # Segment verbs (D20/D21): the noun forms each accepts (its parent
+        # segment's entity availability). Single-noun verbs render that one page.
+        "at-a-glance": %i[channel vid game],
+        videos:        %i[channel],
+        "linked-game": %i[vid],
+        similar:       %i[game],
+        "linked-videos": %i[game],
+        channels:      %i[game],
+        breakdowns:    %i[channel vid game],
+        # The `linked` two-word forms (E14) — two noun pages: `linked game` (a
+        # vid's game) and `linked vids` (a game's vids). Multi-noun verb.
+        linked:        %i[game vids]
       }.freeze
 
       # Canonical display token per (verb, noun). The verb-level page labels and

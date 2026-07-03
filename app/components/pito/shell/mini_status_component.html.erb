@@ -1,4 +1,7 @@
-<span class="inline-flex items-center">
+<%# whitespace-nowrap: the auth label ("■ nickname") holds an internal space —
+    on narrow panels the browser broke the line INSIDE it, splitting the square
+    from the nickname (owner bug 2026-07-03). The status bar is one row, always. %>
+<span class="inline-flex items-center whitespace-nowrap">
   <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: @state)) %>
   <%# Notifications — authenticated users only (the ctrl+/ keybinding is dead
       for strangers), in conversation chrome, never on the start screen. %>

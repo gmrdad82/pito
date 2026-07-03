@@ -234,6 +234,43 @@ RSpec.describe Pito::Chat::SegmentSelection do
     end
   end
 
+  # ── segment aliases ───────────────────────────────────────────────────────────
+  # "similars" is declared as an alias for "similar" on show/game.
+  # Aliased tokens must land in names as the CANONICAL name and never in unknown.
+
+  describe "segment aliases (show/game — similars → similar)" do
+    it "'with similars' resolves to the canonical 'similar' in names" do
+      result = parse("show game #3 with similars")
+      expect(result.mode).to eq(:with)
+      expect(result.names).to include("similar")
+      expect(result.unknown).to eq([])
+    end
+
+    it "'only similars' resolves names to ['similar'] (table order)" do
+      result = parse("show game #3 only similars")
+      expect(result.mode).to eq(:only)
+      expect(result.names).to eq(%w[similar])
+      expect(result.unknown).to eq([])
+    end
+
+    it "alias and canonical in the same list deduplicates to one 'similar' entry" do
+      result = parse("show game #3 with similar,similars")
+      expect(result.names.count("similar")).to eq(1)
+    end
+
+    it "an unknown token is still reported as unknown even alongside a valid alias" do
+      result = parse("show game #3 with similars,bogus")
+      expect(result.names).to include("similar")
+      expect(result.unknown).to eq(%w[bogus])
+    end
+
+    it "'with similars,channels' includes both (default detail + similar + channels in table order)" do
+      result = parse("show game #3 with similars,channels")
+      expect(result.mode).to eq(:with)
+      expect(result.names).to eq(%w[detail similar channels])
+    end
+  end
+
   # ── entity: :vid coverage ─────────────────────────────────────────────────────
 
   describe "entity: :vid" do
@@ -245,6 +282,112 @@ RSpec.describe Pito::Chat::SegmentSelection do
     it "bare command returns default names (detail only)" do
       result = described_class.parse("show vid #1", verb: :show, entity: :vid)
       expect(result.names).to eq(%w[detail])
+    end
+  end
+
+  # ── :without mode ─────────────────────────────────────────────────────────────
+
+  describe "'without' introducer" do
+    it "'without channels' returns mode :without and all_game_names minus channels" do
+      result = parse("show game #3 without channels")
+      expect(result.mode).to eq(:without)
+      expect(result.names).to eq(%w[detail similar linked-videos at-a-glance])
+    end
+
+    it "'without at-a-glance,similar' returns detail + linked-videos + channels in table order" do
+      result = parse("show game #3 without at-a-glance,similar")
+      expect(result.mode).to eq(:without)
+      expect(result.names).to eq(%w[detail linked-videos channels])
+    end
+
+    it "'without detail' removes only detail from all names" do
+      result = parse("show game #3 without detail")
+      expect(result.names).to eq(%w[similar linked-videos channels at-a-glance])
+    end
+
+    it "produces no conflict when only 'without' is present" do
+      expect(parse("show game #3 without similar").conflict).to be(false)
+    end
+
+    it "'without similars' (alias) resolves canonical 'similar' and excludes it" do
+      result = parse("show game #3 without similars")
+      expect(result.names).not_to include("similar")
+      expect(result.unknown).to eq([])
+    end
+
+    it "'without' with all segments named returns empty names" do
+      result = parse("show game #3 without detail,similar,linked-videos,channels,at-a-glance")
+      expect(result.names).to eq([])
+    end
+
+    it "unknown token in 'without' list lands in unknown" do
+      result = parse("show game #3 without channels,bogus")
+      expect(result.unknown).to eq(%w[bogus])
+      expect(result.names).not_to include("channels")
+    end
+  end
+
+  # ── extra_vocabulary pass-through for :without (analyze verb) ─────────────────
+
+  describe "extra_vocabulary pass-through with 'without' introducer (verb: :analyze)" do
+    let(:metric_vocab) do
+      Pito::Analytics::MetricSelection::ALIASES.keys +
+        Pito::Analytics::MetricOrder::METRICS.keys.map(&:to_s)
+    end
+
+    def analyze_parse(raw)
+      described_class.parse(raw, verb: :analyze, entity: :vid, extra_vocabulary: metric_vocab)
+    end
+
+    it "'without breakdowns' returns mode :without and names [numbers]" do
+      result = analyze_parse("analyze vid #1 without breakdowns")
+      expect(result.mode).to eq(:without)
+      expect(result.names).to eq(%w[numbers])
+    end
+
+    it "'without comments' (metric token) is silently skipped — names = all analyze segments [numbers, breakdowns]" do
+      result = analyze_parse("analyze vid #1 without comments")
+      expect(result.mode).to eq(:without)
+      expect(result.names).to eq(%w[numbers breakdowns])
+      expect(result.unknown).to eq([])
+    end
+
+    it "metric token in 'without' list is not reported as unknown" do
+      result = analyze_parse("analyze vid #1 without views")
+      expect(result.unknown).to eq([])
+    end
+  end
+
+  # ── 'without' does not interfere with 'with' boundary ─────────────────────────
+
+  describe "\\bwith\\b boundary — 'without' does NOT trigger WITH_RE" do
+    it "a raw string containing only 'without' does not set mode :with" do
+      result = parse("show game #3 without similar")
+      expect(result.mode).to eq(:without)
+      expect(result.mode).not_to eq(:with)
+    end
+
+    it "WITH_RE does not match inside the word 'without' (word-boundary proof)" do
+      expect("without similar").not_to match(Pito::Chat::SegmentSelection::WITH_RE)
+    end
+
+    it "'with X without Y' is a conflict (both introducers present)" do
+      result = parse("show game #3 with detail without similar")
+      expect(result.conflict).to be(true)
+    end
+  end
+
+  # ── strip removes without-clauses ─────────────────────────────────────────────
+
+  describe "strip removes 'without' clauses" do
+    it "strips a trailing without-clause" do
+      expect(described_class.strip("show game #3 without channels")).to eq("show game #3")
+    end
+
+    it "strips without-clause alongside with-clause (both removed for independent parsing)" do
+      stripped = described_class.strip("show game #3 with detail without channels")
+      expect(stripped).not_to include("without")
+      expect(stripped).not_to include("with detail")
     end
   end
 end

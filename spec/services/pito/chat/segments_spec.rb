@@ -224,6 +224,44 @@ RSpec.describe Pito::Chat::Segments do
     end
   end
 
+  # ── segment aliases (config-driven) ──────────────────────────────────────────
+
+  describe "segment aliases" do
+    it "the show/game 'similar' segment declares aliases: [\"similars\"]" do
+      seg = show_game.find { |s| s.name == "similar" }
+      expect(seg.aliases).to eq(%w[similars])
+    end
+
+    it "segments with no declared aliases have aliases: []" do
+      seg = show_game.find { |s| s.name == "detail" }
+      expect(seg.aliases).to eq([])
+    end
+
+    describe ".alias_map" do
+      it "maps 'similars' → 'similar' for show/game" do
+        map = described_class.alias_map(verb: :show, entity: :game)
+        expect(map["similars"]).to eq("similar")
+      end
+
+      it "maps canonical names to themselves (identity)" do
+        map = described_class.alias_map(verb: :show, entity: :game)
+        expect(map["similar"]).to eq("similar")
+        expect(map["detail"]).to eq("detail")
+      end
+
+      it "has exactly the canonical names (plus aliases) as keys for show/game" do
+        map = described_class.alias_map(verb: :show, entity: :game)
+        canonical_names = %w[detail similar linked-videos channels at-a-glance]
+        expect(map.keys).to match_array(canonical_names + %w[similars])
+      end
+
+      it "has only canonical names as keys for show/channel (no aliases declared)" do
+        map = described_class.alias_map(verb: :show, entity: :channel)
+        expect(map.keys).to match_array(%w[detail videos at-a-glance])
+      end
+    end
+  end
+
   # ── DISJOINTNESS GUARD (config-rot tripwire) ──────────────────────────────────
   # If a metric token is ever renamed to collide with an analyze segment name,
   # this example fails — preventing the SegmentSelection extra_vocabulary

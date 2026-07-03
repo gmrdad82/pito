@@ -138,7 +138,8 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
       expect(chat_entry("show")[:slots]).to eq([
         { name: "full", source: "full_flag" },
         { name: "with", source: "show_segments" },
-        { name: "only", source: "show_segments" }
+        { name: "only", source: "show_segments" },
+        { name: "without", source: "show_segments" }
       ])
     end
 

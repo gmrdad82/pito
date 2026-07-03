@@ -316,6 +316,67 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
     end
   end
 
+  # ── except: target exclusion ─────────────────────────────────────────────────
+  #
+  # Ship-the-capability coverage: except: is not used in the real verbs.yml (kinds:
+  # covers the owner's policy), but the Matrix wires it and tests pin the behaviour
+  # via synthetic docs injected through DispatchConfigInjection.
+
+  describe "except: universal verb exclusion (synthetic doc)" do
+    context "when share has except: [game_list]" do
+      before do
+        inject_dispatch_config!(universal_reply: <<~YAML)
+          share:
+            mode: append
+            except: [game_list]
+        YAML
+      end
+      after { restore_dispatch_config! }
+
+      it "does NOT include share in actions_for(game_list)" do
+        expect(described_class.actions_for("game_list")).not_to include("share")
+      end
+
+      it "still includes share in actions_for(video_list) (not excepted)" do
+        expect(described_class.actions_for("video_list")).to include("share")
+      end
+
+      it "still includes help and revoke in actions_for(game_list) (not excepted)" do
+        expect(described_class.actions_for("game_list")).to include("help", "revoke")
+      end
+
+      it "mode_for(game_list, action: share) falls back to base mode (HF3 — not a universal for this target)" do
+        base = described_class.mode_for("game_list", action: nil)
+        expect(described_class.mode_for("game_list", action: "share")).to eq(base)
+      end
+
+      it "mode_for(video_list, action: share) is :append (universal, not excepted)" do
+        expect(described_class.mode_for("video_list", action: "share")).to eq(:append)
+      end
+    end
+
+    context "when an alias of an excepted universal verb is used" do
+      before do
+        inject_dispatch_config!(universal_reply: <<~YAML)
+          revoke:
+            mode: append
+            aliases: [unshare]
+            except: [confirmation]
+        YAML
+      end
+      after { restore_dispatch_config! }
+
+      it "does NOT include the alias (unshare) in actions_for for the excepted target" do
+        expect(described_class.actions_for("confirmation")).not_to include("revoke")
+        expect(described_class.actions_for("confirmation")).not_to include("unshare")
+      end
+
+      it "includes the alias in a non-excepted target" do
+        expect(described_class.actions_for("game_list")).to include("revoke", "unshare")
+      end
+    end
+  end
+
   # ── reload! ──────────────────────────────────────────────────────────────────
 
   describe ".reload!" do

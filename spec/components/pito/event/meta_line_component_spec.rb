@@ -58,15 +58,12 @@ RSpec.describe Pito::Event::MetaLineComponent do
   describe "separator (·)" do
     it "renders a · separator between handle and @channel when both are present" do
       node = render_inline(described_class.new(handle: "gamma-5", channel: "manfyhard"))
-      separators = node.to_html.scan("·")
-      # one before `help`, one before @channel
-      expect(separators.size).to be >= 2
+      expect(node.to_html.scan("·").size).to eq(1)
     end
 
-    it "renders one · separator (before the help token) when only a handle is present" do
+    it "renders no separator when only a handle is present (help cue removed — owner D15)" do
       node = render_inline(described_class.new(handle: "beta-1"))
-      separators = node.to_html.scan("·")
-      expect(separators.size).to eq(1)
+      expect(node.to_html).not_to include("·")
     end
 
     it "renders no separator when only a channel is present" do
@@ -75,24 +72,8 @@ RSpec.describe Pito::Event::MetaLineComponent do
     end
   end
 
-  describe "help affordance" do
-    it "renders a dim `help` token when a live handle is present" do
-      node = render_inline(described_class.new(handle: "alpha-42"))
-      help_span = node.css("span.text-fg-dim").find { |n| n.text.strip == "help" }
-      expect(help_span).not_to be_nil
-    end
-
-    it "does not render the help token when there is no handle (consumed / absent)" do
-      node = render_inline(described_class.new(channel: "all"))
-      help_spans = node.css("span.text-fg-dim").select { |n| n.text.strip == "help" }
-      expect(help_spans).to be_empty
-    end
-
-    it "does not render the help token when everything is nil" do
-      node = render_inline(described_class.new)
-      expect(node.css("span.text-fg-dim").select { |n| n.text.strip == "help" }).to be_empty
-    end
-  end
+  # The `· help` meta cue was removed by owner ruling (D15, 2026-07-03): the
+  # universal `#<handle> help` VERB remains — only the visual token is gone.
 
   describe "channel" do
     it "renders @channel with the token shimmer via ChannelHandleComponent when channel is present" do
