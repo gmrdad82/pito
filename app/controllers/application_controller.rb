@@ -12,6 +12,7 @@ class ApplicationController < ActionController::Base
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
 
   helper_method :current_conversation
+  helper_method :hotwire_native_app?
 
   before_action :set_channels, if: -> { request.format.html? }
 
@@ -27,6 +28,13 @@ class ApplicationController < ActionController::Base
     else
       Conversation.singleton
     end
+  end
+
+  # True when the request comes from the Hotwire Native shell (the Android
+  # app sets "Hotwire Native" in its User-Agent). Lets server-rendered chrome
+  # adapt — e.g. never advertise the app to someone already inside it.
+  def hotwire_native_app?
+    request.user_agent.to_s.include?("Hotwire Native")
   end
 
   def set_user_time_zone
