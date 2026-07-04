@@ -51,7 +51,7 @@ module Pito
         groups.each do |title, rows|
           lines << ""
           lines << header(title)
-          rows.each do |entry|
+          sorted_rows(rows).each do |entry|
             lines << (entry.is_a?(Raw) ? entry.html : row(entry[0], entry[1], width))
           end
         end
@@ -59,6 +59,18 @@ module Pito
         result = %(<div class="pito-help-block">#{lines.join("\n")}</div>)
         result.html_safe
       end
+
+      # Rows render alphabetically by token (owner 1.0.0 G13 — "easier to
+      # follow"), comparing case-insensitively with leading punctuation
+      # stripped so `--help` sorts as "help" and `#id` as "id". Groups holding
+      # a Raw row keep their authored order — raw markup is dropped "wherever
+      # the raw line should appear" and must not be shuffled around.
+      def sorted_rows(rows)
+        return rows if rows.any? { |r| r.is_a?(Raw) }
+
+        rows.sort_by { |tok, _| tok.downcase.sub(/\A[^a-z0-9]+/, "") }
+      end
+      private_class_method :sorted_rows
 
       # ── Helpers (private to module) ──────────────────────────────────────────
 
