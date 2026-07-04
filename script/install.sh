@@ -13,6 +13,7 @@
 #   --tag TAG          image tag to run (default: latest)
 #   --service-only     skip install; only (re)configure the systemd unit
 #   --cloudflared-only   skip install; only print Cloudflare Tunnel guidance
+#   --caddy-only         skip install; only (re)configure Caddy direct HTTPS
 #   --backup-timer-only  skip install; only (re)configure the daily backup timer
 #   --link-only          skip install; only symlink pito onto your PATH
 #   --skip-pull          use the locally-present image (for testing a local build)
@@ -46,6 +47,7 @@ while [ $# -gt 0 ]; do
     --tag)              TAG="$2"; shift 2 ;;
     --service-only)     MODE="service"; shift ;;
     --cloudflared-only)  MODE="cloudflared"; shift ;;
+    --caddy-only)        MODE="caddy"; shift ;;
     --backup-timer-only) MODE="backup-timer"; shift ;;
     --link-only)         MODE="link"; shift ;;
     --edge)              CHANNEL="edge"; shift ;;
@@ -189,6 +191,52 @@ EOF
   sudo systemctl daemon-reload
   sudo systemctl enable --now cloudflared
   say "cloudflared.service enabled + started."
+}
+
+# ── Caddy direct HTTPS (no cloudflared) ──────────────────────────────────────
+# Alternative to the tunnel for hosts with a public IP: writes ./Caddyfile for
+# the configured domain and turns on the compose `caddy` profile via .env
+# (COMPOSE_PROFILES). The caddy service itself ships dormant in the repo's
+# docker-compose.yml, so this survives `pito update` (which re-fetches the
+# compose file but never touches .env or ./Caddyfile). The default cloudflared
+# flow is completely unaffected — caddy runs only where this was chosen.
+setup_caddy() {
+  base="${1:-$(env_get PITO_APP_BASE_URL)}"
+  host=$(printf '%s' "$base" | sed -E 's#^https?://##; s#/.*$##')
+  case "$base" in
+    *localhost*|*127.0.0.1*|"")
+      warn "Host is local ($base) — Caddy/HTTPS not needed. Set a public host first (pito update --host https://your.domain)."
+      return 0 ;;
+  esac
+
+  say "Caddy direct HTTPS for $host"
+
+  if [ -f Caddyfile ]; then
+    warn "Existing ./Caddyfile kept (delete it and re-run ./pito caddy to regenerate)."
+  else
+    cat > Caddyfile <<EOF
+# pito — Caddy terminates TLS for $host (automatic Let's Encrypt) and proxies
+# to the web container over the compose network (WebSockets included).
+# Managed by pito's installer; edit freely, updates never overwrite it.
+$host {
+    reverse_proxy web:80
+}
+EOF
+    say "Wrote ./Caddyfile ($host → web:80)"
+  fi
+
+  env_set COMPOSE_PROFILES caddy
+
+  cat <<EOF
+
+Caddy is configured (compose profile "caddy" enabled in .env).
+Checklist for HTTPS to come up:
+  - DNS: an A record for $host pointing at THIS host's public IP
+  - Ports 80 and 443 open (cloud firewall + host firewall)
+  - If the domain sits behind Cloudflare's proxy (orange cloud), set SSL mode
+    to "Full (strict)" — or keep it DNS-only (gray) and let Caddy handle TLS
+  - Apply with:  ./pito down && ./pito up -d   (or: sudo systemctl restart pito)
+EOF
 }
 
 # ── systemd unit (reboot persistence) ────────────────────────────────────────
@@ -374,7 +422,23 @@ do_install() {
     warn "Existing install — keeping your data + TOTP enrollment (use './pito totp' to re-enroll)."
   fi
 
-  setup_cloudflared "$HOST"
+  # HTTPS mechanism — cloudflared tunnel stays the default (Enter / no tty
+  # keeps the exact pre-1.0 behavior); Caddy is the direct-HTTPS alternative
+  # for hosts with a public IP. Local hosts skip both inside the setup fns.
+  case "$HOST" in
+    *localhost*|*127.0.0.1*)
+      setup_cloudflared "$HOST"   # prints the "no tunnel needed" notice
+      ;;
+    *)
+      printf 'HTTPS for %s — [t]unnel via cloudflared (default) / [c]addy direct HTTPS / [s]kip: ' "$HOST"
+      read -r https_choice </dev/tty || https_choice="t"
+      case "$https_choice" in
+        c|C) setup_caddy "$HOST" ;;
+        s|S) warn "Skipped HTTPS setup (later: ./pito cloudflared or ./pito caddy)." ;;
+        *)   setup_cloudflared "$HOST" ;;
+      esac
+      ;;
+  esac
   setup_systemd
   link_cli
 
@@ -453,6 +517,7 @@ case "$MODE" in
   install)      do_install ;;
   service)      setup_systemd ;;
   cloudflared)  setup_cloudflared ;;
+  caddy)        setup_caddy ;;
   backup-timer) setup_backup_timer ;;
   link)         link_cli ;;
 esac

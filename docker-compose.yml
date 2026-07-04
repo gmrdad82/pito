@@ -13,6 +13,8 @@ name: pito-boot
 volumes:
   postgres_data:
   rails_storage:
+  caddy_data:
+  caddy_config:
 
 services:
   postgres:
@@ -83,6 +85,33 @@ services:
       postgres:
         condition: service_healthy
     # Logs go to STDOUT → Docker; cap growth via the json-file driver.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Direct-HTTPS alternative to the cloudflared tunnel: Caddy terminates TLS
+  # (automatic Let's Encrypt) and reverse-proxies to web over the compose
+  # network. OFF by default — it runs only when COMPOSE_PROFILES=caddy is set
+  # in .env (written by `pito caddy`, which also writes ./Caddyfile). Living in
+  # THIS file (not an override) is deliberate: `pito update` re-fetches
+  # docker-compose.yml from the repo, so an override would be wiped while a
+  # profile survives — .env is always preserved. Requires ports 80/443 open
+  # and the domain's DNS A record pointing at this host.
+  caddy:
+    profiles: ["caddy"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
     logging:
       driver: json-file
       options:
