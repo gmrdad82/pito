@@ -476,10 +476,17 @@ module Pito
       # Broadcast a Turbo Stream replace for the context meter (#pito-context-meter)
       # after each turn, so the fill % updates as messages accumulate.
       # Called from ChatDispatchJob after broadcast_showcase.
+      #
+      # Carries the conversation NAME too — this replaces the WHOLE meter, and
+      # rendering it nameless wiped a just-renamed title on the next counter
+      # tick (G44b: "saw it for a bit, then it disappeared").
       def broadcast_context_meter
         event_count = @conversation.context_event_count
         html = ApplicationController.renderer.render(
-          Pito::Shell::ContextMeterComponent.new(event_count:),
+          Pito::Shell::ContextMeterComponent.new(
+            event_count:,
+            conversation_name: (@conversation.named? ? @conversation.display_name : nil)
+          ),
           layout: false
         ).html_safe
         content = ApplicationController.helpers.turbo_stream.replace("pito-context-meter", html)

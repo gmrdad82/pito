@@ -127,4 +127,27 @@ RSpec.describe Pito::Shell::ContextMeterComponent, type: :component do
       expect { render_inline(described_class.new(event_count: 50)) }.not_to raise_error
     end
   end
+
+  # ── G44 regression guard — the live-rename slot ─────────────────────────────
+  #
+  # broadcast_conversation_name replaces `#pito-chatbox-conversation-name` on
+  # the conversation stream. The meter header MUST always carry that slot —
+  # when it once rendered a bare span instead, /rename became a silent no-op
+  # in the live DOM and the new name only appeared after a reload.
+
+  describe "the conversation-name slot (G44)" do
+    slot = "#" + Pito::Shell::Chatbox::NameComponent::SLOT_ID
+
+    it "is present when the conversation is named, with the name inside" do
+      node = render_inline(described_class.new(event_count: 5, conversation_name: "android"))
+      expect(node.at_css(slot)).to be_present
+      expect(node.at_css(slot).text.strip).to eq("android")
+    end
+
+    it "is present even when Unnamed — a live rename needs a target to replace" do
+      node = render_inline(described_class.new(event_count: 5))
+      expect(node.at_css(slot)).to be_present
+      expect(node.at_css(slot).text.strip).to be_empty
+    end
+  end
 end
