@@ -272,6 +272,95 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── free mode — slot PROGRESSION (G32) ──────────────────────────────────────
+  #
+  # Regression: the walk only tracked introducer keywords, so a committed
+  # plain slot ("ls games ") kept re-offering the first slot's vocabulary
+  # forever. Committed tokens must FILL their slots (aliases included) and
+  # suggestions must advance to what's still open.
+
+  describe "free mode — slot progression (G32)" do
+    def labels(text)
+      call(input: text, cursor: text.length, authenticated: true)[:menu_items].map { |i| i[:label] }
+    end
+
+    it "offers the noun set at the first position" do
+      expect(labels("ls ")).to eq(%w[channels games vids])
+    end
+
+    it "stops re-offering the noun once filled (`ls games ` → the kwarg openers, G33)" do
+      expect(labels("ls games ")).not_to include("games", "vids", "channels")
+      expect(labels("ls games ")).to eq([ "sorted by", "upcoming", "with" ])
+    end
+
+    it "fills a slot through an alias (`analyze vid ` → vids) and advances to the remaining introducer" do
+      expect(labels("analyze vid ")).to eq(%w[without])
+    end
+
+    it "excludes committed members of a repeatable introduced slot" do
+      with_members = labels("show game 5 with ")
+      expect(with_members).to include("similar")
+
+      after_similar = labels("show game 5 with similar ")
+      expect(after_similar).not_to include("similar")
+      expect(after_similar).to eq(with_members - %w[similar])
+    end
+
+    it "never re-offers the filled noun on analyze" do
+      expect(labels("analyze vid ")).not_to include("vids", "games", "channels")
+    end
+  end
+
+  # ── free mode — `list` kwargs (G33) ─────────────────────────────────────────
+  #
+  # The list handler RAW-parses its kwargs (with-columns, sort clause,
+  # upcoming/visibility filters) — they are not verbs.yml slots, so after the
+  # noun the palette went silent. The engine now suggests the clause the
+  # cursor is inside, from the same ListColumns vocabularies the tables use.
+
+  describe "free mode — list kwargs (G33)" do
+    def labels(text)
+      call(input: text, cursor: text.length, authenticated: true)[:menu_items].map { |i| i[:label] }
+    end
+
+    it "offers the kwarg openers after the games noun" do
+      expect(labels("ls games ")).to eq([ "sorted by", "upcoming", "with" ])
+    end
+
+    it "offers the vids visibility filters among the openers" do
+      expect(labels("ls vids ")).to eq([ "published", "scheduled", "sorted by", "unlisted", "with" ])
+    end
+
+    it "consumes a committed filter token" do
+      expect(labels("list games upcoming ")).to eq([ "sorted by", "with" ])
+    end
+
+    it "suggests the surface's columns inside `with `" do
+      expect(labels("ls games with ")).to eq(%w[channel developer footage genre likes platform price publisher views])
+    end
+
+    it "excludes columns already committed in the with-clause" do
+      expect(labels("ls games with platform, ")).not_to include("platform")
+    end
+
+    it "suggests channels' addable column inside `with `" do
+      expect(labels("ls channels with ")).to eq(%w[likes])
+    end
+
+    it "suggests base sort tokens after `sorted by` (unsortable with-columns excluded)" do
+      # platform is with-selected but has no sort key (G26.7) — never offered.
+      expect(labels("ls games with platform sorted by ")).to eq(%w[id title])
+    end
+
+    it "includes a sortable with-selected column in the sort tokens" do
+      expect(labels("ls games with price sorted by ")).to include("price")
+    end
+
+    it "offers asc/desc once the sort column is committed" do
+      expect(labels("ls games with price sorted by price ")).to eq(%w[asc desc])
+    end
+  end
+
   describe "free mode — footage dynamic game_titles slot", :db do
     let!(:game) { create(:game, title: "Zelda") }
 
@@ -490,7 +579,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       before { stamp("gl-1", "game_list", "list_columns" => %w[genre]) }
 
       it "suggests the surface's ADDABLE column tokens for `with` (visible columns excluded)" do
-        expect(labels("#gl-1 with ", 11)).to eq(%w[channel developer footage platform price publisher])
+        expect(labels("#gl-1 with ", 11)).to eq(%w[channel developer footage likes platform price publisher views])
       end
 
       it "suggests the REMOVABLE (visible) column tokens for `without`" do
@@ -502,7 +591,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       end
 
       it "excludes column tokens already typed in the reply" do
-        expect(labels("#gl-1 with platform ", 20)).to eq(%w[channel developer footage price publisher])
+        expect(labels("#gl-1 with platform ", 20)).to eq(%w[channel developer footage likes price publisher views])
       end
 
       it "tags a non-empty argument menu stage: :verb (browsable palette)" do
@@ -510,15 +599,28 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(result[:stage]).to eq(:verb)
       end
 
-      it "uses the VIDEO surface's display tokens on video_list (comms/length)" do
+      it "uses the VIDEO surface's display tokens on video_list (duration canonical, comms gone — G26)" do
         stamp("vl-1", "video_list", "list_columns" => %w[views])
-        expect(labels("#vl-1 with ", 11)).to eq(%w[category channel comms game length likes visibility])
+        expect(labels("#vl-1 with ", 11)).to eq(%w[category channel duration game likes visibility])
       end
 
       it "derives game_linked_videos columns from the VIDEO surface" do
         stamp("lv-1", "game_linked_videos", "list_columns" => [])
         expect(labels("#lv-1 without ", 14)).to be_empty
-        expect(labels("#lv-1 with ", 11)).to include("comms", "length")
+        expect(labels("#lv-1 with ", 11)).to include("duration", "views")
+        expect(labels("#lv-1 with ", 11)).not_to include("comms", "comments", "length")
+      end
+    end
+
+    context "price openers — price on a game detail card (G31)" do
+      it "suggests set/unset at the first argument position" do
+        stamp("gd-price", "game_detail")
+        expect(labels("#gd-price price ", 16)).to eq(%w[set unset])
+      end
+
+      it "offers nothing once a token is committed (the amount is free-form)" do
+        stamp("gd-price2", "game_detail")
+        expect(labels("#gd-price2 price set ", 21)).to be_empty
       end
     end
 
@@ -603,7 +705,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
 
       it "suggests the row id first for verbs that interleave id + value (price)" do
         expect(labels("#gl-3r price ", 13)).to eq(%w[#1 #3 #12])
-        expect(labels("#gl-3r price 3 ", 15)).to be_empty
+        # After the row id, the enumerable openers follow (G31); the amount
+        # itself stays free-form.
+        expect(labels("#gl-3r price 3 ", 15)).to eq(%w[set unset])
+        expect(labels("#gl-3r price 3 set ", 19)).to be_empty
       end
     end
 

@@ -429,6 +429,37 @@ export default class extends Controller {
     return !rest.includes(" ")
   }
 
+  // FREE-mode (chat verb) argument menu at a FRESH token: `list `, `show game
+  // 5 with `, … — the engine serves chat verbs' nouns/segments/kwargs tagged
+  // stage:"verb" (E8), but no gate rendered them, so the fetched items were
+  // discarded exactly like the reply-arg case (owner G31, same bug class).
+  // Fresh-token rule as everywhere: trailing space → palette; mid-token →
+  // closed so Enter sends the message.
+  _isFreeArgFreshToken(value, cursor) {
+    if (value[0] === "#" || value[0] === "/") return false
+    const before = value.slice(0, cursor)
+    return before.trim().length > 0 && before.endsWith(" ")
+  }
+
+  // Hashtag reply ARG stage at a FRESH token: `#<handle> <verb> [<args>] ` with
+  // a trailing space. The engine serves the verb's argument menu here (columns
+  // for with/without, sort keys, metrics, row ids — E13) tagged stage:"verb",
+  // but this gate was never opened, so the fetched items were thrown away and
+  // `#h with ` showed nothing (owner G26.5). Same fresh-token rule as the
+  // /config gate: mid-token (`#h with cat`) stays closed so Enter sends.
+  //   "#h with "      → true   (starting an arg token → palette)
+  //   "#h with cat"   → false  (typing a partial → close; Enter sends)
+  //   "#h with cat, " → true   (starting the next arg token)
+  //   "#h sh"         → false  (that's the reply-VERB stage, gated separately)
+  _isHashtagReplyArgStage(value, cursor) {
+    if (value[0] !== "#") return false
+    const before     = value.slice(0, cursor)
+    const firstSpace = before.indexOf(" ")
+    if (firstSpace === -1) return false           // still typing the handle
+    const rest = before.slice(firstSpace + 1)     // text after "#<handle> "
+    return rest.includes(" ") && before.endsWith(" ")
+  }
+
   // Slash `/config <arg>` arg stage: the verb is `config` and the cursor sits at
   // the START of a fresh arg token — i.e. right after a TRAILING space. The engine
   // surfaces these completions (provider list, per-provider keys) as a browsable
@@ -545,7 +576,9 @@ export default class extends Controller {
         // so the token stays Enter-sendable. Slash-only rule;
         // hashtag reply verbs are unchanged. [owner I3, 2026-06-26]
         if (this._isHashtagReplyVerbStage(value, cursor) ||
-            this._isSlashConfigArgStage(value, cursor)) {
+            this._isSlashConfigArgStage(value, cursor) ||
+            this._isHashtagReplyArgStage(value, cursor) ||
+            this._isFreeArgFreshToken(value, cursor)) {
           this._showFetchedPalette(menuItems, value[0])
           return
         }
