@@ -25,24 +25,42 @@ RSpec.describe "Configurations requests", type: :request do
         expect(body["rules"]).to be_an(Array)
       end
 
-      it "has exactly one rule whose patterns match all paths" do
+      it "leads with the catch-all rule matching every path" do
         rule = response.parsed_body["rules"].first
         expect(rule["patterns"]).to eq([ ".*" ])
       end
 
-      it "sets uri to the Hotwire web fragment on the rule properties" do
+      it "sets uri to the Hotwire web fragment on the catch-all properties" do
         props = response.parsed_body["rules"].first["properties"]
         expect(props["uri"]).to eq("hotwire://fragment/web")
       end
 
-      it "sets context to 'default' on the rule properties" do
+      it "sets the fallback_uri to the same web fragment" do
+        props = response.parsed_body["rules"].first["properties"]
+        expect(props["fallback_uri"]).to eq("hotwire://fragment/web")
+      end
+
+      it "sets context to 'default' on the catch-all properties" do
         props = response.parsed_body["rules"].first["properties"]
         expect(props["context"]).to eq("default")
       end
 
-      it "enables pull_to_refresh on the rule properties" do
+      # The scrollback is a live cable stream; the pull gesture fights
+      # scrolling. Mirrors the shell's bundled config (pito-android v1.0.0).
+      it "disables pull_to_refresh on the catch-all properties" do
         props = response.parsed_body["rules"].first["properties"]
-        expect(props["pull_to_refresh_enabled"]).to be true
+        expect(props["pull_to_refresh_enabled"]).to be false
+      end
+
+      it "clears the back stack on the root patterns via the second rule" do
+        rule = response.parsed_body["rules"].second
+        expect(rule["patterns"]).to eq([ "^$", "^/$" ])
+        expect(rule["properties"]).to eq({ "presentation" => "clear_all" })
+      end
+
+      it "is publicly cacheable for an hour so launches stay fast" do
+        expect(response.headers["Cache-Control"]).to include("public")
+        expect(response.headers["Cache-Control"]).to include("max-age=3600")
       end
     end
   end

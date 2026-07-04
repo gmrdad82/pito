@@ -65,6 +65,12 @@ All notable changes to PITO are documented here. The format follows
 
 ### Fixed
 
+- **Android path-configuration drift** — `/configurations/android_v1.json` now
+  matches the shell's bundled config byte for byte (adds `fallback_uri`, turns
+  `pull_to_refresh` OFF — the gesture fights the live scrollback — and clears
+  the back stack on root patterns). The app disk-caches this document over its
+  bundled copy on every launch, so the divergence was silently overriding the
+  shell's intended behavior. Served with `Cache-Control: public, max-age=3600`.
 - `pito --help` no longer truncates after `self-update` — the usage printer
   followed a hardcoded line range and silently dropped `service`,
   `cloudflared`, `link`, and `version`.
