@@ -19,17 +19,17 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
       expect(node.css("span.text-red").text).to include("● tarnished")
     end
 
-    it "does not render the authenticated disc alone" do
+    it "does not render the authenticated shimmer span" do
       node = render_inline(described_class.new(state: false))
-      expect(node.css("span.text-green")).to be_empty
+      expect(node.css("span.pito-me-shimmer")).to be_empty
     end
   end
 
   describe "state: true (authenticated)" do
     context "with default nickname (gmrdad82)" do
-      it "renders the green '■ gmrdad82' label" do
+      it "renders the shimmering '■ gmrdad82' label (G70: the me-shimmer, green with the yellow contrast band)" do
         node = render_inline(described_class.new(state: true))
-        green_span = node.css("span.text-green").first
+        green_span = node.css("span.pito-me-shimmer").first
         expect(green_span).to be_present
         expect(green_span.text.strip).to eq("■ gmrdad82")
       end
@@ -43,9 +43,9 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
     context "with a custom nickname" do
       before { AppSetting.nickname = "Foo" }
 
-      it "renders the custom nickname in the green label" do
+      it "renders the custom nickname in the shimmer label" do
         node = render_inline(described_class.new(state: true))
-        green_span = node.css("span.text-green").first
+        green_span = node.css("span.pito-me-shimmer").first
         expect(green_span).to be_present
         expect(green_span.text.strip).to eq("■ Foo")
       end
@@ -64,8 +64,8 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
       suffix = node.css("span.text-fg-dim").first
       expect(suffix).to be_present
       expect(suffix.text).to eq("@0.8.5")
-      # green nickname span stays clean (suffix is its own muted span)
-      expect(node.css("span.text-green").first.text.strip).to eq("■ gmrdad82")
+      # shimmer nickname span stays clean (suffix is its own muted span)
+      expect(node.css("span.pito-me-shimmer").first.text.strip).to eq("■ gmrdad82")
     end
 
     it "renders no suffix when Version.suffix is nil" do

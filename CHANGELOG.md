@@ -4,6 +4,21 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-07-05
+
+### Added
+
+- **The refresh nudge** — when the server updates under an open tab (the
+  autoupdater's specialty), the cable reconnect now checks `GET /version`
+  against the page's build and, on a mismatch, drops a yellow, reply-less
+  notice into the scrollback: fresh CSS/JS arrived, reload to wear it. Copy
+  comes from a new 50-variant dictionary and names the right key combo for
+  your OS (⌘R on Macs, Ctrl+R/F5 elsewhere). Ephemeral by design — never
+  persisted, gone with the reload it asks for.
+- **The mini-status shimmers** — the authenticated `■ nickname` now wears the
+  house green↔yellow sweep (the same recipe as rising trend numbers), so the
+  little square finally looks as alive as the channel it represents.
+
 ## [1.0.0] — 2026-07-04
 
 ### Added

@@ -1,0 +1,12 @@
+<%# Inert until pito--cable-health clones it into #pito-scrollback (G71).
+    Yellow bar = the spotting device; no reply handle, no timestamp — this is
+    chrome, not a message, and it never persists. The .pito-turn wrapper is
+    what centers a scrollback child into the conversation column — without it
+    the clone sprawls the full viewport width. %>
+<template id="<%= Pito::Shell::RefreshNudgeComponent::TEMPLATE_ID %>">
+  <div class="pito-turn">
+    <%= render(Pito::Segment::Component.new(accent: :yellow, scrollback_message: true)) do %>
+      <span class="text-fg"><%= text %></span>
+    <% end %>
+  </div>
+</template>

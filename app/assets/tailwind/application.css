@@ -425,6 +425,34 @@ html {
   animation-iteration-count: infinite;
 }
 
+/* ── Mini-status "me" shimmer (G70) ──
+   The authenticated `■ nickname` in the mini status bar wears the house
+   green↔yellow sweep — the SAME recipe as .pito-trend-number--up (yellow is
+   the documented contrast band that pops against green), on the shared
+   angle/speed tokens. Scoped to this one spot by design (owner: "only for
+   this place in the mini status bar"); the @version suffix stays dim. The
+   gradient paints the ■ glyph too via background-clip: text. */
+.pito-me-shimmer {
+  color: var(--accent-green);
+  background-image: linear-gradient(
+    var(--pito-shimmer-angle),
+    var(--accent-green) 0%,
+    var(--accent-green) 38%,
+    var(--accent-yellow) 50%,
+    var(--accent-green) 62%,
+    var(--accent-green) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* LONGHANDS, never the `animation` shorthand — see .pito-trend-number--up. */
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
 .pito-trend-number--down {
   /* currentColor for inline icon children (e.g. 👎); see .pito-trend-number--up. */
   color: var(--accent-red);
