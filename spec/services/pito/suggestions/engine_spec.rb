@@ -311,6 +311,40 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── free mode — the #id gate (G37) ──────────────────────────────────────────
+  #
+  # A :free slot (show's id position) is a positional gate: slots declared
+  # after it stay unsuggested until an id-looking token fills it — following
+  # the palette could previously compose "show game full" with the id
+  # silently skipped. Nouns don't fill the gate (structural, not the ref).
+
+  describe "free mode — the #id gate (G37)" do
+    def labels(text)
+      call(input: text, cursor: text.length, authenticated: true)[:menu_items].map { |i| i[:label] }
+    end
+
+    it "offers nothing at `show ` — the id position is reserved" do
+      expect(labels("show ")).to be_empty
+    end
+
+    it "offers nothing at `show game ` — a noun does not fill the gate" do
+      expect(labels("show game ")).to be_empty
+    end
+
+    it "opens the selectors once an id fills the gate" do
+      expect(labels("show game 5 ")).to eq(%w[full only with without])
+      expect(labels("show game #12 ")).to eq(%w[full only with without])
+    end
+
+    it "does not gate verbs whose free slot comes after their enums (price)" do
+      expect(labels("price ")).to eq(%w[set unset])
+    end
+
+    it "does not gate verbs without a free slot (analyze)" do
+      expect(labels("analyze vid ")).to eq(%w[without])
+    end
+  end
+
   # ── free mode — `list` kwargs (G33) ─────────────────────────────────────────
   #
   # The list handler RAW-parses its kwargs (with-columns, sort clause,
