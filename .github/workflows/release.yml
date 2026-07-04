@@ -243,8 +243,18 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/slack-notify
         with:
-          headline: ":package: *New image published — `${{ env.IMAGE }}:${{ steps.meta.outputs.version }}`*"
+          # Bold must not wrap the code span — Slack mrkdwn won't close a `*`
+          # that directly follows a backtick, so `*…\`tag\`*` renders literal
+          # asterisks (owner report, 1.0.0 G17).
+          headline: ":package: *New image published* — `${{ env.IMAGE }}:${{ steps.meta.outputs.version }}`"
           extra: "Deploy it: `pito update`"
           status: ${{ job.status }}
           webhook: ${{ secrets.SLACK_WEBHOOK }}
           github-token: ${{ github.token }}
+
+  # Deployment is PULL-based — no deploy job, no SSH, no secrets here.
+  # Servers run `pito autoupdate --install` (a 15-minute systemd timer that
+  # checks for a newer release tag, verifies its image manifest is live on
+  # GHCR, and applies it with the same flock-guarded `pito update` a human
+  # would run). The owner-specified design (1.0.0 G26.10): a public repo
+  # should hold zero deploy credentials.
