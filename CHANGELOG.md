@@ -4,6 +4,91 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Caddy direct HTTPS** — a `caddy` compose profile (dormant by default) plus
+  `pito caddy`, which writes a `Caddyfile` for your domain and enables the
+  profile in `.env`. An alternative to the cloudflared tunnel for hosts with a
+  public IP: automatic Let's Encrypt, WebSockets included, survives
+  `pito update`. The installer now offers the choice (tunnel stays the
+  default); the existing cloudflared flow is untouched.
+- **`pito hetzner`** — provision a Hetzner Cloud box ready to run PITO from
+  your laptop: `provision` idempotently creates the SSH key (prefers a
+  dedicated `~/.ssh/pito-hetzner.pub`), a 22/80/443 firewall, and the server
+  (CX23 / ubuntu-26.04 / fsn1 defaults, all overridable) with cloud-init that
+  installs Docker, adds 2G swap, and disables password SSH; `info` reports
+  status + IP. Needs the `hcloud` CLI; the API token is never stored.
+- **`pito autoupdate`** — your server pulls new releases itself; CI holds ZERO
+  deploy credentials. A 15-minute systemd timer checks for a newer release
+  tag, waits until its multi-arch image is actually live on GHCR, and applies
+  it with the same `pito update` you'd run by hand — which now carries a
+  single-updater `flock`, so the timer and a manual update can never race.
+  Dedicated `log/autoupdate.log` (logrotate weekly), optional Slack ping via
+  `SLACK_WEBHOOK` in `.env`, `--check` dry-run, `--uninstall` to remove.
+- **Android client prep** — the Rails side of the upcoming
+  [pito-android](https://github.com/gmrdad82/pito-android) Hotwire Native
+  shell: a public path-configuration endpoint
+  (`/configurations/android_v1.json`), a `hotwire_native_app?` helper, and a
+  dismissible conversation-width "get the APK" banner shown only to Android
+  browser visitors (never inside the app; dismissal persists per browser).
+
+### Changed
+
+- **The lists answer back properly.** `ls games` gains `views`/`likes` columns
+  (summed across a game's linked vids — 0 when nothing is linked) in
+  `with`/`without` and `sort`; `ls channels` joins the with/without mechanism
+  with an addable `likes` column (a channel's likes are the sum of its vids').
+  The sums are MATERIALIZED into each entity's own stats rows at the three
+  daily stats passes (and on link edits) — lists read a single row, never
+  re-summing videos at render;
+  the vids `comms` column is gone (comment counts stay on `show vid`);
+  `duration` is the one word for video length everywhere (heading, footer,
+  sort — `length` still quietly accepted); and `ls games` no longer pretends
+  sorting by platform icons means something.
+- **The argument palette actually opens now — everywhere.** Typing
+  `#handle with ␣` (or `sort ␣`, `show ␣`, metric args) pops the option
+  palette, and so do chat verbs' own arguments (`list ␣` → channels/games/
+  vids, `show game 5 with ␣` → segments). The server had the menus all
+  along; client gates discarded them for argument positions — one for
+  hashtag replies, one for free chat input. `price ␣` also gained its
+  enumerable openers (`set`/`unset`). Fresh-token rule throughout: palette
+  at a trailing space, Enter still sends mid-token.
+- **`help` and `--help` list alphabetically** — verbs within each group and
+  every man-page section's rows (kwargs, options, segments) now sort
+  alphabetically (`--help` counts as "help", `#id` as "id"), so long listings
+  scan predictably.
+- README: the features grid is a single-column flow (the two-column table
+  rendered unevenly), the exposure section covers both HTTPS mechanisms, and
+  new sections document CI auto-deploy and the Android app.
+
+### Fixed
+
+- `pito --help` no longer truncates after `self-update` — the usage printer
+  followed a hardcoded line range and silently dropped `service`,
+  `cloudflared`, `link`, and `version`.
+- **Start-screen transition lands at the conversation width** — the first
+  message's chatbox animation expanded to full viewport width and morphed
+  into a legacy 50px-padded layout, leaving the chatbox wider than the
+  conversation column until a reload. It now lands exactly at the centered
+  964px column and builds the same DOM the server renders (same classes,
+  paddings, and controllers). Applies equally to `/` and the 404 start
+  screen.
+- Slack release notices no longer show literal `*` around the headline — the
+  bold span wrapped a trailing code span, which Slack's mrkdwn refuses to
+  close.
+- **The IGDB nightly stopped crying wolf.** The "checked 60, updated 49"
+  notification was mostly cover-art churn: the freshness gate compared the
+  attachment's age against an `igdb_synced_at` stamped seconds earlier, so
+  every cover was re-downloaded nightly, and CDN re-encodes re-attached
+  unchanged art — each attach touching the game. Covers are now keyed on
+  IGDB's immutable image id (blob metadata): unchanged covers cost zero
+  network and zero writes, a genuinely new cover still attaches and busts
+  caches. The notification itself now reports only what it's for — **release
+  dates that actually moved** (game-level or per-platform); rating drift and
+  cover refreshes keep writing (and busting caches) without making noise.
+
 ## [0.9.5] — 2026-07-03
 
 **YAML love** — every verb, alias, kwarg, segment, and reply lives once in

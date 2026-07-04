@@ -569,14 +569,14 @@ en:
             usage: "#<list-games-hashtag> with <columns>"
             sections:
               Arguments:
-                "<columns>": "Comma-separated column names to add: platform, genre, developer, publisher"
+                "<columns>": "Comma-separated column names to add: platform, genre, developer, publisher, channels, footage, price, views, likes"
               Options:
                 "--help": "Print this help message"
           without:
             usage: "#<list-games-hashtag> without <columns>"
             sections:
               Arguments:
-                "<columns>": "Comma-separated column names to remove: platform, genre, developer, publisher"
+                "<columns>": "Comma-separated column names to remove: platform, genre, developer, publisher, channels, footage, price, views, likes"
               Options:
                 "--help": "Print this help message"
           sort:
@@ -706,14 +706,14 @@ en:
             usage: "#<list-vids-hashtag> with <columns>"
             sections:
               Arguments:
-                "<columns>": "Comma-separated column names to add: channel, visibility, game, length, views, likes, comments, category"
+                "<columns>": "Comma-separated column names to add: channel, visibility, game, duration, views, likes, category"
               Options:
                 "--help": "Print this help message"
           without:
             usage: "#<list-vids-hashtag> without <columns>"
             sections:
               Arguments:
-                "<columns>": "Comma-separated column names to remove: channel, visibility, game, length, views, likes, comments, category"
+                "<columns>": "Comma-separated column names to remove: channel, visibility, game, duration, views, likes, category"
               Options:
                 "--help": "Print this help message"
           sort:
@@ -725,10 +725,9 @@ en:
                 "channel": "Channel @handle — requires the channel column to be visible"
                 "visibility": "Visibility — requires the visibility column to be visible"
                 "game": "Linked game(s) — requires the game column to be visible"
-                "duration": "Vid length — requires the length column to be visible"
+                "duration": "Vid duration — requires the duration column to be visible (alias: length)"
                 "views": "View count — requires the views column to be visible"
                 "likes": "Like count — requires the likes column to be visible"
-                "comments": "Comment count — requires the comments column to be visible"
               Options:
                 "[desc]": "Reverse order (descending)"
                 "--help": "Print this help message"
@@ -759,6 +758,20 @@ en:
       list-channels:
         target_usage: "#<list-channels-hashtag> <action>"
         actions:
+          with:
+            usage: "#<list-channels-hashtag> with <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to add: likes"
+              Options:
+                "--help": "Print this help message"
+          without:
+            usage: "#<list-channels-hashtag> without <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to remove: likes"
+              Options:
+                "--help": "Print this help message"
           analyze:
             usage: "#<list-channels-hashtag> analyze"
             sections:

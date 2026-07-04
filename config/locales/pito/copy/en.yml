@@ -9,6 +9,15 @@ en:
       development:
         banner: "DEVELOPMENT"
 
+      # Top banner offered to Android BROWSER visitors (never inside the
+      # native shell — its Hotwire Native UA suppresses the render).
+      # Single variants for now — the dictionary law is 1 or >= 50, and these
+      # deserve a proper 50-variant pass later, not a half-hearted three.
+      get_app:
+        banner: "PITO has a native Android app."
+        cta: "get the APK"
+        dismiss: "Dismiss — don't show this again"
+
       search:
         remake:
           - "(remake)"
@@ -2595,7 +2604,7 @@ en:
         # `list channels sort <col>` with an unknown column — channels has NO
         # with/without, so (unlike the games/vids sort error) never suggest
         # adding a column; name the sortable set instead.
-        sort_unknown_column: "Can't sort by \"%{column}\" — channels sort by handle, title, subs, views, or vids."
+        sort_unknown_column: "Can't sort by \"%{column}\" — channels sort by handle, title, subs, views, or vids (added columns like likes sort while visible)."
         # 50-variant witty intro for the `show channel @handle` :enhanced vids list.
         videos_intro:
           - "The %{count} vids on %{title}."
@@ -3089,6 +3098,8 @@ en:
           col_channels_desc: "@handles of channels with linked vids"
           col_footage_desc: "Total footage duration (d:hh:mm:ss)"
           col_price_desc: "Euro price, e.g. €59.99 (— when unpriced)"
+          col_views_desc: "View count, summed across linked vids"
+          col_likes_desc: "Like count, summed across linked vids"
         videos_help:
           usage: "list vids [with <columns>] [sort by <column> [asc|desc]]"
           options_title: "Options:"
@@ -3102,16 +3113,19 @@ en:
           col_channel_desc: "Channel @handle"
           col_visibility_desc: "Visibility — public / unlisted / private"
           col_game_desc: "Linked game title(s)"
-          col_duration_desc: "Vid length (hh:mm:ss)"
+          col_duration_desc: "Vid duration (hh:mm:ss)"
           col_views_desc: "View count"
           col_likes_desc: "Like count"
-          col_comments_desc: "Comment count"
           col_category_desc: "YouTube category (Gaming, People & Blogs, …)"
         channels_help:
-          usage: "list channels [sorted by <column> [desc]]"
+          usage: "list channels [with <columns>] [sorted by <column> [desc]]"
           options_title: "Options:"
+          opt_with: "with <columns>"
+          opt_with_desc: "Add columns: likes (summed across the channel's vids)"
+          opt_without: "without <columns>"
+          opt_without_desc: "Drop previously added columns"
           opt_sort: "sorted by <column> [desc]"
-          opt_sort_desc: "Sort by handle, title, subs, views, or vids (Avatar isn't sortable). `sort`/`order` work too; default is latest upload first."
+          opt_sort_desc: "Sort by handle, title, subs, views, or vids (Avatar isn't sortable; added columns sort while visible). `sort`/`order` work too; default is latest upload first."
           opt_help: "--help"
           opt_help_desc: "Print this help message"
 
@@ -6866,7 +6880,7 @@ en:
 
       notifications:
         nightly_games_sync:
-          summary: "IGDB nightly sync: checked %{checked} upcoming game(s), updated %{updated}"
+          summary: "IGDB nightly sync: checked %{checked} upcoming game(s), release dates moved for %{updated}"
           failures_header: "%{count} game(s) failed to sync"
           releasing_soon_header: "%{count} game(s) releasing within 30 days"
           releasing_soon_item: "%{title} — %{release_date}"
