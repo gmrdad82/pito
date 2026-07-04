@@ -33,6 +33,9 @@
 #   caddy             Configure direct HTTPS via Caddy (Let's Encrypt) instead
 #                     of a tunnel — writes ./Caddyfile + enables the compose
 #                     profile. The cloudflared flow is untouched.
+#   hetzner <sub>     Provision a Hetzner Cloud box ready for pito (needs the
+#                     hcloud CLI + token): `hetzner provision` creates ssh-key,
+#                     firewall (22/80/443) and server; `hetzner info` shows it.
 #   link              Symlink pito onto your PATH so it runs as a bare `pito`.
 #   version           Show the running stack version + channel (stable/edge).
 #   --help            This help.
@@ -220,6 +223,7 @@ case "$cmd" in
   service)   run_script install.sh --service-only "$@" ;;
   cloudflared) run_script install.sh --cloudflared-only "$@" ;;
   caddy)     run_script install.sh --caddy-only "$@" ;;
+  hetzner)   run_script hetzner.sh "$@" ;;
   link)      run_script install.sh --link-only "$@" ;;
   version|--version|-v)
     tag=$(sed -n 's/^PITO_TAG=//p' .env 2>/dev/null | head -1); tag="${tag:-latest}"
