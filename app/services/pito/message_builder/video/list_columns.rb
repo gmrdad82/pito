@@ -30,8 +30,7 @@ module Pito
           game:     { key: ->(v) { v.linked_games.map(&:title).join(", ").downcase },   requires_with: true },
           duration: { key: ->(v) { v.duration_seconds.to_i },                           requires_with: true },
           views:    { key: ->(v) { v.view_count.to_i },                                 requires_with: true },
-          likes:    { key: ->(v) { v.like_count.to_i },                                 requires_with: true },
-          comments: { key: ->(v) { v.comment_count.to_i },                              requires_with: true }
+          likes:    { key: ->(v) { v.like_count.to_i },                                 requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -44,11 +43,12 @@ module Pito
           "visibility" => :visibility,
           "game"    => :game,
           "games"   => :game,
+          # `duration` is canonical everywhere (heading, footer, sort);
+          # `length` stays accepted as a silent alias (owner G26.3).
           "duration" => :duration,
+          "length"   => :duration,
           "views"   => :views,
-          "likes"   => :likes,
-          "comms"    => :comments,
-          "comments" => :comments
+          "likes"   => :likes
         }.freeze
 
         COLUMNS = {
@@ -72,8 +72,10 @@ module Pito
             value:      ->(v) { linked_games_html(v) }
           },
           duration: {
-            aliases:    %w[length duration],
-            heading:    "Length",
+            # First alias = the display token users see in footers/palettes:
+            # `duration` is canonical, `length` accepted quietly (owner G26.3).
+            aliases:    %w[duration length],
+            heading:    "Duration",
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
             value:      ->(v) { Pito::Formatter::Duration.call(v.duration_seconds) || "—" }
@@ -92,13 +94,8 @@ module Pito
             cell_class: "text-fg-dim text-right tabular-nums",
             value:      ->(v) { count_text(v.like_count) }
           },
-          comments: {
-            aliases:    %w[comms comments],
-            heading:    "Comments",
-            align:      :right,
-            cell_class: "text-fg-dim text-right tabular-nums",
-            value:      ->(v) { count_text(v.comment_count) }
-          },
+          # (The comments column was removed per owner G26.1 — comment counts
+          # stay on `show vid` detail; `with comms` is no longer a thing.)
           # YouTube category (Gaming, People & Blogs, …). Last in canonical order, so
           # the viewport auto-fill only surfaces it on the widest viewports; also
           # addable/removable via `with category` / `without category`.

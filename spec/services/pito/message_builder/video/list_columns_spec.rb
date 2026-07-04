@@ -41,6 +41,11 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(vocab["duration"]).to eq(:duration)
     end
 
+    # G26.3 — 'length' stays accepted as a silent backward-compat alias.
+    it "maps 'length' to :duration (backward-compat alias, G26.3)" do
+      expect(vocab["length"]).to eq(:duration)
+    end
+
     it "maps 'views' to :views" do
       expect(vocab["views"]).to eq(:views)
     end
@@ -49,12 +54,13 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(vocab["likes"]).to eq(:likes)
     end
 
-    it "maps 'comments' to :comments" do
-      expect(vocab["comments"]).to eq(:comments)
+    # G26.1 — comments column removed; 'comments' / 'comms' no longer map to anything.
+    it "does not map 'comments' (column removed, G26.1)" do
+      expect(vocab["comments"]).to be_nil
     end
 
-    it "maps 'comms' to :comments" do
-      expect(vocab["comms"]).to eq(:comments)
+    it "does not map 'comms' (column removed, G26.1)" do
+      expect(vocab["comms"]).to be_nil
     end
 
     it "does not include unknown tokens" do
@@ -89,18 +95,20 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(described_class.headings([ :channel, :visibility ])).to eq([ "Channel", "Visibility" ])
     end
 
+    # G26.3 — canonical heading is now "Duration" (was "Length").
     it "returns the heading for a single column" do
-      expect(described_class.headings([ :duration ])).to eq([ "Length" ])
+      expect(described_class.headings([ :duration ])).to eq([ "Duration" ])
     end
 
     it "returns headings in the requested order" do
       expect(described_class.headings([ :views, :likes ])).to eq([ "Views", "Likes" ])
     end
 
-    it "includes headings for the stats columns" do
-      cols = %i[game duration views likes comments]
+    # G26.1 — :comments removed; G26.3 — heading is "Duration" not "Length".
+    it "includes headings for the remaining stats columns (no comments, G26.1)" do
+      cols = %i[game duration views likes]
       expect(described_class.headings(cols)).to eq(
-        [ "Game", "Length", "Views", "Likes", "Comments" ]
+        [ "Game", "Duration", "Views", "Likes" ]
       )
     end
   end
@@ -114,9 +122,10 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       )
     end
 
+    # G26.3 — heading is "Duration" (was "Length").
     it "right-aligns and tags the :duration heading" do
       expect(described_class.heading_cells([ :duration ])).to eq(
-        [ { "text" => "Length", "class" => "pito-table-heading--added text-right" } ]
+        [ { "text" => "Duration", "class" => "pito-table-heading--added text-right" } ]
       )
     end
 
@@ -124,7 +133,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(described_class.heading_cells([ :channel, :duration ])).to eq(
         [
           { "text" => "Channel", "class" => "pito-table-heading--added" },
-          { "text" => "Length", "class" => "pito-table-heading--added text-right" }
+          { "text" => "Duration", "class" => "pito-table-heading--added text-right" }
         ]
       )
     end
@@ -133,11 +142,11 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
   # ── options_footer ───────────────────────────────────────────────────────────
 
   describe ".options_footer" do
-    it "names the still-addable columns when some remain" do
+    # G26.1 — comms/comments column removed; "comms" must no longer appear in the footer.
+    it "names the still-addable columns when some remain (no comms, G26.1)" do
       footer = described_class.options_footer([ :channel ])
       expect(footer).to include("views")
-      # :comments display_token is "comms" (first alias in COLUMNS)
-      expect(footer).to include("comms")
+      expect(footer).not_to include("comms")
     end
 
     it "renders 'nothing' on the addable side when every optional column is visible" do
@@ -223,6 +232,29 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "is case-insensitive for the token" do
       key = described_class.sort_key_for("TITLE", selected_columns: [])
       expect(key).to be_a(Proc)
+    end
+
+    # G26.3 — both 'duration' (canonical) and 'length' (backward-compat alias) must
+    # resolve to the same sort proc when :duration is in selected_columns.
+    it "returns nil for 'duration' when :duration is not in selected_columns" do
+      key = described_class.sort_key_for("duration", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns a proc for 'duration' when :duration IS in selected_columns" do
+      key = described_class.sort_key_for("duration", selected_columns: [ :duration ])
+      expect(key).to be_a(Proc)
+    end
+
+    it "returns a proc for 'length' (alias) when :duration IS in selected_columns (G26.3)" do
+      key = described_class.sort_key_for("length", selected_columns: [ :duration ])
+      expect(key).to be_a(Proc)
+      expect(key.call(vid)).to eq(vid.duration_seconds.to_i)
+    end
+
+    it "returns nil for 'length' alias when :duration is not in selected_columns" do
+      key = described_class.sort_key_for("length", selected_columns: [])
+      expect(key).to be_nil
     end
   end
 
@@ -346,11 +378,6 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(result.first[:text]).to eq("500")
     end
 
-    it "returns the comment count as a string for :comments" do
-      result = described_class.cells(video, [ :comments ])
-      expect(result.first[:text]).to eq("42")
-    end
-
     it "returns '—' for nil view count" do
       no_stats = create(:video, :public, channel: channel, title: "No Stats Video")
       result   = described_class.cells(no_stats, [ :views ])
@@ -360,12 +387,6 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "returns '—' for nil like count" do
       no_stats = create(:video, :public, channel: channel, title: "No Likes Video")
       result   = described_class.cells(no_stats, [ :likes ])
-      expect(result.first[:text]).to eq("—")
-    end
-
-    it "returns '—' for nil comment count" do
-      no_stats = create(:video, :public, channel: channel, title: "No Comments Video")
-      result   = described_class.cells(no_stats, [ :comments ])
       expect(result.first[:text]).to eq("—")
     end
 

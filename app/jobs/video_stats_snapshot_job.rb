@@ -23,9 +23,19 @@ class VideoStatsSnapshotJob < ApplicationJob
     connected_channels.find_each do |channel|
       sync_channel(channel)
     end
+
+    enqueue_rollups
   end
 
   private
+
+  # G28 — after every intraday pass, re-materialize the DERIVED entity stats
+  # (channel likes; game views+likes) so the list surfaces read fresh
+  # `Pito::Stats` rows instead of live-summing videos at render.
+  def enqueue_rollups
+    connected_channels.pluck(:id).each { |id| ::ChannelStatsRefreshJob.perform_later(id) }
+    ::VideoGameLink.distinct.pluck(:game_id).each { |id| ::GameStatsRefreshJob.perform_later(id) }
+  end
 
   def connected_channels
     ::Channel

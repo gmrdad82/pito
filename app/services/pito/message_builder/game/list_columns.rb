@@ -25,14 +25,17 @@ module Pito
         SORT_SPECS = {
           id:           { key: ->(g) { g.id },                                                  requires_with: false },
           title:        { key: ->(g) { g.title.to_s.downcase },                                 requires_with: false },
-          platform:     { key: ->(g) { Pito::Games::PlatformTokens.labels(g.platforms).to_s.downcase }, requires_with: true },
+          # No :platform sort — ordering by an icon set is meaningless
+          # (owner G26.7); the platform COLUMN stays with/without-able.
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
           channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true },
           footage:      { key: ->(g) { g.footage_hours },                                        requires_with: true },
           # Unpriced games sort before any priced game ascending (nil → -1).
-          price:        { key: ->(g) { g.price || -1 },                                          requires_with: true }
+          price:        { key: ->(g) { g.price || -1 },                                          requires_with: true },
+          views:        { key: ->(g) { g.view_count },                                           requires_with: true },
+          likes:        { key: ->(g) { g.like_count },                                           requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -41,8 +44,6 @@ module Pito
           "#"            => :id,
           "title"        => :title,
           "game"         => :title,
-          "platform"     => :platform,
-          "platforms"    => :platform,
           "genre"        => :genre,
           "genres"       => :genre,
           "developer"    => :developer,
@@ -52,7 +53,9 @@ module Pito
           "channels"     => :channels,
           "footage"      => :footage,
           "price"        => :price,
-          "prices"       => :price
+          "prices"       => :price,
+          "views"        => :views,
+          "likes"        => :likes
         }.freeze
 
         COLUMNS = {
@@ -110,6 +113,24 @@ module Pito
             html:       true,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-price",
             value:      ->(g) { Pito::Games::PriceGlyphs.html(g.price) }
+          },
+          # Audience counters (owner G26.2) — a game's views/likes are the SUM
+          # of its linked vids' Pito::Stats rows (Game#view_count/#like_count);
+          # 0 when nothing is linked. Same right-aligned numeric treatment as
+          # the vids list.
+          views:        {
+            aliases:    %w[views],
+            heading:    "Views",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums",
+            value:      ->(g) { g.view_count.to_s }
+          },
+          likes:        {
+            aliases:    %w[likes],
+            heading:    "Likes",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums",
+            value:      ->(g) { g.like_count.to_s }
           }
         }.freeze
 

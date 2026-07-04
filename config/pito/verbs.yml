@@ -954,6 +954,10 @@ verbs:
           mode: mutate
           args:
             columns: { resolver: column_list }
+        channel_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
 
   without:
     # Inverse of `with`: metric exclusion (analytics) or column removal (lists).
@@ -976,6 +980,10 @@ verbs:
           args:
             columns: { resolver: column_list }
         video_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+        channel_list:
           mode: mutate
           args:
             columns: { resolver: column_list }

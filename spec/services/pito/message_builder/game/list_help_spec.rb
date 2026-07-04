@@ -76,5 +76,18 @@ RSpec.describe Pito::MessageBuilder::Game::ListHelp do
     it "body includes channel column description" do
       expect(result["body"]).to include("@handles of channels with linked vids")
     end
+
+    # G26.2 — views/likes audience-counter columns added to game list.
+    it "body includes the views column token (G26.2)" do
+      expect(result["body"]).to include("views")
+    end
+
+    it "body includes the likes column token (G26.2)" do
+      expect(result["body"]).to include("likes")
+    end
+
+    it "body includes views column description — summed across linked vids (G26.2)" do
+      expect(result["body"]).to include("summed across linked vids")
+    end
   end
 end

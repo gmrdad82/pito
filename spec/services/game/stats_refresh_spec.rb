@@ -5,9 +5,10 @@ require "rails_helper"
 RSpec.describe Game::StatsRefresh do
   let(:game) { create(:game) }
 
-  def link_video(views:)
+  def link_video(views: nil, likes: nil)
     video = create(:video)
     Pito::Stats.set(video, :views, views) unless views.nil?
+    Pito::Stats.set(video, :likes, likes) unless likes.nil?
     create(:video_game_link, video: video, game: game)
     video
   end
@@ -22,9 +23,30 @@ RSpec.describe Game::StatsRefresh do
       expect(Pito::Stats.get(game, :views)).to eq(350)
     end
 
-    it "stores 0 when the game has no linked videos" do
+    it "materializes game likes as the sum of linked videos' likes (G28)" do
+      link_video(likes: 40)
+      link_video(likes: 2)
+
+      described_class.call(game)
+
+      expect(Pito::Stats.get(game, :likes)).to eq(42)
+    end
+
+    it "stores 0 for both kinds when the game has no linked videos" do
       described_class.call(game)
       expect(Pito::Stats.get(game, :views)).to eq(0)
+      expect(Pito::Stats.get(game, :likes)).to eq(0)
+    end
+
+    it "zeroes a previously-materialized aggregate once every link is removed" do
+      video = link_video(views: 100, likes: 10)
+      described_class.call(game)
+      expect(Pito::Stats.get(game, :views)).to eq(100)
+
+      VideoGameLink.where(game: game, video: video).destroy_all
+      described_class.call(game)
+      expect(Pito::Stats.get(game, :views)).to eq(0)
+      expect(Pito::Stats.get(game, :likes)).to eq(0)
     end
 
     it "ignores linked videos that carry no view stat" do

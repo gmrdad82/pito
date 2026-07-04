@@ -12,6 +12,11 @@ module Pito
       # To visit a channel's YouTube page or Studio, first `show channel @<handle>`
       # then reply `#<card_handle> visit channel` or `#<card_handle> visit studio`.
       #
+      # Column mutations (no consume, :mutate — vids/games parity, G26.2):
+      #
+      #   #<handle> with <columns>    → rebuild list with extra column(s)
+      #   #<handle> without <columns> → rebuild list without the named column(s)
+      #
       # Sort mutations (no consume, :mutate mode per action — vids/games parity):
       #
       #   #<handle> sort by <col> [desc]  → re-sort the stamped table in place
@@ -28,6 +33,8 @@ module Pito
           case action
           when "shinies"
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
+          when "with", "without"
+            mutate_columns(event:, action:, args: ref)
           when "sort", "order"
             mutate_sort(event:, args: ref)
           when "analyze"
@@ -48,6 +55,36 @@ module Pito
         end
 
         private
+
+        # Parse the comma-separated column list, compute the new addable set
+        # (with: union; without: difference), reload the stamped channels, and
+        # rebuild the payload preserving handle/target/cursor — mirrors
+        # VideoList#mutate_columns.
+        def mutate_columns(event:, action:, args:)
+          payload = event.payload.with_indifferent_access
+
+          current_cols = Array(payload["list_columns"]).map(&:to_sym)
+          vocab        = Pito::MessageBuilder::Channel::ListColumns.vocabulary
+
+          delta_cols = args.to_s.split(/\s*,\s*/).filter_map { |t|
+            vocab[t.strip.downcase]
+          }.uniq
+
+          new_cols = action == "with" ? (current_cols | delta_cols) : (current_cols - delta_cols)
+
+          ids      = Array(payload["channel_ids"])
+          channels = ::Channel.where(id: ids).includes(:youtube_connection)
+                              .sort_by { |c| ids.index(c.id) || ids.size }
+
+          new_payload = Pito::MessageBuilder::Channel::List.call(
+            channels, conversation: event.conversation, columns: new_cols
+          )
+          new_payload["reply_handle"] = payload["reply_handle"]
+          new_payload["reply_target"] = payload["reply_target"]
+          new_payload["list_cursor"]  = payload["list_cursor"] if payload.key?("list_cursor")
+
+          Pito::FollowUp::Result::Mutation.new(kind: event.kind.to_sym, payload: new_payload)
+        end
 
         # Re-sort the stamped channels table by a column token — mirrors the
         # vids/games list sort replies: strip an optional leading `by`, parse a

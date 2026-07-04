@@ -101,4 +101,32 @@ RSpec.describe Channel, type: :model do
       expect(url).to start_with("/")
     end
   end
+
+  # ── #like_count (G26.2 / G28 / G30) ──────────────────────────────────────────
+  #
+  # YouTube exposes no channel-level like counter — the channel's likes are
+  # MATERIALIZED into its own Pito::Stats row by Channel::StatsRefresh; the
+  # reader never live-sums videos at render, and coalesces nil to 0 (G30).
+
+  describe "#like_count" do
+    let(:channel) { create(:channel) }
+
+    it "reads the materialized likes row" do
+      Pito::Stats.set(channel, :likes, 155)
+      expect(channel.like_count).to eq(155)
+    end
+
+    it "is 0 before the first rollup (nil coalesces — G30)" do
+      expect(channel.like_count).to eq(0)
+    end
+
+    it "does not live-sum: video likes don't show until StatsRefresh runs" do
+      video = create(:video, channel: channel)
+      Pito::Stats.set(video, :likes, 100)
+      expect(channel.like_count).to eq(0)
+
+      Channel::StatsRefresh.call(channel)
+      expect(channel.like_count).to eq(100)
+    end
+  end
 end

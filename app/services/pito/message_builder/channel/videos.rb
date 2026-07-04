@@ -19,8 +19,9 @@ module Pito
       module Videos
         module_function
 
-        # Per-video columns for a channel's vids (no channel column — all one channel).
-        COLUMNS = %i[duration views comments likes].freeze
+        # Per-video columns for a channel's vids (no channel column — all one
+        # channel; :comments left with the vids-list comms column, G26.1).
+        COLUMNS = %i[duration views likes].freeze
 
         # @param channel      [::Channel]    the channel whose videos to list.
         # @param conversation [Conversation] used to generate the reply handle.
