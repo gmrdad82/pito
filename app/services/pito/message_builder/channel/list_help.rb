@@ -9,9 +9,11 @@ module Pito
       # `Options:` group. Mirrors Game::ListHelp / Video::ListHelp — everything
       # lives inside the single `.pito-help-block` div produced by ManPage.render.
       #
-      # `list channels` carries no `with <columns>` options (all table columns
-      # are always shown) but supports `sorted by <column> [desc]` on every
-      # column except Avatar — the Options group lists sort + --help.
+      # The base table columns are always shown; `with likes` / `without likes`
+      # add or drop the addable audience column (G26.2), and `sorted by
+      # <column> [desc]` works on every column except Avatar (an addable
+      # column sorts while visible) — the Options group lists with/without,
+      # sort, and --help.
       #
       # All user-facing strings come from Pito::Copy
       # (`pito.copy.list.channels_help.*`).
@@ -31,6 +33,8 @@ module Pito
           # [token, description] pairs for the Options group.
           def option_rows
             [
+              [ c("opt_with"), c("opt_with_desc") ],
+              [ c("opt_without"), c("opt_without_desc") ],
               [ c("opt_sort"), c("opt_sort_desc") ],
               [ c("opt_help"), c("opt_help_desc") ]
             ]

@@ -62,14 +62,19 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
         .to include("shinies", "analyze", "sort", "order", "next")
     end
 
-    it "actions_for('channel_list') matches the declared set" do
+    it "actions_for('channel_list') matches the declared set (with/without joined — G26.2)" do
       expect(Pito::FollowUp::Registry.actions_for("channel_list"))
-        .to match_array(%w[shinies analyze sort order next])
+        .to match_array(%w[shinies analyze sort order next with without])
     end
 
     it "sort and order are :mutate actions (re-render in place, no consume)" do
       expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "sort")).to eq(:mutate)
       expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "order")).to eq(:mutate)
+    end
+
+    it "with and without are :mutate actions (column set re-renders in place — G26.2)" do
+      expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "with")).to eq(:mutate)
+      expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "without")).to eq(:mutate)
     end
 
     it "does NOT include 'visit' (visit moved to channel_detail)" do

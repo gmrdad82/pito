@@ -90,8 +90,14 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to include("likes")
         end
 
-        it "body mentions the 'comms' column" do
-          expect(result["body"]).to include("comms")
+        # G26.1 — the comments column was removed from the vids list.
+        it "body does NOT mention the removed 'comms' column" do
+          expect(result["body"]).not_to include("comms")
+        end
+
+        # G26.3 — `length` survives as a documented alias of `duration`.
+        it "body mentions the 'length' alias of duration" do
+          expect(result["body"]).to include("duration, length")
         end
 
         it "body is wrapped in .pito-help-block" do

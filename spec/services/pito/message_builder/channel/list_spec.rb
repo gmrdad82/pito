@@ -91,14 +91,48 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
       expect { payload }.not_to raise_error
     end
 
-    # Channel list is sort-only: addable and removable are both empty (no with/without),
-    # so only the sort line is rendered. The footer mentions sort keys (handle, subs, vids)
-    # but contains no column-add/remove instructions (no `with` / `without` clauses).
-    it "payload list_footer mentions sort keys but no column-manipulation instructions" do
+    # G26.2 — channels joined the with/without mechanism: the footer now names
+    # the addable columns (likes) alongside the sort keys (handle, title, subs,
+    # views, vids).
+    it "payload list_footer names the addable likes column and the sort keys" do
       expect(payload["list_footer"]).to be_a(String)
-      expect(payload["list_footer"]).to include("subs")
-      expect(payload["list_footer"]).to include("vids")
-      expect(payload["list_footer"]).not_to include("`with")
+      expect(payload["list_footer"]).to include("likes")
+      expect(payload["list_footer"]).to include("`with`")
+      expect(payload["list_footer"]).to include("`without`")
+      %w[handle title subs views vids].each do |key|
+        expect(payload["list_footer"]).to include(key)
+      end
+    end
+
+    it "stamps an empty list_columns when no addable columns are selected" do
+      expect(payload["list_columns"]).to eq([])
+    end
+
+    # ── with likes (G26.2 — addable audience-counter column) ───────────────────
+    context "with columns: [:likes]" do
+      subject(:payload) { described_class.call(channels, conversation: conversation, columns: [ :likes ]) }
+
+      it "appends a right-aligned Likes heading tagged --added" do
+        expect(payload["table_heading"].last).to eq(
+          { "text" => "Likes", "class" => "text-right pito-table-heading--added" }
+        )
+      end
+
+      it "appends a likes count cell to every row (reads the materialized row — G28)" do
+        Pito::Stats.set(alpha, :likes, 1_200)
+        alpha_row = payload["table_rows"][payload["channel_ids"].index(alpha.id)]
+        expect(alpha_row[:cells].size).to eq(7)
+        expect(alpha_row[:cells].last[:text]).to eq("1.2K")
+      end
+
+      it "stamps list_columns so with/without/sort replies preserve the selection" do
+        expect(payload["list_columns"]).to eq([ "likes" ])
+      end
+
+      it "flips the footer: likes moves from addable to removable, and joins the sort keys" do
+        expect(payload["list_footer"]).to include("nothing")
+        expect(payload["list_footer"]).to include("likes")
+      end
     end
   end
 end

@@ -6,11 +6,12 @@ module Pito
       # Builds the payload for the `list channels` kv-table message (the card
       # strip retired 2026-07-02 — channels list like every other list verb).
       #
-      # Columns: Avatar · Handle · Title · Subs · Views · Vids. No `#id`
-      # column, no `with`/`without` (all columns always shown); `sort` is
-      # supported on every column except Avatar (see ListColumns). Counts are
-      # compact (2.2K); the Avatar cell is the tiny (35px) ringed variant and
-      # the data-grid middle-aligns row text to it.
+      # Columns: Avatar · Handle · Title · Subs · Views · Vids, always shown —
+      # plus ADDABLE columns (`with likes` / `without likes`, G26.2) appended
+      # on the right. `sort` is supported on every column except Avatar, and on
+      # an addable column while visible (see ListColumns). Counts are compact
+      # (2.2K); the Avatar cell is the tiny (35px) ringed variant and the
+      # data-grid middle-aligns row text to it.
       #
       # The Handle cell is the click-to-open seam (auto-submits
       # `show channel @handle`) — same affordance as the vids list's #id cell.
@@ -36,8 +37,18 @@ module Pito
 
         # @param channels     [Array<::Channel>] non-empty, pre-fetched, pre-sorted.
         # @param conversation [Conversation] used to generate the reply handle.
+        # @param columns      [Array<Symbol>] addable canonical column keys (ListColumns::COLUMNS).
         # @return [Hash] string-keyed payload with body, table, follow-up fields.
-        def call(channels, conversation:)
+        def call(channels, conversation:, columns: [])
+          cols = Array(columns).map(&:to_sym)
+
+          heading = HEADING.map(&:dup) + cols.map { |c|
+            {
+              "text"  => ListColumns::COLUMNS.fetch(c)[:heading],
+              "class" => "text-right pito-table-heading--added"
+            }
+          }
+
           payload = {
             "body" => Pito::Copy.render_html(
               "pito.copy.channels.list_intro",
@@ -45,19 +56,18 @@ module Pito
               shimmer: [ :count, :noun ]
             ),
             "html"            => true,
-            "table_heading"   => HEADING.map(&:dup),
+            "table_heading"   => heading,
             "shimmer_heading" => true,
-            "table_rows"      => channels.map { |channel| row_for(channel) },
+            "table_rows"      => channels.map { |channel| row_for(channel, cols) },
             # Stamped so `sort` replies reload the same set and `analyze` can
             # scope the analysis to these channels.
             "channel_ids"     => channels.map(&:id),
-            # Sort-only footer: channels has no with/without (all columns fixed),
-            # so addable and removable are empty. Sort keys are the full set from
-            # ListColumns::SORT_KEYS (handle, title, subs, views, vids).
+            # Stamped so with/without/sort replies preserve the selection.
+            "list_columns"    => cols.map(&:to_s),
             "list_footer"     => Pito::Lists::OptionsFooter.call(
-              addable:   [],
-              removable: [],
-              sort_keys: Pito::MessageBuilder::Channel::ListColumns::SORT_KEYS.keys,
+              addable:   (ListColumns::COLUMNS.keys - cols).map(&:to_s),
+              removable: cols.map(&:to_s),
+              sort_keys: ListColumns.sortable_tokens(selected_columns: cols),
               noun:      "columns"
             )
           }
@@ -65,7 +75,7 @@ module Pito
           payload
         end
 
-        def row_for(channel)
+        def row_for(channel, cols = [])
           handle = channel.at_handle
           {
             cells: [
@@ -82,7 +92,8 @@ module Pito
               { text: channel.title.to_s, class: "text-fg pito-cell-title" },
               count_cell(channel.subscriber_count),
               count_cell(channel.view_count),
-              count_cell(channel.videos.count)
+              count_cell(channel.videos.count),
+              *cols.map { |c| count_cell(ListColumns::COLUMNS.fetch(c)[:value].call(channel)) }
             ]
           }
         end

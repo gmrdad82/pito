@@ -183,8 +183,6 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "duration"   => :duration,
       "views"      => :views,
       "likes"      => :likes,
-      "comms"      => :comments,
-      "comments"   => :comments,
       "category"   => :category,
       "categories" => :category
     }
@@ -193,6 +191,11 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       it "list vids with #{alias_token.inspect} → [#{canonical.inspect}]" do
         expect(parse_video_columns("list vids with #{alias_token}")).to eq([ canonical ])
       end
+    end
+
+    # G26.1 — the comments column was removed; its old aliases resolve to nothing.
+    it "the removed comms/comments column is dropped from a with clause (G26.1)" do
+      expect(parse_video_columns("list vids with comms, comments")).to eq([])
     end
 
     # Aliases that collapse to the same canonical
@@ -208,23 +211,19 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       expect(parse_video_columns("list vids with length, duration")).to eq([ :duration ])
     end
 
-    it "comms + comments → de-duplicated to [:comments]" do
-      expect(parse_video_columns("list vids with comms, comments")).to eq([ :comments ])
-    end
-
     it "category + categories → de-duplicated to [:category]" do
       expect(parse_video_columns("list vids with category, categories")).to eq([ :category ])
     end
 
     # Multi-column comma list
-    it "with views, likes, comments → [:views, :likes, :comments] in order" do
-      expect(parse_video_columns("list vids with views, likes, comments")).to eq([ :views, :likes, :comments ])
+    it "with views, likes, duration → [:views, :likes, :duration] in order" do
+      expect(parse_video_columns("list vids with views, likes, duration")).to eq([ :views, :likes, :duration ])
     end
 
-    it "all video columns in one with clause → all 8 canonicals de-duped" do
-      raw = "list vids with channel, status, game, length, views, likes, comms, category"
+    it "all video columns in one with clause → all 7 canonicals de-duped (comments removed — G26.1)" do
+      raw = "list vids with channel, status, game, length, views, likes, category"
       expect(parse_video_columns(raw)).to eq(
-        [ :channel, :visibility, :game, :duration, :views, :likes, :comments, :category ]
+        [ :channel, :visibility, :game, :duration, :views, :likes, :category ]
       )
     end
 
@@ -258,7 +257,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "channels"     => :channels,
       "footage"      => :footage,
       "price"        => :price,
-      "prices"       => :price
+      "prices"       => :price,
+      "views"        => :views,
+      "likes"        => :likes
     }
 
     game_aliases.each do |alias_token, canonical|
@@ -299,10 +300,10 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       )
     end
 
-    it "all game columns in one with clause → all 7 canonicals (release/year removed — item 24)" do
-      raw = "list games with platform, genre, developer, publisher, channels, footage, price"
+    it "all game columns in one with clause → all 9 canonicals (views/likes added — G26.2)" do
+      raw = "list games with platform, genre, developer, publisher, channels, footage, price, views, likes"
       expect(parse_game_columns(raw)).to eq(
-        [ :platform, :genre, :developer, :publisher, :channels, :footage, :price ]
+        [ :platform, :genre, :developer, :publisher, :channels, :footage, :price, :views, :likes ]
       )
     end
 
@@ -410,10 +411,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "game"       => :game,
       "games"      => :game,
       "duration"   => :duration,
+      "length"     => :duration,
       "views"      => :views,
-      "likes"      => :likes,
-      "comms"      => :comments,
-      "comments"   => :comments
+      "likes"      => :likes
     }.each do |token, canonical|
       it "video sort token #{token.inspect} → canonical :#{canonical}" do
         expect(Pito::MessageBuilder::Video::ListColumns::SORT_VOCAB[token]).to eq(canonical)
@@ -422,6 +422,11 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
 
     it "unknown token is absent from SORT_VOCAB" do
       expect(Pito::MessageBuilder::Video::ListColumns::SORT_VOCAB["foobar"]).to be_nil
+    end
+
+    it "the removed comms/comments sort tokens are gone (G26.1)" do
+      expect(Pito::MessageBuilder::Video::ListColumns::SORT_VOCAB["comms"]).to be_nil
+      expect(Pito::MessageBuilder::Video::ListColumns::SORT_VOCAB["comments"]).to be_nil
     end
   end
 
@@ -433,8 +438,6 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "#"            => :id,
       "title"        => :title,
       "game"         => :title,
-      "platform"     => :platform,
-      "platforms"    => :platform,
       "genre"        => :genre,
       "genres"       => :genre,
       "developer"    => :developer,
@@ -444,7 +447,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "channels"     => :channels,
       "footage"      => :footage,
       "price"        => :price,
-      "prices"       => :price
+      "prices"       => :price,
+      "views"        => :views,
+      "likes"        => :likes
     }.each do |token, canonical|
       it "game sort token #{token.inspect} → canonical :#{canonical}" do
         expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB[token]).to eq(canonical)
@@ -458,6 +463,13 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
     it "the removed 'release date' / 'year' sort tokens are gone (item 24)" do
       expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["release date"]).to be_nil
       expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["year"]).to be_nil
+    end
+
+    # G26.7 — the platform SORT was removed (ordering by an icon set is
+    # meaningless); the platform COLUMN itself stays with/without-able.
+    it "the removed 'platform' / 'platforms' sort tokens are gone (G26.7)" do
+      expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["platform"]).to be_nil
+      expect(Pito::MessageBuilder::Game::ListColumns::SORT_VOCAB["platforms"]).to be_nil
     end
   end
 
@@ -484,10 +496,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "game"       => :game,
       "games"      => :game,
       "duration"   => :duration,
+      "length"     => :duration,
       "views"      => :views,
-      "likes"      => :likes,
-      "comms"      => :comments,
-      "comments"   => :comments
+      "likes"      => :likes
     }.each do |sort_token, canonical_col|
       it "#{sort_token.inspect} → nil when :#{canonical_col} not in selected_columns" do
         expect(vlc.sort_key_for(sort_token, selected_columns: [])).to be_nil
@@ -496,6 +507,12 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       it "#{sort_token.inspect} → Proc when :#{canonical_col} is in selected_columns" do
         expect(vlc.sort_key_for(sort_token, selected_columns: [ canonical_col ])).to be_a(Proc)
       end
+    end
+
+    # G26.1 — comms/comments no longer resolve, even with a (stale) selection.
+    it "'comms' / 'comments' → nil regardless of selected_columns (removed — G26.1)" do
+      expect(vlc.sort_key_for("comms",    selected_columns: [ :comments ])).to be_nil
+      expect(vlc.sort_key_for("comments", selected_columns: [ :comments ])).to be_nil
     end
   end
 
@@ -523,8 +540,6 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
 
     # With-columns (requires_with: true)
     {
-      "platform"     => :platform,
-      "platforms"    => :platform,
       "genre"        => :genre,
       "genres"       => :genre,
       "developer"    => :developer,
@@ -534,7 +549,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "channels"     => :channels,
       "footage"      => :footage,
       "price"        => :price,
-      "prices"       => :price
+      "prices"       => :price,
+      "views"        => :views,
+      "likes"        => :likes
     }.each do |sort_token, canonical_col|
       it "#{sort_token.inspect} → nil when :#{canonical_col} not in selected_columns" do
         expect(glc.sort_key_for(sort_token, selected_columns: [])).to be_nil
@@ -544,16 +561,22 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
         expect(glc.sort_key_for(sort_token, selected_columns: [ canonical_col ])).to be_a(Proc)
       end
     end
+
+    # G26.7 — the platform sort is gone; even a visible platform column can't sort.
+    it "'platform' / 'platforms' → nil even when :platform IS in selected_columns (G26.7)" do
+      expect(glc.sort_key_for("platform",  selected_columns: [ :platform ])).to be_nil
+      expect(glc.sort_key_for("platforms", selected_columns: [ :platform ])).to be_nil
+    end
   end
 
   # ── A9. Combined with + sort ──────────────────────────────────────────────────
 
   describe "A9. with + sort combined" do
     it "video: with clause stops before sort; both parsed independently" do
-      raw  = "list vids with views, comments, game sort by views desc"
+      raw  = "list vids with views, likes, game sort by views desc"
       cols = parse_video_columns(raw)
       sort = parse_sort(raw)
-      expect(cols).to eq([ :views, :comments, :game ])
+      expect(cols).to eq([ :views, :likes, :game ])
       expect(sort).to eq({ token: "views", direction: :desc })
     end
 
@@ -591,17 +614,20 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       expect(sort).to eq({ token: "views", direction: :desc })
     end
 
-    it "video: sorted by comms → token='comms'" do
+    # Sort-token extraction is vocabulary-independent — even a removed token
+    # like "comms" is still extracted here and only rejected downstream.
+    it "video: sorted by comms → token='comms' (extraction is vocab-independent)" do
       sort = parse_sort("list vids sorted by comms")
       expect(sort[:token]).to eq("comms")
     end
 
-    it "video: with channel, visibility, comms sorted by comms desc" do
-      raw  = "list vids with channel, visibility, comms sorted by comms desc"
+    # G26.3 — the `length` alias still works in both the with clause and sort.
+    it "video: with channel, visibility, length sorted by length desc (length alias — G26.3)" do
+      raw  = "list vids with channel, visibility, length sorted by length desc"
       cols = parse_video_columns(raw)
       sort = parse_sort(raw)
-      expect(cols).to eq([ :channel, :visibility, :comments ])
-      expect(sort).to eq({ token: "comms", direction: :desc })
+      expect(cols).to eq([ :channel, :visibility, :duration ])
+      expect(sort).to eq({ token: "length", direction: :desc })
     end
 
     it "game: with channels, footage, price order by price desc" do
@@ -903,15 +929,15 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
   # ── A15. Bare list / auto-fill ────────────────────────────────────────────────
 
   describe "A15. Bare list — auto-fill column order" do
-    it "game COLUMNS canonical order is [:platform, :genre, :developer, :publisher, :channels, :footage, :price] (release/year removed — item 24)" do
+    it "game COLUMNS canonical order is [:platform, :genre, :developer, :publisher, :channels, :footage, :price, :views, :likes] (views/likes added — G26.2)" do
       expect(Pito::MessageBuilder::Game::ListColumns::COLUMNS.keys).to eq(
-        [ :platform, :genre, :developer, :publisher, :channels, :footage, :price ]
+        [ :platform, :genre, :developer, :publisher, :channels, :footage, :price, :views, :likes ]
       )
     end
 
-    it "video COLUMNS canonical order is [:channel, :visibility, :game, :duration, :views, :likes, :comments, :category]" do
+    it "video COLUMNS canonical order is [:channel, :visibility, :game, :duration, :views, :likes, :category] (comments removed — G26.1)" do
       expect(Pito::MessageBuilder::Video::ListColumns::COLUMNS.keys).to eq(
-        [ :channel, :visibility, :game, :duration, :views, :likes, :comments, :category ]
+        [ :channel, :visibility, :game, :duration, :views, :likes, :category ]
       )
     end
 

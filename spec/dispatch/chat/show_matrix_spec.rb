@@ -529,10 +529,11 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("show")
     end
 
-    it "channel_list declares exactly ['shinies', 'analyze', 'sort', 'order', 'next']" do
+    it "channel_list declares exactly ['shinies', 'analyze', 'sort', 'order', 'next', 'with', 'without']" do
       # match_array (order-insensitive): actions_for scanning order is verbs.yml-defined,
       # not DSL-declaration order; the suggestions engine sorts the palette anyway.
-      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to match_array([ "shinies", "analyze", "sort", "order", "next" ])
+      # with/without joined in G26.2 (channels gained addable columns).
+      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to match_array([ "shinies", "analyze", "sort", "order", "next", "with", "without" ])
     end
   end
 

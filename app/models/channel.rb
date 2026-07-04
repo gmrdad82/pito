@@ -62,6 +62,16 @@ class Channel < ApplicationRecord
     Pito::Stats.get(self, :views)
   end
 
+  # YouTube exposes NO channel-level like counter (verified against the
+  # channels.list docs: statistics = viewCount/subscriberCount/videoCount;
+  # relatedPlaylists.likes is a playlist ID of owner-LIKED videos, not a
+  # count) — the channel's likes are MATERIALIZED into its own Pito::Stats
+  # row by Channel::StatsRefresh (sum of its videos; recomputed at every
+  # stats pass, G28). `.to_i` → 0 before the first rollup (owner G30).
+  def like_count
+    Pito::Stats.get(self, :likes).to_i
+  end
+
   validates :youtube_channel_id,
             presence: true,
             uniqueness: { case_sensitive: true }

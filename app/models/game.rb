@@ -92,6 +92,18 @@ class Game < ApplicationRecord
     update!(score: Pito::Games::ScoreCalculator.call(self))
   end
 
+  # A game has no native audience counters — its views/likes are MATERIALIZED
+  # into its own Pito::Stats rows by Game::StatsRefresh (sum of linked vids;
+  # recomputed on link edits + every stats pass, G28). Reads never live-sum.
+  # `.to_i` → 0 before the first rollup (owner G26.2: 0 when unlinked).
+  def view_count
+    Pito::Stats.get(self, :views).to_i
+  end
+
+  def like_count
+    Pito::Stats.get(self, :likes).to_i
+  end
+
   def released?
     effective = release_date || derive_release_date
     return false if effective.nil?

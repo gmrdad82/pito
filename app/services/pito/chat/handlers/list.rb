@@ -464,9 +464,18 @@ module Pito
           end
 
           channels = channels.to_a
-          sort     = Pito::Chat::SortClause.parse(message.raw)
+
+          # Addable columns (`with likes`, G26.2) — channels' with-vocabulary.
+          columns = Pito::Chat::WithColumns.parse(
+            message.raw,
+            vocabulary: Pito::MessageBuilder::Channel::ListColumns.vocabulary
+          )
+
+          sort = Pito::Chat::SortClause.parse(message.raw)
           if sort
-            key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(sort[:token])
+            key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(
+              sort[:token], selected_columns: columns
+            )
             if key.nil?
               payload = Pito::MessageBuilder::Text.call(
                 "pito.copy.channels.sort_unknown_column",
@@ -480,9 +489,9 @@ module Pito
 
           page    = page_size
           rows    = channels.first(page)
-          payload = Pito::MessageBuilder::Channel::List.call(rows, conversation:)
+          payload = Pito::MessageBuilder::Channel::List.call(rows, conversation:, columns:)
           if channels.size > page
-            cursor = channels_cursor(page, sort)
+            cursor = channels_cursor(page, sort, columns)
             payload["list_cursor"] = cursor
             total = channels.size
             more_text = Pito::Copy.render(
@@ -637,11 +646,12 @@ module Pito
 
         # Continuation cursor for a channels list page. Channels have no per-column
         # filter or channel scope — only sort state is required to rerun the query.
-        def channels_cursor(offset, sort)
+        def channels_cursor(offset, sort, columns = [])
           {
             "offset"         => offset,
             "sort_token"     => sort&.dig(:token),
-            "sort_direction" => sort&.dig(:direction)&.to_s
+            "sort_direction" => sort&.dig(:direction)&.to_s,
+            "columns"        => Array(columns).map(&:to_s)
           }
         end
       end

@@ -63,6 +63,15 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(vocab["footage"]).to eq(:footage)
     end
 
+    # G26.2 — views/likes audience counter columns added to game list.
+    it "maps 'views' to :views (G26.2)" do
+      expect(vocab["views"]).to eq(:views)
+    end
+
+    it "maps 'likes' to :likes (G26.2)" do
+      expect(vocab["likes"]).to eq(:likes)
+    end
+
     it "does not include unknown tokens" do
       expect(vocab.key?("unknown_token")).to be(false)
     end
@@ -92,6 +101,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(described_class.headings(all)).to eq(
         [ "Platform", "Genre", "Developer", "Publisher", "Channels", "Footage", "Price" ]
       )
+    end
+
+    # G26.2 — new audience counter columns.
+    it "returns 'Views' and 'Likes' headings for the new audience-counter columns (G26.2)" do
+      expect(described_class.headings([ :views, :likes ])).to eq([ "Views", "Likes" ])
     end
   end
 
@@ -180,6 +194,35 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       key = described_class.sort_key_for("footage", selected_columns: [ :footage ])
       expect(key).to be_a(Proc)
     end
+
+    # G26.7 — platform SORT removed (ordering by icon set is meaningless);
+    # the platform COLUMN itself stays with/without-able.
+    it "returns nil for 'platform' (sort removed, G26.7) even when :platform is in selected_columns" do
+      expect(described_class.sort_key_for("platform", selected_columns: [ :platform ])).to be_nil
+    end
+
+    it "returns nil for 'platforms' (sort removed, G26.7)" do
+      expect(described_class.sort_key_for("platforms", selected_columns: [ :platform ])).to be_nil
+    end
+
+    # G26.2 — views/likes are requires_with sort columns.
+    it "returns nil for 'views' when :views not in selected_columns" do
+      expect(described_class.sort_key_for("views", selected_columns: [])).to be_nil
+    end
+
+    it "returns a proc for 'views' when :views IS in selected_columns (G26.2)" do
+      key = described_class.sort_key_for("views", selected_columns: [ :views ])
+      expect(key).to be_a(Proc)
+    end
+
+    it "returns nil for 'likes' when :likes not in selected_columns" do
+      expect(described_class.sort_key_for("likes", selected_columns: [])).to be_nil
+    end
+
+    it "returns a proc for 'likes' when :likes IS in selected_columns (G26.2)" do
+      key = described_class.sort_key_for("likes", selected_columns: [ :likes ])
+      expect(key).to be_a(Proc)
+    end
   end
 
   # ── cells ────────────────────────────────────────────────────────────────────
@@ -264,6 +307,45 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       %i[platform genre developer publisher channels].each do |col|
         result = described_class.cells(game, [ col ])
         expect(result.first[:class]).not_to include("text-right"), "expected #{col} not to be right-aligned"
+      end
+    end
+
+    context "views and likes columns (G26.2)" do
+      let(:game_with_stats) { create(:game) }
+      let(:channel)         { create(:channel) }
+
+      it "returns the materialized view count as a string for :views (G28)" do
+        Pito::Stats.set(game_with_stats, :views, 8_000)
+        result = described_class.cells(game_with_stats, [ :views ])
+        expect(result.first[:text]).to eq("8000")
+      end
+
+      it "returns '0' for :views when no linked videos exist" do
+        result = described_class.cells(game_with_stats, [ :views ])
+        expect(result.first[:text]).to eq("0")
+      end
+
+      it "returns the materialized like count as a string for :likes (G28)" do
+        Pito::Stats.set(game_with_stats, :likes, 300)
+        result = described_class.cells(game_with_stats, [ :likes ])
+        expect(result.first[:text]).to eq("300")
+      end
+
+      it "returns '0' for :likes when no linked videos exist" do
+        result = described_class.cells(game_with_stats, [ :likes ])
+        expect(result.first[:text]).to eq("0")
+      end
+
+      it "right-aligns the :views cell (tabular-nums)" do
+        result = described_class.cells(game_with_stats, [ :views ])
+        expect(result.first[:class]).to include("text-right")
+        expect(result.first[:class]).to include("tabular-nums")
+      end
+
+      it "right-aligns the :likes cell (tabular-nums)" do
+        result = described_class.cells(game_with_stats, [ :likes ])
+        expect(result.first[:class]).to include("text-right")
+        expect(result.first[:class]).to include("tabular-nums")
       end
     end
 

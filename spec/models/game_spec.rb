@@ -244,4 +244,49 @@ RSpec.describe Game, type: :model do
       end
     end
   end
+
+  # ── audience counters (G26.2) ─────────────────────────────────────────────────
+  #
+  # A game carries no stats of its own — #view_count / #like_count are the SUM
+  # of its LINKED vids' Pito::Stats rows (link-graph-first), 0 when unlinked.
+
+  describe "#view_count / #like_count" do
+    let(:game)    { create(:game) }
+    let(:channel) { create(:channel) }
+
+    def link_video_with_stats(views: nil, likes: nil)
+      video = create(:video, channel: channel)
+      create(:video_game_link, game: game, video: video)
+      Pito::Stats.set(video, :views, views) if views
+      Pito::Stats.set(video, :likes, likes) if likes
+      video
+    end
+
+    # G28: the readers consume the game's own MATERIALIZED Pito::Stats rows
+    # (written by Game::StatsRefresh at link edits + stats passes) — they
+    # never live-sum linked vids at render time.
+    it "reads the materialized views row" do
+      Pito::Stats.set(game, :views, 1_250)
+      expect(game.view_count).to eq(1_250)
+    end
+
+    it "reads the materialized likes row" do
+      Pito::Stats.set(game, :likes, 42)
+      expect(game.like_count).to eq(42)
+    end
+
+    it "returns 0 before the first rollup and when no vids are linked" do
+      expect(game.view_count).to eq(0)
+      expect(game.like_count).to eq(0)
+    end
+
+    it "does not live-sum: linked vids' stats don't show until StatsRefresh runs" do
+      link_video_with_stats(views: 1_000, likes: 40)
+      expect(game.view_count).to eq(0)
+
+      Game::StatsRefresh.call(game)
+      expect(game.view_count).to eq(1_000)
+      expect(game.like_count).to eq(40)
+    end
+  end
 end

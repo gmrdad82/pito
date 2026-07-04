@@ -187,7 +187,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
         [
           { "text" => "#", "class" => "text-right" }, "Title",
           { "text" => "Game", "class" => "pito-table-heading--added" },
-          { "text" => "Length", "class" => "pito-table-heading--added text-right" }
+          { "text" => "Duration", "class" => "pito-table-heading--added text-right" }
         ]
       )
     end

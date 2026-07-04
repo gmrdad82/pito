@@ -665,14 +665,15 @@ RSpec.describe Pito::Chat::Handlers::List do
                                 duration_seconds: 300)
       end
 
-      it "includes a right-aligned 'Length' in the table_heading" do
+      # G26.3 — the heading is "Duration" now (was "Length").
+      it "includes a right-aligned 'Duration' in the table_heading" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to include({ "text" => "Length", "class" => "pito-table-heading--added text-right" })
+        expect(payload["table_heading"]).to include({ "text" => "Duration", "class" => "pito-table-heading--added text-right" })
       end
 
-      it "returns a full heading row with the right-aligned Length column appended" do
+      it "returns a full heading row with the right-aligned Duration column appended" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Title", { "text" => "Length", "class" => "pito-table-heading--added text-right" } ])
+        expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Title", { "text" => "Duration", "class" => "pito-table-heading--added text-right" } ])
       end
     end
 
@@ -787,7 +788,7 @@ RSpec.describe Pito::Chat::Handlers::List do
   # it appears alongside a sort clause.  The video_ids assertion enforces the
   # actual sort order so neither form can "pass" by returning an unsorted list.
 
-  describe "#call `ls vids with views,comments,game sort by views desc` (sort-alias + game-column regression)" do
+  describe "#call `ls vids with views,likes,game sort by views desc` (sort-alias + game-column regression)" do
     let!(:chan)    { create(:channel, title: "Sort Alias Chan", handle: "@sortalias", youtube_channel_id: "UCsortalias") }
     let!(:low_vid) { create(:video, :public, title: "Low Views Vid",  channel: chan) }
     let!(:mid_vid) { create(:video, :public, title: "Mid Views Vid",  channel: chan) }
@@ -801,12 +802,12 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     context "with `sort by` (uninflected)" do
       subject(:payload) do
-        handler_for("ls vids with views,comments,game sort by views desc", channel: "@all")
+        handler_for("ls vids with views,likes,game sort by views desc", channel: "@all")
           .call.events.first[:payload]
       end
 
-      it "includes views, comments, and game in list_columns (game not dropped)" do
-        expect(payload["list_columns"]).to include("views", "comments", "game")
+      it "includes views, likes, and game in list_columns (game not dropped)" do
+        expect(payload["list_columns"]).to include("views", "likes", "game")
       end
 
       it "orders video_ids by view_count descending" do
@@ -816,12 +817,12 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     context "with `sorted by` (inflected — parity)" do
       subject(:payload) do
-        handler_for("ls vids with views,comments,game sorted by views desc", channel: "@all")
+        handler_for("ls vids with views,likes,game sorted by views desc", channel: "@all")
           .call.events.first[:payload]
       end
 
-      it "includes views, comments, and game in list_columns (parity with sort by)" do
-        expect(payload["list_columns"]).to include("views", "comments", "game")
+      it "includes views, likes, and game in list_columns (parity with sort by)" do
+        expect(payload["list_columns"]).to include("views", "likes", "game")
       end
 
       it "orders video_ids by view_count descending (parity with sort by)" do
@@ -831,9 +832,20 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     context "with `sort by views` (no direction — ascending)" do
       it "orders video_ids by view_count ascending" do
-        payload = handler_for("ls vids with views,comments,game sort by views", channel: "@all")
+        payload = handler_for("ls vids with views,likes,game sort by views", channel: "@all")
                     .call.events.first[:payload]
         expect(payload["video_ids"]).to eq([ low_vid.id, mid_vid.id, hi_vid.id ])
+      end
+    end
+
+    # G26.1 — the removed comments column is silently dropped from a with clause;
+    # the surviving columns still land in list_columns.
+    context "with the removed `comments` token in the with clause" do
+      it "drops comments but keeps the valid columns" do
+        payload = handler_for("ls vids with views,comments,game sort by views desc", channel: "@all")
+                    .call.events.first[:payload]
+        expect(payload["list_columns"]).to include("views", "game")
+        expect(payload["list_columns"]).not_to include("comments")
       end
     end
   end
