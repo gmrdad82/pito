@@ -27,6 +27,20 @@ done
 
 [ -f docker-compose.yml ] || { echo "update: run this from your pito install dir (no docker-compose.yml here)." >&2; exit 1; }
 
+# ── Single-updater lock ───────────────────────────────────────────────────────
+# One update at a time per install dir, whoever triggers it — a manual
+# `pito update`, the `pito autoupdate` timer, or a second impatient shell.
+# flock(1) on a lockfile next to the compose file; the loser aborts politely
+# instead of racing image pulls / compose restarts. The fd stays open for the
+# script's lifetime, so the lock releases on ANY exit (success, error, kill).
+if command -v flock >/dev/null 2>&1; then
+  exec 9>".pito-update.lock"
+  if ! flock -n 9; then
+    echo "update: another update is already running (lock: $PWD/.pito-update.lock) — aborting." >&2
+    exit 1
+  fi
+fi
+
 env_set() {
   touch .env
   grep -q "^$1=" .env 2>/dev/null && { tmp=$(mktemp); grep -v "^$1=" .env > "$tmp"; mv "$tmp" .env; }

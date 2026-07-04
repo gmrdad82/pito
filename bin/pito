@@ -22,6 +22,9 @@
 #   backup-schedule   Install a daily systemd timer that runs `pito backup`.
 #   install [args]    Fetch + first-boot a fresh install (script/install.sh).
 #   update [args]     Pull the latest image + restart (script/update.sh).
+#   autoupdate [args] Keep this install on the newest release unattended:
+#                     bare = check/update once; --check = dry-run;
+#                     --install / --uninstall = 15-min systemd timer + logrotate.
 #   build [args]      Build the image LOCALLY from a source checkout, tagged
 #                     ghcr.io/gmrdad82/pito:${PITO_TAG:-local}. Deploy it from an
 #                     install dir by setting PITO_TAG to that tag + `pito up`
@@ -181,6 +184,7 @@ case "$cmd" in
     ;;
   install)   run_script install.sh "$@" ;;
   update)    run_script update.sh "$@" ;;
+  autoupdate) run_script autoupdate.sh "$@" ;;
   build)
     # Build the production image LOCALLY from a source checkout (needs the
     # Dockerfile + repo context). Tags it ghcr.io/gmrdad82/pito:${PITO_TAG:-local}

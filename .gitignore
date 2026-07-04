@@ -61,6 +61,10 @@ node_modules/
 /backup/
 # Host backups produced by `pito backup` (db dump + active storage).
 /backups/
+# Single-updater lock + autoupdate log (created when update/autoupdate run
+# from a source checkout instead of an install dir).
+/.pito-update.lock
+/log/autoupdate.log*
 
 # crush (Charm) local state/cache — the config (crush.json) is tracked.
 /.crush/
