@@ -36,6 +36,10 @@ All notable changes to PITO are documented here. The format follows
 
 ### Changed
 
+- **README: "Android app" grew into "Beyond the browser"** — the clients
+  section now covers `pito-android` AND `pito-tui` (the Go/Bubble Tea terminal
+  client) and points to the [pitomd.com](https://pitomd.com) showcase; the
+  whole PITO family cross-references itself across every repo.
 - **The lists answer back properly.** `ls games` gains `views`/`likes` columns
   (summed across a game's linked vids — 0 when nothing is linked) in
   `with`/`without` and `sort`; `ls channels` joins the with/without mechanism

@@ -622,20 +622,29 @@ disturbs it; installs that never ran `pito caddy` don't even start the container
 If the domain is behind Cloudflare's proxy (orange cloud), set SSL/TLS mode to
 **Full (strict)** — or keep the record DNS-only and let Caddy carry TLS alone.
 
-## Android app
+## Beyond the browser
 
-PITO is getting a native Android client —
-[**`pito-android`**](https://github.com/gmrdad82/pito-android), a thin
-[Hotwire Native](https://native.hotwired.dev) shell around the same server-rendered
-app, with native navigation and back-stack. No separate API, no second UI to
-maintain: your instance already serves it (the path configuration lives at
-`/configurations/android_v1.json`).
+The server renders ONE app; everything else is a thin window onto it. No
+separate APIs to version, no second UI to maintain — your instance already
+serves them all.
 
-It is **self-hoster friendly by design**: on first launch the app asks for your
-instance URL, so it works with ANY domain you host PITO on — not just the author's.
-Signed APKs ship on the `pito-android` releases page (no Play Store required), and
-PITO itself offers the download in a dismissible banner when you visit from an
-Android browser.
+- [**`pito-android`**](https://github.com/gmrdad82/pito-android) — a thin
+  [Hotwire Native](https://native.hotwired.dev) shell around the same
+  server-rendered app, with native navigation and back-stack (the path
+  configuration lives at `/configurations/android_v1.json`). Self-hoster
+  friendly by design: on first launch the app asks for your instance URL, so
+  it works with ANY domain you host PITO on — not just the author's. Signed
+  APKs ship on the releases page (no Play Store required), and PITO itself
+  offers the download in a dismissible banner when you visit from an Android
+  browser.
+- [**`pito-tui`**](https://github.com/gmrdad82/pito-tui) — the same chatbox
+  in your terminal: Go + Bubble Tea, raw text in, the server's JSON events
+  out, live over ActionCable. The grammar stays server-side, so the TUI can
+  never lag behind the web.
+
+And when you want the guided-strut version of all this,
+[**pitomd.com**](https://pitomd.com)
+([source](https://github.com/gmrdad82/pitomd)) is the over-the-top showcase.
 
 ## Docs
 
