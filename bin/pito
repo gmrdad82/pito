@@ -30,6 +30,9 @@
 #                     restart — your running stack/data is untouched). (alias: cli-update)
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
 #   cloudflared       Print Cloudflare Tunnel setup guidance for your host.
+#   caddy             Configure direct HTTPS via Caddy (Let's Encrypt) instead
+#                     of a tunnel — writes ./Caddyfile + enables the compose
+#                     profile. The cloudflared flow is untouched.
 #   link              Symlink pito onto your PATH so it runs as a bare `pito`.
 #   version           Show the running stack version + channel (stable/edge).
 #   --help            This help.
@@ -79,7 +82,10 @@ run_script() {
 }
 
 usage() {
-  sed -n '3,30p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+  # Print the whole usage comment block (line 3 → the `--help` line) so new
+  # commands never fall off a hardcoded line range again (pre-1.0 bug: the
+  # help silently truncated after self-update).
+  sed -n '3,/^#   --help/p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
 }
 
 cmd="${1:-}"
@@ -213,6 +219,7 @@ case "$cmd" in
     ;;
   service)   run_script install.sh --service-only "$@" ;;
   cloudflared) run_script install.sh --cloudflared-only "$@" ;;
+  caddy)     run_script install.sh --caddy-only "$@" ;;
   link)      run_script install.sh --link-only "$@" ;;
   version|--version|-v)
     tag=$(sed -n 's/^PITO_TAG=//p' .env 2>/dev/null | head -1); tag="${tag:-latest}"
