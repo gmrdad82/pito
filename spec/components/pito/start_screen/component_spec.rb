@@ -40,17 +40,24 @@ RSpec.describe Pito::StartScreen::Component do
       end
     end
 
-    # Regression: the start-screen chatbox must SHOW the suggestions palette (so
-    # the unauthenticated /login hint appears) WITHOUT wiring a suggestions
-    # keydown handler — keeping Enter (home-transition → chat-form) safe for
-    # login submission. A past change appended the suggestions keydown and
-    # duplicated chat-form, breaking /login on the start screen.
-    it "wires suggestions#onInput on the chatbox but leaves the Enter flow intact" do
+    # G62: an open palette must OWN Enter on the start screen too — without the
+    # suggestions keydown, a highlighted row under "/resu" submitted the raw
+    # partial and the backend errored. Order is the contract (mirrors
+    # chatbox_component.html.erb): suggestions FIRST so accepting a row
+    # stopImmediatePropagation()s before home-transition/chat-form run; every
+    # non-palette key (incl. "/login <code>" — palette closed at arg stage, and
+    # exact-complete verbs, deliberately let through) still reaches
+    # interceptEnter → chat-form untouched. chat-form must not be duplicated —
+    # a past change doubled it and broke /login here.
+    it "wires the palette keydown FIRST, then the home-transition Enter flow, unduplicated" do
       action = node.css("textarea").first["data-action"].to_s
       expect(action).to include("input->pito--suggestions#onInput")          # palette shows
-      expect(action).to include("keydown->pito--home-transition#interceptEnter")
-      expect(action).not_to include("keydown->pito--suggestions")            # Enter stays safe
+      expect(action.index("keydown->pito--suggestions#handleKeydown"))
+        .to be < action.index("keydown->pito--home-transition#interceptEnter")
+      expect(action.index("keydown->pito--home-transition#interceptEnter"))
+        .to be < action.index("keydown->pito--chat-form#handleKeydown")
       expect(action.scan("chat-form#handleKeydown").size).to eq(1)           # not duplicated
+      expect(action.scan("suggestions#handleKeydown").size).to eq(1)
     end
 
     it "renders the tip prefix translation" do

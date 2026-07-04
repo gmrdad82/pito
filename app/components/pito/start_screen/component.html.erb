@@ -60,14 +60,16 @@
                 suggestions: suggestions,
                 input_data: {
                   pito__chat_form_target: "inputField",
-                  # `input->…#onInput` shows the suggestions palette as you type
-                  # (so the unauthenticated /login hint appears on /l). It is a
-                  # SEPARATE event from keydown — the Enter flow below
-                  # (home-transition → chat-form) is untouched, so login submit
-                  # is unaffected. Keyboard-accept of the palette is intentionally
-                  # NOT wired here (no suggestions#handleKeydown) to keep Enter
-                  # safe on the start screen; tap a row or type it out.
-                  action: "keydown->pito--home-transition#interceptEnter keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput"
+                  # Same keydown ORDER as the conversation chatbox
+                  # (chatbox_component.html.erb): suggestions FIRST, so an open
+                  # palette owns Enter/arrows (accept highlights, no submit —
+                  # G62: without it, Enter submitted the raw "/resu" under a
+                  # highlighted row). Every non-palette key passes through
+                  # untouched (the handler preventDefaults ONLY when accepting),
+                  # so the home-transition Enter flow and login submit are
+                  # unaffected — incl. exact-complete verbs, which the handler
+                  # deliberately lets through to submit.
+                  action: "keydown->pito--suggestions#handleKeydown keydown->pito--home-transition#interceptEnter keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput"
                 }
               )) %>
         <% end %>
