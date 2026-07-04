@@ -8,6 +8,26 @@ All notable changes to PITO are documented here. The format follows
 
 ### Added
 
+- **A coverage floor** — the suite now measures itself (SimpleCov, `.rb` files
+  only — services, models, controllers, jobs, and ViewComponent classes; ERB
+  and JS deliberately excluded) and CI fails below the floor, mirroring
+  pito-tui's Go coverage gate. Opt-in locally (`COVERAGE=1 bundle exec rspec
+&& bundle exec rake coverage:floor`), always-on in CI, enforced on the
+  MERGED result after `parallel_rspec` so per-process slices can't false-fail.
+- **A JSON client surface** — the scrollback always persisted structured
+  `jsonb` events (never HTML), and now non-browser clients can drink straight
+  from it: `POST /session {otp}` (TOTP-only JSON login minting the same
+  session cookie), `GET /chat/:uuid.json` (the backfill), JSON `POST /chat` →
+  `201 {uuid, turn_id}`, `GET /resume.json` (the conversation picker), and a
+  live `Pito::JsonChannel` mirroring every persisted event append/replace as
+  `{type, event}` from the Broadcaster's choke points. Auth-gated end to end
+  (guests get explicit 401s; the cable rejects them outright — strictly
+  tighter than the old consumer-less ChatChannel it replaces), with a
+  media-type-keyed CSRF carve-out for JSON bodies. Web-only verbs (sidebars,
+  navigations) answer terminal clients with a printable `web_only` refusal.
+  Built for [`pito-tui`](https://github.com/gmrdad82/pito-tui) — the
+  Go/Bubble Tea terminal client — and whatever window comes after it.
+
 - **Caddy direct HTTPS** — a `caddy` compose profile (dormant by default) plus
   `pito caddy`, which writes a `Caddyfile` for your domain and enables the
   profile in `.env`. An alternative to the cloudflared tunnel for hosts with a

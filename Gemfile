@@ -63,6 +63,9 @@ group :development, :test do
 
   # Testing
   gem "rspec-rails", "~> 8.0"
+  # Coverage floor (mirrors pito-tui's Go gate): opt-in via COVERAGE=1 locally,
+  # always-on in CI; the merged-floor enforcement lives in rake coverage:floor.
+  gem "simplecov", "~> 0.22", require: false
   gem "factory_bot_rails", "~> 6.5"
   gem "faker", "~> 3.8"
   gem "shoulda-matchers", "~> 8.0"
