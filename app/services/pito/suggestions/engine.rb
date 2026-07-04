@@ -730,6 +730,14 @@ module Pito
           end
           return [] if suggestable_slots.empty?
 
+          # G37 — a :free slot (the `#id` position on `show`) is a POSITIONAL
+          # GATE: slots declared after it stay unsuggested until an id-looking
+          # token fills it, so following the palette can never compose
+          # "show game full" with the id silently skipped. Noun tokens don't
+          # fill the gate (they're structural, not the ref); the palette's
+          # silence at the gap IS the reserved place.
+          gate_idx = free_gate_index(spec, typed_tokens)
+
           # Walk the committed tokens, FILLING slots as they match (G32 — the
           # old walk only tracked introducers, so `ls games ` re-offered the
           # noun vocabulary forever instead of advancing). An introducer
@@ -755,7 +763,8 @@ module Pito
             active = nil if active == slot && !slot.repeatable
           end
 
-          # Inside an introduced slot → its remaining members only.
+          # Inside an introduced slot → its remaining members only (an entered
+          # introducer implies the user already crossed the gate deliberately).
           if active
             committed = Array(filled[active]).map(&:to_s)
             return suggest_for_slot(active, partial, authenticated:)
@@ -763,9 +772,12 @@ module Pito
           end
 
           # General position: open plain slots' remaining members, plus the
-          # introducer keywords of slots that can still take (more) values.
+          # introducer keywords of slots that can still take (more) values —
+          # but nothing declared BEYOND an unfilled :free gate (G37).
           items = []
           suggestable_slots.each do |slot|
+            next if gate_idx && spec.slots.index(slot) > gate_idx
+
             closed = !slot.repeatable && Array(filled[slot]).any?
             next if closed
 
@@ -882,6 +894,30 @@ module Pito
           return surface.display_token(canonical) if surface.respond_to?(:display_token)
 
           surface::COLUMNS.fetch(canonical)[:aliases].first
+        end
+
+        # The index of the first UNFILLED :free slot (the G37 gate), or nil
+        # when there is none / it's already filled. A token fills the gate when
+        # no vocabulary resolves it AND it isn't a noun — ids ("5", "#1"),
+        # @handles, and titles qualify; "game"/"vids" don't.
+        def free_gate_index(spec, typed_tokens)
+          gate = spec.slots.find { |s| s.kind == :free }
+          return nil unless gate
+
+          nouns  = Pito::Grammar::Registry.vocabulary(:nouns)
+          vocabs = spec.slots.filter_map { |s| s.source.is_a?(Symbol) ? Pito::Grammar::Registry.vocabulary(s.source) : nil }
+          introducers = spec.slots.filter_map { |s| s.introducer&.to_s }
+
+          filled = typed_tokens.any? do |raw|
+            token = raw.downcase.delete_suffix(",")
+            next false if introducers.include?(token)
+            next false if nouns&.resolve(token)
+            next false if vocabs.any? { |v| v.resolve(token) }
+
+            true
+          end
+
+          filled ? nil : spec.slots.index(gate)
         end
 
         # The slot a committed token fills: the open introduced slot when its
