@@ -16,7 +16,9 @@ module Pito
           end
         end
 
-        def css_class = @state ? "text-green" : "text-red"
+        # Authenticated wears the green↔yellow "me" shimmer (G70); anonymous
+        # stays flat red.
+        def css_class = @state ? "pito-me-shimmer" : "text-red"
 
         # The muted `@suffix` after the nickname (image tag in prod, host in dev) —
         # only when authenticated. nil → no suffix rendered.

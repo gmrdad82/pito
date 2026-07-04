@@ -26,10 +26,72 @@ export default class extends Controller {
   connect() {
     this.hiddenAt = null
     this.#bindVisibility()
+    this.#watchCableReconnect()
   }
 
   disconnect() {
     this.visibilityAbort?.abort()
+    this.reconnectObserver?.disconnect()
+  }
+
+  // ── The refresh nudge (G71) ────────────────────────────────────────────────
+  //
+  // When the server is updated (pito update / autoupdate), the old container
+  // dies with every WebSocket in it; ActionCable silently reconnects this tab
+  // to the NEW server — but the DOM keeps the old build's CSS/JS until a real
+  // reload. Detection is CLIENT-side on reconnect (a server broadcast on boot
+  // would race the reconnections; ActionCable has no replay): Turbo toggles a
+  // `connected` attribute on its <turbo-cable-stream-source>, so a
+  // MutationObserver sees drop → return; on return we compare GET /version
+  // with the page's `pito-version` meta and clone the layout's nudge template
+  // into the scrollback on mismatch. Once per page life — the nudge asks for
+  // the reload that replaces this DOM anyway.
+
+  #watchCableReconnect() {
+    this.pageVersion = document.querySelector('meta[name="pito-version"]')?.content || null
+    this.sawDisconnect = false
+    this.nudged = false
+
+    const sources = document.querySelectorAll("turbo-cable-stream-source")
+    if (!this.pageVersion || sources.length === 0) return
+
+    this.reconnectObserver = new MutationObserver(() => {
+      const connected = [...document.querySelectorAll("turbo-cable-stream-source")]
+        .some((s) => s.hasAttribute("connected"))
+      if (!connected) {
+        this.sawDisconnect = true
+        return
+      }
+      if (this.sawDisconnect && !this.nudged) {
+        this.sawDisconnect = false
+        this.#checkVersion()
+      }
+    })
+    sources.forEach((s) =>
+      this.reconnectObserver.observe(s, { attributes: true, attributeFilter: ["connected"] }),
+    )
+  }
+
+  async #checkVersion() {
+    try {
+      const resp = await fetch("/version", { headers: { "Accept": "application/json" } })
+      if (!resp.ok) return // 401 (session died with the update) or blip — next reconnect retries
+      const { version } = await resp.json()
+      if (version && version !== this.pageVersion) this.#showNudge()
+    } catch {
+      // Offline blip mid-reconnect — the next reconnect runs the check again.
+    }
+  }
+
+  #showNudge() {
+    if (this.nudged) return
+    const template   = document.getElementById("pito-refresh-nudge")
+    const scrollback = document.getElementById("pito-scrollback")
+    if (!template || !scrollback) return
+
+    this.nudged = true
+    scrollback.appendChild(template.content.cloneNode(true))
+    scrollback.lastElementChild?.scrollIntoView({ block: "end" })
   }
 
   #bindVisibility() {

@@ -45,6 +45,9 @@ Rails.application.routes.draw do
   # the same encrypted session cookie the chatbox /authenticate flow does.
   post "/session", to: "sessions#create", as: :session
 
+  # The running build's identity — the refresh nudge's reconnect check (G71).
+  get "/version", to: "versions#show", as: :version
+
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout
 
