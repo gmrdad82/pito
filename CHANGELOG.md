@@ -89,6 +89,12 @@ All notable changes to PITO are documented here. The format follows
 
 ### Fixed
 
+- **The start-screen palette owns Enter now** — typing a partial verb (say
+  `/resu`) popped the palette with a highlighted row, but Enter submitted the
+  raw partial and the backend shrugged. The start screen (and the 404 page —
+  same component) now wires the palette keydown in the same order as the
+  conversation chatbox, so Enter accepts the highlighted row; every
+  non-palette Enter (login included) passes through untouched.
 - **Android path-configuration drift** — `/configurations/android_v1.json` now
   matches the shell's bundled config byte for byte (adds `fallback_uri`, turns
   `pull_to_refresh` OFF — the gesture fights the live scrollback — and clears
