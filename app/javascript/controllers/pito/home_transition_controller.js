@@ -110,10 +110,19 @@ export default class extends Controller {
     // Re-anchor to center (no transition — was already centered) so animating
     // only `width` makes both edges move outward equally.
     // Easing: ease-in (slow start → accelerates) to match the drop feel.
-    // Account for bottom-panel padding (50px × 2) so the chatbox lands at the
-    // exact width it will have in the conversation layout.
-    const BOTTOM_PANEL_PAD = 100  // 50px left + 50px right
-    const targetWidth = window.innerWidth - BOTTOM_PANEL_PAD
+    // Land at the EXACT width the form will have inside the conversation's
+    // .pito-conversation-col so the replaceWith morph causes zero snap:
+    // desktop (md+, ≥768px) = the full 964px border box — the col's 5px
+    // insets are REMOVED there (application.css 17.11), so subtracting them
+    // left the chatbox 10px narrower than the turns (owner G26.9);
+    // mobile = full width minus the col's 5px inset each side.
+    // (The original full-viewport innerWidth − 100 target predates the
+    // centered column entirely — owner G12.)
+    const COL_MAX = 964  // .pito-conversation-col max-width (border box)
+    const desktop = window.innerWidth >= 768
+    const targetWidth = desktop
+      ? Math.min(COL_MAX, window.innerWidth)
+      : window.innerWidth - 10
     chatbox.getBoundingClientRect()
     chatbox.style.transition = "none"
     chatbox.style.left       = "50%"
@@ -206,19 +215,24 @@ export default class extends Controller {
       type: "hidden", name: "uuid", value: uuid,
     }))
 
-    // Build conversation layout (scrollback + chrome).
+    // Build conversation layout (scrollback + chrome) — MIRRORS
+    // app/views/conversations/show.html.erb so a transition-built page is
+    // byte-equivalent to a reloaded one (same classes, paddings, and
+    // controllers; the old 50px-padded full-width panel was a legacy copy
+    // that drifted from the centered .pito-conversation-col — G12).
     const conversationEl = document.createElement("div")
     conversationEl.className = "flex flex-col"
     conversationEl.style.cssText = "height: 100vh; overflow-x: hidden;"
 
     const scrollback = document.createElement("div")
     scrollback.id = "pito-scrollback"
-    scrollback.className = "pito-hide-scrollbar pito-scroll-fade"
-    scrollback.style.cssText = "flex: 1; overflow-y: auto; padding: 32px 50px 20px;"
-    scrollback.dataset.controller = "pito--scrollback pito--quick-run"
+    scrollback.className = "pito-thin-scrollbar"
+    scrollback.style.cssText = "flex: 1; overflow-y: auto; padding: 32px 5px 20px;"
+    scrollback.dataset.controller = "pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag"
 
     const bottomPanel = document.createElement("div")
-    bottomPanel.style.cssText = "padding: 0 50px 32px; overflow-x: hidden;"
+    bottomPanel.className = "pito-conversation-col"
+    bottomPanel.style.cssText = "padding-bottom: 32px; overflow-x: hidden;"
     bottomPanel.appendChild(form)
     chrome.removeAttribute("style")
     bottomPanel.appendChild(chrome)

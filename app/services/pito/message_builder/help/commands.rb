@@ -66,7 +66,9 @@ module Pito
               margin = index.zero? ? "" : " mt-3"
               title_div = %(<div class="text-yellow font-bold#{margin}">#{title}</div>)
 
-              rows = verbs.map do |verb|
+              # Alphabetical within the group (owner 1.0.0 G13) — the arrays
+              # above stay membership-only; display order is derived.
+              rows = verbs.sort.map do |verb|
                 verb_escaped = ERB::Util.html_escape(verb)
                 %(<span class="text-fg">#{verb_escaped}</span>) \
                   "<span class=\"text-fg-dim\">#{hint}</span>"
