@@ -138,15 +138,50 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
   # ── Notification creation — conditional ─────────────────────────────────────
 
   # (a) changed-only → notification created
-  it "(a) creates ONE Notification when games were updated" do
-    game = create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
+  it "(a) creates ONE Notification when a game's release data moved" do
+    game = create(:game, title: "Slipping Game", igdb_synced_at: 10.days.ago, release_year: nil)
 
-    # Simulate a DB write by advancing updated_at after perform_now is called
+    # Simulate the sync writing a firmer release date
+    allow(GameIgdbSync).to receive(:perform_now) do |id|
+      Game.where(id: id).update_all(release_year: 2027, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+    end
+
+    expect { run! }.to change(Notification, :count).by(1)
+    expect(Notification.last.message).to include("Slipping Game")
+  end
+
+  # ── G25 — only RELEASE-data changes are reportable ──────────────────────────
+
+  it "does NOT report a game whose ratings drifted but release data did not (writes stay, cache busts, no noise)" do
+    create(:game, title: "Rated Game", igdb_synced_at: 10.days.ago, release_year: nil)
+
+    allow(GameIgdbSync).to receive(:perform_now) do |id|
+      Game.where(id: id).update_all(igdb_rating: 88.8, updated_at: Time.current + 1.second) # rubocop:disable Rails/SkipsModelValidations
+    end
+
+    expect { run! }.not_to change(Notification, :count)
+  end
+
+  it "does NOT report a game that was merely touched (cover re-attach style updated_at bump)" do
+    create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
+
     allow(GameIgdbSync).to receive(:perform_now) do |id|
       Game.where(id: id).update_all(updated_at: Time.current + 1.second) # rubocop:disable Rails/SkipsModelValidations
     end
 
+    expect { run! }.not_to change(Notification, :count)
+  end
+
+  it "reports a game whose per-platform release row moved even when the game-level date is untouched" do
+    game = create(:game, title: "Slipped On PS", igdb_synced_at: 10.days.ago, release_year: nil)
+    game.platform_releases.create!(platform_token: "ps", release_year: 2026, release_month: 11)
+
+    allow(GameIgdbSync).to receive(:perform_now) do |id|
+      Game.find(id).platform_releases.find_by(platform_token: "ps").update!(release_month: 12)
+    end
+
     expect { run! }.to change(Notification, :count).by(1)
+    expect(Notification.last.message).to include("Slipped On PS")
   end
 
   # (b) failure → notification created
@@ -259,7 +294,8 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
       if id == bad1.id
         raise RuntimeError, "network timeout"
       else
-        Game.where(id: id).update_all(updated_at: Time.current + 1.second) # rubocop:disable Rails/SkipsModelValidations
+        # A release-data change — the only reportable kind (G25)
+        Game.where(id: id).update_all(release_year: 2027, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
       end
     end
 

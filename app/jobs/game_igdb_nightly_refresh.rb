@@ -18,13 +18,16 @@
 #     date slips, precision firms up, platform/genre edits), so those refresh
 #     nightly and every sync rewrites the release fields when IGDB changed.
 #
-# "Changed" detection: `GameIgdbSync` calls `game.update!(igdb_synced_at:
-# Time.current, ...)` inside a transaction. We capture `game.updated_at`
-# BEFORE the sync call and compare with a reloaded `updated_at` after — any
-# DB write (data change OR merely the `igdb_synced_at` stamp) advances
-# `updated_at`, so this is a reliable "something was written" signal. A game
-# that was never written (e.g. `ValidationError` swallowed by the job) does
-# not advance `updated_at`.
+# "Changed" detection (1.0.0 G25 — release dates ONLY): the notification is
+# about UPCOMING games, so a game is reported only when its RELEASE data
+# moved — the game-level components (year/quarter/month/day/date) or any
+# per-platform release row. Each game's release signature is captured before
+# the sync and compared against a fresh load after it. Ratings, covers, and
+# other IGDB drift still WRITE (and deliberately touch `updated_at`, busting
+# the 0.9.0 caches) but never appear in the report. (The previous
+# `updated_at`-advanced heuristic conflated those writes — and the cover
+# re-attach touch — with real changes: "checked 60, updated 49" with zero
+# release movement.)
 #
 # Notification is created ONLY IF there is something noteworthy:
 # changed games or failures. A completely quiet run (nothing changed, no
@@ -53,15 +56,13 @@ class GameIgdbNightlyRefresh < ApplicationJob
 
     upcoming_games.each do |game|
       checked += 1
-      before_updated_at = game.updated_at
+      before_signature = release_signature(game)
 
       begin
         GameIgdbSync.perform_now(game.id, prefetched: prefetched&.dig(game.igdb_id))
 
-        after_updated_at = Game.where(id: game.id).pick(:updated_at)
-        if after_updated_at && after_updated_at > before_updated_at
-          changed << game.title
-        end
+        fresh = Game.find(game.id)
+        changed << fresh.title if release_signature(fresh) != before_signature
       rescue StandardError => e
         Rails.logger.error("[GameIgdbNightlyRefresh] game id=#{game.id} (#{game.title}) failed: #{e.class}: #{e.message}")
         failures << { title: game.title, error: "#{e.class}: #{e.message}" }
@@ -79,6 +80,20 @@ class GameIgdbNightlyRefresh < ApplicationJob
   end
 
   private
+
+  # Everything release-related about a game, comparable before/after a sync:
+  # the game-level date components plus every per-platform release row. Reads
+  # the association fresh from the DB (the callers pass either an un-loaded
+  # record or a newly-found one), so a stale cache can never mask a change.
+  def release_signature(game)
+    [
+      game.release_year, game.release_quarter, game.release_month,
+      game.release_day, game.release_date,
+      game.platform_releases.order(:platform_token).map do |rel|
+        [ rel.platform_token, rel.release_year, rel.release_quarter, rel.release_month, rel.release_day ]
+      end
+    ]
+  end
 
   # igdb_id → { game_json:, ttb_json: } for every id a bulk slice answered.
   # A failed slice logs and contributes nothing — its games sync per-game.
