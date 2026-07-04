@@ -9,17 +9,24 @@
 # no colour-space coercion, no JPEG re-encode.
 #
 # Idempotency (two gates):
-#   1. mtime gate — if the attachment was created AFTER `game.igdb_synced_at`
-#      the cover is considered fresh and the CDN is not queried at all (short-
-#      circuits the whole call). Re-syncing via Game::Igdb::SyncGame bumps
-#      `igdb_synced_at` first, so this gate is transparent to the sync path.
-#   2. digest gate — after fetching, if the raw bytes' MD5 matches the stored
-#      blob checksum the attachment is left untouched (no new blob created).
-#      This means re-syncs that see the same cover on the CDN are a storage
-#      no-op while still paying one CDN round-trip.
+#   1. image_id gate — IGDB image ids are immutable content identifiers: a
+#      replaced cover gets a NEW `cover_image_id`. The attached blob carries
+#      the id it was fetched from in its metadata (`igdb_image_id`); when it
+#      matches the game's current `cover_image_id` the master is current and
+#      the CDN is not queried at all. (The old gate compared the attachment's
+#      created_at against `igdb_synced_at` — which the sync stamps moments
+#      earlier, so every nightly re-downloaded all covers, and CDN re-encodes
+#      then re-attached unchanged art; the attachment-touch marked ~all
+#      awaited games "updated" every night — 1.0.0 G24/G25.)
+#   2. digest gate — for blobs attached before the metadata existed: after
+#      fetching, if the raw bytes' MD5 matches the stored blob checksum, the
+#      id is stamped onto the blob IN PLACE (`blob.update!` — no new blob, no
+#      attachment-touch) and future runs take gate 1. Only a real mismatch
+#      re-attaches — and a genuinely new cover SHOULD touch the game (cache
+#      bust), so `attach` runs normally.
 #
 # Returns the ActiveStorage::Attached::One proxy when attached (or already
-# fresh). Returns nil when the Game has no `cover_image_id`.
+# current). Returns nil when the Game has no `cover_image_id`.
 require "net/http"
 require "uri"
 require "stringio"
@@ -41,10 +48,13 @@ class Game
 
       def call
         return nil if @game.cover_image_id.blank?
-        return @game.cover_art if !@force && fresh?
+        return @game.cover_art if !@force && current_master?
 
         raw_bytes, content_type = fetch_source_bytes
-        return @game.cover_art if !@force && attached_matches?(raw_bytes)
+        if !@force && attached_matches?(raw_bytes)
+          stamp_image_id!
+          return @game.cover_art
+        end
 
         attach_master(raw_bytes, content_type)
         @game.cover_art
@@ -52,20 +62,36 @@ class Game
 
       private
 
-      # True when an attachment already exists and was created AFTER the last
-      # IGDB sync (meaning this normalizer already ran for the current sync).
-      def fresh?
-        return false unless @game.cover_art.attached?
-        return false if @game.igdb_synced_at.blank?
-
-        @game.cover_art.attachment.created_at >= @game.igdb_synced_at
+      # Gate 1: the attached master was fetched from the game's CURRENT
+      # cover_image_id — nothing to do, no network.
+      def current_master?
+        @game.cover_art.attached? && stored_image_id == @game.cover_image_id
       end
 
-      # True when the current blob's MD5 checksum matches the supplied raw bytes.
-      # ActiveStorage stores the base64-encoded MD5 digest per blob.
+      # Blob metadata round-trips through JSON, so keys come back as strings;
+      # a not-yet-reloaded in-memory blob may still hold the symbol form.
+      def stored_image_id
+        meta = @game.cover_art.blob.metadata
+        meta["igdb_image_id"] || meta[:igdb_image_id]
+      end
+
+      # Gate 2: true when the current blob's MD5 checksum matches the supplied
+      # raw bytes. ActiveStorage stores the base64-encoded MD5 digest per blob.
       def attached_matches?(bytes)
         @game.cover_art.attached? &&
           @game.cover_art.blob.checksum == Digest::MD5.base64digest(bytes)
+      end
+
+      # Backfill the image id onto a pre-metadata blob without re-attaching.
+      # A blob update cascades a touch to the game (blob → attachments →
+      # `belongs_to :record, touch: true`); the whole point of stamping in
+      # place is that an unchanged cover must NOT mark the game updated, so
+      # the game leg is suppressed.
+      def stamp_image_id!
+        blob = @game.cover_art.blob
+        Game.no_touching do
+          blob.update!(metadata: blob.metadata.merge("igdb_image_id" => @game.cover_image_id))
+        end
       end
 
       def fetch_source_bytes
@@ -92,7 +118,8 @@ class Game
         @game.cover_art.attach(
           io:           StringIO.new(raw_bytes),
           filename:     "cover-#{@game.id}.jpg",
-          content_type: content_type
+          content_type: content_type,
+          metadata:     { "igdb_image_id" => @game.cover_image_id }
         )
       end
     end
