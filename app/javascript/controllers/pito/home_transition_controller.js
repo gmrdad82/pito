@@ -247,13 +247,16 @@ export default class extends Controller {
     document.body.dataset.audioChatPage = "true"
     document.dispatchEvent(new CustomEvent("pito:chat-page-ready"))
 
-    // ── Animate the chatbox filter line (Channel / Period) sliding up + fading in ──
-    // Only shown when authenticated — gate on the data attribute set by the server.
+    // Ensure hidden channel/period inputs exist so the chat_form controller can
+    // cycle them (shift+tab / shift+space) and POSTs carry the scope params.
+    // NOTE (G66): the old filter-LINE injection that lived here is gone — no
+    // server page renders `#pito-chatbox-filter` since the meta moved into the
+    // hint slot (13.39), so the morph was appending a dead element whose empty
+    // shell still carried `.pito-chatbox__filter`'s 10px margin-top, leaving
+    // the transition-built chatbox 10px taller than a reloaded one.
     const chatboxArea = this.chatboxAreaTarget
     const authenticated = chatboxArea.dataset.authenticated === "true"
-    const chatboxWrapper = form.querySelector(".chatbox-wrapper")
-    if (authenticated && chatboxWrapper) {
-      // Ensure hidden inputs exist so the chat_form controller can cycle them
+    if (authenticated) {
       if (!form.querySelector('input[name="channel"]')) {
         form.appendChild(Object.assign(document.createElement("input"), {
           type: "hidden", name: "channel", value: "@all",
@@ -263,29 +266,6 @@ export default class extends Controller {
         form.appendChild(Object.assign(document.createElement("input"), {
           type: "hidden", name: "period", value: "7d",
         }))
-      }
-
-      const filterEl = document.createElement("div")
-      filterEl.id        = "pito-chatbox-filter"
-      filterEl.className = "flex items-center text-fg-faded pito-chatbox__filter"
-      // Clone the server-rendered filter chip (real shimmer tokens + shared
-      // offset) instead of rebuilding the markup here — keeps a single source of
-      // truth and avoids the JS drifting from the component's classes.
-      const filterTemplate = document.getElementById("pito-chatbox-filter-template")
-      filterEl.innerHTML = filterTemplate ? filterTemplate.innerHTML : ""
-
-      const segmentContent = chatboxWrapper.querySelector(".pito-segment__content > .flex.flex-col")
-      if (segmentContent) {
-        segmentContent.appendChild(filterEl)
-
-        filterEl.style.transition = "none"
-        filterEl.style.transform  = "translateY(8px)"
-        filterEl.style.opacity    = "0"
-        filterEl.getBoundingClientRect()
-
-        filterEl.style.transition = "transform 250ms ease-out, opacity 250ms ease-in"
-        filterEl.style.transform  = "translateY(0)"
-        filterEl.style.opacity    = "1"
       }
     }
 
