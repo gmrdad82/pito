@@ -121,7 +121,13 @@ else
   docker compose up -d
 fi
 
-echo "→ Reclaiming disk (old image layers)"
+echo "→ Reclaiming disk (old image layers + superseded releases)"
 docker image prune -f >/dev/null 2>&1 || true
+# Dangling-only prune never touches TAGGED images, so superseded pito
+# releases would pile up forever (G42) — drop every pito tag except the one
+# this update just deployed. In-use images can't be removed (rmi fails,
+# swallowed), so a running stack is never harmed.
+docker images "ghcr.io/gmrdad82/pito" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null \
+  | grep -v ":$TAG\$" | xargs -r docker rmi >/dev/null 2>&1 || true
 
 echo "→ Updated."
