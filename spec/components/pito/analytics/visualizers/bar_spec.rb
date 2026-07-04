@@ -158,24 +158,20 @@ RSpec.describe Pito::Analytics::Visualizers::Bar, type: :component do
     expect(fill_span.text.length).to eq(0)
   end
 
-  it "clamps pct above 100 to 100 and caps fill at COLS-1 (no canvas overflow)" do
+  it "clamps pct above 100 to 100 and fills the whole canvas (no overflow)" do
     over_bar = { label: "Over", pct: 150.0, color: :cyan }
     node     = render_bars(bars: [ over_bar ])
     bar_rows = node.css(".pito-metric__brow").reject { |r| r.text == BLANK_CHR * COLS }
-    fill_span      = bar_rows.first.at_css(".pito-bar-fill:not(.is-outline)")
-    remainder_span = bar_rows.first.css(".pito-bar-fill.is-outline").last
-    expect(fill_span.text.length).to eq(COLS - 1)
-    expect(remainder_span.text.length).to be >= 1
+    fill_span = bar_rows.first.at_css(".pito-bar-fill:not(.is-outline)")
+    expect(fill_span.text.length).to eq(COLS)
   end
 
-  it "caps a 100% bar at COLS-1 filled cells, leaving ≥1 cell of headroom" do
+  it "renders a 100% bar completely full — no dim terminator cell (G35)" do
     full_bar = { label: "Full", pct: 100.0, color: :blue }
     node     = render_bars(bars: [ full_bar ])
     bar_rows = node.css(".pito-metric__brow").reject { |r| r.text == BLANK_CHR * COLS }
-    fill_span      = bar_rows.first.at_css(".pito-bar-fill:not(.is-outline)")
-    remainder_span = bar_rows.first.css(".pito-bar-fill.is-outline").last
-    expect(fill_span.text.length).to eq(COLS - 1)
-    expect(remainder_span.text.length).to be >= 1
+    fill_span = bar_rows.first.at_css(".pito-bar-fill:not(.is-outline)")
+    expect(fill_span.text.length).to eq(COLS)
   end
 
   # ── Remainder span ────────────────────────────────────────────────────────────

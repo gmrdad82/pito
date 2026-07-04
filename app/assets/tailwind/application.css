@@ -1442,17 +1442,19 @@ html {
 }
 
 /* Value RIGHT of the tick (footage in the LEFT half): offset the chip past the
-   tick by ~1ch (the tick glyph's width, less a 2px hug) so it mirrors the score
-   bar's tick+value spacing AND clears the opening "[" bracket even when footage
-   is 0 and the tick sits at the far-left cell (17.8 — value never overlaps "["). */
+   pillar's INK, not its whole cell — the old 1ch cell-width offset left ~half a
+   character of visible air vs the score bar's flush −2px hug (owner G41). The
+   pillar glyph's ink sits centered in its 1ch cell, so 0.6ch clears it while
+   hugging like the score chip; still clears the opening "[" when footage is 0
+   and the tick sits at the far-left cell (17.8). */
 .pito-ttb__footage-marker--value-right {
-  transform: translate(calc(1ch - 2px), -50%);
+  transform: translate(calc(0.6ch - 2px), -50%);
 }
 
-/* Value LEFT of the tick (footage in the RIGHT half): the chip's right edge sits
-   ~1ch left of the tick, clearing the closing "]" bracket. */
+/* Value LEFT of the tick (footage in the RIGHT half): mirrored hug, clearing
+   the closing "]". */
 .pito-ttb__footage-marker--value-left {
-  transform: translate(calc(-100% - 1ch + 2px), -50%);
+  transform: translate(calc(-100% - 0.6ch + 2px), -50%);
 }
 
 /* Edge-label clamping modifiers. */
@@ -3081,12 +3083,18 @@ html {
    from the parent .pito-metric__brow) so the diagonal reads true across the
    whole canvas — identical fix to the area chart and heart. */
 .pito-metric__brow .pito-bar-fill {
+  /* Filled cells get a saturation-forward lift over the raw theme accent
+     (G36 — owner benchmark: the ScoreBar's punch vs the washed-out braille
+     canvas). Derived from the token via relative oklch (+40% chroma, +8% L)
+     so every theme keeps its own hue, exactly like the ScoreBar's
+     color-mix derivation. */
+  --bar-color-vivid: oklch(from var(--bar-color) calc(l * 1.08) calc(c * 1.4) h);
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
       color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
-    linear-gradient(var(--bar-color), var(--bar-color));
+    linear-gradient(var(--bar-color-vivid), var(--bar-color-vivid));
   background-repeat: no-repeat;
   background-size: 100% var(--pito-plot-h), 100% var(--pito-plot-h);
   background-position: 0 calc(-1 * var(--pito-rh) * var(--i)), 0 calc(-1 * var(--pito-rh) * var(--i));
@@ -3098,9 +3106,15 @@ html {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-/* The dim remainder (above or beyond the bar fill) — same hollow treatment
-   as the heart's is-outline. */
-.pito-metric__brow .pito-bar-fill.is-outline { opacity: 0.45; }
+/* The dim remainder (above or beyond the bar fill) — hollow treatment,
+   faded FURTHER than the heart's 0.45 so the vivid fill pops against it
+   (G36 contrast pass: fade the faded, saturate the filled). The vivid
+   custom property must not leak into the remainder — reset to the flat
+   token so outline cells stay muted. */
+.pito-metric__brow .pito-bar-fill.is-outline {
+  --bar-color-vivid: var(--bar-color);
+  opacity: 0.25;
+}
 
 /* Constrain the bar chart to the plot's intrinsic width (the `white-space: pre`
    braille rows = COLS chars). Without this the `.pito-metric` (width: max-content)
