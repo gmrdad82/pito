@@ -41,6 +41,10 @@ Rails.application.routes.draw do
   # Settings toggle endpoints — require authentication (no allow_anonymous).
   patch  "/settings/theme",      to: "settings#theme",             as: :settings_theme
 
+  # JSON login for non-browser clients (pito-tui): POST /session {otp} mints
+  # the same encrypted session cookie the chatbox /authenticate flow does.
+  post "/session", to: "sessions#create", as: :session
+
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout
 

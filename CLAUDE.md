@@ -136,9 +136,9 @@ invariants you can't discover by reading a single file — keep them.
   deliberate 0.9.5 decision; the slash dispatcher remains separate but is fed
   by the same config). NEVER re-introduce Ruby verb tables, per-handler
   availability DSLs, or verb→handler conditionals — new verbs are YAML entries
-  + a handler class; the schema-integrity, help-sync, and add-a-verb proof
-  suites are the guards. The controller still pattern-matches Results and
-  never reads handler internals.
+  - a handler class; the schema-integrity, help-sync, and add-a-verb proof
+    suites are the guards. The controller still pattern-matches Results and
+    never reads handler internals.
 - **`Pito::Stream::Broadcaster` is the only way to add to the scrollback.** Never
   broadcast from controllers or models. Events persist **structured `jsonb`
   payloads, never rendered HTML** (re-rendering must yield current timestamps and

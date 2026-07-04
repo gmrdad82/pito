@@ -17,12 +17,62 @@
 | `GET /notifications`           | `notifications#index`                         | Notifications list.                                    |
 | `PATCH /notifications/:id`     | `notifications#update`                        | Mark a notification read.                              |
 | `PATCH /settings/theme`        | `settings#theme`                              | Persist the active theme.                              |
+| `POST /session`                | `sessions#create`                             | JSON login for non-browser clients (`{otp}`).          |
+| `DELETE /logout`               | `sessions#destroy`                            | Clear the session (204 to JSON, redirect to HTML).     |
 | `match /auth/youtube/callback` | `youtube_connections/oauth_callbacks#create`  | Google OAuth callback; imports channels.               |
 | `GET /auth/failure`            | `youtube_connections/oauth_callbacks#failure` | OAuth failure landing.                                 |
 
 Auth is TOTP-only via the chatbox (`/authenticate <code>`); there are no
 login/connect form routes — `/connect`, `/new`, `/resume`, `/themes`, etc. are
-chatbox slash commands, not HTTP routes.
+chatbox slash commands, not HTTP routes. (`POST /session` is the same TOTP
+verify+mint as `/authenticate`, packaged for cookie-jar clients.)
+
+## JSON client surface (1.0.0 — pito-tui et al.)
+
+The scrollback has always been client-agnostic — events persist structured
+`jsonb` payloads, never HTML — so the JSON surface is a projection, not a
+second app. A non-browser client (the Go/Bubble Tea `pito-tui`, and anything
+after it) speaks:
+
+1. **`POST /session` `{otp}`** → `201 {authenticated: true}` + the same
+   encrypted `pito_session` cookie the web mints (`Pito::Auth::ChatLogin`
+   verbatim, per-IP throttle included), or `401 {authenticated: false,
+error:, message:}`. The client keeps a cookie jar; the cookie also rides
+   the cable handshake.
+2. **`GET /chat/:uuid.json`** → `{conversation: {uuid, title, display_name,
+created_at}, events: [EventJson…]}` position-ordered — the backfill.
+   Anonymous → explicit `401` (the HTML page withholds silently instead).
+3. **`POST /chat` (JSON body)** → `201 {uuid, turn_id}` so the client can
+   correlate its pending spinner (`turn_id` is `null` for reply mutations).
+   Web-only fast-paths (sidebars/navigations: `/connect`, `/new`, `/resume`,
+   `/themes`, pickers, imports) → `422 {error: "web_only", message}` — a
+   printable refusal from the `pito.copy.errors.web_only` dictionary.
+4. **`GET /resume.json`** → `{recent: […], older: […]}` rows of
+   `{uuid, title, display_name, last_activity_at}` — the conversation picker.
+5. **`Pito::JsonChannel`** — subscribe with the bare `uuid` (auth-gated, not
+   signed-token-gated: guests and unknown uuids are REJECTED — the cable is
+   no leakier than the page). Messages:
+   `{type: "event.append"|"event.replace", event: EventJson}`.
+
+`Pito::Stream::EventJson` (`lib/pito/stream/event_json.rb`, EventRenderer's
+sibling) is the one shape — `{id, turn_id, kind, payload, position,
+created_at}` — used by both the backfill and the live mirror, so they can
+never drift. The mirror is fed by the Broadcaster's private `broadcast_json`
+at its THREE persisted-event choke points (`broadcast_event`,
+`replace_event`, `resolve_one` — the thinking resolve broadcasts directly,
+not via `replace_event`). Ephemeral chrome (context meter, auth updates,
+sidebars, metric fragments, done-div) is NOT mirrored; a client renders its
+own pending state and treats the thinking event's `event.replace`
+(`payload.resolved: true`, `elapsed_seconds`) as the turn-done signal.
+
+CSRF: requests whose body is `application/json` skip the authenticity token
+(`ApplicationController`) — an HTML form cannot produce that content type, a
+cross-origin JSON fetch triggers a CORS preflight that never passes, and the
+session cookie is `SameSite=lax`. The skip is keyed on `request.media_type`
+(attacker-influencable only via a non-form body), never `request.format`
+(influencable via the URL). Anonymous JSON requests to auth-gated actions get
+`401 {error: "unauthenticated"}` from `Sessions::AuthConcern` instead of the
+browser redirect-to-root.
 
 ## UI stack
 

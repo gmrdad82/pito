@@ -26,9 +26,12 @@ RSpec.describe "Channel visit consume endpoint", type: :request do
   end
 
   describe "POST /channels/visit_consume — unauthenticated" do
-    it "redirects to root (auth required, no allow_anonymous)" do
+    # JSON-format requests get an explicit 401 (Sessions::AuthConcern) — the
+    # redirect-to-root auth wall is a browser affordance.
+    it "rejects with 401 JSON (auth required, no allow_anonymous)" do
       post channel_visit_consume_path, params: { event_id: visiting_event.id }, as: :json
-      expect(response).to redirect_to(root_path)
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.parsed_body["error"]).to eq("unauthenticated")
     end
   end
 

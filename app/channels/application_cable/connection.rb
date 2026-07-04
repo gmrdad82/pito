@@ -19,6 +19,14 @@ module ApplicationCable
       end
     end
 
+    # True when the encrypted session cookie identified this socket (fresh,
+    # unexpired). Channels that carry conversation CONTENT (Pito::JsonChannel)
+    # must reject guests — the HTML page withholds the scrollback from
+    # anonymous visitors, and the cable must be no leakier than the page.
+    def authenticated?
+      session_id.present? && !session_id.start_with?("guest:")
+    end
+
     private
 
     def guest_id

@@ -44,6 +44,17 @@ module Sessions
       # the unauthenticated (Anonymous) state.
       return if anonymous_action?
 
+      # Non-browser clients get an explicit 401 — redirect-to-root is a
+      # browser affordance (land on the shell, /login there); JSON has no
+      # shell to land on.
+      if request.format.json?
+        render json: {
+          error:   "unauthenticated",
+          message: Pito::Copy.render("pito.copy.auth.mandatories")
+        }, status: :unauthorized
+        return
+      end
+
       stash_intended_url
       redirect_to root_path, alert: "login first: /login <code>"
     end
