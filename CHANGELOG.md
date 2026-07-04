@@ -89,6 +89,13 @@ All notable changes to PITO are documented here. The format follows
 
 ### Fixed
 
+- **The transition-built chatbox lost its ghost 10px** — arriving in a
+  conversation via the start-screen transformation left the chatbox 10px
+  taller than a reload: the morph still injected the legacy
+  `#pito-chatbox-filter` line, which no page renders since the channel/period
+  meta moved into the hint slot — an empty div whose margin-top haunted the
+  box. The injection (and its dead start-screen template) are gone; the morph
+  keeps only the hidden channel/period inputs.
 - **The start-screen palette owns Enter now** — typing a partial verb (say
   `/resu`) popped the palette with a highlighted row, but Enter submitted the
   raw partial and the backend shrugged. The start screen (and the 404 page —
