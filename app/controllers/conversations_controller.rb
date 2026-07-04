@@ -30,17 +30,46 @@ class ConversationsController < ApplicationController
     @events      = @authenticated ? @conversation.events.includes(:turn).order(:position) : Event.none
     @event_count = @authenticated ? @conversation.context_event_count : 0
 
-    # L2 snapshot (0.9.0 Phase 6): the assembled scrollback serves as ONE cache
-    # read; misses rebuild from the L1 fragment layer. Broadcaster chokepoints
-    # bust it on every scrollback-visible change. Authenticated only.
-    @scrollback_html =
-      if @authenticated
-        Pito::Stream::ScrollbackCache.fetch(@conversation) do
-          Pito::Stream::ScrollbackCache.assemble(@events.to_a)
-        end
-      else
-        ""
+    respond_to do |format|
+      format.html do
+        # L2 snapshot (0.9.0 Phase 6): the assembled scrollback serves as ONE
+        # cache read; misses rebuild from the L1 fragment layer. Broadcaster
+        # chokepoints bust it on every scrollback-visible change. Authenticated only.
+        @scrollback_html =
+          if @authenticated
+            Pito::Stream::ScrollbackCache.fetch(@conversation) do
+              Pito::Stream::ScrollbackCache.assemble(@events.to_a)
+            end
+          else
+            ""
+          end
+        render :show
       end
+
+      # The JSON backfill for non-browser clients (pito-tui): the same events,
+      # via the same EventJson shape the live Pito::JsonChannel mirror uses —
+      # backfill and stream can never drift. Where the HTML page withholds
+      # silently (anonymous visitors still get the shell to /login in), JSON
+      # is explicit: 401.
+      format.json do
+        if @authenticated
+          render json: {
+            conversation: {
+              uuid:         @conversation.uuid,
+              title:        @conversation.title,
+              display_name: @conversation.display_name,
+              created_at:   @conversation.created_at.iso8601
+            },
+            events: @events.map { |e| Pito::Stream::EventJson.call(e) }
+          }
+        else
+          render json: {
+            error:   "unauthenticated",
+            message: Pito::Copy.render("pito.copy.auth.mandatories")
+          }, status: :unauthorized
+        end
+      end
+    end
   end
 
   # GET /resume — re-render the conversations sidebar (same Turbo Stream as the
@@ -56,6 +85,23 @@ class ConversationsController < ApplicationController
                  current_uuid: params[:uuid].presence
                }
       end
+
+      # The conversation picker for non-browser clients (pito-tui): the same
+      # recency groups the sidebar renders, as data. Auth is enforced by the
+      # concern (anonymous JSON → 401 before this runs).
+      format.json do
+        render json: Conversation.recency_groups.transform_values { |convs|
+          convs.map do |c|
+            {
+              uuid:             c.uuid,
+              title:            c.title,
+              display_name:     c.display_name,
+              last_activity_at: c.last_activity_at&.to_time&.iso8601
+            }
+          end
+        }
+      end
+
       format.html { redirect_to root_path }
     end
   end

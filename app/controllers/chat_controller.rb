@@ -32,24 +32,25 @@ class ChatController < ApplicationController
         # Auth stays synchronous — it mints the session cookie, which can only be
         # set on the HTTP response (a background job can't set cookies).
         was_authenticated = Current.session.present?
-        handle_login(input, conversation)
+        turn = handle_login(input, conversation)
 
         # On a conversation page, a successful login flips the visitor from
         # unauthenticated to authenticated. The scrollback was withheld while
         # unauthenticated and a live broadcast can't backfill the existing
-        # history — so reload the conversation to render it now.
-        if params[:uuid].present? && !was_authenticated && Current.session.present?
+        # history — so reload the conversation to render it now. (Browser
+        # affordance only: a JSON client re-fetches /chat/:uuid.json itself.)
+        if params[:uuid].present? && !was_authenticated && Current.session.present? && !request.format.json?
           return render_turbo_navigate(conversation_path(uuid: conversation.uuid))
         end
 
-        return respond_to_client(conversation)
+        return respond_to_client(conversation, turn:)
       end
 
       if logout_command?(input)
         # Logout stays synchronous — it clears the session cookie, which can only
         # be done on the HTTP response.
-        handle_logout(input, conversation)
-        return respond_to_client(conversation)
+        turn = handle_logout(input, conversation)
+        return respond_to_client(conversation, turn:)
       end
 
       if Pito::InputMasking.config_credential_command?(input)
@@ -59,8 +60,8 @@ class ChatController < ApplicationController
         # input from memory. EVERY OTHER /config form (fx, motion, me, sound,
         # timezone, bare, --help) stays on the async pipeline below, exactly as
         # today. (--help is excluded by the help_flag? guard above regardless.)
-        handle_config(input, conversation, authenticated: Current.session.present?)
-        return respond_to_client(conversation)
+        turn = handle_config(input, conversation, authenticated: Current.session.present?)
+        return respond_to_client(conversation, turn:)
       end
 
       if connect_command?(input)
@@ -69,6 +70,8 @@ class ChatController < ApplicationController
         # We respond with a Turbo Stream `navigate` action rather than redirect_to,
         # because Turbo submits forms via fetch — fetch follows the redirect chain
         # internally and can't trigger a real browser navigation to accounts.google.com.
+        return render_web_only if request.format.json?
+
         oauth_url = handle_connect(input, conversation)
         return oauth_url ? render_turbo_navigate(oauth_url) : respond_to_client(conversation)
       end
@@ -79,6 +82,8 @@ class ChatController < ApplicationController
         # mandatory-auth error event (broadcast to the current conversation) if not.
         # Uses render_turbo_navigate so Turbo's fetch-based form submission triggers
         # a real browser navigation rather than an in-fetch redirect.
+        return render_web_only if request.format.json?
+
         result = handle_new(input, conversation)
         return result ? render_turbo_navigate(result) : respond_to_client(conversation)
       end
@@ -87,12 +92,16 @@ class ChatController < ApplicationController
         # Bare /resume populates the #pito-sidebar with a conversation list; a
         # `/resume <name>` opens that conversation, or — if none — broadcasts a
         # repliable "create it?" message with similar-name suggestions.
+        return render_web_only if request.format.json?
+
         return handle_resume(input, conversation)
       end
 
       if bare_themes_command?(input)
         # Bare /themes (no args) opens the theme picker sidebar (Turbo Stream update).
         # Auth gating: requires an active session. No echo, no Turn, no async job.
+        return render_web_only if request.format.json?
+
         return handle_theme_sidebar(conversation)
       end
 
@@ -100,6 +109,8 @@ class ChatController < ApplicationController
         # `show game` / `rm game` / `delete game` with no title/id → open the
         # games picker sidebar (Turbo Stream update).
         # Auth gating: requires an active session.  No echo, no Turn, no async job.
+        return render_web_only if request.format.json?
+
         return handle_game_picker_sidebar(conversation, mode: picker_mode)
       end
 
@@ -107,12 +118,16 @@ class ChatController < ApplicationController
         # `show vid` / `show video` / `show vids` / `show videos` with no title/id
         # → open the videos picker sidebar (Turbo Stream update).
         # Auth gating: requires an active session. No echo, no Turn, no async job.
+        return render_web_only if request.format.json?
+
         return handle_video_picker_sidebar(conversation)
       end
 
       if (import_title = games_import_command?(input))
         # `/games import [title]` — opens the IGDB import sidebar (Turbo Stream update).
         # Auth gating: requires an active session. No echo, no Turn, no async job.
+        return render_web_only if request.format.json?
+
         return handle_games_import_sidebar(conversation, prefill: import_title)
       end
 
@@ -120,6 +135,8 @@ class ChatController < ApplicationController
         # Free-chat `import game[s] [title]` — same IGDB import sidebar as above.
         # Auth gating: identical to the /games import path (session required).
         # No echo, no Turn, no async job.
+        return render_web_only if request.format.json?
+
         return handle_games_import_sidebar(conversation, prefill: import_title)
       end
     end
@@ -130,13 +147,13 @@ class ChatController < ApplicationController
     # :not_found / :not_a_follow_up fall through to the hashtag path below.
     ff = Pito::FollowUp::Router.call(input:, conversation:)
     if ff[:status] == :ok
-      handle_follow_up(input, conversation, ff)
-      return respond_to_client(conversation)
+      turn = handle_follow_up(input, conversation, ff)
+      return respond_to_client(conversation, turn:)
     end
 
     if hashtag_message?(input)
-      handle_hashtag(input, conversation)
-      return respond_to_client(conversation)
+      turn = handle_hashtag(input, conversation)
+      return respond_to_client(conversation, turn:)
     end
 
     # Non-credential /config (fx, motion, me, sound, timezone, bare, --help) still
@@ -149,8 +166,8 @@ class ChatController < ApplicationController
     # pipeline: persist + broadcast the echo now, enqueue the job, 204. Auth
     # gating is applied inside the job via the `authenticated` flag, because
     # Current.session is request-scoped and unavailable in the worker.
-    handle_async(input, conversation, authenticated: Current.session.present?, echo_text: echo_input)
-    respond_to_client(conversation)
+    turn = handle_async(input, conversation, authenticated: Current.session.present?, echo_text: echo_input)
+    respond_to_client(conversation, turn:)
   end
 
   private
@@ -199,6 +216,7 @@ class ChatController < ApplicationController
 
     # Enqueue job — auth gating decided here, applied in the worker.
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:, viewport_width:)
+    turn
   end
 
   # /config is the only credential-bearing command, so it runs SYNCHRONOUSLY: the
@@ -235,8 +253,10 @@ class ChatController < ApplicationController
     Pito::Dispatch::Finalizer.new(conversation:).append_and_complete(
       events: Pito::Dispatch::Finalizer.result_events(result), turn:
     )
+    turn
   rescue StandardError => e
     Pito::Dispatch::Finalizer.new(conversation:).surface_error(turn:, detail: e.message) if turn
+    turn
   end
 
   # ── Conversation resolution ─────────────────────────────────────────────────
@@ -249,8 +269,16 @@ class ChatController < ApplicationController
     end
   end
 
-  def respond_to_client(conversation)
-    if params[:uuid].present?
+  def respond_to_client(conversation, turn: nil)
+    if request.format.json?
+      # Non-browser clients (pito-tui) get the turn id so they can correlate
+      # their pending spinner with the events arriving on Pito::JsonChannel.
+      # turn_id is null for dispatches that create no turn (reply mutations).
+      # The web never lands here: its message posts are Turbo form submissions
+      # (text/vnd.turbo-stream.html), and its only JSON POST — the blank-input
+      # home transition — returns early in #create.
+      render json: { uuid: conversation.uuid, turn_id: turn&.id }, status: :created
+    elsif params[:uuid].present?
       head :no_content
     elsif html_request?
       redirect_to conversation_path(uuid: conversation.uuid)
@@ -268,6 +296,17 @@ class ChatController < ApplicationController
       body: %(<turbo-stream action="navigate" target="#{CGI.escapeHTML(url)}"></turbo-stream>),
       content_type: "text/vnd.turbo-stream.html"
     )
+  end
+
+  # Sidebars and browser navigations have no JSON shape — a non-browser client
+  # (pito-tui) gets an explicit, printable refusal instead of a turbo-stream
+  # it can't parse. Guarded per fast-path branch in #create; the web is
+  # untouched (its requests are never JSON-format).
+  def render_web_only
+    render json: {
+      error:   "web_only",
+      message: Pito::Copy.render("pito.copy.errors.web_only")
+    }, status: :unprocessable_content
   end
 
   # ── Authentication branch ───────────────────────────────────────────────────
@@ -320,6 +359,7 @@ class ChatController < ApplicationController
     # Synchronous flow — emit the done signal ourselves so the dots fade out
     # (no ChatDispatchJob runs to call complete_turn for login).
     broadcaster.complete_turn(turn:)
+    turn
   end
 
   # ── Logout branch ────────────────────────────────────────────────────────────
@@ -347,6 +387,7 @@ class ChatController < ApplicationController
 
     Pito::Auth::SessionCookie.new(request).clear!
     Current.session = nil
+    turn
   end
 
   def connect_command?(input)
@@ -697,7 +738,7 @@ class ChatController < ApplicationController
       broadcaster.emit(turn:, kind: :echo,   payload: { text: input, authenticated: false })
       broadcaster.emit(turn:, kind: :system, payload: help_payload)
       broadcaster.complete_turn(turn:)
-      return
+      return turn
     end
 
     # Extract the first word of rest as the action name for per-action mode lookup.
@@ -732,6 +773,8 @@ class ChatController < ApplicationController
       return unless Current.session.present?
 
       FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], period:, viewport_width:, channel:, origin:)
+      # No turn exists for an in-place mutation — JSON clients get turn_id null.
+      nil
 
     when :append
       return unless Current.session.present?
@@ -751,12 +794,14 @@ class ChatController < ApplicationController
       broadcaster.emit_thinking(turn:, dictionary: "chat")
 
       FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id, period:, viewport_width:, channel:, origin:)
+      turn
 
     else
       # Unknown mode (handler not registered, or handler has no mode).
       # Silently return — fall-through to next branches already prevented by
       # the caller's `return respond_to_client`.
       Rails.logger.warn("[FollowUp] Unknown mode #{mode.inspect} for target #{target.inspect}")
+      nil
     end
   end
 

@@ -18,15 +18,15 @@ RSpec.describe "Games search endpoint", type: :request do
   let(:json) { JSON.parse(response.body) }
 
   # ── Auth guard ───────────────────────────────────────────────────────────────
-  # The app's standard Sessions::AuthConcern redirects unauthenticated requests
-  # to the root path rather than returning 401 (no JSON-API style rejection).
-  # The search + import controllers do not declare `allow_anonymous`, so an
-  # unauthenticated POST is redirected.
+  # Sessions::AuthConcern redirects unauthenticated BROWSER requests to root;
+  # JSON-format requests (like this fetch-driven search) get an explicit 401.
+  # The search + import controllers do not declare `allow_anonymous`.
 
   describe "POST /games/search — unauthenticated" do
-    it "redirects to root (unauthenticated)" do
+    it "rejects with 401 JSON (unauthenticated)" do
       post "/games/search", params: { query: "test" }, as: :json
-      expect(response).to redirect_to(root_path)
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.parsed_body["error"]).to eq("unauthenticated")
     end
   end
 

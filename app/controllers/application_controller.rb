@@ -4,6 +4,18 @@ class ApplicationController < ActionController::Base
   # at the class level.
   include Sessions::AuthConcern
 
+  # CSRF carve-out for non-browser clients (pito-tui et al.): requests whose
+  # BODY is application/json skip the authenticity token. Safe because the
+  # token defends against forged BROWSER submissions, and no browser vector
+  # can produce this content type against us: an HTML form can only send
+  # urlencoded/multipart/text-plain, a cross-origin fetch with a JSON body
+  # triggers a CORS preflight we never approve, and the session cookie is
+  # SameSite=lax so cross-site POSTs arrive unauthenticated anyway. Keyed on
+  # request.media_type (the Content-Type header), NOT request.format — format
+  # is attacker-influencable via the URL (.json / ?format=), media_type only
+  # via a non-form request body.
+  skip_forgery_protection if: -> { request.media_type == "application/json" }
+
   # UTC-storage / user-tz-render is the app-wide contract. All requests
   # render times in the owner's configured time zone (AppSetting.timezone,
   # default UTC). ActiveRecord keeps storing UTC internally.

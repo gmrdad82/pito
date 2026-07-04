@@ -82,13 +82,15 @@ RSpec.describe "PATCH /settings/theme", type: :request do
   # ── Unauthenticated path ─────────────────────────────────────────────────────
 
   describe "when unauthenticated" do
-    it "redirects to root (auth wall)" do
+    # JSON-format requests get an explicit 401 (Sessions::AuthConcern) — the
+    # redirect-to-root auth wall is a browser affordance.
+    it "rejects with 401 JSON (auth wall)" do
       patch settings_theme_path,
             params:  { theme: "dracula" },
             headers: { "Accept" => "application/json" }
 
-      expect(response).to have_http_status(:redirect)
-      expect(response).to redirect_to(root_path)
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.parsed_body["error"]).to eq("unauthenticated")
     end
 
     it "does not change AppSetting" do

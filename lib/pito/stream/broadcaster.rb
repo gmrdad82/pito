@@ -107,6 +107,7 @@ module Pito
           "pito:conversation:#{@conversation.uuid}",
           content:
         )
+        broadcast_json(type: "event.append", event:)
         event
       end
 
@@ -141,6 +142,7 @@ module Pito
           "pito:conversation:#{@conversation.uuid}",
           content:
         )
+        broadcast_json(type: "event.replace", event:)
         event
       end
 
@@ -330,7 +332,22 @@ module Pito
           "pito:conversation:#{@conversation.uuid}",
           content:
         )
+        broadcast_json(type: "event.replace", event:)
         event
+      end
+
+      # Mirror a persisted-event broadcast onto the conversation's JSON stream
+      # (Pito::JsonChannel — pito-tui and any future non-browser client).
+      # Called from ALL THREE choke points that broadcast persisted events
+      # (broadcast_event, replace_event, resolve_one) and from nowhere else:
+      # the Broadcaster stays the single scrollback door — this is its second
+      # pane, not a second door. Ephemeral chrome (meter, auth, sidebars,
+      # metric fragments, done-div) is deliberately NOT mirrored.
+      def broadcast_json(type:, event:)
+        ActionCable.server.broadcast(
+          "pito:json:conversation:#{@conversation.uuid}",
+          { type:, event: Pito::Stream::EventJson.call(event) }
+        )
       end
 
       public

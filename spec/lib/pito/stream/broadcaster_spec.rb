@@ -417,4 +417,65 @@ RSpec.describe Pito::Stream::Broadcaster do
       expect { described_class.broadcast_global_settings_update }.not_to raise_error
     end
   end
+
+  # ── The JSON mirror (P12 — pito-tui et al.) ─────────────────────────────────
+  #
+  # Every persisted-event broadcast is mirrored onto the conversation's
+  # `pito:json:conversation:<uuid>` stream from ALL THREE choke points:
+  # broadcast_event (event.append), replace_event and resolve_one (both
+  # event.replace). The event travels in the EventJson shape — identical to
+  # the GET /chat/:uuid.json backfill, so live and reloaded scrollbacks can
+  # never drift. Ephemeral chrome (meter, auth, sidebars) is NOT mirrored.
+
+  describe "the JSON mirror" do
+    let(:json_stream) { "pito:json:conversation:#{conversation.uuid}" }
+
+    it "mirrors broadcast_event as event.append in the EventJson shape" do
+      event = Event.create_with_position!(
+        conversation:, turn:, kind: :echo, payload: { "text" => "/help" }
+      )
+
+      expect {
+        broadcaster.broadcast_event(event)
+      }.to have_broadcasted_to(json_stream).with { |msg|
+        expect(msg["type"]).to eq("event.append")
+        expect(msg["event"]["id"]).to eq(event.id)
+        expect(msg["event"]["turn_id"]).to eq(turn.id)
+        expect(msg["event"]["kind"]).to eq("echo")
+        expect(msg["event"]["payload"]).to eq("text" => "/help")
+        expect(msg["event"].keys).to match_array(%w[id turn_id kind payload position created_at])
+      }
+    end
+
+    it "mirrors replace_event as event.replace" do
+      event = broadcaster.emit(turn:, kind: :system, payload: { "text" => "before" })
+      event.update!(payload: { "text" => "after" })
+
+      expect {
+        broadcaster.replace_event(event)
+      }.to have_broadcasted_to(json_stream).with { |msg|
+        expect(msg["type"]).to eq("event.replace")
+        expect(msg["event"]["payload"]).to eq("text" => "after")
+      }
+    end
+
+    it "mirrors the thinking resolve as event.replace with the resolved payload" do
+      thinking = broadcaster.emit_thinking(turn:, dictionary: "slash")
+
+      expect {
+        broadcaster.resolve_thinking(turn:)
+      }.to have_broadcasted_to(json_stream).with { |msg|
+        expect(msg["type"]).to eq("event.replace")
+        expect(msg["event"]["id"]).to eq(thinking.id)
+        expect(msg["event"]["kind"]).to eq("thinking")
+        expect(msg["event"]["payload"]["resolved"]).to be(true)
+      }
+    end
+
+    it "does not mirror ephemeral chrome (the context meter)" do
+      expect {
+        broadcaster.broadcast_context_meter
+      }.not_to have_broadcasted_to(json_stream)
+    end
+  end
 end
