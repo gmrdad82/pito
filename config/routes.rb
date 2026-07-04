@@ -47,6 +47,11 @@ Rails.application.routes.draw do
   post "/share/:uuid/unfold", to: "shares#unfold", as: :unfold_share
   get "/share/:uuid", to: "shares#show", as: :share
 
+  # Public path-configuration document for the Hotwire Native Android client.
+  # No authentication required — the native shell fetches this before any session exists.
+  get "/configurations/android_v1", to: "configurations#android_v1",
+      as: :android_v1_configuration, defaults: { format: :json }
+
   # Dynamic error pages — rendered by exceptions_app = routes so the 404
   # page shows the full start screen with the suggestions-enabled chatbox.
   # /404 is the primary path Rails internally redirects to on a routing error.

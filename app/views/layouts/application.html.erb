@@ -54,5 +54,10 @@
   <% if Rails.env.development? %>
     <%= render(Pito::DevelopmentBannerComponent.new) %>
   <% end %>
+
+  <%# "Get the app" top banner — Android browsers only (the component's
+      render? bows out for non-Android UAs and inside the Hotwire Native
+      shell; a localStorage dismissal keeps it hidden client-side). %>
+  <%= render(Pito::GetAppBannerComponent.new(user_agent: request.user_agent)) %>
 </body>
 </html>
