@@ -82,36 +82,73 @@ a second channel into the same tab.
 
 ### And the rest of the loot
 
-<!-- prettier-ignore -->
-<table>
-<tr>
-<td width="50%"><img src="docs/media/mkt-04-releases.png" alt="Per-platform release dates"><br><b>Release dates per platform — PlayStation, Switch, Xbox, and Steam</b> — grouped by date with their logos, and a countdown that names <i>which</i> platform lands ("…on PlayStation + Steam in 3 days"). Unreleased games re-sync nightly until the date is real.</td>
-<td width="50%"><img src="docs/media/mkt-01-linkage.png" alt="Game–video linkage"><br><b>Games ↔ videos, explicitly linked</b> — <code>link</code> / <code>unlink</code>, never guessed from titles. Your library finally knows which game every video covers — and everything below runs on that graph.</td>
-</tr>
-<tr>
-<td><img src="docs/media/mkt-06-game-analytics.png" alt="Game-level analytics"><br><b>Analytics at the game level</b> — avg % viewed, retention, avg view duration, aggregated across a game's linked vids (channels get the same treatment). Studio does these strictly one video at a time.</td>
-<td><img src="docs/media/mkt-07-heatmap.png" alt="Day-of-week heatmap"><br><b>Day-of-week heatmap</b> — Mon→Sun bars computed from your daily views, busiest day green. The YouTube API doesn't even offer this dimension; PITO does the math itself.</td>
-</tr>
-<tr>
-<td><img src="docs/media/mkt-05-footage.png" alt="Per-game footage on the time-to-beat bar"><br><b>Footage hours per game</b> — your recorded backlog, sitting right on the time-to-beat bar. "Do I have enough material for this one?" — answered at a glance.</td>
-<td><img src="docs/media/mkt-03-price.png" alt="Game price"><br><b>Game price, tracked</b> — coins on the card. Know what covering a slate costs before you promise it to an audience.</td>
-</tr>
-<tr>
-<td><img src="docs/media/mkt-08-schedule.png" alt="Schedule slate"><br><b>A calendar that finds the gap</b> — <code>schedule … slate</code> lays out what's already booked across <i>every</i> channel, so releases spread out instead of quietly stacking on a Tuesday.</td>
-<td><img src="docs/media/mkt-09-share.png" alt="Shareable message"><br><b>Any message is a link</b> — <code>share</code> mints a public URL to that exact reply, chart included. Go ahead, try sending someone a Studio screen.</td>
-</tr>
-<tr>
-<td><img src="docs/media/mkt-10-snapshot.png" alt="Conversation snapshot"><br><b>Conversations are snapshots</b> — an old conversation still shows your numbers <i>as they were</i>. A time machine no dashboard gives you.</td>
-<td><img src="docs/media/mkt-11-mobile.png" alt="PITO on mobile"><br><b>Happily mobile</b> — the chatbox works on your phone. Studio on a phone is… an app that isn't this.</td>
-</tr>
-<tr>
-<td><img src="docs/media/mkt-13-similar.png" alt="Similar games"><br><b>Similar games</b> — Voyage embeddings surface what sits near your library, right on the game card, with the channels each one fits.</td>
-<td><img src="docs/media/mkt-14-shinies.png" alt="Shinies"><br><b>Shinies</b> — lifetime achievement badges across channels, vids, and games. Gaming-flavored bragging rights that unlock as you grow.</td>
-</tr>
-<tr>
-<td colspan="2"><img src="docs/media/mkt-12-chatbox.png" alt="The one chatbox"><br><b>And the whole thing is a conversation</b> — one chatbox, one monospace font, full keyboard navigation. The features above aren't buried in menus; you <i>type</i> them.</td>
-</tr>
-</table>
+<p align="center"><img src="docs/media/mkt-04-releases.png" width="760" alt="Per-platform release dates"></p>
+
+**Release dates per platform — PlayStation, Switch, Xbox, and Steam** — grouped by
+date with their logos, and a countdown that names _which_ platform lands ("…on
+PlayStation + Steam in 3 days"). Unreleased games re-sync nightly until the date is real.
+
+<p align="center"><img src="docs/media/mkt-01-linkage.png" width="760" alt="Game–video linkage"></p>
+
+**Games ↔ videos, explicitly linked** — `link` / `unlink`, never guessed from titles.
+Your library finally knows which game every video covers — and everything below runs
+on that graph.
+
+<p align="center"><img src="docs/media/mkt-06-game-analytics.png" width="760" alt="Game-level analytics"></p>
+
+**Analytics at the game level** — avg % viewed, retention, avg view duration,
+aggregated across a game's linked vids (channels get the same treatment). Studio does
+these strictly one video at a time.
+
+<p align="center"><img src="docs/media/mkt-07-heatmap.png" width="760" alt="Day-of-week heatmap"></p>
+
+**Day-of-week heatmap** — Mon→Sun bars computed from your daily views, busiest day
+green. The YouTube API doesn't even offer this dimension; PITO does the math itself.
+
+<p align="center"><img src="docs/media/mkt-05-footage.png" width="760" alt="Per-game footage on the time-to-beat bar"></p>
+
+**Footage hours per game** — your recorded backlog, sitting right on the time-to-beat
+bar. "Do I have enough material for this one?" — answered at a glance.
+
+<p align="center"><img src="docs/media/mkt-03-price.png" width="760" alt="Game price"></p>
+
+**Game price, tracked** — coins on the card. Know what covering a slate costs before
+you promise it to an audience.
+
+<p align="center"><img src="docs/media/mkt-08-schedule.png" width="760" alt="Schedule slate"></p>
+
+**A calendar that finds the gap** — `schedule … slate` lays out what's already booked
+across _every_ channel, so releases spread out instead of quietly stacking on a Tuesday.
+
+<p align="center"><img src="docs/media/mkt-09-share.png" width="760" alt="Shareable message"></p>
+
+**Any message is a link** — `share` mints a public URL to that exact reply, chart
+included. Go ahead, try sending someone a Studio screen.
+
+<p align="center"><img src="docs/media/mkt-10-snapshot.png" width="760" alt="Conversation snapshot"></p>
+
+**Conversations are snapshots** — an old conversation still shows your numbers _as
+they were_. A time machine no dashboard gives you.
+
+<p align="center"><img src="docs/media/mkt-11-mobile.png" width="760" alt="PITO on mobile"></p>
+
+**Happily mobile** — the chatbox works on your phone. Studio on a phone is… an app
+that isn't this.
+
+<p align="center"><img src="docs/media/mkt-13-similar.png" width="760" alt="Similar games"></p>
+
+**Similar games** — Voyage embeddings surface what sits near your library, right on
+the game card, with the channels each one fits.
+
+<p align="center"><img src="docs/media/mkt-14-shinies.png" width="760" alt="Shinies"></p>
+
+**Shinies** — lifetime achievement badges across channels, vids, and games.
+Gaming-flavored bragging rights that unlock as you grow.
+
+<p align="center"><img src="docs/media/mkt-12-chatbox.png" width="760" alt="The one chatbox"></p>
+
+**And the whole thing is a conversation** — one chatbox, one monospace font, full
+keyboard navigation. The features above aren't buried in menus; you _type_ them.
 
 ## Features
 
@@ -182,15 +219,18 @@ page for any verb. Keywords are case-insensitive and a little natural-language. 
 full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
 
 - **Channels** — connect via Google OAuth (`/connect`), see them all at once with
-  basic stats (subs · vids · views), `visit @handle`, or `/disconnect`. Read-only
-  except the four YouTube writes below.
-- **Videos** — `list vids` with stats columns (views, likes, comments, length,
-  status, scheduled, channel, game); `show vid <id>` for detail. The only YouTube
-  writes: `publish`, `unlist`, `schedule`, `delete` a video. `sync vids` pulls the
-  latest (private uploads included).
+  basic stats (subs · vids · views, `with likes` to add the summed like count),
+  `visit @handle`, or `/disconnect`. Read-only except the four YouTube writes below.
+- **Videos** — `list vids` with addable columns (channel, visibility, game,
+  duration, views, likes, category — `with`/`without`, sortable);
+  `show vid <id>` for detail. The only YouTube writes: `publish`, `unlist`,
+  `schedule`, `delete` a video. `sync vids` pulls the latest (private uploads
+  included).
 - **Games** — `import game [title]` from IGDB; `show game <id>` for genres, themes,
-  developer/publisher, release, footage, and **price**. Set fields with `platform`,
-  `price set/unset`, and a manual `footage` total.
+  developer/publisher, release, footage, and **price**; `list games` grows columns
+  the same way (platform, genre, developer, publisher, channels, footage, price,
+  views, likes). Set fields with `platform`, `price set/unset`, and a manual
+  `footage` total.
 - **Recommendations** — every game card surfaces **similar games** and the
   **channels** it best fits, powered by Voyage embeddings.
 - **Linking** — explicit `link` / `unlink` between a video and a game, both
@@ -433,6 +473,9 @@ or `./pito` from the install dir):
 | `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)   |
 | `pito build`       | build the image **locally** from a source checkout     |
 | `pito self-update` | refresh just the CLI (no image pull / restart)         |
+| `pito caddy`       | direct HTTPS via Caddy — the no-tunnel alternative     |
+| `pito hetzner`     | provision a Hetzner Cloud box ready to run PITO        |
+| `pito autoupdate`  | pull new releases automatically (15-min systemd timer) |
 
 **`pito update`** is the one you'll reach for most — it's interactive: it lists the
 available releases (or **edge**) and switches the whole stack (image **and** CLI) to
@@ -503,13 +546,50 @@ gunzip -c backups/<ts>/database.sql.gz | docker compose exec -T postgres psql -U
 gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T web tar xf - -C /var/lib/pito-assets
 ```
 
-## Exposing PITO (Cloudflare Tunnel)
+### Auto-update (your server pulls new releases)
 
-PITO forces HTTPS in production, so anything past `localhost` needs TLS in front. The
-tidiest option is a **Cloudflare Tunnel** — no open ports, no certs to babysit. Set
-your public URL at install time (or in `.env` as `PITO_APP_BASE_URL`, e.g.
+Your server keeps itself current — CI never logs in anywhere. **`pito autoupdate`**
+checks GitHub for a newer release, waits until the release's multi-arch image is
+actually live on GHCR, and applies it with the **same `pito update`** you'd type
+by hand. One command turns it on:
+
+```bash
+pito autoupdate --install     # systemd timer, every 15 min + logrotate rule
+```
+
+Why pull instead of push:
+
+- **Zero deploy credentials in GitHub.** No SSH keys, no host secrets — nothing
+  for a public repo to leak, nothing for a compromised action to steal.
+- **No inbound access.** CI runners never connect to your server.
+- **Fork-friendly.** Any self-hosted instance updates itself without touching
+  the upstream repo's CI at all.
+- **Race-proof.** `pito update` holds a single-updater lock (`flock` on
+  `.pito-update.lock`), so the timer and a manual `pito update` — for when you
+  don't feel like waiting 15 minutes — can never run on top of each other.
+
+Everything it does lands in `log/autoupdate.log` (rotated weekly). Optional:
+set `SLACK_WEBHOOK=<url>` in the install dir's `.env` and every applied (or
+failed) update pings you via a plain `curl`. `pito autoupdate --check` dry-runs
+the decision; `pito autoupdate --uninstall` removes the timer.
+
+From then on: `git tag v1.2.3 && git push origin v1.2.3` → green CI gate →
+multi-arch image on GHCR → within 15 minutes your server is running it,
+hands-off. (Edge-channel installs are deliberately skipped — `latest` stays a
+by-hand choice.)
+
+## Exposing PITO (HTTPS)
+
+PITO forces HTTPS in production, so anything past `localhost` needs TLS in front.
+Set your public URL at install time (or in `.env` as `PITO_APP_BASE_URL`, e.g.
 `https://app.example.com`); that single value wires Host Authorization, link
-generation, and asset delivery.
+generation, and asset delivery. The installer offers both mechanisms below —
+pick at the HTTPS prompt, or run the matching `pito` command later.
+
+### Cloudflare Tunnel (the default)
+
+The tidiest option for a machine behind NAT (a home box, a laptop) — no open
+ports, no certs to babysit.
 
 Install `cloudflared` (`pacman -S cloudflared`, `brew install cloudflared`, or
 Cloudflare's apt repo), then the installer — or `pito cloudflared` — drops a starter
@@ -523,6 +603,39 @@ cloudflared tunnel --config ./cloudflared-config.yml run pito
 ```
 
 Point the tunnel at `127.0.0.1:3028` and set Cloudflare's SSL/TLS mode to **Full**.
+
+### Caddy direct HTTPS (no tunnel)
+
+For a server with its own public IP (a VPS — see `pito hetzner`), skip the tunnel:
+**`pito caddy`** writes a `Caddyfile` for your domain and enables the dormant
+`caddy` compose profile in `.env`. Caddy terminates TLS with automatic
+Let's Encrypt certificates and proxies to the web container (WebSockets included).
+
+```bash
+pito caddy            # writes ./Caddyfile + sets COMPOSE_PROFILES=caddy
+pito down && pito up -d
+```
+
+Needs your domain's **A record** pointing at the server and ports **80/443** open.
+The profile lives in the stock `docker-compose.yml`, so `pito update` never
+disturbs it; installs that never ran `pito caddy` don't even start the container.
+If the domain is behind Cloudflare's proxy (orange cloud), set SSL/TLS mode to
+**Full (strict)** — or keep the record DNS-only and let Caddy carry TLS alone.
+
+## Android app
+
+PITO is getting a native Android client —
+[**`pito-android`**](https://github.com/gmrdad82/pito-android), a thin
+[Hotwire Native](https://native.hotwired.dev) shell around the same server-rendered
+app, with native navigation and back-stack. No separate API, no second UI to
+maintain: your instance already serves it (the path configuration lives at
+`/configurations/android_v1.json`).
+
+It is **self-hoster friendly by design**: on first launch the app asks for your
+instance URL, so it works with ANY domain you host PITO on — not just the author's.
+Signed APKs ship on the `pito-android` releases page (no Play Store required), and
+PITO itself offers the download in a dismissible banner when you visit from an
+Android browser.
 
 ## Docs
 

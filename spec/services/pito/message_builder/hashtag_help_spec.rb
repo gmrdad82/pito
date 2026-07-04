@@ -385,8 +385,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("visibility")
         end
 
-        it "body mentions video column vocab (length)" do
-          expect(result["body"]).to include("length")
+        it "body mentions video column vocab (duration — canonical since G26.3)" do
+          expect(result["body"]).to include("duration")
         end
 
         it "body mentions video column vocab (views)" do
@@ -414,8 +414,9 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("visibility")
         end
 
-        it "body mentions video column vocab (comments)" do
-          expect(result["body"]).to include("comments")
+        it "body mentions video column vocab (duration) and not the removed comments (G26.1/G26.3)" do
+          expect(result["body"]).to include("duration")
+          expect(result["body"]).not_to include("comments")
         end
       end
 
