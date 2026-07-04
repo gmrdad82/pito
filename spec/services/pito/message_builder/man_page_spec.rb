@@ -31,7 +31,7 @@ RSpec.describe Pito::MessageBuilder::ManPage do
     # The slot lets BodyComponent place the message's "HH:MM " prefix INSIDE
     # the help block's first line rather than orphaned on a line above it.
     expect(rendered).to include(
-      %(<div class="pito-help-block">#{Pito::Event::BodyComponent::TS_SLOT}<span class="text-yellow font-bold">Usage:</span>)
+      %(<div class="pito-help-block">#{Pito::Event::BodyComponent::TS_SLOT}<span class="text-purple font-bold">Usage:</span>)
     )
   end
 
@@ -40,12 +40,12 @@ RSpec.describe Pito::MessageBuilder::ManPage do
   end
 
   it "renders a yellow bold Usage: header" do
-    expect(rendered).to include('<span class="text-yellow font-bold">Usage:</span>')
+    expect(rendered).to include('<span class="text-purple font-bold">Usage:</span>')
   end
 
   it "renders yellow bold group headers" do
-    expect(rendered).to include('<span class="text-yellow font-bold">Options:</span>')
-    expect(rendered).to include('<span class="text-yellow font-bold">Arguments:</span>')
+    expect(rendered).to include('<span class="text-purple font-bold">Options:</span>')
+    expect(rendered).to include('<span class="text-purple font-bold">Arguments:</span>')
   end
 
   it "html-escapes the usage line and wraps it dim" do

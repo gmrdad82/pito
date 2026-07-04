@@ -238,9 +238,9 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
 
         it "uses the standard single-noun layout (Usage / Arguments / Options)" do
-          expect(result["body"]).to include('<span class="text-yellow font-bold">Usage:</span>')
-          expect(result["body"]).to include('<span class="text-yellow font-bold">Arguments</span>')
-          expect(result["body"]).to include('<span class="text-yellow font-bold">Options</span>')
+          expect(result["body"]).to include('<span class="text-purple font-bold">Usage:</span>')
+          expect(result["body"]).to include('<span class="text-purple font-bold">Arguments</span>')
+          expect(result["body"]).to include('<span class="text-purple font-bold">Options</span>')
         end
 
         it "does NOT render a bespoke 'Replies' section" do
@@ -536,12 +536,12 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           end
 
           it "opens with a yellow bold Usage: header" do
-            expect(result["body"]).to include('<span class="text-yellow font-bold">Usage:</span>')
+            expect(result["body"]).to include('<span class="text-purple font-bold">Usage:</span>')
           end
 
           it "leads the first line with the inline timestamp slot (before Usage:)" do
             expect(result["body"]).to include(
-              %(<div class="pito-help-block">#{Pito::Event::BodyComponent::TS_SLOT}<span class="text-yellow font-bold">Usage:</span>)
+              %(<div class="pito-help-block">#{Pito::Event::BodyComponent::TS_SLOT}<span class="text-purple font-bold">Usage:</span>)
             )
           end
 

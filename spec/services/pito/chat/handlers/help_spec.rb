@@ -60,9 +60,9 @@ RSpec.describe Pito::Chat::Handlers::Help do
     expect(body).to include("CHANNELS")
   end
 
-  it "payload body renders group titles with text-yellow font-bold classes" do
+  it "payload body renders group titles with text-purple font-bold classes (G40 — yellow is the actionable class)" do
     body = handler.call.events.first[:payload]["body"]
-    expect(body).to include("text-yellow")
+    expect(body).to include("text-purple")
     expect(body).to include("font-bold")
   end
 

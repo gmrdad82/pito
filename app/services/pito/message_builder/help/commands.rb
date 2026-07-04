@@ -64,7 +64,7 @@ module Pito
               # Omit `mt-3` on the first group so it sits flush at the top,
               # matching the original single-group spacing.
               margin = index.zero? ? "" : " mt-3"
-              title_div = %(<div class="text-yellow font-bold#{margin}">#{title}</div>)
+              title_div = %(<div class="text-purple font-bold#{margin}">#{title}</div>)
 
               # Alphabetical within the group (owner 1.0.0 G13) — the arrays
               # above stay membership-only; display order is derived.

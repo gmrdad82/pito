@@ -103,7 +103,7 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
 
     it "payload body contains all three verb group headings (games / videos / channels)" do
       body = result.events.first[:payload]["body"]
-      expect(body).to include("text-yellow")  # yellow group headings
+      expect(body).to include("text-purple")  # yellow group headings
     end
 
     it "payload matches Commands.call exactly" do

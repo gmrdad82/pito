@@ -8,7 +8,8 @@ module Pito
     # render(usage:, groups:) → html_safe String wrapped in .pito-help-block
     #
     # Format mirrors Game::ListHelp exactly:
-    #   - Yellow bold section headers
+    #   - Purple bold section headers (G40 — yellow is reserved for the
+    #     actionable/clickable class, headings must not wear it)
     #   - Indented usage line (dim)
     #   - Each group row: "  <cyan token><padding><dim desc>"
     #   - Padding computed from the max raw token width across ALL groups + GAP(3)
@@ -89,7 +90,7 @@ module Pito
       end
       private_class_method :row
 
-      def header(text) = %(<span class="text-yellow font-bold">#{esc(text)}</span>)
+      def header(text) = %(<span class="text-purple font-bold">#{esc(text)}</span>)
       private_class_method :header
 
       def cyan(html)   = %(<span class="text-cyan">#{html}</span>)
