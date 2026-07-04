@@ -659,6 +659,117 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── Hashtag reply-ARG palette (G26.5) ────────────────────────────────────
+  //
+  // Regression: `#<handle> with ` fetched the column menu (the engine tags it
+  // stage:"verb") but the stage:"verb" render gate only covered the reply-VERB
+  // and /config positions — the fetched items were discarded and the palette
+  // never opened for reply ARGUMENTS (columns, sort keys, metrics, row ids).
+
+  describe("hashtag reply-ARG palette (stage:'verb' fetch at a fresh arg token)", () => {
+    let ctrl
+
+    const ARG_RESPONSE = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "hashtag",
+        stage: "verb",
+        menu_items: [
+          { label: "category", insert: "category ", description: "" },
+          { label: "duration", insert: "duration ", description: "" },
+          { label: "views",    insert: "views ",    description: "" },
+        ],
+        ghost: { complete_current: "", next_hint: "" },
+      }),
+    })
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "hashtag"
+    })
+
+    it("renders the argument palette for `#handle with ` (fresh token)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ARG_RESPONSE()))
+      await ctrl._fetchArgSuggestions("#kappa-5874 with ", 17)
+
+      expect(palette.classList.contains("hidden")).toBe(false)
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows.length).toBe(3)
+    })
+
+    it("keeps the palette CLOSED mid-token (`#handle with cat`) so Enter sends", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ARG_RESPONSE()))
+      await ctrl._fetchArgSuggestions("#kappa-5874 with cat", 20)
+
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("_isHashtagReplyArgStage: true at a fresh arg token, false elsewhere", () => {
+      expect(ctrl._isHashtagReplyArgStage("#h with ", 8)).toBe(true)
+      expect(ctrl._isHashtagReplyArgStage("#h with cat, ", 13)).toBe(true)
+      expect(ctrl._isHashtagReplyArgStage("#h with cat", 11)).toBe(false)
+      expect(ctrl._isHashtagReplyArgStage("#h ", 3)).toBe(false)      // verb stage
+      expect(ctrl._isHashtagReplyArgStage("#han", 4)).toBe(false)     // handle stage
+      expect(ctrl._isHashtagReplyArgStage("/config ", 8)).toBe(false) // slash
+    })
+  })
+
+  // ── FREE-mode chat-verb argument palette (G31) ───────────────────────────
+  //
+  // Regression: `list ` (free input) fetched the noun menu (stage:"verb":
+  // channels/games/vids) but no gate rendered free-mode items — discarded,
+  // palette never opened for chat verbs' arguments.
+
+  describe("free-mode chat-verb argument palette (stage:'verb' fetch)", () => {
+    let ctrl
+
+    const FREE_RESPONSE = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "free",
+        stage: "verb",
+        menu_items: [
+          { label: "channels", insert: "channels ", description: "" },
+          { label: "games",    insert: "games ",    description: "" },
+          { label: "vids",     insert: "vids ",     description: "" },
+        ],
+        ghost: { complete_current: "", next_hint: "" },
+      }),
+    })
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "free"
+    })
+
+    it("renders the argument palette for `list ` (fresh token)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(FREE_RESPONSE()))
+      await ctrl._fetchArgSuggestions("list ", 5)
+
+      expect(palette.classList.contains("hidden")).toBe(false)
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows.length).toBe(3)
+    })
+
+    it("keeps the palette CLOSED mid-token (`list ga`) so Enter sends", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(FREE_RESPONSE()))
+      await ctrl._fetchArgSuggestions("list ga", 7)
+
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("_isFreeArgFreshToken: fresh free token only", () => {
+      expect(ctrl._isFreeArgFreshToken("list ", 5)).toBe(true)
+      expect(ctrl._isFreeArgFreshToken("show game 5 with ", 17)).toBe(true)
+      expect(ctrl._isFreeArgFreshToken("list ga", 7)).toBe(false)
+      expect(ctrl._isFreeArgFreshToken("   ", 3)).toBe(false)
+      expect(ctrl._isFreeArgFreshToken("#h with ", 8)).toBe(false)
+      expect(ctrl._isFreeArgFreshToken("/config ", 8)).toBe(false)
+    })
+  })
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   describe("lifecycle", () => {

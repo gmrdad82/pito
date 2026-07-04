@@ -540,6 +540,7 @@ module Pito
             when "sort_clause"       then sort_key_candidates(committed, target, event)
             when "metric_list"       then metric_candidates(committed)
             when "visit_destination" then destination_candidates(committed)
+            when "price_amount"      then price_amount_candidates(committed)
             else []
             end
 
@@ -614,6 +615,15 @@ module Pito
 
           typed = committed.filter_map { |t| vocab.resolve(t.to_s) }
           vocab.canonical.reject { |m| typed.include?(m) }
+        end
+
+        # Leading tokens for a `price` reply (`price [set] <amount>` /
+        # `price unset`) — the amount itself is free-form, but `set`/`unset`
+        # are its enumerable openers (owner G31). First position only.
+        def price_amount_candidates(committed)
+          return [] unless committed.empty?
+
+          %w[set unset]
         end
 
         # Destination tokens for a `visit` reply — the :visit_destinations
@@ -720,33 +730,170 @@ module Pito
           end
           return [] if suggestable_slots.empty?
 
-          # Find the most recently committed introducer keyword in typed_tokens.
-          last_introduced_slot = nil
-          typed_tokens.each do |token|
-            suggestable_slots.each do |slot|
-              last_introduced_slot = slot if slot.introducer && token.downcase == slot.introducer.to_s
+          # Walk the committed tokens, FILLING slots as they match (G32 — the
+          # old walk only tracked introducers, so `ls games ` re-offered the
+          # noun vocabulary forever instead of advancing). An introducer
+          # keyword opens its slot; any other token resolves against the open
+          # introduced slot first, then the open plain slots in declaration
+          # order (aliases resolve: "vid" fills :nouns as "vids"). Repeatable
+          # slots stay open — their committed members are excluded from the
+          # suggestions instead. Unresolvable tokens (titles, ids, amounts)
+          # fill nothing and cost nothing.
+          filled = {}
+          active = nil
+          typed_tokens.each do |raw|
+            token = raw.downcase.delete_suffix(",")
+            if (intro = suggestable_slots.find { |s| s.introducer && s.introducer.to_s == token })
+              active = intro
+              next
             end
+
+            slot = resolving_slot(active, suggestable_slots, filled, token)
+            next unless slot
+
+            (filled[slot] ||= []) << Pito::Grammar::Registry.vocabulary(slot.source).resolve(token)
+            active = nil if active == slot && !slot.repeatable
           end
 
-          # An introducer was committed → suggest that slot's vocabulary members.
-          return suggest_for_slot(last_introduced_slot, partial, authenticated:) if last_introduced_slot
+          # Inside an introduced slot → its remaining members only.
+          if active
+            committed = Array(filled[active]).map(&:to_s)
+            return suggest_for_slot(active, partial, authenticated:)
+                     .reject { |i| committed.include?(i[:label].to_s) }
+          end
 
-          # No introducer yet: suggest non-introduced slot members and the
-          # introducer keywords themselves.
+          # General position: open plain slots' remaining members, plus the
+          # introducer keywords of slots that can still take (more) values.
           items = []
           suggestable_slots.each do |slot|
+            closed = !slot.repeatable && Array(filled[slot]).any?
+            next if closed
+
             if slot.introducer
               intro = slot.introducer.to_s
               if partial.empty? || intro.start_with?(partial.downcase)
                 items << { label: intro, insert: "#{intro} ", description: "", masked: false }
               end
             else
-              items.concat(suggest_for_slot(slot, partial, authenticated:))
+              committed = Array(filled[slot]).map(&:to_s)
+              items.concat(
+                suggest_for_slot(slot, partial, authenticated:)
+                  .reject { |i| committed.include?(i[:label].to_s) }
+              )
             end
           end
 
+          # The `list` verb's kwargs (with-columns, sort clause, filters) are
+          # RAW-parsed by its handler, not verbs.yml slots — the slot walk
+          # can't see them, so a filled noun went silent (owner G33: "full
+          # kwargs support"). Suggest the clause the cursor is inside.
+          items.concat(list_kwarg_completions(typed_tokens, partial)) if spec.name == :list
+
           # plan-0.9.5 D5: list alphabetically; deduplicate by label.
           items.sort_by { |i| i[:label].to_s.downcase }.uniq { |i| i[:label] }
+        end
+
+        # ── free-mode `list` kwargs (G33) ─────────────────────────────────────
+
+        # The list surfaces' column modules, keyed by canonical noun — the
+        # same single-source vocabularies the tables and footers render from.
+        LIST_SURFACES = {
+          "games"    => Pito::MessageBuilder::Game::ListColumns,
+          "vids"     => Pito::MessageBuilder::Video::ListColumns,
+          "channels" => Pito::MessageBuilder::Channel::ListColumns
+        }.freeze
+
+        SORT_KEYWORDS = %w[sort sorted order ordered].freeze
+
+        # Noun-specific single-token filters the list handler raw-parses.
+        LIST_FILTER_TOKENS = {
+          "games" => %w[upcoming],
+          "vids"  => %w[published unlisted scheduled]
+        }.freeze
+
+        # Completions for the clause the cursor sits in:
+        #   after the noun     → the kwarg openers (with, sorted by, filters)
+        #   inside `with …`    → the surface's remaining addable columns
+        #   inside `sort [by]` → sortable tokens (base + with-selected), then asc/desc
+        def list_kwarg_completions(typed_tokens, partial)
+          nouns = Pito::Grammar::Registry.vocabulary(:nouns)
+          return [] unless nouns
+
+          noun_idx = typed_tokens.index { |t| nouns.resolve(t.downcase) }
+          return [] unless noun_idx
+
+          noun    = nouns.resolve(typed_tokens[noun_idx].downcase)
+          surface = LIST_SURFACES[noun]
+          return [] unless surface
+
+          rest = typed_tokens[(noun_idx + 1)..].map { |t| t.downcase.delete_suffix(",") }
+
+          with_idx = rest.rindex("with")
+          sort_idx = rest.rindex { |t| SORT_KEYWORDS.include?(t) }
+
+          candidates =
+            if sort_idx && (!with_idx || sort_idx > with_idx)
+              sort_clause_candidates(rest, sort_idx, with_idx, surface)
+            elsif with_idx
+              with_clause_candidates(rest, with_idx, surface)
+            else
+              [ "with", "sorted by" ] + LIST_FILTER_TOKENS.fetch(noun, []) - rest
+            end
+
+          prefix_filter(candidates, partial)
+            .sort_by { |c| c.to_s.downcase }
+            .map { |label| { label: label, insert: "#{label} ", description: "", masked: false } }
+        end
+
+        # Remaining addable columns after the ones already typed in the clause.
+        def with_clause_candidates(rest, with_idx, surface)
+          committed = rest[(with_idx + 1)..].filter_map { |t| surface.vocabulary[t] }
+          (surface::COLUMNS.keys - committed).map { |c| column_display_token(surface, c) }
+        end
+
+        # Sort tokens while the column is unchosen; asc/desc once it is.
+        def sort_clause_candidates(rest, sort_idx, with_idx, surface)
+          after = rest[(sort_idx + 1)..]
+          after = after.drop(1) if after.first == "by"
+
+          case after.size
+          when 0
+            selected = if with_idx && with_idx < sort_idx
+              rest[(with_idx + 1)...sort_idx].filter_map { |t| surface.vocabulary[t] }
+            else
+              []
+            end
+            sortable_tokens_for(surface, selected)
+          when 1 then %w[asc desc]
+          else []
+          end
+        end
+
+        # Sortable tokens per surface: channels expose the derivation directly;
+        # game/video mirror their options footers (base + visible with-columns).
+        def sortable_tokens_for(surface, selected)
+          return surface.sortable_tokens(selected_columns: selected) if surface.respond_to?(:sortable_tokens)
+
+          surface.base_sort_tokens + selected.filter_map { |c| surface::SORT_VOCAB.key(c) }
+        end
+
+        # Channel::ListColumns has no display_token — fall back to the first alias.
+        def column_display_token(surface, canonical)
+          return surface.display_token(canonical) if surface.respond_to?(:display_token)
+
+          surface::COLUMNS.fetch(canonical)[:aliases].first
+        end
+
+        # The slot a committed token fills: the open introduced slot when its
+        # vocabulary resolves the token, else the first open plain slot that
+        # resolves it. nil when nothing matches (free text never fills a slot).
+        def resolving_slot(active, slots, filled, token)
+          candidates = active ? [ active ] : slots.reject(&:introducer)
+          candidates.find do |slot|
+            next false unless slot.repeatable || Array(filled[slot]).empty?
+
+            Pito::Grammar::Registry.vocabulary(slot.source)&.resolve(token)
+          end
         end
 
         # ── Helpers ───────────────────────────────────────────────────────────
