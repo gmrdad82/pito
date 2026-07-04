@@ -1,5 +1,10 @@
 <span id="<%= slot_id %>" class="contents">
   <% if named? %>
-    <span class="text-purple pito-chatbox__name"><%= title %></span>
+    <span class="pito-context-meter__name text-fg-dim"><%= title %></span>
+  <% else %>
+    <%# Empty spacer keeps the meter header's counter right-aligned when the
+        conversation is Unnamed — and the slot itself stays in the DOM so a
+        live rename (Unnamed → named) has a target to replace (G44). %>
+    <span></span>
   <% end %>
 </span>

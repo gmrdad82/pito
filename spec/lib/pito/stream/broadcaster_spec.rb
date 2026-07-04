@@ -73,6 +73,32 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
   end
 
+  # G44b — the meter replace must CARRY the conversation name: it swaps the
+  # whole #pito-context-meter, so a nameless render wiped a just-renamed title
+  # on the next counter tick ("saw it for a bit, then it disappeared").
+  describe "#broadcast_context_meter" do
+    it "broadcasts a meter replace that includes the conversation name" do
+      conversation.update!(title: "android2")
+      expect {
+        broadcaster.broadcast_context_meter
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include("pito-context-meter")
+        expect(html).to include("android2")
+        expect(html).to include(Pito::Shell::Chatbox::NameComponent::SLOT_ID)
+      }
+    end
+
+    it "still renders the (empty) name slot for an Unnamed conversation" do
+      expect {
+        broadcaster.broadcast_context_meter
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include(Pito::Shell::Chatbox::NameComponent::SLOT_ID)
+      }
+    end
+  end
+
   describe "#broadcast_auth_update" do
     before do
       allow(Channel).to receive(:order).with(:handle).and_return([])
