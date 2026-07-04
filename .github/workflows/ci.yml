@@ -213,6 +213,14 @@ jobs:
         # `File.stat("--options")` as if it were a spec path.
         run: bundle exec parallel_rspec spec/ --test-options "--options /dev/null --require spec_helper"
 
+      - name: Enforce the coverage floor
+        # SimpleCov recorded per-process slices during parallel_rspec (the CI
+        # env turns it on in spec_helper); this collates the merged resultset
+        # and fails the job below the floor — see lib/tasks/coverage.rake.
+        # Enforced HERE and not per-process because each parallel group only
+        # executes a slice of the suite.
+        run: bundle exec rake coverage:floor
+
       # The `rails` job is the single green "heartbeat": it pings on success too
       # (one all-clear per push). Every OTHER notify across the workflows is
       # failure-only, so green pushes produce exactly ONE Slack message.
