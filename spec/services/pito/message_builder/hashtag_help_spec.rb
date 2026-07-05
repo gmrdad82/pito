@@ -70,10 +70,10 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("--help")
         end
 
-        # plan-0.9.5 E9: universal `help` verb appears on every target page so
-        # the owner can always type `#<handle> help` to print the help page.
-        it "body lists the universal help verb as a distinct action (not --help)" do
-          expect(result["body"]).to include(">help</span>")
+        # G92 (2026-07-05): `help` removed from universal_reply; target pages no
+        # longer show a "help" action row — the --help FLAG is the surviving surface.
+        it "body does NOT list a universal `help` action row (G92)" do
+          expect(result["body"]).not_to include(">help</span>")
         end
       end
 

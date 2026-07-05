@@ -76,8 +76,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       expect(described_class.actions_for("resume_missing")).to include("new", "create")
     end
 
+    # G92 (2026-07-05): `help` removed from universal_reply; universal tokens are
+    # now only share / revoke / unshare.
     it "includes the full universal reply set on every known target" do
-      %w[share revoke unshare help].each do |token|
+      %w[share revoke unshare].each do |token|
         expect(described_class.actions_for("game_list")).to include(token)
         expect(described_class.actions_for("video_list")).to include(token)
         expect(described_class.actions_for("analytics_glance")).to include(token)
@@ -159,9 +161,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
     end
 
     # ── Universal actions are always :append ───────────────────────────────────
+    # G92 (2026-07-05): `help` removed from universal_reply; share/revoke/unshare remain.
 
     describe "universal actions" do
-      %w[share revoke unshare help].each do |token|
+      %w[share revoke unshare].each do |token|
         it "#{token.inspect} returns :append on any target" do
           expect(described_class.mode_for("game_list", action: token)).to eq(:append)
           expect(described_class.mode_for("analyze_message", action: token)).to eq(:append)
@@ -301,8 +304,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
   # ── universal_tokens ─────────────────────────────────────────────────────────
 
   describe ".universal_tokens" do
+    # G92 (2026-07-05): `help` removed from universal_reply; canonical tokens are share + revoke only.
     it "includes the canonical universal verb names" do
-      expect(described_class.universal_tokens).to include("share", "revoke", "help")
+      expect(described_class.universal_tokens).to include("share", "revoke")
+      expect(described_class.universal_tokens).not_to include("help")
     end
 
     it "includes aliases of universal verbs (unshare → revoke)" do
@@ -341,8 +346,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
         expect(described_class.actions_for("video_list")).to include("share")
       end
 
-      it "still includes help and revoke in actions_for(game_list) (not excepted)" do
-        expect(described_class.actions_for("game_list")).to include("help", "revoke")
+      # G92 (2026-07-05): `help` removed from universal_reply; revoke is the only un-excepted universal here.
+      it "still includes revoke in actions_for(game_list) (not excepted)" do
+        expect(described_class.actions_for("game_list")).to include("revoke")
+        expect(described_class.actions_for("game_list")).not_to include("help")
       end
 
       it "mode_for(game_list, action: share) falls back to base mode (HF3 — not a universal for this target)" do

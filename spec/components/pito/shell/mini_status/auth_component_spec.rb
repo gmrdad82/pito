@@ -57,6 +57,18 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
     end
   end
 
+  # G87: the suffix span is the bar's DEDICATED app-version slot — the cable
+  # heartbeat (pito--version-watch) writes the server's version into it live.
+  describe "the version slot (G87)" do
+    it "the suffix span carries the stable slot id" do
+      allow(Pito::Version).to receive(:suffix).and_return("1.1.1")
+      node = render_inline(described_class.new(state: true))
+      slot = node.css("span##{described_class::VERSION_SLOT_ID}").first
+      expect(slot).to be_present
+      expect(slot.text).to eq("@1.1.1")
+    end
+  end
+
   describe "version suffix (@tag in prod / @host in dev)" do
     it "appends a muted @suffix after the nickname when authenticated" do
       allow(Pito::Version).to receive(:suffix).and_return("0.8.5")

@@ -15,12 +15,21 @@ RSpec.describe Pito::Shell::PullRefreshHintComponent, type: :component do
     expect(node.css("template#pito-pull-refresh-hint")).not_to be_empty
   end
 
-  it "carries the shrug, the hint marker, and a resolved dictionary line" do
+  it "carries a dictionary kaomoji, the hint marker, and a resolved dictionary line" do
     inner = render_inline(described_class.new).css("template#pito-pull-refresh-hint").first.inner_html
-    expect(inner).to include("(ツ)")
     expect(inner).to include("data-pull-refresh-hint")
     expect(inner).to include("pito-pull-hint__text")
     hints = I18n.t("pito.copy.pull_refresh.hints")
     expect(hints.any? { |h| inner.include?(ERB::Util.html_escape(h)) }).to be(true)
+  end
+
+  # G93: both halves sample their OWN 50-variant dictionary independently —
+  # 2500 combos, repetition stays rare.
+  it "samples the kaomoji from the 50-glyph dictionary" do
+    glyphs = I18n.t("pito.copy.pull_refresh.glyphs")
+    expect(glyphs.length).to eq(50)
+
+    inner = render_inline(described_class.new).css(".pito-pull-hint__shrug").first
+    expect(glyphs).to include(CGI.unescapeHTML(inner.inner_html))
   end
 end

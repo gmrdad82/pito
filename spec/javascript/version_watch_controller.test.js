@@ -65,6 +65,28 @@ describe("pito--version-watch controller", () => {
     expect(document.getElementById("pito-refresh-nudge")).toBeNull() // template consumed
   })
 
+  it("writes the broadcast version into the mini status slot on every heartbeat (G87)", async () => {
+    scaffold({ pageVersion: "1.0.1", serverVersion: "1.1.0" })
+    const slot = document.createElement("span")
+    slot.id = "pito-mini-status-version"
+    slot.textContent = "@1.0.1"
+    document.body.appendChild(slot)
+    await start()
+
+    expect(slot.textContent).toBe("@1.1.0")
+  })
+
+  it("updates the slot even when versions MATCH (the listener is unconditional)", async () => {
+    scaffold({ pageVersion: "1.1.0", serverVersion: "1.1.0" })
+    const slot = document.createElement("span")
+    slot.id = "pito-mini-status-version"
+    slot.textContent = "@stale"
+    document.body.appendChild(slot)
+    await start()
+
+    expect(slot.textContent).toBe("@1.1.0")
+  })
+
   it("stays quiet when the versions match", async () => {
     const { scrollback } = scaffold({ pageVersion: "1.1.0", serverVersion: "1.1.0" })
     await start()
