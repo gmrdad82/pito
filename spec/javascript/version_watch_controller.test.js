@@ -5,9 +5,15 @@
 // the page's pito-version meta clones the refresh nudge into the scrollback.
 // Consuming the template is the once-per-page guard shared with cable-health.
 
-import { describe, it, expect, afterEach } from "vitest"
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import VersionWatchController from "controllers/pito/version_watch_controller"
+
+// jsdom does not implement scrollIntoView — the nudge clone calls it, and the
+// resulting jsdomError surfaces as an unhandled rejection that fails CI.
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
 function scaffold({ pageVersion, serverVersion }) {
   if (pageVersion) {
@@ -47,7 +53,8 @@ describe("pito--version-watch controller", () => {
   afterEach(async () => {
     document.body.innerHTML = ""
     document.head.querySelector('meta[name="pito-version"]')?.remove()
-    await app.stop()
+    await Promise.resolve() // let Stimulus's MutationObserver fire disconnect()
+    app.stop()
   })
 
   it("raises the nudge when the heartbeat's version differs from the page's", async () => {
