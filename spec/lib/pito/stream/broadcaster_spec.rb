@@ -418,6 +418,33 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
   end
 
+  # ── The version heartbeat (G80) ──────────────────────────────────────────────
+  #
+  # VersionHeartbeatJob calls this every 5 min: a pito:global replace of the
+  # hidden #pito-server-version node. The recurring push is what makes the
+  # refresh nudge race-proof — 1.1.0 shipped and the owner's open tab never
+  # heard about it from the reconnect check alone.
+
+  describe ".broadcast_global_version" do
+    it "replaces #pito-server-version on pito:global with the running build and the watcher mounted" do
+      allow(Pito::Version).to receive(:suffix).and_return("9.9.9")
+
+      expect {
+        described_class.broadcast_global_version
+      }.to have_broadcasted_to("pito:global").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include('target="pito-server-version"')
+        expect(html).to include('data-pito--version-watch-version-value="9.9.9"')
+        expect(html).to include('data-controller="pito--version-watch"')
+      }
+    end
+
+    it "does not raise even if ActionCable is unavailable" do
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to).and_raise(StandardError, "boom")
+      expect { described_class.broadcast_global_version }.not_to raise_error
+    end
+  end
+
   # ── The JSON mirror (P12 — pito-tui et al.) ─────────────────────────────────
   #
   # Every persisted-event broadcast is mirrored onto the conversation's

@@ -6,26 +6,40 @@ module Pito
       # Column metadata for the `list channels` kv-table — the channels sibling
       # of Video::ListColumns / Game::ListColumns.
       #
-      # The base table (Avatar · Handle · Title · Subs · Views · Vids) stays
-      # fixed and always visible; on top of it, ADDABLE columns join via
-      # `with <col>` / leave via `without <col>` (owner G26.2 — channels joined
-      # the with/without mechanism for their audience counters).
+      # G82: only IDENTITY stays fixed (Avatar · Handle · Title). Every counter
+      # — subs, views, vids, likes — is a `with`/`without`-able column;
+      # DEFAULT_COLUMNS ships subs/views/vids visible so a bare `list channels`
+      # looks exactly like it always did, but `without views` finally works
+      # (the old base table was immovable: "Removable: nothing").
       #
-      # Sortable: every fixed column except Avatar — handle, title, subs, views,
-      # vids (canonical nouns `subs`/`vids`; `subscribers`/`videos` aliased) —
-      # plus any addable column while it is visible.
+      # Sortable: handle + title always; a counter column while it is visible.
       module ListColumns
         # Fixed-column token → sort key lambda (Channel → comparable).
         SORT_KEYS = {
           "handle" => ->(c) { c.at_handle.to_s.downcase },
-          "title"  => ->(c) { c.title.to_s.downcase },
-          "subs"   => ->(c) { c.subscriber_count.to_i },
-          "views"  => ->(c) { c.view_count.to_i },
-          "vids"   => ->(c) { c.videos.count }
+          "title"  => ->(c) { c.title.to_s.downcase }
         }.freeze
 
-        # Addable columns — `with`/`without`-able, sortable only while shown.
+        # The with/without-able columns, in canonical display order.
         COLUMNS = {
+          subs: {
+            aliases: %w[subs sub subscribers],
+            heading: "Subs",
+            value:   ->(c) { c.subscriber_count },
+            sort:    ->(c) { c.subscriber_count.to_i }
+          },
+          views: {
+            aliases: %w[views view],
+            heading: "Views",
+            value:   ->(c) { c.view_count },
+            sort:    ->(c) { c.view_count.to_i }
+          },
+          vids: {
+            aliases: %w[vids vid videos video],
+            heading: "Vids",
+            value:   ->(c) { c.videos.count },
+            sort:    ->(c) { c.videos.count }
+          },
           likes: {
             aliases: %w[likes],
             heading: "Likes",
@@ -34,19 +48,19 @@ module Pito
           }
         }.freeze
 
-        # Accepted aliases → canonical column token.
+        # Visible without any `with` clause — the classic channels table.
+        DEFAULT_COLUMNS = %i[subs views vids].freeze
+
+        # Accepted aliases → canonical column token (sort-token resolution for
+        # the FIXED columns; counter aliases resolve through +vocabulary+).
         ALIASES = {
-          "subscribers" => "subs",
-          "sub"         => "subs",
-          "videos"      => "vids",
-          "vid"         => "vids",
-          "name"        => "title",
-          "channel"     => "handle"
+          "name"    => "title",
+          "channel" => "handle"
         }.freeze
 
         module_function
 
-        # Maps every addable-column alias (downcased) → canonical Symbol —
+        # Maps every column alias (downcased) → canonical Symbol —
         # the vocabulary WithColumns.parse and the column_list resolver expect.
         def vocabulary
           @vocabulary ||= COLUMNS.each_with_object({}) do |(canonical, cfg), vocab|
@@ -54,8 +68,16 @@ module Pito
           end.freeze
         end
 
+        # Normalize a selection to canonical display order (COLUMNS order),
+        # dropping unknowns — both entry paths (typed verb + reply mutation)
+        # funnel through this so "with likes without views" can never scramble
+        # the table.
+        def normalize(columns)
+          COLUMNS.keys & Array(columns).map(&:to_sym)
+        end
+
         # Resolve a user sort token to its key lambda, or nil when unknown.
-        # Fixed columns always sort; an addable column sorts only while it is
+        # Fixed columns always sort; a counter column sorts only while it is
         # in +selected_columns+ (mirrors Video::ListColumns' requires_with).
         #
         # @param token            [String]
@@ -66,16 +88,16 @@ module Pito
           canonical = ALIASES.fetch(canonical, canonical)
           return SORT_KEYS[canonical] if SORT_KEYS.key?(canonical)
 
-          sym = canonical.to_sym
+          sym = vocabulary[canonical] || canonical.to_sym
           return nil unless selected_columns.map(&:to_sym).include?(sym)
 
           COLUMNS.dig(sym, :sort)
         end
 
         # The sortable tokens for help/error copy + the options footer:
-        # every fixed column, plus the currently-visible addable ones.
+        # every fixed column, plus the currently-visible counter ones.
         def sortable_tokens(selected_columns: [])
-          SORT_KEYS.keys + selected_columns.map(&:to_s)
+          SORT_KEYS.keys + normalize(selected_columns).map(&:to_s)
         end
       end
     end

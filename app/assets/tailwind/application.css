@@ -425,6 +425,24 @@ html {
   animation-iteration-count: infinite;
 }
 
+/* ── Pull-to-refresh hint (G81) ──
+   Cloned under the scrollback's last message by pito--pull-refresh (Android
+   shell only); opacity tracks the drag, .is-armed flips it yellow — the
+   action class — when releasing would reload. */
+.pito-pull-hint {
+  display: flex;
+  justify-content: center;
+  gap: 1ch;
+  padding-top: 8px;
+  color: var(--fg-faded);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.pito-pull-hint.is-armed {
+  color: var(--accent-yellow);
+}
+
 /* ── Mini-status "me" shimmer (G70) ──
    The authenticated `■ nickname` in the mini status bar wears the house
    green↔yellow sweep — the SAME recipe as .pito-trend-number--up (yellow is

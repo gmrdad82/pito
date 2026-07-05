@@ -28,6 +28,15 @@
 #   - VoyageReindexJob            — triggered via chat `sync` verb
 
 production:
+  # Version heartbeat — every 5 minutes (G80): pushes the running build onto
+  # pito:global so open tabs notice a server update under them and raise the
+  # refresh nudge. Recurring on purpose — a boot-time broadcast races the
+  # clients' post-update reconnects; a heartbeat catches everyone eventually.
+  version_heartbeat:
+    class: VersionHeartbeatJob
+    schedule: every 5 minutes
+    description: "Push the running build version to open tabs (refresh nudge)"
+
   # Notifications cleanup — daily at 01:00 UTC
   cleanup_notifications:
     class: CleanupNotificationsJob
@@ -114,6 +123,13 @@ production:
     description: "Sweep expired analytics cache/primitive rows + old api_requests"
 
 development:
+  # Version heartbeat — every 5 minutes (G80; dev parity — dev "updates" are
+  # restarts where meta and server version rarely differ, so it stays quiet).
+  version_heartbeat:
+    class: VersionHeartbeatJob
+    schedule: every 5 minutes
+    description: "Push the running build version to open tabs (refresh nudge)"
+
   # Notifications cleanup — daily at 01:00
   cleanup_notifications:
     class: CleanupNotificationsJob

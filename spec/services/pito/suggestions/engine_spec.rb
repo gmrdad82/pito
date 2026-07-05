@@ -719,13 +719,20 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(labels("#gl-2b order ", 13)).to eq(%w[id price title])
       end
 
-      it "suggests the fixed channel sort set on channel_list" do
-        stamp("cl-1", "channel_list")
+      # G82: counters sort only while visible — real payloads always stamp the
+      # selection (subs/views/vids by default), so the completions mirror it.
+      it "suggests identity + the stamped visible columns on channel_list" do
+        stamp("cl-1", "channel_list", "list_columns" => %w[subs views vids])
         expect(labels("#cl-1 sort ", 11)).to eq(%w[handle subs title vids views])
       end
 
+      it "offers only identity sorts when every counter was without-ed away" do
+        stamp("cl-1b", "channel_list", "list_columns" => [])
+        expect(labels("#cl-1b sort ", 12)).to eq(%w[handle title])
+      end
+
       it "treats the leading `by` particle as transparent" do
-        stamp("cl-2", "channel_list")
+        stamp("cl-2", "channel_list", "list_columns" => %w[subs views vids])
         expect(labels("#cl-2 sort by ", 14)).to eq(%w[handle subs title vids views])
       end
 

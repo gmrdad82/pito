@@ -2,9 +2,9 @@
 
 require "rails_helper"
 
-# G26.2 — channels joined the with/without mechanism: the fixed kv-table
-# (handle/title/subs/views/vids) is always sortable, while addable columns
-# (likes) sort only while visible.
+# G26.2/G82 — channels' with/without columns: identity (handle/title) is fixed
+# and always sortable; every counter (subs/views/vids/likes) is a selectable
+# column that sorts only while visible. DEFAULT_COLUMNS ships subs/views/vids.
 RSpec.describe Pito::MessageBuilder::Channel::ListColumns do
   # ── vocabulary ──────────────────────────────────────────────────────────────
 
@@ -19,8 +19,16 @@ RSpec.describe Pito::MessageBuilder::Channel::ListColumns do
       expect(vocab["likes"]).to eq(:likes)
     end
 
-    it "does not include the fixed columns (they are not with/without-able)" do
-      %w[handle title subs views vids].each do |fixed|
+    it "maps every counter alias to its canonical token (G82)" do
+      expect(vocab["subs"]).to eq(:subs)
+      expect(vocab["subscribers"]).to eq(:subs)
+      expect(vocab["views"]).to eq(:views)
+      expect(vocab["vids"]).to eq(:vids)
+      expect(vocab["videos"]).to eq(:vids)
+    end
+
+    it "does not include the identity columns (they are not with/without-able)" do
+      %w[handle title].each do |fixed|
         expect(vocab.key?(fixed)).to be(false), "expected #{fixed} not to be addable"
       end
     end
@@ -35,10 +43,18 @@ RSpec.describe Pito::MessageBuilder::Channel::ListColumns do
   describe ".sort_key_for" do
     let(:channel) { create(:channel, title: "Alpha Tube", handle: "@alpha") }
 
-    it "returns a proc for every fixed column regardless of selected_columns" do
-      %w[handle title subs views vids].each do |token|
+    it "returns a proc for the identity columns regardless of selected_columns" do
+      %w[handle title].each do |token|
         expect(described_class.sort_key_for(token, selected_columns: []))
           .to be_a(Proc), "expected #{token} to always sort"
+      end
+    end
+
+    it "sorts a counter only while visible (G82 — subs/views/vids joined likes)" do
+      %w[subs views vids].each do |token|
+        expect(described_class.sort_key_for(token, selected_columns: [])).to be_nil
+        expect(described_class.sort_key_for(token, selected_columns: %i[subs views vids]))
+          .to be_a(Proc), "expected visible #{token} to sort"
       end
     end
 
@@ -47,9 +63,10 @@ RSpec.describe Pito::MessageBuilder::Channel::ListColumns do
       expect(key.call(channel)).to eq("alpha tube")
     end
 
-    it "resolves the canonical-noun aliases (subscribers→subs, videos→vids)" do
-      expect(described_class.sort_key_for("subscribers", selected_columns: [])).to be_a(Proc)
-      expect(described_class.sort_key_for("videos",      selected_columns: [])).to be_a(Proc)
+    it "resolves the canonical-noun aliases while visible (subscribers→subs, videos→vids)" do
+      selected = %i[subs vids]
+      expect(described_class.sort_key_for("subscribers", selected_columns: selected)).to be_a(Proc)
+      expect(described_class.sort_key_for("videos",      selected_columns: selected)).to be_a(Proc)
     end
 
     it "returns nil for 'likes' when :likes is not in selected_columns" do
@@ -79,14 +96,19 @@ RSpec.describe Pito::MessageBuilder::Channel::ListColumns do
   # ── sortable_tokens ──────────────────────────────────────────────────────────
 
   describe ".sortable_tokens" do
-    it "lists the fixed columns when nothing is selected" do
+    it "lists only the identity columns when nothing is selected" do
       expect(described_class.sortable_tokens(selected_columns: []))
+        .to eq(%w[handle title])
+    end
+
+    it "appends the visible counters in canonical order (the default table)" do
+      expect(described_class.sortable_tokens(selected_columns: described_class::DEFAULT_COLUMNS))
         .to eq(%w[handle title subs views vids])
     end
 
-    it "appends the visible addable columns" do
-      expect(described_class.sortable_tokens(selected_columns: [ :likes ]))
-        .to eq(%w[handle title subs views vids likes])
+    it "includes likes while selected" do
+      expect(described_class.sortable_tokens(selected_columns: %i[likes subs]))
+        .to eq(%w[handle title subs likes])
     end
   end
 end

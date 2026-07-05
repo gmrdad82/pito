@@ -4,7 +4,37 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.1] — 2026-07-05
+
+### Added
+
+- **The pull-to-refresh gesture got a face** — a shrug (¯\\\_(ツ)\_/¯) and one
+  of fifty short ironic lines fade in as you pull, turning yellow the moment
+  releasing would reload.
+- **The refresh nudge is heartbeat-driven now** — the server pushes its
+  version to every open tab every five minutes, so an update can never again
+  slip past unannounced (1.1.0 did exactly that: the one-shot reconnect check
+  missed the update's churn). The reconnect check stays as a fast path.
+
+### Fixed
+
+- **Pull-to-refresh reloads the styles too** — the Android WebView re-served
+  the cached document on reload, keeping the old CSS alive across a server
+  update while the scrollback content looked fresh. HTML now goes out
+  `no-store` (assets stay fingerprinted and long-cached), so every reload —
+  gesture, nudge tap, or key combo — actually wears the new build.
+- **Ampersand bundles reach the import sidebar** — IGDB joins some two-title
+  bundles with " & " ("Yakuza Kiwami 3 & Dark Ties") instead of " + "; the
+  combo detector now accepts both spaced joiners, while unspaced ampersands
+  ("Game&Watch …") stay filtered.
+- **`ls channels` finally honors `without`** — the counter columns
+  (subs/views/vids) were part of the immovable base table, so the footer
+  offered levers that moved nothing. Now only identity (avatar · handle ·
+  title) is fixed: the default table looks identical, but `#handle without
+views` slims it, `with likes` widens it, and sort follows whatever is
+  visible — matching how games and vids lists have always worked.
+
+## [1.1.0] — 2026-07-05
 
 ### Added
 

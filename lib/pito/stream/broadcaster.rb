@@ -419,6 +419,24 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_global_settings_update failed: #{e.class}: #{e.message}")
       end
 
+      # The version HEARTBEAT (G80): replace the hidden #pito-server-version
+      # node on pito:global with the running build's identity. Broadcast every
+      # 5 minutes by VersionHeartbeatJob — a RECURRING push is race-proof where
+      # a boot-time broadcast is not (clients reconnect on their own schedule
+      # after an update kills the old container's sockets; whoever missed one
+      # tick catches the next). Client side, pito--version-watch remounts on
+      # every replace and compares against the page's build → refresh nudge.
+      def self.broadcast_global_version
+        helper = ApplicationController.helpers
+
+        version_html = %(<div id="pito-server-version" class="hidden" data-controller="pito--version-watch" data-pito--version-watch-version-value="#{ERB::Util.html_escape(Pito::Version.suffix)}"></div>).html_safe
+
+        content = helper.turbo_stream.replace("pito-server-version", version_html)
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_version failed: #{e.class}: #{e.message}")
+      end
+
       # Broadcast a custom `set-theme` Turbo Stream action to "pito:global" so that
       # every open browser tab recolors immediately when a theme is applied or
       # previewed via the `/themes` command. The action reads the `theme` attribute

@@ -19,6 +19,7 @@
 //   <div data-controller="pito--cable-health">
 
 import { Controller } from "@hotwired/stimulus"
+import { showRefreshNudge } from "controllers/pito/refresh_nudge_controller"
 
 const HIDDEN_RELOAD_MS = 30000 // reload if tab was hidden longer than this
 
@@ -85,13 +86,9 @@ export default class extends Controller {
 
   #showNudge() {
     if (this.nudged) return
-    const template   = document.getElementById("pito-refresh-nudge")
-    const scrollback = document.getElementById("pito-scrollback")
-    if (!template || !scrollback) return
-
-    this.nudged = true
-    scrollback.appendChild(template.content.cloneNode(true))
-    scrollback.lastElementChild?.scrollIntoView({ block: "end" })
+    // Shared with pito--version-watch (the G80 heartbeat) — consuming the
+    // template doubles as the cross-controller once-per-page guard.
+    this.nudged = showRefreshNudge()
   }
 
   #bindVisibility() {

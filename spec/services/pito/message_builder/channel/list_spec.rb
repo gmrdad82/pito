@@ -104,17 +104,19 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
       end
     end
 
-    it "stamps an empty list_columns when no addable columns are selected" do
-      expect(payload["list_columns"]).to eq([])
+    # G82: the default table IS a selection now — subs/views/vids stamped so
+    # the reply levers can remove them (`#h without views` finally works).
+    it "stamps the DEFAULT columns into list_columns" do
+      expect(payload["list_columns"]).to eq(%w[subs views vids])
     end
 
-    # ── with likes (G26.2 — addable audience-counter column) ───────────────────
-    context "with columns: [:likes]" do
-      subject(:payload) { described_class.call(channels, conversation: conversation, columns: [ :likes ]) }
+    # ── with likes (G26.2/G82 — every counter is a with/without column) ────────
+    context "with the full selection (defaults + likes — the typed `with likes` path)" do
+      subject(:payload) { described_class.call(channels, conversation: conversation, columns: %i[subs views vids likes]) }
 
-      it "appends a right-aligned Likes heading tagged --added" do
+      it "appends a right-aligned Likes heading" do
         expect(payload["table_heading"].last).to eq(
-          { "text" => "Likes", "class" => "text-right pito-table-heading--added" }
+          { "text" => "Likes", "class" => "text-right" }
         )
       end
 
@@ -126,13 +128,37 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
       end
 
       it "stamps list_columns so with/without/sort replies preserve the selection" do
-        expect(payload["list_columns"]).to eq([ "likes" ])
+        expect(payload["list_columns"]).to eq(%w[subs views vids likes])
       end
 
-      it "flips the footer: likes moves from addable to removable, and joins the sort keys" do
+      it "footer: everything selected is removable, nothing left to add" do
         expect(payload["list_footer"]).to include("nothing")
         expect(payload["list_footer"]).to include("likes")
       end
+    end
+
+    # ── G82: the identity table — every counter removed ────────────────────────
+    context "with columns: [] (everything without-ed away)" do
+      subject(:payload) { described_class.call(channels, conversation: conversation, columns: []) }
+
+      it "renders just Avatar · Handle · Title" do
+        texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+        expect(texts).to eq([ "", "Handle", "Title" ])
+      end
+
+      it "rows carry only the identity cells" do
+        expect(payload["table_rows"].first[:cells].size).to eq(3)
+      end
+
+      it "footer: every counter is addable again" do
+        %w[subs views vids likes].each { |c| expect(payload["list_footer"]).to include(c) }
+      end
+    end
+
+    # ── G82: selection order is canonical, never user-typed order ──────────────
+    it "normalizes a scrambled selection to display order" do
+      payload = described_class.call(channels, conversation: conversation, columns: %i[likes subs])
+      expect(payload["list_columns"]).to eq(%w[subs likes])
     end
   end
 end

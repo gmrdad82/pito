@@ -42,6 +42,17 @@ RSpec.describe "config/recurring.yml smoke check", type: :service do
     expect(entry["class"]).to eq("CloudflareTrustedProxiesRefresherJob")
   end
 
+  # G80: the heartbeat feeds the refresh nudge — open tabs learn the server
+  # updated under them from the recurring push, not from reconnect luck.
+  it "VersionHeartbeatJob pushes every 5 minutes in BOTH environments" do
+    %w[production development].each do |env|
+      entry = config[env]["version_heartbeat"]
+      expect(entry).not_to be_nil, "expected version_heartbeat in #{env}"
+      expect(entry["class"]).to eq("VersionHeartbeatJob")
+      expect(entry["schedule"]).to eq("every 5 minutes")
+    end
+  end
+
   it "removed data-sync entries are absent" do
     # game_igdb_nightly_refresh is now folded into NightlySyncJob's fan-out.
     removed = %w[game_igdb_nightly_refresh sync_channel_stats nightly_reindex

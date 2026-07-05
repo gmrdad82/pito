@@ -6,12 +6,13 @@ module Pito
       # Builds the payload for the `list channels` kv-table message (the card
       # strip retired 2026-07-02 — channels list like every other list verb).
       #
-      # Columns: Avatar · Handle · Title · Subs · Views · Vids, always shown —
-      # plus ADDABLE columns (`with likes` / `without likes`, G26.2) appended
-      # on the right. `sort` is supported on every column except Avatar, and on
-      # an addable column while visible (see ListColumns). Counts are compact
-      # (2.2K); the Avatar cell is the tiny (35px) ringed variant and the
-      # data-grid middle-aligns row text to it.
+      # Columns (G82): Avatar · Handle · Title are the fixed IDENTITY; every
+      # counter (subs/views/vids/likes) is a with/without-able column —
+      # DEFAULT_COLUMNS renders the classic table, `without <col>` slims it,
+      # `with likes` widens it. `sort` works on handle/title always and on a
+      # counter while visible (see ListColumns). Counts are compact (2.2K);
+      # the Avatar cell is the tiny (35px) ringed variant and the data-grid
+      # middle-aligns row text to it.
       #
       # The Handle cell is the click-to-open seam (auto-submits
       # `show channel @handle`) — same affordance as the vids list's #id cell.
@@ -29,23 +30,21 @@ module Pito
         HEADING = [
           "", # Avatar column — no label
           "Handle",
-          "Title",
-          { "text" => "Subs",  "class" => "text-right" },
-          { "text" => "Views", "class" => "text-right" },
-          { "text" => "Vids",  "class" => "text-right" }
+          "Title"
         ].freeze
 
         # @param channels     [Array<::Channel>] non-empty, pre-fetched, pre-sorted.
         # @param conversation [Conversation] used to generate the reply handle.
-        # @param columns      [Array<Symbol>] addable canonical column keys (ListColumns::COLUMNS).
+        # @param columns      [Array<Symbol>] the SELECTED counter columns
+        #   (defaults applied by the caller; normalized to display order here).
         # @return [Hash] string-keyed payload with body, table, follow-up fields.
-        def call(channels, conversation:, columns: [])
-          cols = Array(columns).map(&:to_sym)
+        def call(channels, conversation:, columns: ListColumns::DEFAULT_COLUMNS)
+          cols = ListColumns.normalize(columns)
 
           heading = HEADING.map(&:dup) + cols.map { |c|
             {
               "text"  => ListColumns::COLUMNS.fetch(c)[:heading],
-              "class" => "text-right pito-table-heading--added"
+              "class" => "text-right"
             }
           }
 
@@ -90,9 +89,6 @@ module Pito
                 data:  Pito::Shimmer::TokenComponent.prefill_data("show channel #{handle}", submit: true)
               },
               { text: channel.title.to_s, class: "text-fg pito-cell-title" },
-              count_cell(channel.subscriber_count),
-              count_cell(channel.view_count),
-              count_cell(channel.videos.count),
               *cols.map { |c| count_cell(ListColumns::COLUMNS.fetch(c)[:value].call(channel)) }
             ]
           }

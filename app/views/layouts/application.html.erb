@@ -26,6 +26,12 @@
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
+  <%# The version heartbeat's landing pad (G80): VersionHeartbeatJob replaces
+      this node on pito:global every 5 min; pito--version-watch compares its
+      value against the pito-version meta and raises the refresh nudge when
+      the server has moved on under this page. Rendered with the CURRENT
+      version so the initial mount is always a no-op. %>
+  <div id="pito-server-version" class="hidden" data-controller="pito--version-watch" data-pito--version-watch-version-value="<%= Pito::Version.suffix %>"></div>
   <%# Global Turbo Stream subscription: receives mini-status and row
       replacements that must propagate to every open browser instance
       (unread-count sync after notification toggle, sidebar row sync after rename). %>
@@ -68,5 +74,9 @@
       it into the scrollback after a reconnect onto a NEWER server build.
       Layout-level so it survives the start→conversation morph. %>
   <%= render(Pito::Shell::RefreshNudgeComponent.new) %>
+
+  <%# The pull-to-refresh indicator template (G81) — revealed by
+      pito--pull-refresh during the Android shell's bottom drag. %>
+  <%= render(Pito::Shell::PullRefreshHintComponent.new) %>
 </body>
 </html>
