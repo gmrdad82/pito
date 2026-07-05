@@ -70,6 +70,23 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
       result = handler.call(event:, rest: "sort by price", conversation:)
       expect(handles_of(result)).to eq([ "@small", "@big" ])
     end
+
+    # G82 regression (owner 2026-07-05: "replying with sort doesn't do
+    # anything"): counters sort only while VISIBLE, so the handler must pass
+    # the STAMPED selection to sort_key_for — without it every subs/views/vids
+    # sort resolved nil and silently no-opped.
+    it "sorts by a DEFAULT counter column (sort by subs) using the stamped selection" do
+      Pito::Stats.set(small, :views, 5)
+      Pito::Stats.set(big,   :views, 500)
+
+      result = handler.call(event:, rest: "sort by views desc", conversation:)
+      expect(handles_of(result)).to eq([ "@big", "@small" ])
+    end
+
+    it "keeps the stamped column selection across a sort (list_columns survives)" do
+      result = handler.call(event:, rest: "sort by title", conversation:)
+      expect(result.payload["list_columns"]).to eq(event.payload["list_columns"])
+    end
   end
 
   it "visit is NOT in Registry.actions_for('channel_list')" do

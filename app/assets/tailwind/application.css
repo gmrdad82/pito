@@ -468,12 +468,15 @@ html {
    gradient paints the ■ glyph too via background-clip: text. */
 .pito-me-shimmer {
   color: var(--accent-green);
+  /* G95: the band joined the house blue→purple gradient (G96) — green base,
+     brand band, same width as the fg shimmers. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
     var(--accent-green) 0%,
-    var(--accent-green) 38%,
-    var(--accent-yellow) 50%,
-    var(--accent-green) 62%,
+    var(--accent-green) 36%,
+    var(--shimmer-fg-band-a) 44%,
+    var(--shimmer-fg-band-b) 56%,
+    var(--accent-green) 64%,
     var(--accent-green) 100%
   );
   background-size: 200% 200%;
@@ -618,14 +621,16 @@ html {
    stylesheet for future reuse. Slow diagonal fg→YELLOW shimmer (17.5).
    Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-reference-shimmer {
-  /* reference band = YELLOW only (owner 17.5) — both stops use band-b. */
+  /* G96: the band is a GRADIENT — band-a (pito blue) grading into band-b
+     (purple) inside one sweep, and WIDER than the old single-color 6% slice
+     (44–56%) so it actually reads while moving. Same for subject below. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
     var(--shimmer-fg-base) 0%,
-    var(--shimmer-fg-base) 38%,
-    var(--shimmer-fg-band-b) 47%,
-    var(--shimmer-fg-band-b) 53%,
-    var(--shimmer-fg-base) 62%,
+    var(--shimmer-fg-base) 36%,
+    var(--shimmer-fg-band-a) 44%,
+    var(--shimmer-fg-band-b) 56%,
+    var(--shimmer-fg-base) 64%,
     var(--shimmer-fg-base) 100%
   );
   background-size: 200% 200%;
@@ -649,14 +654,15 @@ html {
    the other fg-band families (reference = the YELLOW counterpart).
    Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-subject-shimmer {
-  /* subject band = ORANGE only (owner 17.5) — both stops use band-a. */
+  /* G96: same blue→purple gradient band as the reference shimmer — one
+     family, one band (the old per-variant single colors read as "only blue"). */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
     var(--shimmer-fg-base) 0%,
-    var(--shimmer-fg-base) 38%,
-    var(--shimmer-fg-band-a) 47%,
-    var(--shimmer-fg-band-a) 53%,
-    var(--shimmer-fg-base) 62%,
+    var(--shimmer-fg-base) 36%,
+    var(--shimmer-fg-band-a) 44%,
+    var(--shimmer-fg-band-b) 56%,
+    var(--shimmer-fg-base) 64%,
     var(--shimmer-fg-base) 100%
   );
   background-size: 200% 200%;
@@ -2868,7 +2874,32 @@ html {
    the heatmap's day bands keep their exact split at every scale. */
 @media (max-width: 480px) {
   .pito-metric {
-    font-size: min(14px, calc((100vw - 34px) / 42 / 0.7324));
+    /* G97: 76px = page insets (5+5 + G91's 5) + segment chrome (4 bar + 6 gap
+       + 22 left + 16 right pad) + the metric's own 12px padding — the G89
+       first cut subtracted only 34px and charts still bled off the segment. */
+    font-size: min(14px, calc((100vw - 76px) / 42 / 0.7324));
+  }
+}
+
+/* G99 — the canvas follows its CONTAINER, not the viewport. The braille
+   canvas is a fixed 42 glyph cells (≈431px at the 14px base); wherever its
+   cell shrinks below that — the glance grid's halves in a narrow desktop
+   window, the game-detail columns, any future slot — the rows used to BLEED
+   past the cell's edge (measured: 431px rows in a 348px cell at a 780px
+   window). Each mount wrapper becomes a size container and the glyph font
+   derives from the REAL available width. At the 450px contract width the
+   result caps at the base 14px — the locked desktop layout renders
+   pixel-identically. The ≤480px viewport rule above remains the fallback
+   for metrics with no container ancestor (a bare scrollback message). */
+.pito-analytics-scalars__cell,
+.pito-analytics-scalars__charted,
+.pito-game-channels__col {
+  container-type: inline-size;
+}
+
+@container (max-width: 460px) {
+  .pito-metric {
+    font-size: min(14px, calc((100cqw - 14px) / 42 / 0.7324));
   }
 }
 
