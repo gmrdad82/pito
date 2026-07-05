@@ -108,13 +108,22 @@ module Pito
           channels = ::Channel.where(id: ids).includes(:youtube_connection)
                               .sort_by { |c| ids.index(c.id) || ids.size }
 
-          key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(tokens.join(" "))
+          # G82 made counter sorting VISIBILITY-gated — without the stamped
+          # selection every subs/views/vids sort resolved nil and the reply
+          # silently no-opped (owner 2026-07-05). The stamped columns also ride
+          # into the rebuild so a `with likes` selection survives the sort.
+          selected = Array(payload["list_columns"]).map(&:to_sym)
+          key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(
+            tokens.join(" "), selected_columns: selected
+          )
           if key
             channels = channels.sort_by { |c| key.call(c) }
             channels.reverse! if direction == :desc
           end
 
-          new_payload = Pito::MessageBuilder::Channel::List.call(channels, conversation: event.conversation)
+          new_payload = Pito::MessageBuilder::Channel::List.call(
+            channels, conversation: event.conversation, columns: selected
+          )
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
           # Preserve the continuation cursor — mutate replies operate on the current

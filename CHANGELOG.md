@@ -4,7 +4,29 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.3] — 2026-07-05
+
+### Changed
+
+- **The shimmer band became a gradient** — subject and reference tokens (and
+  the mini status' green nickname) now sweep one blue→purple gradient band,
+  wider than the old single-color slice, so the pass actually reads in both
+  theme families.
+
+### Fixed
+
+- **Charts follow their container everywhere** — the braille canvas is a
+  fixed 42 glyph cells, and any home narrower than that (the glance grid's
+  halves in a half-screen desktop window, phone columns) had rows bleeding
+  past the cell edge. Chart cells are size containers now: the glyphs derive
+  their size from the real available width, and the locked 450px desktop
+  layout renders pixel-identically.
+- **Channel sort replies work again** — making counter columns
+  visibility-gated (1.1.2) broke `#handle sort views`: the reply handler
+  never passed the stamped selection, so every counter sort silently
+  no-opped. It passes it now, and a `with likes` selection survives the sort.
+
+## [1.1.2] — 2026-07-05
 
 ### Added
 
