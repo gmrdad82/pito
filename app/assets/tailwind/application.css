@@ -65,8 +65,8 @@
   --shimmer-fg-base:   var(--fg-default);
   --shimmer-fg-band-a: var(--accent-orange);
   --shimmer-fg-band-b: var(--accent-yellow);
-  /* charts (Analytics visualizers) + score-bar + ttb: ONE shared band = pito-blue. */
-  --chart-shimmer: var(--brand-pito);
+  /* charts (Analytics visualizers) + score-bar + ttb: ONE shared band = fg-default. */
+  --chart-shimmer: var(--fg-default);
   --color-root:        var(--bg-root);
   --color-surface:     var(--bg-surface);
   --color-elevated:    var(--bg-elevated);
@@ -2876,7 +2876,7 @@ html {
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
-      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      color-mix(in oklch, var(--fg-default) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     var(--pito-health);
   background-repeat: no-repeat;
@@ -2901,7 +2901,7 @@ html {
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
-      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      color-mix(in oklch, var(--fg-default) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     linear-gradient(var(--fg-faded), var(--fg-faded));
 }
@@ -2959,7 +2959,7 @@ html {
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
-      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      color-mix(in oklch, var(--fg-default) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     linear-gradient(var(--pito-heat-color), var(--pito-heat-color));
   background-repeat: no-repeat;
@@ -3026,7 +3026,7 @@ html {
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
-      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      color-mix(in oklch, var(--fg-default) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     linear-gradient(var(--heart-color), var(--heart-color));
   background-repeat: no-repeat;
@@ -3120,7 +3120,7 @@ html {
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
-      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      color-mix(in oklch, var(--fg-default) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     linear-gradient(var(--bar-color-vivid), var(--bar-color-vivid));
   background-repeat: no-repeat;
