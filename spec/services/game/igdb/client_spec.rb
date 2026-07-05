@@ -198,6 +198,34 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(hits.map { |h| h["id"] }).to contain_exactly(2001, 2002)
     end
 
+    # G85 — ampersand combos: IGDB joins some two-title bundles with " & "
+    # instead of " + " ("Yakuza Kiwami 3 & Dark Ties"); the old " + "-only
+    # pattern dropped them from the import sidebar.
+    it "keeps gt3 combo bundles joined with ' & ' (G85 Yakuza Kiwami 3 & Dark Ties)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 4001, "name" => "Yakuza Kiwami 3 & Dark Ties", "game_type" => 3, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("yakuza kiwami 3 & dark ties")
+      expect(hits.map { |h| h["id"] }).to eq([ 4001 ])
+    end
+
+    it "still drops a gt3 row whose ampersand is unspaced or part of a single title (G85)" do
+      cover = { "image_id" => "img" }
+      body = [
+        # No spaced joiner — not a combo; gt3 without the pattern drops.
+        { "id" => 4002, "name" => "Game&Watch Collection", "game_type" => 3, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("game watch")
+      expect(hits).to be_empty
+    end
+
     # IGB1 — non-combo gt3 bundles (no " + " in name) are dropped.
     it "drops gt3 non-combo bundles (no ' + ' in name) (IGB1)" do
       cover = { "image_id" => "img" }

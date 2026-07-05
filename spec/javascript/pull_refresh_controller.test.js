@@ -95,6 +95,32 @@ describe("pito--pull-refresh controller", () => {
     expect(reload).not.toHaveBeenCalled()
   })
 
+  it("reveals the shrug hint during the drag and arms it at the threshold (G81)", async () => {
+    await build({ native: true })
+    fakeGeometry(el, { atBottom: true })
+
+    const template = document.createElement("template")
+    template.id = "pito-pull-refresh-hint"
+    template.innerHTML = '<div class="pito-pull-hint" data-pull-refresh-hint>shrug pull</div>'
+    document.body.appendChild(template)
+
+    el.dispatchEvent(touchEvent("touchstart", 500))
+    el.dispatchEvent(touchEvent("touchmove", 455)) // pull = 45 = half threshold
+    const hint = el.querySelector("[data-pull-refresh-hint]")
+    expect(hint).not.toBeNull()
+    expect(parseFloat(hint.style.opacity)).toBeCloseTo(0.5)
+    expect(hint.classList.contains("is-armed")).toBe(false)
+
+    el.dispatchEvent(touchEvent("touchmove", 500 - (THRESHOLD_PX + 10)))
+    expect(hint.classList.contains("is-armed")).toBe(true)
+
+    // Short release resets it
+    el.dispatchEvent(touchEvent("touchmove", 460))
+    el.dispatchEvent(touchEvent("touchend", 460))
+    expect(hint.classList.contains("is-armed")).toBe(false)
+    expect(String(hint.style.opacity)).toBe("0")
+  })
+
   it("lifts the pane during the drag as feedback (capped)", async () => {
     await build({ native: true })
     fakeGeometry(el, { atBottom: true })

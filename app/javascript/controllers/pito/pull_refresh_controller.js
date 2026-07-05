@@ -69,6 +69,14 @@ export default class extends Controller {
     const lift = Math.min(this.pull / 3, MAX_LIFT_PX)
     this.element.style.transition = "none"
     this.element.style.transform  = this.pull > 0 ? `translateY(-${lift}px)` : ""
+
+    // Indicator (G81): the shrug fades in with the pull and arms yellow when
+    // releasing would reload.
+    const hint = this.#hint()
+    if (hint) {
+      hint.style.opacity = Math.min(this.pull / THRESHOLD_PX, 1)
+      hint.classList.toggle("is-armed", this.pull >= THRESHOLD_PX)
+    }
   }
 
   #end() {
@@ -83,6 +91,25 @@ export default class extends Controller {
     // Spring back
     this.element.style.transition = "transform 150ms ease-out"
     this.element.style.transform  = ""
+    const hint = this.#hint()
+    if (hint) {
+      hint.style.opacity = 0
+      hint.classList.remove("is-armed")
+    }
+  }
+
+  // The shrug indicator, cloned lazily from the layout's server-rendered
+  // template into the scrollback's tail on the first pull (copy comes
+  // server-resolved from the 50-variant dictionary).
+  #hint() {
+    let hint = this.element.querySelector("[data-pull-refresh-hint]")
+    if (hint) return hint
+
+    const template = document.getElementById("pito-pull-refresh-hint")
+    if (!template) return null
+
+    this.element.appendChild(template.content.cloneNode(true))
+    return this.element.querySelector("[data-pull-refresh-hint]")
   }
 
   // Seam for tests (location.reload is unstubbable in jsdom).

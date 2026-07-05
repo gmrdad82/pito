@@ -465,11 +465,14 @@ module Pito
 
           channels = channels.to_a
 
-          # Addable columns (`with likes`, G26.2) — channels' with-vocabulary.
-          columns = Pito::Chat::WithColumns.parse(
-            message.raw,
-            vocabulary: Pito::MessageBuilder::Channel::ListColumns.vocabulary
-          )
+          # Selected columns (G82): the defaults (subs/views/vids) plus any
+          # `with <col>` additions — stamped into the payload so the reply
+          # levers (`#h without views`) can slim the DEFAULT set too.
+          columns = Pito::MessageBuilder::Channel::ListColumns::DEFAULT_COLUMNS |
+                    Pito::Chat::WithColumns.parse(
+                      message.raw,
+                      vocabulary: Pito::MessageBuilder::Channel::ListColumns.vocabulary
+                    )
 
           sort = Pito::Chat::SortClause.parse(message.raw)
           if sort

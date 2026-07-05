@@ -600,9 +600,15 @@ module Pito
 
           list_columns = list_columns_for(target)
           return [] if list_columns.nil?
-          return list_columns.sortable_tokens if list_columns.respond_to?(:sortable_tokens)
 
           current = Array(event.payload["list_columns"]).map(&:to_sym)
+          # Channels expose the derivation directly — G82 made its sortable set
+          # selection-dependent (counters sort only while visible), so the
+          # STAMPED selection must ride along.
+          if list_columns.respond_to?(:sortable_tokens)
+            return list_columns.sortable_tokens(selected_columns: current)
+          end
+
           list_columns.base_sort_tokens + current.filter_map { |c| list_columns::SORT_VOCAB.key(c) }
         end
 
@@ -902,7 +908,15 @@ module Pito
         # Remaining addable columns after the ones already typed in the clause.
         def with_clause_candidates(rest, with_idx, surface)
           committed = rest[(with_idx + 1)..].filter_map { |t| surface.vocabulary[t] }
-          (surface::COLUMNS.keys - committed).map { |c| column_display_token(surface, c) }
+          (surface::COLUMNS.keys - default_columns_for(surface) - committed)
+            .map { |c| column_display_token(surface, c) }
+        end
+
+        # Columns a surface shows without any `with` clause (G82 — channels'
+        # subs/views/vids): already visible, so the typed `with ` palette never
+        # offers them, and the typed `sorted by ` set includes them.
+        def default_columns_for(surface)
+          surface.const_defined?(:DEFAULT_COLUMNS) ? surface::DEFAULT_COLUMNS.to_a : []
         end
 
         # Sort tokens while the column is unchosen; asc/desc once it is.
@@ -917,7 +931,7 @@ module Pito
             else
               []
             end
-            sortable_tokens_for(surface, selected)
+            sortable_tokens_for(surface, default_columns_for(surface) | selected)
           when 1 then %w[asc desc]
           else []
           end

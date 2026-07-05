@@ -23,6 +23,20 @@ class ApplicationController < ActionController::Base
 
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
 
+  # HTML documents are NEVER cached (G84): the Android WebView re-served a
+  # cached page on pull-to-refresh — content looked fresh (the scrollback
+  # streams from the cable/DB) but the document still referenced the OLD
+  # fingerprinted CSS, so a server update never restyled. Rails' default
+  # max-age=0/must-revalidate is advisory enough for browsers but WebViews
+  # skip revalidation on reload; no-store removes the discretion. Assets are
+  # untouched (fingerprinted, 1y immutable via public_file_server).
+  after_action :forbid_html_caching
+
+  def forbid_html_caching
+    response.headers["Cache-Control"] = "no-store" if request.format.html?
+  end
+  private :forbid_html_caching
+
   helper_method :current_conversation
   helper_method :hotwire_native_app?
 

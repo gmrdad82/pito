@@ -366,11 +366,14 @@ class Game
       EDITION_NOISE = /\b(edition|deluxe|premium|collector'?s|complete|definitive|goty|game of the year|season pass|bundle|pack|anniversary|upgrade)\b/i
 
       # IGB1 (2026-06-28): A "combo" bundle joins two distinct titles with a
-      # space-plus-space separator, e.g. "Super Mario 3D World + Bowser's Fury"
-      # or "Super Mario Galaxy + Super Mario Galaxy 2". Non-combo gt3 rows
-      # (Deluxe/Collector editions mis-tagged as bundles, season passes, packs)
-      # do not carry this pattern and are dropped by filter_search_hits.
-      COMBO_NAME = / \+ /
+      # spaced separator — " + " ("Super Mario 3D World + Bowser's Fury") or,
+      # G85 (2026-07-05), " & " ("Yakuza Kiwami 3 & Dark Ties"). Non-combo gt3
+      # rows (Deluxe/Collector editions mis-tagged as bundles, season passes,
+      # packs) carry neither and are dropped by filter_search_hits. The
+      # separator must be SPACED on both sides, so single titles whose name
+      # merely contains an ampersand-word ("Ratchet & Clank" — gt0 anyway)
+      # can't be misread; within gt3, a spaced joiner means two titles.
+      COMBO_NAME = / \+ | & /
 
       # Bundle-name ALLOWLIST (owner 2026-07-01): keep bundle (gt3) rows whose
       # name is a legit standalone release the owner wants — GOTY / Game of the

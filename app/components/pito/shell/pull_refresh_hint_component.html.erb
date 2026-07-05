@@ -1,0 +1,9 @@
+<%# Inert until pito--pull-refresh clones it under the scrollback's last
+    message (Android shell only). Opacity is driven by the drag; .is-armed
+    flips it yellow (the action class) when releasing would reload. %>
+<template id="<%= Pito::Shell::PullRefreshHintComponent::TEMPLATE_ID %>">
+  <div class="pito-pull-hint" data-pull-refresh-hint>
+    <span class="pito-pull-hint__shrug"><%= Pito::Shell::PullRefreshHintComponent::SHRUG %></span>
+    <span class="pito-pull-hint__text"><%= text %></span>
+  </div>
+</template>
