@@ -23,6 +23,13 @@ All notable changes to PITO are documented here. The format follows
   are told "Tap here" instead of a key combo they don't have.
 - `breakdown` now works as an alias for `breakdowns`.
 
+### Changed
+
+- **Chart shimmers switch to fg-default** — the sweeping diagonal band across
+  every chart (area, sparkline, bar, heart, heatmap, score bar, and TTB) now
+  uses `var(--fg-default)` instead of the pito-blue `var(--brand-pito)`, for a
+  cleaner look that follows the theme text colour.
+
 ### Fixed
 
 - **Bar charts total 100% now** — a breakdown with more than five segments
