@@ -14,6 +14,14 @@ module Pito
     class RefreshNudgeComponent < ViewComponent::Base
       TEMPLATE_ID = "pito-refresh-nudge"
 
+      # Anonymous pages carry NOTHING of the nudge: the check endpoint 401s
+      # for them anyway, and the layout must stay free of scrollback-shaped
+      # markup (.pito-turn) for unauthenticated visitors — the anonymous-leak
+      # guard in conversations_spec pins that.
+      def render?
+        Current.session.present?
+      end
+
       def text
         Pito::Copy.render("pito.copy.refresh_nudge.lines", combo: combo)
       end
