@@ -28,13 +28,25 @@ export default class extends Controller {
 
   connect() {
     this.pageVersion = document.querySelector('meta[name="pito-version"]')?.content || null
+    this.#updateMiniStatus()
     this.#compare()
   }
 
   // Covers in-place attribute updates too (defensive — the heartbeat's
   // turbo_stream.replace normally remounts the whole node instead).
   versionValueChanged() {
+    this.#updateMiniStatus()
     this.#compare()
+  }
+
+  // G87: the mini status' dedicated app-version listener — every heartbeat
+  // writes the SERVER's current version into the bar's @suffix slot, so the
+  // bar tracks the running app live (the page build stays in the meta; the
+  // nudge still announces the skew and owns the reload).
+  #updateMiniStatus() {
+    if (!this.versionValue) return
+    const slot = document.getElementById("pito-mini-status-version")
+    if (slot) slot.textContent = `@${this.versionValue}`
   }
 
   #compare() {

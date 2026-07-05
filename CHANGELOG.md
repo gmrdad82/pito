@@ -4,6 +4,43 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **The mini status listens to the version heartbeat** — the `@version`
+  suffix now has a dedicated cable listener: every 5-minute push writes the
+  server's running version straight into the bar, live, no reload needed.
+  The yellow nudge still announces the skew and owns the actual reload.
+
+### Changed
+
+- **Chart shimmer reads on light themes too** — the sweep band across every
+  chart (area, bar, heart, sparkline, score, TTB) is now plain white on all
+  themes; `fg-default` was dark on light themes, which erased the effect.
+- **Text shimmer banding went blue→purple** — subject and reference tokens
+  keep their text color but sweep in the brand pair instead of
+  orange→yellow, on light and dark alike.
+- **`help` is no longer a reply verb** — every handle offered it and most
+  targets answered "no help page available"; the row is gone from reply
+  palettes and help pages app-wide. `--help` (the flag) remains the help
+  surface everywhere.
+- **The pull-hint shrug became fifty shrugs** — the kaomoji beside the line
+  is now its own 50-variant dictionary, sampled independently of the fifty
+  texts: 2,500 combinations, déjà vu rare.
+
+### Fixed
+
+- **Thinking kaomoji stopped clipping on phones** — the indicator hangs its
+  glyph left of the text column, which walked past the narrow mobile inset;
+  the page now carries a few extra pixels on the left, scrollback and chatbox
+  shifting together.
+- **Charts stay on the paper on phones** — the 42-cell braille canvas was
+  wider than a phone viewport, so dots walked off the right edge (heatmap
+  most visibly). Chart glyphs now scale down on narrow viewports to fit
+  exactly; desktop and the 450px column are untouched, and the heatmap's
+  seven day-bands keep their even 6-cell split at every scale.
+
 ## [1.1.1] — 2026-07-05
 
 ### Added

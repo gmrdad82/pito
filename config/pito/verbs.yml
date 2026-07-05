@@ -7,10 +7,12 @@ schema_version: 1
 # Universal reply actions injected on every followupable event (Share::UniversalActions).
 # help:   always available; share: withheld on :confirmation kind + unresolved messages;
 # revoke: additionally gated on Share record existing for the event.
+# G92 (owner 2026-07-05): `help` is NO LONGER a reply verb — every handle
+# offered it, most targets answered "no help page available". The `--help`
+# FLAG on replies/verbs is a separate surface and stays.
 universal_reply:
   share:  { mode: append, kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
   revoke: { mode: append, aliases: [unshare], kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
-  help:   { mode: append }
 
 # Static + dynamic vocabulary declarations. Faithful transcription of
 # lib/pito/grammar/vocabularies.rb — implementations remain in Ruby (P3 target).

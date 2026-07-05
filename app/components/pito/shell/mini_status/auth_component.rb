@@ -4,6 +4,11 @@ module Pito
   module Shell
     module MiniStatus
       class AuthComponent < ViewComponent::Base
+        # The @suffix span's stable id (G87) — the mini status' dedicated
+        # app-version slot, updated by pito--version-watch on every cable
+        # version heartbeat.
+        VERSION_SLOT_ID = "pito-mini-status-version"
+
         def initialize(state: false)
           @state = state
         end

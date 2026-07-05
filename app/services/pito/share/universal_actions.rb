@@ -2,7 +2,10 @@
 
 module Pito
   module Share
-    # Universal follow-up handler for the help / share / revoke / unshare verbs.
+    # Universal follow-up handler for the share / revoke / unshare verbs.
+    # (`help` was REMOVED as a reply verb — G92, owner 2026-07-05: every handle
+    # offered it and most targets answered "no help page available"; the
+    # `--help` FLAG is the surviving help surface on replies.)
     #
     # These verbs work on ANY event that carries a reply_handle —
     # they are NOT added to individual handler actions_for lists. Instead,
@@ -10,7 +13,6 @@ module Pito
     # FollowUpDispatchJob short-circuits to this handler before reaching the
     # registered per-target handler.
     #
-    # help    — render the event's target HashtagHelp page as a :system message.
     #           Source event stays live (consume: false). Works even while loading.
     # share   — mint or reuse the Share for the source event → return the
     #           /share/:uuid URL as a :system message. Idempotent per event.
@@ -20,11 +22,6 @@ module Pito
     #           GATED: only available when a Share record exists for the event.
     #           Replying revoke/unshare on an unshared message returns a clear error.
     class UniversalActions
-      # help is always available on EVERY reply_handle event — regardless of kind,
-      # share status, or resolution state. `#<handle> help` shows the target's
-      # HashtagHelp page without consuming the reply handle.
-      HELP_VERBS = %w[help].freeze
-
       # share is always available on every reply_handle event (when shareable).
       ALWAYS_AVAILABLE = %w[share].freeze
 
@@ -38,15 +35,14 @@ module Pito
         Pito::Dispatch::Matrix.universal_tokens
       end
 
-      # The universal verbs to offer for an event's reply menu. `help` is ALWAYS
-      # offered on any reply_handle event. Share verbs are kind-gated per the
+      # The universal verbs to offer for an event's reply menu. Share verbs
+      # are kind-gated per the
       # `kinds:` declaration in universal_reply config (owner ruling 2026-07-03:
       # only :system and :enhanced for now), and further gated on resolution state.
       # Centralised so the palette (Suggestions::Engine) and the hashtag-help page
       # (HashtagHelp) stay in agreement.
       def self.verbs_for(event)
-        # help is unconditionally available on every followupable message.
-        verbs = HELP_VERBS.dup
+        verbs = []
 
         # Share verbs are kind-gated: the `kinds:` key on the `share` universal_reply
         # entry declares which event kinds may receive them. A nil event is the
@@ -55,7 +51,7 @@ module Pito
         # An UNRESOLVED message (its thinking indicator is still spinning — e.g. an
         # analyze card mid-fan-out) is NOT shareable: sharing an in-flight message
         # would capture a half-rendered/loading state. Share verbs are withheld
-        # until it resolves (owner 2026-07-01). help remains available (read-only).
+        # until it resolves (owner 2026-07-01).
         return verbs if event && !resolved?(event)
 
         verbs + ALWAYS_AVAILABLE + (event && ::Share.exists?(event_id: event.id) ? SHARE_REQUIRED : [])
@@ -97,10 +93,6 @@ module Pito
       def call(source_event:, rest:, conversation:, origin: nil)
         verb = rest.to_s.strip.split(/\s+/).first.to_s.downcase
 
-        # `help` is unconditionally available — dispatch it before the resolution
-        # gate so the owner can see what verbs are available even while loading.
-        return handle_help(source_event) if verb == "help"
-
         # Enforce the resolution gate server-side too (the palette hides the verb,
         # but a typed `#handle share` must also be refused while the message is
         # still loading) (owner 2026-07-01).
@@ -131,24 +123,6 @@ module Pito
       end
 
       private
-
-      # Render and append the HashtagHelp page for the source event's reply_target.
-      # Does NOT consume the reply handle (like `--help`) so the owner can still
-      # issue other verbs on the same message after viewing help.
-      def handle_help(event)
-        target  = event.payload["reply_target"].to_s
-        payload = Pito::MessageBuilder::HashtagHelp.call(target:, event:)
-
-        return Pito::FollowUp::Result::Error.new(
-          message_key:  "pito.copy.share.help_unavailable",
-          message_args: {}
-        ) if payload.nil?
-
-        Pito::FollowUp::Result::Append.new(
-          events:  [ { kind: :system, payload: } ],
-          consume: false
-        )
-      end
 
       def handle_share(event, conversation, origin = nil)
         share = ::Share.find_or_create_by!(event: event) do |s|
