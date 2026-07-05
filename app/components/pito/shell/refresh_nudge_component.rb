@@ -26,13 +26,27 @@ module Pito
         Pito::Copy.render("pito.copy.refresh_nudge.lines", combo: combo)
       end
 
-      # ⌘R on Macs, Ctrl+R (F5 lives too) everywhere else — sniffed server-side
-      # so the rendered string stays fully resolved from the dictionary.
+      # The reload affordance, by platform (G73): touch devices (the Android
+      # shell has no keyboard and no refresh button — pull-to-refresh is
+      # deliberately OFF) get "Tap here" (the nudge itself is tappable);
+      # Macs get ⌘R; everyone else Ctrl+R (F5 lives too). Sniffed server-side
+      # so the rendered string stays fully resolved from the dictionary; the
+      # dictionary's %{combo} lines are article-free so all three read well.
       def combo
-        mac? ? "⌘R" : "Ctrl+R (or F5)"
+        if touch?
+          "Tap here"
+        elsif mac?
+          "⌘R"
+        else
+          "Ctrl+R (or F5)"
+        end
       end
 
       private
+
+      def touch?
+        helpers.request.user_agent.to_s.match?(/Android|iPhone|iPad|Mobile/)
+      end
 
       def mac?
         helpers.request.user_agent.to_s.match?(/Mac OS X|Macintosh/)

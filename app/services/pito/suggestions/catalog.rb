@@ -79,6 +79,9 @@ module Pito
         def spec_to_entry(spec)
           {
             name:        spec.name.to_s,
+            # G75: the client's exact-complete Enter rule must honor every
+            # alias ("ls" + Enter sends), so entries carry the full set.
+            aliases:     spec.aliases.map(&:to_s),
             insert:      "#{spec.name} ",
             description: description_for(spec),
             slots:       slots_for(spec)

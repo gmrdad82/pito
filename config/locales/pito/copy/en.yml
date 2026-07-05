@@ -842,6 +842,9 @@ en:
             male: "Male"
             female: "Female"
             other: "Other"
+          # G78: the rollup bar summing segments beyond the top 4, so a chart's
+          # bars always total 100 (geography's long tail, age's outer brackets).
+          other: "Other"
           caption:
             subscribed_status:
               - "%{subject}, %{reference}. Most of them strangers."
@@ -5983,7 +5986,7 @@ en:
           - "This page predates the latest glow-up. %{combo} to see it."
           - "A software update walked past you. %{combo} to wave it back."
           - "The server changed clothes. Your tab is staring at the old outfit. %{combo}."
-          - "History lesson over — the present is one %{combo} away."
+          - "History lesson over — %{combo} teleports you to the present."
           - "Fresh assets on the shelf, stale ones on your screen. %{combo} restocks."
           - "The backend went to the future. %{combo} to follow."
           - "New patch notes wrote themselves into reality. %{combo} to read the room."
@@ -5998,7 +6001,7 @@ en:
           - "That shimmering you can't see yet? %{combo}."
           - "The orchestra retuned between movements. %{combo} to hear it."
           - "A wild new version appeared! %{combo} to engage."
-          - "Your scrollback survived an update. Reward it with a %{combo}."
+          - "Your scrollback survived an update. %{combo} rewards it."
           - "The house lights flickered — new act loaded. %{combo} for your seat."
           - "Server-side: tomorrow. Client-side: yesterday. %{combo} is today."
           - "Fresh build, who dis? %{combo} to introduce yourself."
@@ -6013,7 +6016,7 @@ en:
           - "Old page, meet new server. Introductions via %{combo}."
           - "A new coat of paint dried while you typed. %{combo} to admire it."
           - "Reality was patched. Your viewport wasn't. %{combo} syncs them."
-          - "The future shipped. You're one %{combo} short of it."
+          - "The future shipped. %{combo} fetches your copy."
           - "New version online. This tab is officially retro. %{combo} un-retros it."
           - "Behind this very page, a newer PITO hums. %{combo} to hum along."
       errors:

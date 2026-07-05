@@ -228,7 +228,7 @@ export default class extends Controller {
     scrollback.id = "pito-scrollback"
     scrollback.className = "pito-thin-scrollbar"
     scrollback.style.cssText = "flex: 1; overflow-y: auto; padding: 32px 5px 20px;"
-    scrollback.dataset.controller = "pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag"
+    scrollback.dataset.controller = "pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag pito--pull-refresh"
 
     const bottomPanel = document.createElement("div")
     bottomPanel.className = "pito-conversation-col"

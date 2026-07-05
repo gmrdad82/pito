@@ -690,7 +690,11 @@ module Pito
         def free_completions(text, authenticated: false)
           stripped  = text.lstrip
           space_idx = stripped.index(" ")
-          return { menu_items: [], ghost: EMPTY_GHOST } unless space_idx
+          # VERB STAGE (G75): no space yet — the first word is a chat verb in
+          # progress. Prefix-filter the chat catalog, alias-aware (G75b),
+          # mirroring the slash path. Before 1.1.0 this position returned
+          # nothing (arg-stage-only since G33).
+          return free_verb_stage_completions(stripped, authenticated:) unless space_idx
 
           verb_token = stripped[0...space_idx].downcase.to_sym
           spec = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: verb_token)
@@ -702,6 +706,44 @@ module Pito
           typed_tokens     = ends_with_space ? after_verb_words : after_verb_words[0..-2]
 
           items = chat_verb_completions(spec, typed_tokens.to_a, partial, authenticated:)
+          return { menu_items: [], ghost: EMPTY_GHOST } if items.empty?
+
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
+        end
+
+        # VERB-position palette for free chat (G75): every chat verb whose
+        # name OR any alias starts with the typed prefix, one row per verb
+        # (G75b — never both `list` and `ls` for the same spec). The row is
+        # labeled by the matched token, canonical preferred when both match;
+        # inserting keeps what the user typed ("ls" inserts "ls ", never
+        # rewritten to "list"). Auth-gated verbs are hidden from anonymous
+        # visitors (mirrors include_slash_spec?); alphabetical like slash.
+        # An EMPTY prefix (bare chatbox) offers nothing — the palette answers
+        # typing, the showcase owns idle discovery. Anonymous visitors get
+        # nothing either: EVERY chat verb is auth-gated at dispatch (the
+        # grammar-level spec.auth is always :any for chat — a dispatch
+        # concept, not a palette gate), and offering verbs that can only
+        # answer "login first" is noise; their affordance is the /login hint.
+        def free_verb_stage_completions(prefix, authenticated: false)
+          norm = prefix.downcase
+          return { menu_items: [], ghost: EMPTY_GHOST } if norm.empty? || !authenticated
+
+          items = Pito::Grammar::Registry.specs(namespace: :chat)
+            .filter_map do |spec|
+              token = spec.names.map(&:to_s)
+                .select { |t| t.start_with?(norm) }
+                .min_by { |t| t == spec.name.to_s ? 0 : 1 }
+              next unless token
+
+              {
+                label:       token,
+                insert:      "#{token} ",
+                description: description_for(spec),
+                masked:      false
+              }
+            end
+            .sort_by { |item| item[:label] }
+
           return { menu_items: [], ghost: EMPTY_GHOST } if items.empty?
 
           { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }

@@ -30,7 +30,7 @@ RSpec.describe Pito::Shell::RefreshNudgeComponent, type: :component do
   it "wraps the segment in a .pito-turn so the clone centers like any message" do
     node = render_inline(described_class.new)
     template = node.css("template#pito-refresh-nudge").first
-    expect(template.inner_html).to match(/<div class="pito-turn">/)
+    expect(template.inner_html).to match(/<div class="pito-turn[ "]/)
   end
 
   it "resolves the copy with the reload combo interpolated (no leftover placeholder)" do
@@ -53,6 +53,32 @@ RSpec.describe Pito::Shell::RefreshNudgeComponent, type: :component do
       component = described_class.new
       render_inline(component)
       expect(component.combo).to eq("⌘R")
+    end
+
+    # G73: touch devices (the Android shell included — no keyboard, no refresh
+    # button) are pointed at the nudge itself, which is tappable.
+    it "offers 'Tap here' to Android — including the Hotwire Native shell" do
+      vc_test_request.env["HTTP_USER_AGENT"] =
+        "Mozilla/5.0 (Linux; Android 14) PITO; v1.0.0; Hotwire Native Android"
+      component = described_class.new
+      render_inline(component)
+      expect(component.combo).to eq("Tap here")
+    end
+  end
+
+  # G73: the whole nudge is the reload button — yellow is the action class.
+  describe "tappability (G73)" do
+    it "wires the pito--refresh-nudge controller with a click reload action" do
+      node = render_inline(described_class.new)
+      inner = node.css("template#pito-refresh-nudge").first.inner_html
+      expect(inner).to include('data-controller="pito--refresh-nudge"')
+      expect(inner).to include('data-action="click-&gt;pito--refresh-nudge#reload"')
+        .or include('data-action="click->pito--refresh-nudge#reload"')
+    end
+
+    it "shows the pointer cursor on the clone" do
+      node = render_inline(described_class.new)
+      expect(node.css("template#pito-refresh-nudge").first.inner_html).to include("cursor-pointer")
     end
   end
 end

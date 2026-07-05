@@ -129,11 +129,12 @@ export default class extends Controller {
         return
       }
       if (event.key === "Enter" && !event.shiftKey) {
-        // Exact complete slash command typed (no trailing space) → let Enter
-        // SUBMIT the read/default version instead of accepting a palette row. The
-        // palette is for discovery while typing a PARTIAL verb; once the verb is
-        // complete, Enter sends. (Applies to every slash command.) [owner I3]
-        if (this._isExactCompleteSlashVerb()) {
+        // Exact complete verb typed (no trailing space) → let Enter SUBMIT
+        // instead of accepting a palette row. The palette is for discovery
+        // while typing a PARTIAL verb; once the verb is complete, Enter sends.
+        // Slash commands [owner I3] and — G75 — free chat verbs, where the
+        // rule honors EVERY alias ("ls" + Enter sends, not just "list").
+        if (this._isExactCompleteSlashVerb() || this._isExactCompleteChatVerb()) {
           this._closePalette()
           return   // no preventDefault → chat-form#handleKeydown submits the form
         }
@@ -441,6 +442,41 @@ export default class extends Controller {
     return before.trim().length > 0 && before.endsWith(" ")
   }
 
+  // FREE-mode VERB stage (G75): the FIRST word of a chat message is a verb in
+  // progress ("l", "lis", "analy") — the engine prefix-filters the chat
+  // catalog (alias-aware) and tags it stage:"verb". Unlike the ARG stage's
+  // fresh-token rule, the palette stays open WHILE TYPING mid-token — that's
+  // the discovery behavior slash verbs have always had; Enter on an
+  // exact-complete verb still sends (handled in handleKeydown, alias-aware).
+  //   "l"        → true   (typing the verb → palette)
+  //   "lis"      → true
+  //   "list "    → false  (that's the ARG stage, gated above)
+  //   "#h l"     → false  (hashtag mode)
+  _isFreeVerbStage(value, cursor) {
+    if (value[0] === "#" || value[0] === "/") return false
+    const before = value.slice(0, cursor)
+    return before.trim().length > 0 && !before.includes(" ")
+  }
+
+  // True when the field holds an EXACT, complete free-chat verb — canonical
+  // name OR any alias ("list", "ls") — with no trailing space. Mirrors
+  // _isExactCompleteSlashVerb for the G75 verb stage: Enter must SEND the
+  // bare verb (its default reading), not accept the highlighted row.
+  _isExactCompleteChatVerb() {
+    if (!this.hasFieldTarget) return false
+    const field  = this.fieldTarget
+    const value  = field.value
+    if (value.length === 0 || value[0] === "#" || value[0] === "/") return false
+    const cursor = field.selectionStart ?? value.length
+    const before = value.slice(0, cursor)
+    if (before.includes(" ")) return false        // past the verb → not verb stage
+    const token = before.toLowerCase()
+    return (this._catalog?.chat || []).some(e =>
+      e.name.toLowerCase() === token ||
+      (e.aliases || []).some(a => a.toLowerCase() === token),
+    )
+  }
+
   // Hashtag reply ARG stage at a FRESH token: `#<handle> <verb> [<args>] ` with
   // a trailing space. The engine serves the verb's argument menu here (columns
   // for with/without, sort keys, metrics, row ids — E13) tagged stage:"verb",
@@ -578,7 +614,8 @@ export default class extends Controller {
         if (this._isHashtagReplyVerbStage(value, cursor) ||
             this._isSlashConfigArgStage(value, cursor) ||
             this._isHashtagReplyArgStage(value, cursor) ||
-            this._isFreeArgFreshToken(value, cursor)) {
+            this._isFreeArgFreshToken(value, cursor) ||
+            this._isFreeVerbStage(value, cursor)) {
           this._showFetchedPalette(menuItems, value[0])
           return
         }
@@ -638,6 +675,14 @@ export default class extends Controller {
         tokenStart = 0
         tokenEnd   = cursor
       }
+    } else if (mode === "free" && this._isFreeVerbStage(value, cursor)) {
+      // G75 verb-stage: splice over the partial verb the user is typing
+      // ("li" + accept "link " → "link ", not "lilink ") — the free-mode
+      // analogue of the slash verb-stage replace-from-0. Arg-stage free
+      // accepts keep the plain insert-at-cursor below (the fresh-token rule
+      // guarantees an empty partial there).
+      tokenStart = value.length - value.trimStart().length  // past any leading spaces
+      tokenEnd   = cursor
     } else {
       tokenStart = cursor
       tokenEnd   = cursor

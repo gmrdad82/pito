@@ -118,28 +118,38 @@ RSpec.describe Pito::Analytics::Breakdown do
   # ── :geography ───────────────────────────────────────────────────────────────
 
   describe ":geography" do
-    it "returns the top 5 countries sorted by views descending" do
-      # C7=700, C6=600, …, C1=100 → top-5 are C7,C6,C5,C4,C3
+    it "returns the top 4 countries + the Other rollup when more than 5 exist (G78)" do
+      # C7=700, C6=600, …, C1=100 → top-4 are C7,C6,C5,C4; C3..C1 roll up.
       rows = (1..7).map { |i| { "country" => "C#{i}", "views" => i * 100 } }.reverse
       stub_primitives("country", "vidA" => rows)
 
       result = described_class.for(metric: :geography, groups:, window:)
 
       expect(result.size).to eq(5)
-      expect(result.map { |r| r[:key] }).to eq(%w[C7 C6 C5 C4 C3])
+      expect(result.map { |r| r[:key] }).to eq([ "C7", "C6", "C5", "C4", described_class::OTHER_KEY ])
     end
 
-    it "uses ALL countries as the denominator so bars may sum to less than 100" do
-      # 7 countries; total = 100+200+…+700 = 2800. Top-5 = 2500.
-      # Top-5 pct sum = 2500/2800*100 ≈ 89.3 < 100.
-      # C7 pct = 700/2800*100 = 25.0 (not 700/2500*100 = 28.0).
+    it "totals exactly 100 with the long tail named, not dropped (G78)" do
+      # 7 countries; grand = 2800. C7 = 700/2800 = 25.0, C6 = 21.4, C5 = 17.9,
+      # C4 = 14.3 → top-4 = 78.6; Other carries the exact remainder 21.4.
       rows = (1..7).map { |i| { "country" => "C#{i}", "views" => i * 100 } }.reverse
       stub_primitives("country", "vidA" => rows)
 
       result = described_class.for(metric: :geography, groups:, window:)
 
-      expect(result.first[:pct]).to eq(25.0)           # 700/2800
-      expect(result.sum { |r| r[:pct] }).to be < 100.0 # top-5 only
+      expect(result.first[:pct]).to eq(25.0)            # 700/2800 — denominator stays ALL countries
+      expect(result.last[:pct]).to eq(21.4)             # 100 − top-4
+      expect(result.sum { |r| r[:pct] }).to eq(100.0)
+    end
+
+    it "keeps 5 or fewer countries fully discrete (no rollup)" do
+      rows = (1..5).map { |i| { "country" => "C#{i}", "views" => i * 100 } }.reverse
+      stub_primitives("country", "vidA" => rows)
+
+      result = described_class.for(metric: :geography, groups:, window:)
+
+      expect(result.map { |r| r[:key] }).to eq(%w[C5 C4 C3 C2 C1])
+      expect(result.map { |r| r[:key] }).not_to include(described_class::OTHER_KEY)
     end
 
     it "sums views across multiple subjects before ranking" do
@@ -191,8 +201,8 @@ RSpec.describe Pito::Analytics::Breakdown do
       expect(result.find { |r| r[:key] == "gender_other" }[:pct]).to eq(8.3)
     end
 
-    it "limits to at most 3 gender buckets" do
-      # 4 contrived buckets to guard the top-3 cap
+    it "keeps 5 or fewer buckets discrete — the G78 rollup only engages beyond 5" do
+      # 4 contrived buckets: all stay, honestly proportioned over the grand sum.
       stub_primitives("demographics",
         "vidA" => [
           { "gender" => "A", "viewer_percentage" => 40.0 },
@@ -203,8 +213,8 @@ RSpec.describe Pito::Analytics::Breakdown do
       )
       result = described_class.for(metric: :gender, groups:, window:)
 
-      expect(result.size).to eq(3)
-      expect(result.map { |r| r[:key] }).to eq(%w[A B C])
+      expect(result.map { |r| r[:key] }).to eq(%w[A B C D])
+      expect(result.sum { |r| r[:pct] }).to eq(100.0)
     end
 
     it "returned pcts sum to 100 when all buckets are kept" do
@@ -229,9 +239,9 @@ RSpec.describe Pito::Analytics::Breakdown do
   # ── :age ─────────────────────────────────────────────────────────────────────
 
   describe ":age" do
-    it "sums viewer_percentage across subjects, renormalises over the kept top-5 and returns desc" do
-      # 6 age groups totalling 100.0; top-5 = 35+25+20+10+5 = 95.0
-      # age25-34 pct = 35/95*100 = 36.842… → 36.8
+    it "returns top-4 age buckets + the Other rollup, totalling 100 (G78)" do
+      # 6 age groups totalling 100.0 — shares are honest (over the grand sum,
+      # no kept-bucket inflation): top-4 = 35+25+20+10; Other = 5+5 = 10.
       stub_primitives("demographics",
         "vidA" => [
           { "age_group" => "age25-34", "viewer_percentage" => 35.0 },
@@ -246,7 +256,9 @@ RSpec.describe Pito::Analytics::Breakdown do
 
       expect(result.size).to eq(5)
       expect(result.first[:key]).to eq("age25-34")
-      expect(result.first[:pct]).to eq(36.8)
+      expect(result.first[:pct]).to eq(35.0)
+      expect(result.last).to eq({ key: described_class::OTHER_KEY, pct: 10.0 })
+      expect(result.sum { |r| r[:pct] }).to eq(100.0)
     end
 
     it "sums viewer_percentage across multiple subjects before renormalising" do
