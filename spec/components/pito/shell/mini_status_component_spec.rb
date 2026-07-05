@@ -6,9 +6,9 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
-        it "renders '■ gmrdad82' in green" do
+        it "renders '■ gmrdad82' in the me-shimmer" do
           node = render_inline(described_class.new(state: true))
-          green_span = node.css("span.text-green").first
+          green_span = node.css("span.pito-me-shimmer").first
           expect(green_span).to be_present
           expect(green_span.text.strip).to eq("■ gmrdad82")
         end
@@ -28,7 +28,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
 
         it "does not render the authenticated label" do
           node = render_inline(described_class.new(state: false))
-          expect(node.css("span.text-green")).to be_empty
+          expect(node.css("span.pito-me-shimmer")).to be_empty
         end
       end
     end
@@ -56,9 +56,9 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(label.text).to include("● tarnished")
       end
 
-      it "renders ■ gmrdad82 in green when state: true (authenticated)" do
+      it "renders ■ gmrdad82 in the me-shimmer when state: true (authenticated)" do
         node = render_inline(described_class.new(mode: :start, state: true))
-        label = node.css("span.text-green").first
+        label = node.css("span.pito-me-shimmer").first
         expect(label).to be_present
         expect(label.text.strip).to eq("■ gmrdad82")
         expect(node.to_html).to include("■ gmrdad82")

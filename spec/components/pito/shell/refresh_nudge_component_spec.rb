@@ -3,6 +3,15 @@
 require "rails_helper"
 
 RSpec.describe Pito::Shell::RefreshNudgeComponent, type: :component do
+  before { allow(Current).to receive(:session).and_return(double("Session")) }
+
+  # The layout must stay free of scrollback-shaped markup for anonymous
+  # visitors (the conversations_spec anonymous-leak guard counts .pito-turn).
+  it "renders nothing for an anonymous session" do
+    allow(Current).to receive(:session).and_return(nil)
+    expect(render_inline(described_class.new).to_html.strip).to be_empty
+  end
+
   it "renders an inert <template> with the stable id the cable-health clone targets" do
     node = render_inline(described_class.new)
     expect(node.css("template#pito-refresh-nudge")).not_to be_empty
