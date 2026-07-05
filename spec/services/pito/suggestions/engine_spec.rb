@@ -272,6 +272,56 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── free mode — the VERB stage (G75, 1.1.0) ─────────────────────────────────
+  #
+  # Before 1.1.0 the palette ignored the verb position entirely (arg-stage
+  # only, G33): typing "l"/"lis"/"analy" popped nothing. Now the first word
+  # prefix-filters the chat catalog, alias-aware (G75b): one row per verb,
+  # labeled by the matched token (canonical preferred), inserting what the
+  # user typed — "ls" stays "ls ", never rewritten to "list".
+
+  describe "free mode — verb stage (G75)" do
+    it "offers chat verbs matching the typed prefix, stage :verb, alphabetical" do
+      result = call(input: "lis", cursor: 3, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+      expect(result[:menu_items].map { |i| i[:label] }).to eq([ "list" ])
+    end
+
+    it "matches ALIASES too, keeping what the user typed (G75b: ls is not rewritten)" do
+      result = call(input: "ls", cursor: 2, authenticated: true)
+      item = result[:menu_items].find { |i| i[:label] == "ls" }
+      expect(item).to be_present
+      expect(item[:insert]).to eq("ls ")
+    end
+
+    it "offers ONE row per verb even when several of its tokens match (G75b dedup)" do
+      # "break" matches both the canonical `breakdowns` and its `breakdown`
+      # alias — one row, canonical label preferred.
+      labels = call(input: "break", cursor: 5, authenticated: true)[:menu_items].map { |i| i[:label] }
+      expect(labels).to eq([ "breakdowns" ])
+    end
+
+    it "narrows as the prefix grows" do
+      broad  = call(input: "l", cursor: 1, authenticated: true)[:menu_items]
+      narrow = call(input: "lin", cursor: 3, authenticated: true)[:menu_items]
+      expect(broad.size).to be > narrow.size
+      expect(narrow.map { |i| i[:label] }).to all(start_with("lin"))
+    end
+
+    it "returns nothing for a prefix matching no verb" do
+      expect(call(input: "zzz", cursor: 3, authenticated: true)[:menu_items]).to eq([])
+    end
+
+    it "returns nothing for anonymous visitors (every chat verb is auth-gated at dispatch)" do
+      expect(call(input: "l", cursor: 1, authenticated: false)[:menu_items]).to eq([])
+    end
+
+    it "leaves the ghost empty (palette-only, like every suggestion surface)" do
+      result = call(input: "lis", cursor: 3, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("")
+    end
+  end
+
   # ── free mode — slot PROGRESSION (G32) ──────────────────────────────────────
   #
   # Regression: the walk only tracked introducer keywords, so a committed

@@ -451,7 +451,7 @@ verbs:
           optional: true
 
   breakdowns:
-    aliases: [lifetime, life]
+    aliases: [breakdown, lifetime, life]
     description: pito.grammar.chat.breakdowns
     auth: session
     chat:

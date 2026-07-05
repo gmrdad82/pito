@@ -4,6 +4,33 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **The palette answers from the first letter** — free chat verbs finally get
+  what slash commands always had: typing `l` offers `link`/`list`/`login`…,
+  `analy` narrows to `analyze`, and the palette is alias-aware — `ls` matches,
+  stays `ls` when accepted, and Enter on any complete verb or alias sends
+  immediately. One row per verb (never `list` AND `ls`), arguments continue
+  after each space exactly as before.
+- **Bottom pull-to-refresh in the Android app** — pito lives at the bottom of
+  the scrollback, so the refresh gesture does too (Slack-style): overscroll
+  past the last message and release. App-only; browsers keep their reload
+  buttons. Top pull-to-refresh stays off — it fights scrolling the history.
+- **The refresh nudge is tappable** — yellow is the action class, so the
+  nudge acts like one: tap or click anywhere on it to reload. Touch devices
+  are told "Tap here" instead of a key combo they don't have.
+- `breakdown` now works as an alias for `breakdowns`.
+
+### Fixed
+
+- **Bar charts total 100% now** — a breakdown with more than five segments
+  (say, Geography's long tail of countries) rolls everything past the top
+  four into an "Other" bar instead of silently dropping it; five or fewer
+  segments stay fully discrete. Age breakdowns also stopped inflating their
+  kept buckets to fake a 100 — the shares are honest and the tail is named.
+
 ## [1.0.1] — 2026-07-05
 
 ### Added

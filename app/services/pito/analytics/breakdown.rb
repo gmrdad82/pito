@@ -13,9 +13,13 @@ module Pito
     # Supported metrics:
     #   :subscribed_status — views share per status; UNSUBSCRIBED first, then SUBSCRIBED
     #   :devices           — views share folded into MOBILE / DESKTOP / TV buckets
-    #   :geography         — views share for the top-5 countries (denominator = ALL countries)
-    #   :gender            — viewer_percentage renormalised to 100 across subjects; top 3
-    #   :age               — viewer_percentage renormalised to 100 across subjects; top 5
+    #   :geography         — views share by country; top 4 + "Other" rollup (G78)
+    #   :gender            — viewer_percentage renormalised to 100 across subjects (≤3 buckets)
+    #   :age               — viewer_percentage renormalised to 100; top 4 + "Other" rollup (G78)
+    #
+    # G78: every share list is capped at MAX_BARS by with_other_rollup — ≤5
+    # segments stay discrete; more become top-4 + an OTHER_KEY bar carrying the
+    # exact remainder, so a chart's bars ALWAYS total 100.
     #
     # Multi-subject aggregation notes:
     # - views (subscribed_status / devices / geography): exact integer sums across subjects.
@@ -39,6 +43,17 @@ module Pito
 
       # Presentation order for subscribed-status bars (typically larger bar first).
       SUBSCRIBED_ORDER = %w[UNSUBSCRIBED SUBSCRIBED].freeze
+
+      # The rollup bucket's key (G78). Presentation maps it to the localized
+      # "Other" label; it can never collide with a real dimension value
+      # (country codes are 2 chars, age buckets carry the "age" prefix).
+      OTHER_KEY = "OTHER"
+
+      # Max bars a chart shows; when the data has more segments, the tail rolls
+      # up into the 5th bar so every chart's percentages total 100 (G78 — the
+      # old top-5 slice left e.g. Geography summing to 74% with the long tail
+      # silently dropped).
+      MAX_BARS = 5
 
       module_function
 
@@ -105,9 +120,9 @@ module Pito
         end
       end
 
-      # Views share for the top-5 countries. Denominator is the TOTAL of ALL
-      # countries returned (not just the top-5 sum), so the 5 bars may sum to
-      # less than 100 when the channel has significant long-tail geography.
+      # Views share by country: top-4 countries + an "Other" rollup summing the
+      # long tail (G78), so the bars always total 100. All ≤5 countries stay
+      # discrete (no rollup needed to reach 100).
       def geography(groups:, window:)
         rows = all_rows(groups:, window:, report: "country")
         return [] if rows.empty?
@@ -116,24 +131,28 @@ module Pito
         grand  = totals.values.sum
         return [] if grand.zero?
 
-        totals
+        shares = totals
           .sort_by { |_, v| -v }
-          .first(5)
           .map { |country, count| { key: country, pct: pct(count, grand) } }
+        with_other_rollup(shares)
       end
 
-      # viewer_percentage share by gender, renormalised to 100 over the kept
-      # buckets, top 3 descending. See module comment for the approximation caveat.
+      # viewer_percentage share by gender, renormalised to 100 over ALL buckets
+      # (≤3 in the API, so the G78 rollup is a structural no-op here). See
+      # module comment for the approximation caveat.
       def gender(groups:, window:)
         rows = all_rows(groups:, window:, report: "demographics")
-        renormalised_shares(rows, key: "gender", top: 3)
+        with_other_rollup(renormalised_shares(rows, key: "gender"))
       end
 
-      # viewer_percentage share by age group, renormalised to 100 over the kept
-      # buckets, top 5 descending. See module comment for the approximation caveat.
+      # viewer_percentage share by age group, renormalised to 100 over ALL
+      # buckets, then top-4 + "Other" (G78 — the API returns up to 7 age
+      # buckets; the old top-5 renormalisation inflated the kept buckets to
+      # fake 100 instead of naming the tail). See module comment for the
+      # approximation caveat.
       def age(groups:, window:)
         rows = all_rows(groups:, window:, report: "demographics")
-        renormalised_shares(rows, key: "age_group", top: 5)
+        with_other_rollup(renormalised_shares(rows, key: "age_group"))
       end
 
       # ── helpers ────────────────────────────────────────────────────────────────
@@ -161,20 +180,34 @@ module Pito
         end
       end
 
-      # Renormalise viewer_percentage sums so that the KEPT top-N buckets sum
-      # to exactly 100 (each value divided by the kept-bucket sum × 100).
-      # Returns [] when there is no data or the kept-bucket sum is zero.
-      def renormalised_shares(rows, key:, top:)
+      # Renormalise viewer_percentage sums over ALL buckets so shares total
+      # 100 (multi-subject sums stack per-subject percentages; dividing by the
+      # grand sum restores a 100 base). Ordered descending — with_other_rollup
+      # decides what stays discrete. Returns [] on no data / zero sum.
+      def renormalised_shares(rows, key:)
         return [] if rows.empty?
 
         totals = sum_by(rows, key:, metric: "viewer_percentage")
         return [] if totals.empty?
 
-        kept     = totals.sort_by { |_, v| -v }.first(top)
-        kept_sum = kept.sum { |_, v| v }
-        return [] if kept_sum.zero?
+        grand = totals.values.sum
+        return [] if grand.zero?
 
-        kept.map { |k, v| { key: k, pct: pct(v, kept_sum) } }
+        totals
+          .sort_by { |_, v| -v }
+          .map { |k, v| { key: k, pct: pct(v, grand) } }
+      end
+
+      # G78: cap a full, descending, sums-to-100 share list at MAX_BARS.
+      # ≤5 segments → all discrete; more → the top 4 stay discrete and the 5th
+      # becomes OTHER_KEY carrying the exact remainder (100 − top-4), so the
+      # rounded bars always total 100.0 and the long tail is named, not dropped.
+      def with_other_rollup(shares)
+        return shares if shares.size <= MAX_BARS
+
+        top  = shares.first(MAX_BARS - 1)
+        rest = (100.0 - top.sum { |s| s[:pct] }).round(1)
+        top + [ { key: OTHER_KEY, pct: rest } ]
       end
 
       # Share of a bucket out of a total, rounded to 1 decimal place.

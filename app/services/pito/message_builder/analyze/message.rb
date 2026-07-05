@@ -295,12 +295,24 @@ module Pito
             { label: Pito::Copy.render("pito.copy.analytics.bars.gender.#{slug}"),
               color: BAR_COLORS[:demographics_gender].fetch(g, :purple) }
           when :geography
-            { label: Pito::Geo.country_name(key), color: GEO_RAMP[index % GEO_RAMP.size] }
+            { label: other_key?(key) ? other_label : Pito::Geo.country_name(key),
+              color: GEO_RAMP[index % GEO_RAMP.size] }
           when :demographics_age
-            { label: format_age(key), color: AGE_RAMP[index % AGE_RAMP.size] }
+            { label: other_key?(key) ? other_label : format_age(key),
+              color: AGE_RAMP[index % AGE_RAMP.size] }
           else
             { label: key, color: :blue }
           end
+        end
+
+        # G78: the Breakdown rollup bucket — the 5th bar summing the long tail
+        # so charts total 100. Only ramp metrics (geography/age) can carry it.
+        def other_key?(key)
+          key == Pito::Analytics::Breakdown::OTHER_KEY
+        end
+
+        def other_label
+          Pito::Copy.render("pito.copy.analytics.bars.other")
         end
 
         # "age25-34" → "25–34"; "age65-" → "65+"; strips the "age" prefix.

@@ -55,7 +55,10 @@ const CATALOG_JSON = JSON.stringify({
     { name: "help",       insert: "/help ",       description: "Show help" },
   ],
   hashtag: [],
-  chat: [],
+  chat: [
+    { name: "list",       aliases: ["ls"],        insert: "list ",       description: "List entities" },
+    { name: "breakdowns", aliases: ["breakdown", "lifetime", "life"], insert: "breakdowns ", description: "Lifetime breakdowns" },
+  ],
   vocabularies: {},
 })
 
@@ -767,6 +770,97 @@ describe("pito--suggestions controller", () => {
       expect(ctrl._isFreeArgFreshToken("   ", 3)).toBe(false)
       expect(ctrl._isFreeArgFreshToken("#h with ", 8)).toBe(false)
       expect(ctrl._isFreeArgFreshToken("/config ", 8)).toBe(false)
+    })
+  })
+
+  // ── G75: free-mode VERB-stage palette (1.1.0) ────────────────────────────
+  //
+  // The FIRST word of a chat message is a verb in progress — the palette
+  // stays open WHILE TYPING mid-token (slash-style discovery, unlike the
+  // arg stage's fresh-token rule), and Enter on an exact-complete verb —
+  // canonical OR alias — sends instead of accepting a row.
+
+  describe("free-mode VERB-stage palette (G75)", () => {
+    let ctrl
+
+    const VERB_RESPONSE = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "free",
+        stage: "verb",
+        menu_items: [
+          { label: "link", insert: "link ", description: "" },
+          { label: "list", insert: "list ", description: "" },
+        ],
+        ghost: { complete_current: "", next_hint: "" },
+      }),
+    })
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "free"
+    })
+
+    it("renders the verb palette MID-TOKEN (`li`) — discovery like slash verbs", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      textarea.value = "li"; textarea.selectionStart = textarea.selectionEnd = 2
+      await ctrl._fetchArgSuggestions("li", 2)
+
+      expect(palette.classList.contains("hidden")).toBe(false)
+      expect(palette.querySelectorAll(".pito-suggestions-row").length).toBe(2)
+    })
+
+    it("_isFreeVerbStage: first word only, free mode only", () => {
+      expect(ctrl._isFreeVerbStage("l", 1)).toBe(true)
+      expect(ctrl._isFreeVerbStage("lis", 3)).toBe(true)
+      expect(ctrl._isFreeVerbStage("list ", 5)).toBe(false)
+      expect(ctrl._isFreeVerbStage("list ga", 7)).toBe(false)
+      expect(ctrl._isFreeVerbStage("#h l", 4)).toBe(false)
+      expect(ctrl._isFreeVerbStage("/con", 4)).toBe(false)
+      expect(ctrl._isFreeVerbStage("  ", 2)).toBe(false)
+    })
+
+    it("_isExactCompleteChatVerb: canonical name, every alias, never past a space", () => {
+      textarea.value = "list"; textarea.selectionStart = textarea.selectionEnd = 4
+      expect(ctrl._isExactCompleteChatVerb()).toBe(true)
+      textarea.value = "ls"; textarea.selectionStart = textarea.selectionEnd = 2
+      expect(ctrl._isExactCompleteChatVerb()).toBe(true)
+      textarea.value = "lifetime"; textarea.selectionStart = textarea.selectionEnd = 8
+      expect(ctrl._isExactCompleteChatVerb()).toBe(true)
+      textarea.value = "lis"; textarea.selectionStart = textarea.selectionEnd = 3
+      expect(ctrl._isExactCompleteChatVerb()).toBe(false)
+      textarea.value = "list "; textarea.selectionStart = textarea.selectionEnd = 5
+      expect(ctrl._isExactCompleteChatVerb()).toBe(false)
+      textarea.value = "/list"; textarea.selectionStart = textarea.selectionEnd = 5
+      expect(ctrl._isExactCompleteChatVerb()).toBe(false)
+    })
+
+    it("Enter on an exact chat verb (alias incl.) closes the palette and falls through to submit", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      textarea.value = "ls"; textarea.selectionStart = textarea.selectionEnd = 2
+      await ctrl._fetchArgSuggestions("ls", 2)
+      expect(ctrl._paletteOpen).toBe(true)
+
+      const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+      textarea.dispatchEvent(ev)
+
+      expect(ctrl._paletteOpen).toBe(false)
+      expect(ev.defaultPrevented).toBe(false)   // falls through → chat-form submits
+      expect(textarea.value).toBe("ls")          // row NOT accepted
+    })
+
+    it("Enter mid-token accepts the highlighted row (discovery preserved)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      textarea.value = "li"; textarea.selectionStart = textarea.selectionEnd = 2
+      await ctrl._fetchArgSuggestions("li", 2)
+      expect(ctrl._paletteOpen).toBe(true)
+
+      const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+      textarea.dispatchEvent(ev)
+
+      expect(ev.defaultPrevented).toBe(true)     // palette consumed Enter
+      expect(textarea.value).toBe("link ")       // first row accepted
     })
   })
 

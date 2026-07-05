@@ -1,10 +1,14 @@
 <%# Inert until pito--cable-health clones it into #pito-scrollback (G71).
-    Yellow bar = the spotting device; no reply handle, no timestamp — this is
+    Yellow bar = the spotting device AND the action class — the whole nudge is
+    TAPPABLE (G73: the Android shell has no keyboard or refresh button; a tap
+    reloads on every platform). No reply handle, no timestamp — this is
     chrome, not a message, and it never persists. The .pito-turn wrapper is
     what centers a scrollback child into the conversation column — without it
     the clone sprawls the full viewport width. %>
 <template id="<%= Pito::Shell::RefreshNudgeComponent::TEMPLATE_ID %>">
-  <div class="pito-turn">
+  <div class="pito-turn cursor-pointer"
+       data-controller="pito--refresh-nudge"
+       data-action="click->pito--refresh-nudge#reload">
     <%= render(Pito::Segment::Component.new(accent: :yellow, scrollback_message: true)) do %>
       <span class="text-fg"><%= text %></span>
     <% end %>
