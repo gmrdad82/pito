@@ -76,7 +76,7 @@ RSpec.describe "Conversation requests", type: :request do
 
     it "wires the scrollback Stimulus controllers on the scrollback container" do
       get conversation_path(uuid: conversation.uuid)
-      expect(response.body).to include('data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag"')
+      expect(response.body).to include('data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag pito--pull-refresh"')
     end
 
     it "includes the uuid in the chat form" do
