@@ -1276,7 +1276,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result = call(input: "show game 5 with ", cursor: 17, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("at-a-glance", "channels", "detail",
-                                "linked-game", "linked-videos", "similar", "videos")
+                                "game", "games", "similar", "videos")
       expect(labels).not_to include("full", "only")
     end
 

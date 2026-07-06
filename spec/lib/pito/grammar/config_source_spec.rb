@@ -481,7 +481,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
       subject(:segs) { vocabs.find { |v| v.name == :show_segments } }
 
       it "includes hyphenated segment names as strings" do
-        expect(segs.canonical).to include("at-a-glance", "linked-game", "linked-videos")
+        expect(segs.canonical).to include("at-a-glance", "game", "games", "videos")
       end
     end
 
