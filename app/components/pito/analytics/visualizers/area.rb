@@ -146,7 +146,9 @@ module Pito
           if date.year == Date.current.year
             date.strftime("%-d %b")
           else
-            date.strftime("%B %Y")
+            # G107: the short form the owner had before — "Jan'25", never the
+            # axis-flooding "January 2025".
+            date.strftime("%b'%y")
           end
         end
 

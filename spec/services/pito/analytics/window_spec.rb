@@ -128,6 +128,13 @@ RSpec.describe Pito::Analytics::Window, type: :service do
       context "without channel_created_on" do
         subject(:window) { described_class.for("lifetime", reference_date: ref) }
 
+        # G107: the honest lifetime floor is the account's first video — the
+        # 2005 epoch remains only for a videoless database.
+        it "starts at the earliest video when one exists" do
+          create(:video, published_at: Time.utc(2026, 3, 10))
+          expect(window.start_date).to eq(Date.new(2026, 3, 10))
+        end
+
         it { expect(window.start_date).to eq(Date.new(2005, 1, 1)) }
         it { expect(window.end_date).to eq(Date.new(2026, 6, 20)) }
         it { expect(window.prev_start).to be_nil }

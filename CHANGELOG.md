@@ -4,6 +4,34 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.4] — 2026-07-06
+
+### Changed
+
+- **Breakdown bars always sum to exactly 100** — the braille bar charts
+  (Age, Geography, Gender, Devices, Subscribed) keep their glyphs, but the
+  cell math is normalized with three simple rules: every positive slice
+  shows at least one cell; if the rounded cells overshoot the axis, the
+  biggest bar gives cells back until they fit; if they undershoot, the
+  biggest bar absorbs the slack. Segments tile sequentially — each bar
+  starts where the previous ended — so a full breakdown always closes the
+  axis on the last paper column instead of drifting a cell short or long.
+- **Chart surfaces span their column** — the metric surface reaches the
+  column edge on every device; a glyph canvas wider than its home (area
+  charts on narrow phones) swipes horizontally instead of inflating the
+  page. Desktop's 450px columns fit the full canvas outright. The dotted
+  paper fills the whole surface, edge to edge.
+- **Lifetime windows start at your first video** — no more 2005 epoch on
+  lifetime charts; the window floors at the earliest published video, and
+  ticks from prior years render as short `Mar'26` forms.
+- **Copy sentences start with a capital letter** — a sweep across every
+  dictionary (~370 variants): chart captions no longer open with the
+  lowercase "lifetime" token, sync/theme/footer/upcoming lines got reworded
+  so interpolated tokens sit mid-sentence, and the pull-to-refresh hints,
+  delete confirmations, and typo notices are capitalized. Literal command
+  syntax, chrome tokens, and echoes of your own input stay as-is. A new
+  spec guard keeps the rule enforced.
+
 ## [1.1.3] — 2026-07-05
 
 ### Changed

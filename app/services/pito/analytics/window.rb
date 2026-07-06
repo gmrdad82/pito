@@ -181,7 +181,13 @@ module Pito
       end
 
       def lifetime!(ref, channel_created_on)
-        @start_date = channel_created_on || Date.new(2005, 1, 1)
+        # G107: the fallback was a hardcoded Date.new(2005,1,1) (YouTube's
+        # founding year) — and since no caller threads channel_created_on,
+        # EVERY lifetime chart started with twenty years of empty paper and
+        # "January 2005" ticks. The honest lifetime floor is the account's
+        # first actual data: the earliest video. The epoch remains only for
+        # a videoless database, where there is nothing to chart anyway.
+        @start_date = channel_created_on || ::Video.minimum(:published_at)&.to_date || Date.new(2005, 1, 1)
         @end_date   = ref
         @prev_start = nil
         @prev_end   = nil

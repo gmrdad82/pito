@@ -254,7 +254,8 @@ RSpec.describe Pito::Analytics::Visualizers::Area do
     expect(xticks.map(&:text)).not_to include("1")
   end
 
-  it "renders date-labelled x-ticks in 'Month YYYY' format for prior-year dates" do
+  # G107: the short form the owner had before — "Jun'25", never "June 2025".
+  it "renders date-labelled x-ticks in the short Mon'YY form for prior-year dates" do
     prior_year = Date.current.year - 1
     start = Date.new(prior_year, 6, 1)
     dates = (0..29).map { |i| (start + i).iso8601 }
@@ -264,7 +265,7 @@ RSpec.describe Pito::Analytics::Visualizers::Area do
     ))
     xticks = node.css(".pito-metric__xticks span")
     # All ticks should be "Month YYYY" since the dates are in a prior year
-    expect(xticks.map(&:text)).to all(match(/\A[A-Z][a-z]+ \d{4}\z/))
+    expect(xticks.map(&:text)).to all(match(/\A[A-Z][a-z]{2}'\d{2}\z/))
   end
 
   it "returns the retention 0%→100% labels regardless of dates" do
