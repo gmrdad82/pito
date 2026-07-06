@@ -2866,7 +2866,11 @@ html {
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
-  padding: 4px 6px;
+  /* G118: 12px of top headroom, not 4 — the y-ticks are translateY(-50%)
+     centred on their data rows, so the TOP tick pokes half a line above the
+     plot, and overflow-x:auto clips vertically as a side effect (overflow-y
+     computes to auto). Height-only; the 450px column contract is untouched. */
+  padding: 12px 6px 4px;
   background: var(--bg-surface);
 }
 .pito-metric__caption { width: 0; min-width: 100%; white-space: normal; overflow-wrap: break-word; }
