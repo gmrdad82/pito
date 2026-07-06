@@ -2,4 +2,10 @@
 # CVEs that are not relevant to the application can be enumerated on the ignore list below.
 
 ignore:
-  - CVE-THAT-DOES-NOT-APPLY
+  # CVE-2026-38969 (webrick 1.9.2, published 2026-07-06): HTTP request-smuggling
+  # via trailer reparse in WEBrick *as a server*. webrick enters this bundle only
+  # as a dependency of ferrum (the dev-only capture rig) and webmock (test-only);
+  # pito serves via Puma and never starts WEBrick — zero production exposure.
+  # No patched webrick exists yet. DROP THIS when webrick > 1.9.2 ships
+  # (owner-approved unblock, 2026-07-06).
+  - CVE-2026-38969

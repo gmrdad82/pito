@@ -4,6 +4,14 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] — 2026-07-06
+
+### Fixed
+
+- **The shinies actually ripple** — the gleam stagger was being reset by an
+  animation shorthand; with longhands, every chip runs its own of twenty
+  phase offsets.
+
 ## [1.3.0] — 2026-07-06
 
 ### Fixed

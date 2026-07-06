@@ -2582,7 +2582,13 @@ html {
     0 0 14px var(--halo);
   overflow: hidden;
   isolation: isolate;
-  animation: pito-shiny-breathe var(--pito-shimmer-speed, 5s) ease-in-out infinite;
+  /* LONGHANDS, never the `animation` shorthand — the shorthand resets
+     animation-delay and clobbers the .pito-shiny-sN stagger (same lesson as
+     the bar sweep). */
+  animation-name: pito-shiny-breathe;
+  animation-duration: var(--pito-shimmer-speed, 5s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 /* travelling specular gleam */
 .pito-shiny::before {
@@ -2591,7 +2597,10 @@ html {
     var(--gleam) 47%, var(--gleam-hot, var(--gleam)) 50%, var(--gleam) 53%,
     transparent 62%);
   transform: translateX(-70%);
-  animation: pito-shiny-gleam var(--pito-shimmer-speed, 5s) linear infinite;
+  animation-name: pito-shiny-gleam;
+  animation-duration: var(--pito-shimmer-speed, 5s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
   animation-delay: inherit;
   mix-blend-mode: screen; pointer-events: none;
 }
