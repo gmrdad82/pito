@@ -46,7 +46,15 @@ RSpec.describe Pito::Achievement::BadgeComponent, type: :component do
     expect(node.css(".pito-shiny").first["class"]).to include("pito-shiny--compact")
   end
 
-  it "staggers the gleam via a shimmer offset class" do
-    expect(render_badge(threshold: 5).css(".pito-shiny").first["class"]).to match(/pito-shimmer-d\d/)
+  it "staggers the gleam via a 20-step shinies-specific offset class (G128)" do
+    expect(render_badge(threshold: 5).css(".pito-shiny").first["class"]).to match(/pito-shiny-s(\d|1\d)\b/)
+  end
+
+  it "spreads distinct badges across many stagger buckets" do
+    classes = (1..20).map do |i|
+      render_badge(threshold: 10**(i % 6), metric: %w[views likes comments][i % 3])
+        .css(".pito-shiny").first["class"][/pito-shiny-s\d+/]
+    end
+    expect(classes.uniq.size).to be > 4
   end
 end
