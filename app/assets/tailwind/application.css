@@ -2857,51 +2857,20 @@ html {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  /* G108 (the surviving rule after the 2026-07-06 night): width stays
+     max-content — the surface hugs the canvas exactly as it always did on
+     desktop — and max-width caps it at its column so a canvas wider than a
+     phone SCROLLS instead of bleeding. NO containment: contain:inline-size
+     zeroes intrinsic width and collapsed charts inside any shrink-wrapping
+     wrapper (the breakdowns card). max-width cannot collapse anything. */
   width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
   padding: 4px 6px;
   background: var(--bg-surface);
 }
 .pito-metric__caption { width: 0; min-width: 100%; white-space: normal; overflow-wrap: break-word; }
 
-/* G89 — narrow viewports (the Android shell, small phones): the braille
-   canvas is COLS=42 cells × 10.25px ≈ 442px — wider than a 360–412px phone,
-   so dots walked off the paper. The CHART GLYPHS (braille art, not body
-   text) scale down just enough for 42 cells + message insets to fit the real
-   viewport: a cell advances 0.7324em, so font-size = (100vw − 34px)/42/0.7324,
-   capped at the base 14px. Desktop and the locked 450px column never shrink
-   (the min() picks 14px there); ticks/captions inside the chart box inherit
-   the scaled size so everything stays proportional. COLS=42 divides by 7, so
-   the heatmap's day bands keep their exact split at every scale. */
-@media (max-width: 480px) {
-  .pito-metric {
-    /* G97: 76px = page insets (5+5 + G91's 5) + segment chrome (4 bar + 6 gap
-       + 22 left + 16 right pad) + the metric's own 12px padding — the G89
-       first cut subtracted only 34px and charts still bled off the segment. */
-    font-size: min(14px, calc((100vw - 76px) / 42 / 0.7324));
-  }
-}
-
-/* G99 — the canvas follows its CONTAINER, not the viewport. The braille
-   canvas is a fixed 42 glyph cells (≈431px at the 14px base); wherever its
-   cell shrinks below that — the glance grid's halves in a narrow desktop
-   window, the game-detail columns, any future slot — the rows used to BLEED
-   past the cell's edge (measured: 431px rows in a 348px cell at a 780px
-   window). Each mount wrapper becomes a size container and the glyph font
-   derives from the REAL available width. At the 450px contract width the
-   result caps at the base 14px — the locked desktop layout renders
-   pixel-identically. The ≤480px viewport rule above remains the fallback
-   for metrics with no container ancestor (a bare scrollback message). */
-.pito-analytics-scalars__cell,
-.pito-analytics-scalars__charted,
-.pito-game-channels__col {
-  container-type: inline-size;
-}
-
-@container (max-width: 460px) {
-  .pito-metric {
-    font-size: min(14px, calc((100cqw - 14px) / 42 / 0.7324));
-  }
-}
 
 /* width:max-content hugs the braille so the x-ticks span exactly the plot. */
 .pito-metric__chart {
@@ -3141,6 +3110,12 @@ html {
   top: 0;
   left: 0;
   z-index: 0;
+  /* G105: the paper OVERDRAWS the data canvas by a few columns (base.rb
+     BG_OVERDRAW_COLS) and clips at the surface edge — no bald purple strip
+     when the surface outruns the 42-cell canvas, and the overdraw never
+     widens the box or triggers the swipe. */
+  right: 0;
+  overflow: hidden;
   /* Dotted-paper grid: a TRANSLUCENT foreground tint (not a fixed bg-token mix),
      so it lifts WHATEVER background is behind it — the page (--bg-root) or a
      surfaced message (--bg-surface) — and re-palettes per theme automatically. */

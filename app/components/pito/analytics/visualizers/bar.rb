@@ -52,6 +52,11 @@ module Pito
 
         def reveal_controller = REVEAL_CONTROLLER
 
+        # Bars keep the EXACT COLS-wide paper (no Base overdraw): the dotted
+        # grid IS the 0–100% axis here, so paper past the last cell reads as
+        # "the bars don't sum to 100" (owner, 2026-07-06).
+        def bg_cols = cols
+
         # Staggered shimmer-delay bucket — seeded per bar-set so adjacent charts
         # never pulse in sync (mirrors Pito::Analytics::Visualizers::Heart#shimmer_offset_class).
         def shimmer_offset_class
@@ -84,32 +89,38 @@ module Pito
           [ (pct / 100.0 * COLS).round, 1 ].max.clamp(0, COLS)
         end
 
-        # Offset (in cells) for a cumulative percentage — where a bar's coloured
-        # segment STARTS.
-        def offset_cells(pct)
-          ((pct / 100.0) * COLS).round.clamp(0, COLS)
+        # Owner's cell normalization (2026-07-06, "SIMPLE MATH", verbatim):
+        #   1. every positive bar is min 1 cell;
+        #   2. if the cells sum over the target, cut 1 from the biggest until equal;
+        #   3. if under, add 1 to the biggest until equal.
+        # Target = the group's total pct in cells — a full breakdown (~100%)
+        # closes the axis at exactly COLS; a partial group stays honest.
+        def normalized_cells
+          wants  = @bars.map { |b| filled_cells(b[:pct]) }
+          target = ((@bars.sum { |b| b[:pct] } / 100.0) * COLS).round.clamp(0, COLS)
+          target = [ target, wants.count(&:positive?) ].max # rule 1 outranks a cut
+          wants[wants.index(wants.max)] -= 1 while wants.sum > target
+          wants[wants.index(wants.max)] += 1 while wants.sum < target
+          wants
         end
 
         def color_token(sym)
           COLOR_TOKENS.fetch(sym&.to_sym, COLOR_TOKENS[:blue])
         end
 
-        # Pre-computed bar rows (memoised). Each bar's coloured segment STARTS at
-        # the running cumulative offset (where the previous bar's slice ended) — so
-        # the slices tile the 0–100% line down the stack (owner: the subscribed
-        # segment begins where not-subscribed ends, "........⣿"). Each row = a dim
-        # lead (offset cells), the coloured segment (filled), then a dim tail.
+        # Pre-computed bar rows (memoised). Cells come from normalized_cells
+        # (the owner's simple-math rules), and each bar's coloured segment
+        # STARTS where the previous bar's slice ended — sequential tiling, so
+        # a full breakdown closes the axis at exactly COLS by construction
+        # (owner: the subscribed segment begins where not-subscribed ends,
+        # "........⣿"). Each row = a dim lead, the coloured segment, a dim tail.
         def bars_data
           @bars_data ||= begin
-            running = 0.0
-            @bars.map do |b|
-              want = filled_cells(b[:pct])
-              # Place the segment at the cumulative offset, but never let a positive
-              # slice get pushed off-canvas — keep its `want` cells visible (so a tiny
-              # last slice like subscribed 0.8% still shows as "........⣿").
-              off  = [ offset_cells(running), COLS - want ].min
-              running += b[:pct]
-              {
+            cells = normalized_cells
+            off   = 0
+            @bars.each_with_index.map do |b, j|
+              want = cells[j]
+              data = {
                 label:       b[:label],
                 value_label: b[:value_label],
                 token:       color_token(b[:color]),
@@ -117,6 +128,8 @@ module Pito
                 filled:      want,
                 remainder:   COLS - off - want
               }
+              off += want
+              data
             end
           end
         end

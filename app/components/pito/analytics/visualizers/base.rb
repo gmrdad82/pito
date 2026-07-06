@@ -49,9 +49,16 @@ module Pito
         # renderer with no data floor (the heart) can sit on the same baseline.
         BASELINE_DOT = [ 0x28C0 ].pack("U") # ⣀
 
+        # G105: extra dotted-paper columns past the data canvas — the surface
+        # spans its column (width:100%) and can be a touch wider than the
+        # 42-cell canvas, which left a bald strip at the right edge; the bg
+        # layer overdraws and the CSS clips it AT the surface edge, so the
+        # paper always reaches the chatbox line. Data rows stay untouched.
+        BG_OVERDRAW_COLS = 4
+
         # Background-grid CELL dims. Default to the chart box; a renderer whose
         # canvas differs OVERRIDES these (e.g. the heart uses fewer rows).
-        def bg_cols       = cols
+        def bg_cols       = cols + BG_OVERDRAW_COLS
         def bg_rows_count = rows
 
         # The shared faint dotted background LAYER (graph-paper) every metric
