@@ -120,6 +120,31 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
       })
     end
 
+    # G125.4 (TUI contract catch): the stamped selection must survive `next` —
+    # counter sorts are visibility-gated past page 1 and `with`-added columns
+    # must not reset when paging.
+    it "threads the stamped list_columns into the next batch" do
+      ev = instance_double(Event, payload: {
+        "reply_target" => "channel_list",
+        "list_columns" => [ "views", "subs" ],
+        "list_cursor"  => { "offset" => 2, "sort_token" => nil, "sort_direction" => nil }
+      })
+      result = handler.call(event: ev, rest: "next", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:payload]["list_columns"]).to match_array(%w[views subs])
+    end
+
+    it "resolves a counter sort on the next batch via the stamped selection" do
+      ev = instance_double(Event, payload: {
+        "reply_target" => "channel_list",
+        "list_columns" => [ "views" ],
+        "list_cursor"  => { "offset" => 2, "sort_token" => "views", "sort_direction" => "desc" }
+      })
+      expect(Pito::MessageBuilder::Channel::ListColumns).to receive(:sort_key_for)
+        .with("views", selected_columns: [ :views ]).and_call_original
+      handler.call(event: ev, rest: "next", conversation:)
+    end
+
     it "renders the final batch (1 channel) with no list_cursor" do
       result = handler.call(event: cursor_event, rest: "next", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Append)

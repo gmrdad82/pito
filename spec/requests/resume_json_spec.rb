@@ -20,7 +20,11 @@ RSpec.describe "GET /resume.json", type: :request do
 
     expect(response).to have_http_status(:ok)
     body = response.parsed_body
-    expect(body.keys).to match_array(%w[recent older])
+    expect(body.keys).to match_array(%w[recent older me notifications])
+
+    # G125: identity + unread ride beside the groups.
+    expect(body["me"]["handle"]).to eq("@#{AppSetting.nickname}")
+    expect(body["notifications"]["unread"]).to eq(Notification.unread.count)
 
     row = (body["recent"] + body["older"]).find { |r| r["uuid"] == named.uuid }
     expect(row).to be_present
