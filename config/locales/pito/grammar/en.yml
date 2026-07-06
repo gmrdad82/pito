@@ -37,10 +37,10 @@ en:
         analyze: "Analyze YouTube metrics for a channel, vid, or game (over the shift+space period)"
         # Segment verbs (D20/D21) — each promotes one show/analyze :enhanced segment.
         "at-a-glance": "Pending analytics summary for a channel, vid, or game (over the shift+space period)"
-        videos: "List a channel's videos"
-        "linked-game": "Show the game linked to a vid"
+        videos: "List a channel's videos, or the vids linked to a game"
+        game: "Show the game linked to a vid"
+        games: "The channel's linked games as a cover grid"
         similar: "Voyage-powered similar-game recommendations for a game"
-        "linked-videos": "List the vids linked to a game"
         channels: "List the channels that publish a game"
         breakdowns: "Lifetime distribution breakdowns for a channel, vid, or game (over the shift+space period)"
         # The `linked` two-word forms (E14) — the noun names what you get; the id is the OTHER entity's.

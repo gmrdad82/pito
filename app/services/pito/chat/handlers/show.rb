@@ -69,27 +69,28 @@ module Pito
         SEGMENT_EMITTERS = {
           channel: {
             "detail"      => :emit_channel_detail,
+            "games"       => :emit_channel_games,
             "videos"      => :emit_channel_videos,
             "at-a-glance" => :emit_channel_at_a_glance
           }.freeze,
           vid: {
             "detail"      => :emit_vid_detail,
-            "linked-game" => :emit_vid_linked_game,
+            "game"        => :emit_vid_linked_game,
             "at-a-glance" => :emit_vid_at_a_glance
           }.freeze,
           game: {
-            "detail"        => :emit_game_detail,
-            "similar"       => :emit_game_similar,
-            "linked-videos" => :emit_game_linked_videos,
-            "channels"      => :emit_game_channels,
-            "at-a-glance"   => :emit_game_at_a_glance
+            "detail"      => :emit_game_detail,
+            "similar"     => :emit_game_similar,
+            "videos"      => :emit_game_linked_videos,
+            "channels"    => :emit_game_channels,
+            "at-a-glance" => :emit_game_at_a_glance
           }.freeze
         }.freeze
 
         def call
           return drive_forced_entity if @forced_entity
 
-          if channel_noun?
+          if channel_noun? || channel_follow_up?
             handle_channel
           elsif video_target?(VIDEO_NOUN_FILLERS)
             handle_video
@@ -148,8 +149,13 @@ module Pito
         # IS the entity (owner 2026-06-29) — a bare id (`show 123`) or unknown word
         # (`show foo`) is NEVER silently treated as a game; only `game`/`games`
         # routes here. (Follow-up replies bypass this via `follow_up?` in `call`.)
+        # PRE-CLAUSE scoped like channel_noun?: since G120/G122 `games`/`game` are
+        # segment names too, and `show vid #3 with game` / `show channel @h with
+        # games` must not ghost-trigger the game branch.
         def game_noun?
-          message.body_tokens.any? { |t| GAME_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+          message.body_tokens
+                 .take_while { |t| !%w[with only without full].include?(t.value.to_s.downcase) }
+                 .any? { |t| GAME_NOUN_FILLERS.include?(t.value.to_s.downcase) }
         end
 
         def handle_channel
@@ -164,12 +170,27 @@ module Pito
           emit_segments_for(channel, :channel, selection)
         end
 
+        # A follow-up reply sourced from a CHANNEL message (channel_detail,
+        # channel_games, …) fixes the entity — a bare segment reply like
+        # `#<handle> games` carries no noun, so routing must come from the
+        # source's reply_target (G123; mirrors video_target?'s follow-up arm).
+        def channel_follow_up?
+          follow_up? && reply_target.to_s.start_with?("channel")
+        end
+
         # Resolve the channel by @handle (case-insensitive, @-agnostic). A bare
         # `show channel` (no @handle in the body) falls back to the shift+tab
         # channel SCOPE — so it's treated as a channel, never the game picker. Only
         # truly ambiguous (no handle + @all/blank scope) → :needs_ref.
+        # In a channel-sourced follow-up with no typed handle (a bare `games` /
+        # `videos` / `at-a-glance` reply), the source card's channel_id IS the
+        # channel (G123 — same source-entity contract as the game/vid replies).
         def resolve_channel
           handle = channel_ref.presence || scoped_channel_handle
+          if handle.blank? && channel_follow_up?
+            source_id = follow_up.source_event.payload.to_h.with_indifferent_access[:channel_id]
+            return ::Channel.find_by(id: source_id) if source_id.present?
+          end
           return :needs_ref if handle.blank?
 
           norm = handle.to_s.sub(/\A@+/, "").downcase
@@ -221,6 +242,10 @@ module Pito
 
         def emit_channel_detail(channel)
           { kind: :system, payload: Pito::MessageBuilder::Channel::Detail.call(channel, conversation:) }
+        end
+
+        def emit_channel_games(channel)
+          { kind: :enhanced, payload: Pito::MessageBuilder::Channel::Games.call(channel, conversation:) }
         end
 
         def emit_channel_videos(channel)

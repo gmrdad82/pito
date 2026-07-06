@@ -1,0 +1,26 @@
+<%# Pito::Channel::GamesComponent — the channel's linked-games grid (G120) %>
+<%# Intro leads inline so the event timestamp sits on the same row. %>
+<span class="pito-channel-games__intro text-fg"><%= raw(intro) %></span>
+<div class="pito-channel-games">
+  <div class="pito-channel-games__grid">
+    <% games.each do |game| %>
+      <div class="pito-channel-games__card" data-game-id="<%= game.id %>">
+        <%= render Pito::ImageRender.call(
+              url:            cover_art_url_for(game),
+              shape:          :rect,
+              sync_command:   "sync game ##{game.id}",
+              alt:            game.title.to_s,
+              html_class:     "pito-channel-games__cover block",
+              fallback_class: "pito-channel-games__cover"
+            ) %>
+        <%# One line under the cover: #id pinned left, vid count pinned right
+            (flush with the cover edge). Flex suppresses the monospace
+            inter-element whitespace and provides the spread. %>
+        <div class="pito-channel-games__line">
+          <%= render(Pito::Shimmer::TokenComponent.new(text: "##{game.id}", extra_class: "pito-channel-games__id", prefill: "show game ##{game.id}", submit: true)) %>
+          <span class="pito-channel-games__count text-fg-dim"><%= vids_label(game) %></span>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

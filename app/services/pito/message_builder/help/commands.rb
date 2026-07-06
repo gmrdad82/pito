@@ -30,13 +30,14 @@ module Pito
         # All three were dispatched with chat_help copy but missing from this
         # listing (found during the 0.9.5 help-sync guard audit).
         # Segment verbs (D20/D21) are grouped by the entity their card is ABOUT:
-        # similar/linked-game → games, videos/linked-videos → videos,
-        # channels → channels, at-a-glance/breakdowns → analytics.
-        # `linked` (E14) is the relationship verb — grouped with link/unlink and
-        # the one-word linked-game beside the game commands.
-        "pito.copy.help.games_group_title"     => %w[list show import delete reindex link unlink linked footage price platform shinies similar linked-game],
-        "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos linked-videos],
-        "pito.copy.help.channels_group_title"  => %w[sync channels],
+        # similar/game → games, videos → videos, games/channels → channels,
+        # at-a-glance/breakdowns → analytics. `linked` (E14) is the
+        # relationship verb — grouped with link/unlink beside the game
+        # commands. (G120-G122: linked-game → game, linked-videos folded into
+        # videos, games = the channel games grid.)
+        "pito.copy.help.games_group_title"     => %w[list show import delete reindex link unlink linked footage price platform shinies similar game],
+        "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos],
+        "pito.copy.help.channels_group_title"  => %w[sync channels games],
         # analyze spans channel/vid/game — its own group (was missing from the
         # main help entirely; found during the 0.9.5 help audit).
         "pito.copy.help.analytics_group_title" => %w[analyze at-a-glance breakdowns]

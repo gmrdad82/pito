@@ -10,19 +10,19 @@ RSpec.describe Pito::Chat::Segments do
   # ── .names ───────────────────────────────────────────────────────────────────
 
   describe ".names" do
-    it "returns ordered names for show channel: detail, videos, at-a-glance" do
+    it "returns ordered names for show channel: detail, games, videos, at-a-glance" do
       expect(described_class.names(verb: :show, entity: :channel))
-        .to eq(%w[detail videos at-a-glance])
+        .to eq(%w[detail games videos at-a-glance])
     end
 
-    it "returns ordered names for show vid: detail, linked-game, at-a-glance" do
+    it "returns ordered names for show vid: detail, game, at-a-glance" do
       expect(described_class.names(verb: :show, entity: :vid))
-        .to eq(%w[detail linked-game at-a-glance])
+        .to eq(%w[detail game at-a-glance])
     end
 
-    it "returns ordered names for show game: detail, similar, linked-videos, channels, at-a-glance" do
+    it "returns ordered names for show game: detail, similar, videos, channels, at-a-glance" do
       expect(described_class.names(verb: :show, entity: :game))
-        .to eq(%w[detail similar linked-videos channels at-a-glance])
+        .to eq(%w[detail similar videos channels at-a-glance])
     end
   end
 
@@ -251,13 +251,13 @@ RSpec.describe Pito::Chat::Segments do
 
       it "has exactly the canonical names (plus aliases) as keys for show/game" do
         map = described_class.alias_map(verb: :show, entity: :game)
-        canonical_names = %w[detail similar linked-videos channels at-a-glance]
-        expect(map.keys).to match_array(canonical_names + %w[similars])
+        canonical_names = %w[detail similar videos channels at-a-glance]
+        expect(map.keys).to match_array(canonical_names + %w[similars vids linked-vids])
       end
 
       it "has only canonical names as keys for show/channel (no aliases declared)" do
         map = described_class.alias_map(verb: :show, entity: :channel)
-        expect(map.keys).to match_array(%w[detail videos at-a-glance])
+        expect(map.keys).to match_array(%w[detail games videos at-a-glance])
       end
     end
   end
@@ -295,8 +295,8 @@ RSpec.describe Pito::Chat::Segments do
       end
     end
 
-    context "show vid: linked-game segment (guards on vid.linked_games.first.present?)" do
-      let(:segment) { show_vid.find { |s| s.name == "linked-game" } }
+    context "show vid: game segment (guards on vid.linked_games.first.present?)" do
+      let(:segment) { show_vid.find { |s| s.name == "game" } }
 
       it "returns falsy when linked_games.first is nil" do
         vid = double("vid", linked_games: double("games", first: nil))
@@ -309,8 +309,8 @@ RSpec.describe Pito::Chat::Segments do
       end
     end
 
-    context "show game: linked-videos segment (guards on game.linked_videos.any?)" do
-      let(:segment) { show_game.find { |s| s.name == "linked-videos" } }
+    context "show game: videos segment (guards on game.linked_videos.any?)" do
+      let(:segment) { show_game.find { |s| s.name == "videos" } }
 
       it "returns false when the game has no linked videos" do
         game = double("game", linked_videos: double("videos", any?: false))

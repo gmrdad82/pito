@@ -35,10 +35,10 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
   describe "recognition — canonical verbs + aliases at position 1" do
     {
       "at-a-glance"   => :"at-a-glance", "glance" => :"at-a-glance", "overview" => :"at-a-glance",
-      "videos"        => :videos,        "vids"   => :videos,
-      "linked-game"   => :"linked-game",
+      "videos"        => :videos,        "vids"   => :videos, "linked-vids" => :videos,
+      "game"          => :game,
+      "games"         => :games,
       "similar"       => :similar,       "similars" => :similar,
-      "linked-videos" => :"linked-videos", "linked-vids" => :"linked-videos",
       "channels"      => :channels,      "handles" => :channels,
       "breakdowns"    => :breakdowns,    "lifetime" => :breakdowns, "life" => :breakdowns
     }.each do |token, verb|
@@ -92,9 +92,10 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
         "at-a-glance vid"       => [ "at-a-glance vid ##{video.id}",    "show vid ##{video.id} only at-a-glance" ],
         "at-a-glance game"      => [ "at-a-glance game ##{game.id}",    "show game ##{game.id} only at-a-glance" ],
         "videos channel"        => [ "videos channel @byteid",          "show channel @byteid only videos" ],
-        "linked-game vid"       => [ "linked-game vid ##{video.id}",    "show vid ##{video.id} only linked-game" ],
+        "videos game"           => [ "videos game ##{game.id}",         "show game ##{game.id} only videos" ],
+        "game vid"              => [ "game vid ##{video.id}",           "show vid ##{video.id} only game" ],
+        "games channel"         => [ "games channel @byteid",           "show channel @byteid only games" ],
         "similar game"          => [ "similar game ##{game.id}",        "show game ##{game.id} only similar" ],
-        "linked-videos game"    => [ "linked-videos game ##{game.id}",  "show game ##{game.id} only linked-videos" ],
         "channels game"         => [ "channels game ##{game.id}",       "show game ##{game.id} only channels" ],
         "breakdowns channel"    => [ "breakdowns channel @byteid",      "analyze channel @byteid only breakdowns" ],
         "breakdowns vid"        => [ "breakdowns vid ##{video.id}",     "analyze vid ##{video.id} only breakdowns" ],
@@ -134,15 +135,15 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
     # is a VIDEO noun-filler, so show's video_target? misroutes that only-clause to
     # the video branch (a pre-existing show quirk). The segment verb resolves the
     # game cleanly and rejects on availability, which is the correct behaviour.
-    it "`videos game #id` rejects — videos is not a game segment" do
+    it "`games game #id` rejects — games is a channel-only segment (G120)" do
       game   = create(:game)
-      result = route("videos game ##{game.id}")
+      result = route("games game ##{game.id}")
 
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to match(/videos/)
+      expect(result.message_key).to match(/games/)
       expect(result.message_key).to eq(Pito::Copy.render(
         "pito.copy.segments.unknown",
-        tokens: "videos",
+        tokens: "games",
         names:  Pito::Chat::Segments.names(verb: :show, entity: :game).join(", ")
       ))
     end
@@ -214,7 +215,7 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
 
     it "surfaces all seven segment verbs" do
       names = chat.map { |e| e[:name] }
-      expect(names).to include("at-a-glance", "videos", "linked-game", "similar", "linked-videos", "channels", "breakdowns")
+      expect(names).to include("at-a-glance", "videos", "game", "games", "similar", "channels", "breakdowns")
     end
   end
 
@@ -222,9 +223,9 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
   #
   # ONE keyed verb where the NOUN names WHAT YOU GET (the segment) and the id is
   # the OTHER entity's, so `entity:` FORCES the parent's branch:
-  #   linked game #vid  == show vid  #vid  only linked-game
-  #   linked vids #game == show game #game only linked-videos
-  # The one-word linked-game / linked-videos verbs AND link/unlink are unaffected.
+  #   linked game #vid  == show vid  #vid  only game   (segment renamed, G122)
+  #   linked vids #game == show game #game only videos (segment renamed, G121)
+  # The one-word game / videos segment verbs AND link/unlink are unaffected.
   describe "the `linked` keyed verb" do
     describe "recognition — `linked` at position 1, distinct from link / linked-*" do
       { "linked game 1" => :linked, "linked vids 1" => :linked, "linked videos 1" => :linked }.each do |input, verb|
@@ -240,8 +241,8 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
       {
         "link game 1 to vid 2"     => :link,
         "unlink game 1 from vid 2" => :unlink,
-        "linked-game vid 1"        => :"linked-game",
-        "linked-videos game 1"     => :"linked-videos"
+        "game vid 1"               => :game,
+        "videos game 1"            => :videos
       }.each do |input, verb|
         it "#{input.inspect} still parses to #{verb.inspect} (link ≠ linked; hyphenated verbs distinct)" do
           expect(parse(input).verb).to eq(verb)
@@ -263,27 +264,27 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
         allow(Pito::HandleGenerator).to receive(:call).and_return("zeta-0000")
       end
 
-      it "`linked game #vid` == `show vid #vid only linked-game`" do
+      it "`linked game #vid` == `show vid #vid only game`" do
         seg    = route("linked game ##{video.id}")
-        parent = route("show vid ##{video.id} only linked-game")
+        parent = route("show vid ##{video.id} only game")
 
         expect(seg).to be_a(Pito::Chat::Result::Ok)
         expect(seg.events).to eq(parent.events)
         expect(seg.events).not_to be_empty
       end
 
-      it "`linked vids #game` == `show game #game only linked-videos`" do
+      it "`linked vids #game` == `show game #game only videos`" do
         seg    = route("linked vids ##{game.id}")
-        parent = route("show game ##{game.id} only linked-videos")
+        parent = route("show game ##{game.id} only videos")
 
         expect(seg).to be_a(Pito::Chat::Result::Ok)
         expect(seg.events).to eq(parent.events)
         expect(seg.events).not_to be_empty
       end
 
-      it "the `videos` noun synonym drives the vids branch (== linked-videos)" do
+      it "the `videos` noun synonym drives the vids branch (== the videos segment)" do
         seg    = route("linked videos ##{game.id}")
-        parent = route("show game ##{game.id} only linked-videos")
+        parent = route("show game ##{game.id} only videos")
 
         expect(seg.events).to eq(parent.events)
       end
@@ -292,7 +293,7 @@ RSpec.describe "segment verbs (D20/D21)", type: :dispatch do
     describe "wrong ref — the parent's own not-found copy" do
       it "`linked game #<missing>` == `show vid #<missing> only linked-game` (videos not-found)" do
         seg    = route("linked game #999999")
-        parent = route("show vid #999999 only linked-game")
+        parent = route("show vid #999999 only game")
 
         expect(seg.events).to eq(parent.events)
         expect(seg.events).not_to be_empty

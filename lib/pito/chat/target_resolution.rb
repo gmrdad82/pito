@@ -69,10 +69,16 @@ module Pito
       # branch. In a follow-up reply the entity type is fixed by the source event's
       # `reply_target` (video_list / video_detail) — the reconstructed `<verb>
       # <rest>` carries no noun. In free chat it's the noun word the user typed.
+      # Scans only PRE-CLAUSE tokens (before with/only/without/full) so a segment
+      # name inside the clause never ghost-triggers the branch — since G121 the
+      # game entity has a `videos` segment, and `show game #3 only videos` must
+      # stay a GAME invocation (mirrors Show#channel_noun?).
       def video_target?(video_noun_fillers)
         return reply_target.to_s.start_with?("video") if follow_up?
 
-        message.body_tokens.any? { |t| video_noun_fillers.include?(t.value.to_s.downcase) }
+        message.body_tokens
+               .take_while { |t| !%w[with only without full].include?(t.value.to_s.downcase) }
+               .any? { |t| video_noun_fillers.include?(t.value.to_s.downcase) }
       end
 
       # The display reference for user-facing messages (e.g. not-found copy),
