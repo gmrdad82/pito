@@ -457,7 +457,7 @@ export default class extends Controller {
     // Witty confirm copy injected server-side (Pito::Copy); orange = confirmation,
     // 16px (no size class — the app is 16px-only), italic.
     const prompt = this.element.querySelector("[data-delete-prompt]")?.dataset.deletePrompt
-                   || "press d again to delete"
+                   || "Press d again to delete"
     row.innerHTML = `<span class="text-orange italic px-1">${prompt}</span>`
     clearTimeout(this.#armTimer)
     this.#armTimer = setTimeout(() => this.#disarm(), 500)

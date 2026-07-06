@@ -401,7 +401,7 @@ describe("pito--resume controller", () => {
     fireKey("d")
 
     // Row should now show the confirm prompt text (not its original empty content).
-    expect(row.innerHTML).toContain("press d again to delete")
+    expect(row.innerHTML).toContain("Press d again to delete")
   })
 
   it("pressing d twice deletes the conversation via fetch DELETE", async () => {
@@ -454,11 +454,11 @@ describe("pito--resume controller", () => {
 
     fireKey("d")
     // Row should be armed.
-    expect(row.innerHTML).toContain("press d again to delete")
+    expect(row.innerHTML).toContain("Press d again to delete")
 
     fireKey("ArrowDown")
     // Row should be disarmed (original HTML restored — was empty div).
-    expect(row.innerHTML).not.toContain("press d again to delete")
+    expect(row.innerHTML).not.toContain("Press d again to delete")
   })
 
   it("pressing Escape disarms the row without clearing the sidebar", async () => {
@@ -468,11 +468,11 @@ describe("pito--resume controller", () => {
     await waitForMO()
 
     fireKey("d")
-    expect(row.innerHTML).toContain("press d again to delete")
+    expect(row.innerHTML).toContain("Press d again to delete")
 
     fireKey("Escape")
     // Row should be disarmed.
-    expect(row.innerHTML).not.toContain("press d again to delete")
+    expect(row.innerHTML).not.toContain("Press d again to delete")
     // Sidebar should still have the row (not cleared).
     expect(sidebar.contains(row)).toBe(true)
   })
@@ -487,11 +487,11 @@ describe("pito--resume controller", () => {
     vi.useFakeTimers()
     try {
       fireKey("d")
-      expect(row.innerHTML).toContain("press d again to delete")
+      expect(row.innerHTML).toContain("Press d again to delete")
 
       vi.advanceTimersByTime(600)
       // Timer expired — row should be disarmed and original HTML restored.
-      expect(row.innerHTML).not.toContain("press d again to delete")
+      expect(row.innerHTML).not.toContain("Press d again to delete")
     } finally {
       vi.useRealTimers()
     }
@@ -552,7 +552,7 @@ describe("pito--resume controller", () => {
     fireKey("d")
 
     expect(row.innerHTML).toContain("<input")
-    expect(row.innerHTML).not.toContain("press d again to delete")
+    expect(row.innerHTML).not.toContain("Press d again to delete")
   })
 
   it("d still arms the row when the chatbox (outside the sidebar) has focus, and blurs it", async () => {
@@ -571,7 +571,7 @@ describe("pito--resume controller", () => {
 
     fireKey("d")
 
-    expect(row.innerHTML).toContain("press d again to delete")
+    expect(row.innerHTML).toContain("Press d again to delete")
     expect(document.activeElement).not.toBe(chatbox)
 
     chatbox.remove()
