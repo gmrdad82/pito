@@ -93,9 +93,9 @@ RSpec.describe Pito::Chat::Handlers::Help do
 
   # ── Hint text present for every row ──────────────────────────────────────
 
-  it "body includes 'use --help for more info' hint text" do
+  it "body includes 'Use --help for more info' hint text" do
     body = handler.call.events.first[:payload]["body"]
-    expect(body).to include("use --help for more info")
+    expect(body).to include("Use --help for more info")
   end
 
   # ── `help` verb is NOT listed ─────────────────────────────────────────────
