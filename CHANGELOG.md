@@ -4,6 +4,16 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.5] — 2026-07-06
+
+### Fixed
+
+- **The top y-tick no longer gets clipped** — chart surfaces carry real
+  headroom now. The tick labels are centred on their data rows, so the top
+  one always extended half a line above the plot, and the swipe wrapper was
+  silently clipping it on every device. The surface grew 8px taller; widths
+  are untouched.
+
 ## [1.1.4] — 2026-07-06
 
 ### Changed
