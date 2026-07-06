@@ -20,9 +20,9 @@
 
       <% if shinies.any? %>
         <div class="<%= bem %>__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
-        <div class="<%= bem %>__shinies flex flex-wrap gap-2">
+        <div class="<%= bem %>__shinies pito-detail-card__shinies">
           <% shinies.each do |a| %>
-            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
+            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, scope: a.achievable_type, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
           <% end %>
         </div>
       <% end %>

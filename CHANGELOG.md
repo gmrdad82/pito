@@ -4,6 +4,31 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-07-06
+
+### Fixed
+
+- **"Spans 1 games" no more** — the channel games intro pluralizes its
+  count-bound nouns ("1 game" / "23 games") across all fifty variants.
+
+### Added
+
+- **Shinies became materials** — achievements were redesigned end to end.
+  Progression badges are filled natural-stone chips (Wood through Opal),
+  positional on each metric's own ladder, with a travelling gleam and their
+  own embedded typeface — fully independent of the app theme. The metals
+  are reserved: Silver, Gold, and Diamond are channel awards at 100K, 1M,
+  and 10M subs. Ladders are now per scope at monetized-channel scale (a
+  vid's ceiling is far below its game's, which sits below the channel's) —
+  no more 10M-comments fantasies. The shinies message lays out full-width
+  lanes: a material rail (every step a tick in its stone, the next one
+  pulsing) with the obtained chips flowing left to right; detail cards cap
+  their compact strips at three per row. Replying `shinies` now also works
+  on channel messages.
+- **Games grid data for text clients** — `channel_games` messages carry
+  structured `games` rows (`id`/`title`/`vids`) beside the rendered grid,
+  so cover-less clients can draw the list themselves.
+
 ## [1.2.1] — 2026-07-06
 
 ### Added

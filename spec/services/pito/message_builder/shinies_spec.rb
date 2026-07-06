@@ -52,13 +52,13 @@ RSpec.describe Pito::MessageBuilder::Shinies do
       Pito::Achievements::Evaluate.call(achievable: game, metric: "likes", value: 10)
       payload = described_class.call(game)
       expect(payload["body"].scan("pito-achievement-metric-row flex").size).to eq(2)
-      expect(payload["body"]).to include("pito-achievement-track")
+      expect(payload["body"]).to include("pito-shiny-rail")
     end
 
     it "hides every metric (no row, no track) when nothing has been earned" do
       payload = described_class.call(game)
       expect(payload["body"]).not_to include("pito-achievement-metric-row")
-      expect(payload["body"]).not_to include("pito-achievement-track")
+      expect(payload["body"]).not_to include("pito-shiny-rail")
     end
 
     context "when the game has obtained achievements" do
@@ -69,20 +69,20 @@ RSpec.describe Pito::MessageBuilder::Shinies do
 
       it "renders badges in timestamp order for the metric" do
         payload = described_class.call(game)
-        expect(payload["body"]).to include("pito-achievement-badge")
+        expect(payload["body"]).to include("pito-shiny")
       end
 
       it "badge unlock date has no middot separator (block row needs no separator)" do
         payload = described_class.call(game)
-        # The .pito-achievement-badge__date span must not start with ·
-        expect(payload["body"]).not_to match(%r{class="pito-achievement-badge__date[^"]*">\s*·})
+        # The .pito-shiny__date span must not start with ·
+        expect(payload["body"]).not_to match(%r{class="pito-shiny__date[^"]*">\s*·})
       end
     end
 
     context "when no achievements are obtained" do
       it "renders zero badge divs" do
         payload = described_class.call(game)
-        expect(payload["body"]).not_to include("pito-achievement-badge")
+        expect(payload["body"]).not_to include("pito-shiny")
       end
     end
   end

@@ -878,6 +878,11 @@ verbs:
       # Handler reads noun (channel/video/game) + ref from message.raw.
     reply:
       targets:
+        # G127: bare `shinies` on a channel card reads the source entity —
+        # completes the owner's show/list x channel/vid/game reply matrix.
+        channel_detail:
+          mode: append
+          ref: { resolver: source_entity }
         channel_list:
           mode: append
           ref: { resolver: channel_by_handle }   # `shinies @handle` (args = @handle)

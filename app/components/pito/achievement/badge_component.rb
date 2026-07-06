@@ -2,9 +2,9 @@
 
 module Pito
   module Achievement
-    # Renders an achievement (shiny) badge as a single CSS-bordered rounded box
-    # with a highlight that travels around the border perimeter (a rotating
-    # conic-gradient ring — see `.pito-achievement-badge` in application.css).
+    # Renders an achievement (shiny) badge as a FILLED material chip — the
+    # G127 stones/awards design system (`.pito-shiny` in application.css):
+    # fixed theme-agnostic palette, travelling gleam, breathing halo.
     #
     # All badges share one uniform rounded border regardless of metric (the old
     # per-metric box-drawing charsets are gone — they rendered at != 1ch on
@@ -15,15 +15,15 @@ module Pito
     #
     #   :compact  — one line: "<value> <Word>" (e.g. "1K Subs"). No date.
     #   :extended — two lines: row 1 "<value> <Word>", row 2 the unlock date in
-    #               a muted block span (.pito-achievement-badge__date). No middot
+    #               a muted block span (.pito-shiny__date). No middot
     #               separator — the block layout provides the visual separation.
     #               Omits the date row entirely when unlocked_on is nil.
     #
     # The word is the full title-case badge label from Pito::Achievements::Label.badge
     # (e.g. Subs, Views, Likes, Comments, Watched — not single-letter abbreviations).
     #
-    # The tier colour (value text + border) is set via data-accent =
-    # Pito::Achievement::Tier.token_for(threshold). The perimeter shimmer is
+    # The material (fill + ink + gleam) is set via data-material =
+    # Pito::Achievement::Tier.material_for (G127 stones/awards). The gleam is
     # staggered across adjacent badges via Pito::Shimmer.offset_class so they
     # never rotate in phase.
     #
@@ -36,15 +36,16 @@ module Pito
     class BadgeComponent < ViewComponent::Base
       FORMS = %i[compact extended].freeze
 
-      def initialize(threshold:, metric:, unlocked_on: nil, form: :extended)
+      def initialize(threshold:, metric:, scope:, unlocked_on: nil, form: :extended)
         @threshold   = threshold
         @metric      = metric
+        @scope       = scope.to_s
         @unlocked_on = unlocked_on
         @form        = form
       end
 
       def call
-        tag.span(class: css_classes, data: { accent: accent }) do
+        tag.span(class: css_classes, data: { material: material }) do
           safe_join(content_parts)
         end
       end
@@ -57,16 +58,20 @@ module Pito
       end
 
       def css_classes
-        # Only the compact form (show channel/vid/game detail cards) gets a modifier
-        # — a fixed slim width that truncates when the face overflows, so 3 fit per
-        # row on mobile. The extended form (shinies-verb message) is left on the base
-        # class, untouched. See .pito-achievement-badge--compact in application.css.
-        base = "pito-achievement-badge #{offset_class}"
-        @form == :compact ? "#{base} pito-achievement-badge--compact" : base
+        # Only the compact form (show channel/vid/game detail cards) gets a
+        # modifier — slimmer padding, truncating face; its strip container caps
+        # at 3 per row (.pito-detail-card__shinies). The extended form
+        # (shinies-verb message) stays on the base class.
+        base = "pito-shiny #{offset_class}"
+        base += " pito-shiny--iridescent" if %w[pearl opal diamond].include?(material)
+        base += " pito-shiny--award" if Pito::Achievement::Tier::AWARDS.value?(material)
+        @form == :compact ? "#{base} pito-shiny--compact" : base
       end
 
-      def accent
-        Pito::Achievement::Tier.token_for(@threshold)
+      def material
+        @material ||= Pito::Achievement::Tier.material_for(
+          scope: @scope, metric: @metric, threshold: @threshold
+        )
       end
 
       def value
@@ -81,7 +86,7 @@ module Pito
 
         if @form == :extended && @unlocked_on
           parts << tag.span(@unlocked_on.strftime("%b '%y"),
-                            class: "pito-achievement-badge__date block")
+                            class: "pito-shiny__date block")
         end
 
         parts

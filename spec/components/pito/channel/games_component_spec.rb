@@ -74,6 +74,12 @@ RSpec.describe Pito::Channel::GamesComponent, type: :component do
     expect(intro.text).to be_present
   end
 
+  it "pluralizes the count-bound noun ('1 game', never '1 games')" do
+    link!(create(:game, title: "Solo"))
+    intro = render_grid.css(".pito-channel-games__intro").first.text
+    expect(intro).not_to match(/\b1 games\b/)
+  end
+
   it "interpolates the count as an integer, never a grouped-count hash" do
     link!(create(:game, title: "One"))
     link!(create(:game, title: "Two"))

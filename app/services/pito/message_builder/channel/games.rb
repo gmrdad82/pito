@@ -23,10 +23,18 @@ module Pito
 
         # @param channel      [::Channel]    the channel whose games to show.
         # @param conversation [Conversation] used to generate the reply handle.
-        # @return [Hash] event payload (body html + html: true + channel_id, follow-up stamped).
+        # @return [Hash] event payload (body html + html: true + channel_id +
+        #   structured games rows, follow-up stamped).
         def call(channel, conversation:)
-          body    = render_component(Pito::Channel::GamesComponent.new(channel: channel))
-          payload = html_payload(body: body, channel_id: channel.id)
+          component = Pito::Channel::GamesComponent.new(channel: channel)
+          body      = render_component(component)
+          payload   = html_payload(body: body, channel_id: channel.id)
+          # G126: structured rows beside the html — text clients (pito-tui)
+          # can't render cover art, so they draw from id/title/vids instead
+          # of the body. Same records, same alphabetical order as the grid.
+          payload["games"] = component.games.map do |g|
+            { "id" => g.id, "title" => g.title, "vids" => g[:channel_vids_count] }
+          end
           Pito::FollowUp.make_followupable!(payload, target: "channel_games", conversation:)
           payload
         end

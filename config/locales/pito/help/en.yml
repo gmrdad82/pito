@@ -910,6 +910,13 @@ en:
       show-channel:
         target_usage: "#<show-channel-hashtag> <action>"
         actions:
+          shinies:
+            usage: "#<show-channel-hashtag> shinies"
+            sections:
+              Description:
+                "shinies": "Achievement tracks and obtained shinies for this channel"
+              Options:
+                "--help": "Print this help message"
           'at-a-glance':
             usage: "#<show-channel-hashtag> at-a-glance"
             sections:

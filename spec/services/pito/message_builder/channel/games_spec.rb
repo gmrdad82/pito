@@ -21,6 +21,13 @@ RSpec.describe Pito::MessageBuilder::Channel::Games do
     expect(described_class.call(channel, conversation:)["channel_id"]).to eq(channel.id)
   end
 
+  it "carries structured games rows (id/title/vids) beside the html body" do
+    payload = described_class.call(channel, conversation:)
+    expect(payload["games"]).to eq([
+      { "id" => Game.find_by(title: "Linked One").id, "title" => "Linked One", "vids" => 1 }
+    ])
+  end
+
   it "is follow-up-able with reply_target channel_games" do
     payload = described_class.call(channel, conversation:)
     expect(payload["reply_target"]).to eq("channel_games")
