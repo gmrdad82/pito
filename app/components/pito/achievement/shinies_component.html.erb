@@ -1,15 +1,13 @@
 <%# Pito::Achievement::ShiniesComponent
-    Intro line (with timestamp slot) + one MetricRowComponent per metric. %>
-<div class="pito-achievement-shinies flex flex-col gap-4">
+    Intro line (with timestamp slot) + one full-width MetricRowComponent lane
+    per metric, stacked — badges flow fluid left->right within each lane
+    (owner G127; the 3-col grid stays ONLY on detail-card compact strips). %>
+<div class="pito-achievement-shinies flex flex-col gap-5">
   <% if @intro.present? %>
     <div class="pito-achievement-shinies__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
   <% end %>
 
-  <%# Compact grid: 1 metric per row on narrow/mobile, up to 3 per row on wider
-      screens (each track shrinks to its column) — owner 2026-06-29 "3 on a row". %>
-  <div class="pito-achievement-shinies__grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-    <% metrics.each do |metric| %>
-      <%= render(Pito::Achievement::MetricRowComponent.new(entity: @entity, metric: metric)) %>
-    <% end %>
-  </div>
+  <% metrics.each do |metric| %>
+    <%= render(Pito::Achievement::MetricRowComponent.new(entity: @entity, metric: metric)) %>
+  <% end %>
 </div>

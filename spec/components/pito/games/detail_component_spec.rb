@@ -607,18 +607,18 @@ RSpec.describe Pito::Games::DetailComponent do
 
       it "renders exactly one badge per metric (2 total — views and likes)" do
         node = render_inline(described_class.new(game: game))
-        expect(node.css(".pito-achievement-badge").length).to eq(2)
+        expect(node.css(".pito-shiny").length).to eq(2)
       end
 
       it "shows the max-threshold badge for views (1K Views, not the lower threshold)" do
         node  = render_inline(described_class.new(game: game))
-        texts = node.css(".pito-achievement-badge").map(&:text)
+        texts = node.css(".pito-shiny").map(&:text)
         expect(texts.any? { |t| t.include?("1K") && t.include?("Views") }).to be true
       end
 
       it "shows the max-threshold badge for likes (100 Likes)" do
         node  = render_inline(described_class.new(game: game))
-        texts = node.css(".pito-achievement-badge").map(&:text)
+        texts = node.css(".pito-shiny").map(&:text)
         expect(texts.any? { |t| t.include?("100") && t.include?("Likes") }).to be true
       end
 
@@ -645,16 +645,16 @@ RSpec.describe Pito::Games::DetailComponent do
 
       it "renders detail-card badges in compact form — no unlock date span (J11/J18)" do
         node   = render_inline(described_class.new(game: game))
-        badges = node.css(".pito-game-detail__shinies .pito-achievement-badge")
+        badges = node.css(".pito-game-detail__shinies .pito-shiny")
         badges.each do |badge|
-          expect(badge.css(".pito-achievement-badge__date")).to be_empty
+          expect(badge.css(".pito-shiny__date")).to be_empty
         end
       end
 
-      it "lays out badges in a left-aligned flex-wrap container" do
+      it "lays out badges in the shared 3-per-row strip grid (G127)" do
         node    = render_inline(described_class.new(game: game))
         shinies = node.css(".pito-game-detail__shinies").first
-        expect(shinies["class"]).to include("flex-wrap")
+        expect(shinies["class"]).to include("pito-detail-card__shinies")
         expect(shinies["class"]).not_to include("justify-center")
       end
 

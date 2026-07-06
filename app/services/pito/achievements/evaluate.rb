@@ -4,7 +4,7 @@ module Pito
   module Achievements
     # Idempotent, unlock-once evaluator for a single (achievable, metric, value) triple.
     #
-    # For every threshold in Pito::Achievement::Tier::SERIES that is ≤ value,
+    # For every threshold in the (scope, metric) ladder that is ≤ value,
     # ensures exactly one Achievement row exists. Already-unlocked thresholds
     # are never touched — the underlying INSERT uses ON CONFLICT DO NOTHING so
     # existing rows (and their original +unlocked_at+) are preserved even under
@@ -54,11 +54,12 @@ module Pito
                 "(expected one of #{valid.inspect})"
         end
 
-        thresholds = Pito::Achievement::Tier::SERIES.select { |t| t <= value }
+        scope      = achievable.class.polymorphic_name
+        thresholds = Pito::Achievement::Tier.series_for(scope:, metric:).select { |t| t <= value }
         return [] if thresholds.empty?
 
         now  = Time.current
-        type = achievable.class.polymorphic_name
+        type = scope
         id   = achievable.id
 
         rows = thresholds.map do |threshold|

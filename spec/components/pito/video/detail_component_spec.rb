@@ -369,25 +369,25 @@ RSpec.describe Pito::Video::DetailComponent do
 
       it "renders exactly one badge per metric (2 total — views and likes)" do
         node   = render_inline(described_class.new(video: video))
-        badges = node.css(".pito-video-detail__left .pito-achievement-badge")
+        badges = node.css(".pito-video-detail__left .pito-shiny")
         expect(badges.length).to eq(2)
       end
 
       it "shows the max-threshold badge for views (1K Views, not the lower threshold)" do
         node  = render_inline(described_class.new(video: video))
-        texts = node.css(".pito-video-detail__left .pito-achievement-badge").map(&:text)
+        texts = node.css(".pito-video-detail__left .pito-shiny").map(&:text)
         expect(texts.any? { |t| t.include?("1K") && t.include?("Views") }).to be true
       end
 
       it "shows the max-threshold badge for likes (100 Likes)" do
         node  = render_inline(described_class.new(video: video))
-        texts = node.css(".pito-video-detail__left .pito-achievement-badge").map(&:text)
+        texts = node.css(".pito-video-detail__left .pito-shiny").map(&:text)
         expect(texts.any? { |t| t.include?("100") && t.include?("Likes") }).to be true
       end
 
       it "renders badges ordered by recency of their lane — likes (1 day ago) before views (1 week ago)" do
         node   = render_inline(described_class.new(video: video))
-        badges = node.css(".pito-video-detail__left .pito-achievement-badge")
+        badges = node.css(".pito-video-detail__left .pito-shiny")
         texts  = badges.map(&:text)
         # anchor on threshold values (100 Likes vs 1K Views) which are unambiguous
         likes_idx = texts.index { |t| t.include?("100") }
@@ -413,16 +413,16 @@ RSpec.describe Pito::Video::DetailComponent do
 
       it "renders detail-card badges in compact form — no unlock date span (J11/J18)" do
         node   = render_inline(described_class.new(video: video))
-        badges = node.css(".pito-video-detail__shinies .pito-achievement-badge")
+        badges = node.css(".pito-video-detail__shinies .pito-shiny")
         badges.each do |badge|
-          expect(badge.css(".pito-achievement-badge__date")).to be_empty
+          expect(badge.css(".pito-shiny__date")).to be_empty
         end
       end
 
       it "lays out badges in a left-aligned flex-wrap container" do
         node    = render_inline(described_class.new(video: video))
         shinies = node.css(".pito-video-detail__shinies").first
-        expect(shinies["class"]).to include("flex-wrap")
+        expect(shinies["class"]).to include("pito-detail-card__shinies")
         expect(shinies["class"]).not_to include("justify-center")
       end
 
@@ -440,7 +440,7 @@ RSpec.describe Pito::Video::DetailComponent do
 
       it "renders no achievement badges" do
         node = render_inline(described_class.new(video: video))
-        expect(node.css(".pito-achievement-badge")).to be_empty
+        expect(node.css(".pito-shiny")).to be_empty
       end
 
       it "renders no Shinies legend" do

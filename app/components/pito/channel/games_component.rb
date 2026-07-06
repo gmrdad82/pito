@@ -19,9 +19,15 @@ module Pito
       def intro
         # games is a GROUPED relation — .size/.count would return a Hash
         # ({game_id => n}); .length loads the records and counts them.
+        # tally = the count WITH its pluralized noun ("1 game" / "23 games") —
+        # the dictionary can't pluralize a literal, so count-bound nouns
+        # interpolate the pair (owner 2026-07-06: "spans 1 games").
+        count = games.length
         Pito::Copy.render_html(
           "pito.copy.channels.games_intro",
-          { count: games.length, title: @channel.title },
+          { count: count,
+            tally: "#{count} #{count == 1 ? 'game' : 'games'}",
+            title: @channel.title },
           shimmer: [ :title ]
         )
       end

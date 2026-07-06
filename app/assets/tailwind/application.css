@@ -2493,235 +2493,153 @@ html {
   50%      { color: var(--shimmer-action-band); }
 }
 
-/* ── Pito::Achievement::BadgeComponent ───────────────────────
- *
- * Uniform rounded CSS-bordered badge with a highlight that travels around the
- * border perimeter (TL→TR→BR→BL). One shape for every metric — the old
- * per-metric box-drawing charsets are gone (they rendered at != 1ch on mobile
- * and the right border drifted). A min-width aligns columns/rows of badges;
- * content is centered. Content: "<value> <ABBR> · <Mon 'YY>".
- *
- * Tier colour (value text + static border) is set via data-accent on the root
- * span (color → currentColor → border-color). The __date child always renders
- * in --fg-dim regardless of tier.
- *
- * Shimmer: a rotating conic-gradient ring is painted on ::before and masked to
- * the 1px border so only the edge shows a moving fg highlight. The static tier
- * border underneath always keeps the badge outlined. The rotation honours the
- * shared `.pito-shimmer-dN` stagger via `animation-delay: inherit` (the -dN
- * delays, 0…-3.23s over 20 steps, spread across one 3.4s rotation). The angle
- * is animated through a registered custom property so it can interpolate.
- *
- * NOTE: this intentionally overrides the terminal `border-radius: 0` rule for
- * shinies only. */
+/* ═══ SHINIES — the material design system (G127) ═══════════════════════════
+   Fully THEME-AGNOSTIC by owner decree: fixed palettes, own gleam/fire/halo/
+   shadows, and an embedded face (Chakra Petch, vendored woff2 — no network).
+   Progression = eight natural stones (positional per ladder, Opal pinnacle);
+   the metals are CHANNEL AWARDS only (Silver 100K / Gold 1M / Diamond 10M). */
 
-@property --pito-badge-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
+/* Chakra Petch — the shinies face; self-hosted (public/fonts) and SUBSET like
+   the mono font: basic-latin printable + middot only, ligatures stripped,
+   kern kept (pyftsubset --unicodes=U+0020-007E,U+00B7 --layout-features=kern). */
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal; font-weight: 500; font-display: swap;
+  src: url("/fonts/chakra-petch-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/fonts/chakra-petch-700.woff2") format("woff2");
 }
 
-@keyframes pito-badge-spin {
-  to { --pito-badge-angle: 360deg; }
-}
+/* material palettes — set on any shiny element via data-material */
+[data-material="wood"]  { --m0:#57351a; --m1:#7d4f27; --ink:#f7e6c4; --medge:#a06a35;
+                          --gleam:rgba(255,224,178,.38); --halo:rgba(138,90,46,.35); }
+[data-material="stone"] { --m0:#454e5c; --m1:#68758a; --ink:#f0f4fa; --medge:#8b98ad;
+                          --gleam:rgba(224,232,240,.34); --halo:rgba(123,131,141,.35); }
+[data-material="amber"] { --m0:#9a5c0a; --m1:#cf8a18; --ink:#2f1c00; --medge:#ffca5f;
+                          --gleam:rgba(255,236,170,.55); --gleam-hot:rgba(255,250,220,.8); --halo:rgba(255,202,95,.4); }
+[data-material="coral"] { --m0:#b8402f; --m1:#f0705a; --ink:#2a0b04; --medge:#ff9a82;
+                          --gleam:rgba(255,214,200,.55); --halo:rgba(255,154,130,.4); }
+[data-material="jade"]  { --m0:#0b5a42; --m1:#12926b; --ink:#d8ffee; --medge:#2fd39c;
+                          --gleam:rgba(170,255,220,.4);  --halo:rgba(47,211,156,.4); }
+[data-material="pearl"] { --m0:#d9d6d0; --m1:#f7f5f0; --ink:#2e3440; --medge:#ffffff;
+                          --gleam:rgba(255,255,255,.75); --halo:rgba(240,238,255,.45); }
+[data-material="ruby"]  { --m0:#6e0e1f; --m1:#a81c33; --ink:#ffd9de; --medge:#e2445e;
+                          --gleam:rgba(255,170,185,.5);  --gleam-hot:rgba(255,225,230,.85); --halo:rgba(226,68,94,.45); }
+[data-material="opal"]  { --m0:#ded7ec; --m1:#f6f2ff; --ink:#3a2d52; --medge:#ffffff;
+                          --gleam:rgba(255,255,255,.85); --halo:rgba(200,180,255,.55); --fire:.34; }
+[data-material="silver"]  { --m0:#8f97a1; --m1:#e9edf2; --m2:#b9c1cb; --ink:#1f2830; --medge:#f4f7fa;
+                            --gleam:rgba(255,255,255,.8);  --gleam-hot:#ffffff; --halo:rgba(200,210,225,.5); }
+[data-material="gold"]    { --m0:#8f6700; --m1:#ffd75e; --m2:#c99a14; --ink:#2e2000; --medge:#ffe9a3;
+                            --gleam:rgba(255,248,215,.85); --gleam-hot:#fffdf2; --halo:rgba(255,215,94,.55); }
+[data-material="diamond"] { --m0:#8ecbe9; --m1:#f2fbff; --m2:#bfe6f8; --ink:#082a44; --medge:#ffffff;
+                            --gleam:rgba(255,255,255,.95); --gleam-hot:#ffffff; --halo:rgba(159,212,238,.7); --fire:.28; }
 
-.pito-achievement-badge {
+/* the badge */
+.pito-shiny {
   position: relative;
   display: inline-block;
-  min-width: 11rem;
-  padding: 0.25rem 0.75rem;
+  padding: 6px 14px 7px;
+  border-radius: 8px;
   text-align: center;
   white-space: nowrap;
-  border: 1px solid currentColor;
-  border-radius: 0.5rem;
+  font-family: "Chakra Petch", inherit;
+  font-weight: 700;
+  letter-spacing: .03em;
   font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--m0) 0%, var(--m1) 45%, var(--m0) 100%);
+  border: 1px solid var(--medge);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.20),
+    inset 0 -1px 0 rgba(0,0,0,.28),
+    0 4px 10px rgba(0,0,0,.35),
+    0 0 14px var(--halo);
+  overflow: hidden;
+  isolation: isolate;
+  animation: pito-shiny-breathe var(--pito-shimmer-speed, 5s) ease-in-out infinite;
+}
+/* travelling specular gleam */
+.pito-shiny::before {
+  content: ""; position: absolute; inset: -60%;
+  background: linear-gradient(115deg, transparent 38%,
+    var(--gleam) 47%, var(--gleam-hot, var(--gleam)) 50%, var(--gleam) 53%,
+    transparent 62%);
+  transform: translateX(-70%);
+  animation: pito-shiny-gleam var(--pito-shimmer-speed, 5s) linear infinite;
+  animation-delay: inherit;
+  mix-blend-mode: screen; pointer-events: none;
+}
+/* fire: pearls refract, opals and diamonds burn */
+.pito-shiny--iridescent::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg,
+    rgba(255,110,170,var(--fire,.16)), rgba(110,195,255,var(--fire,.20)) 28%,
+    rgba(150,255,185,var(--fire,.16)) 52%, rgba(195,130,255,var(--fire,.20)) 76%,
+    rgba(255,185,110,var(--fire,.16)));
+  background-size: 300% 300%;
+  animation: pito-shiny-sheen calc(var(--pito-shimmer-speed, 5s) * 2.1) ease-in-out infinite;
+  mix-blend-mode: overlay; pointer-events: none;
+}
+@keyframes pito-shiny-gleam  { 0% { transform: translateX(-70%); } 55%,100% { transform: translateX(70%); } }
+@keyframes pito-shiny-sheen  { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes pito-shiny-breathe {
+  0%,100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.20), inset 0 -1px 0 rgba(0,0,0,.28), 0 4px 10px rgba(0,0,0,.35), 0 0 10px var(--halo); }
+  50%     { box-shadow: inset 0 1px 0 rgba(255,255,255,.20), inset 0 -1px 0 rgba(0,0,0,.28), 0 4px 10px rgba(0,0,0,.35), 0 0 24px var(--halo); }
 }
 
-/* Compact form ONLY (show channel/vid/game detail cards): a FIXED slim width so
-   three fit per row on mobile. It does NOT grow to fit content — when the face is
-   too wide it TRUNCATES with an ellipsis. The extended form (shinies-verb message)
-   is untouched: it keeps the base 11rem. min-width reset so the fixed width wins. */
-.pito-achievement-badge--compact {
+/* channel awards: plaque chrome (metal vertical bands, engraved caps) */
+.pito-shiny--award {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  border-width: 2px;
+  background: linear-gradient(180deg, var(--m0) 0%, var(--m1) 38%, var(--m2) 62%, var(--m0) 100%);
+}
+
+.pito-shiny__date { color: inherit; opacity: .78; font-size: 12px; font-weight: 500; }
+
+/* compact form (detail cards, under thumbnail/banner/cover): MAX 3 PER ROW
+   (owner G127) — the strip is a 3-col grid; slim fixed cells that truncate. */
+.pito-shiny--compact {
   min-width: 0;
-  width: 6.5rem;
-  padding: 0.25rem 0.5rem;
+  padding: 3px 10px 4px;
+  border-radius: 6px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* Rotating perimeter highlight, masked to the 1px border ring. */
-.pito-achievement-badge::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  /* Travelling highlight is a PER-TIER contrasting accent (--pito-badge-shimmer,
-     set per data-accent below), not white — white reads poorly on light tiers.
-     Falls back to fg-default if a tier ever lacks the variable. */
-  background: conic-gradient(
-    from var(--pito-badge-angle),
-    transparent,
-    var(--pito-badge-shimmer, var(--fg-default)),
-    transparent
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-          mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  animation: pito-badge-spin var(--pito-shimmer-speed) linear infinite;
-  animation-delay: inherit;
-  pointer-events: none;
+.pito-detail-card__shinies {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, max-content));
+  gap: 8px;
 }
 
-/* Tier border/text colour + the per-tier CONTRASTING perimeter-shimmer accent
-   (--pito-badge-shimmer). The highlight is keyed to contrast the border colour so
-   the travelling ring stays legible on every tier (and every theme — all stops are
-   theme tokens): muted→cyan, green→yellow, cyan→orange, blue→orange,
-   purple→yellow, orange→cyan, yellow→blue, pito→orange. */
-.pito-achievement-badge[data-accent="muted"]  { color: var(--fg-dim);      --pito-badge-shimmer: var(--accent-cyan); }
-.pito-achievement-badge[data-accent="green"]  { color: var(--accent-green);  --pito-badge-shimmer: var(--accent-yellow); }
-.pito-achievement-badge[data-accent="cyan"]   { color: var(--accent-cyan);   --pito-badge-shimmer: var(--accent-orange); }
-.pito-achievement-badge[data-accent="blue"]   { color: var(--accent-blue);   --pito-badge-shimmer: var(--accent-orange); }
-.pito-achievement-badge[data-accent="purple"] { color: var(--accent-purple); --pito-badge-shimmer: var(--accent-yellow); }
-.pito-achievement-badge[data-accent="orange"] { color: var(--accent-orange); --pito-badge-shimmer: var(--accent-cyan); }
-.pito-achievement-badge[data-accent="yellow"] { color: var(--accent-yellow); --pito-badge-shimmer: var(--accent-blue); }
-.pito-achievement-badge[data-accent="pito"]   { color: var(--brand-pito);    --pito-badge-shimmer: var(--accent-orange); }
-
-.pito-achievement-badge__date { color: var(--fg-dim); }
-
-/* ── Pito::Achievement::TrackComponent ───────────────────────
- *
- * Full-width responsive milestone progress track.
- *
- * A label block sits above a flex rail that spans the full message
- * width.  The rail contains 22 cell columns (dot stacked above its
- * CompactCount value), separated by flex-grow connector spans:
- *
- *   Subs
- *   ●───────●──────◉───────○───────○  …  ○
- *   1       2      20      50      100 …  10M
- *
- * Connectors carry CONNECTOR_FILL (60 × ─), clipped by overflow:hidden
- * so they stretch to fill whatever gap the flex algorithm assigns.
- * When the sidebar opens/closes the container reflows and connectors
- * re-stretch automatically — no JS, no fixed char count.
- *
- * Dot colors: reached dots use data-accent (same token map as the badge).
- * Upcoming dots and connectors use var(--fg-faded). Value labels use --fg-dim. */
-
-/* Outer wrapper — block so it fills the message column width. */
-.pito-achievement-track {
-  display: block;
-  width: 100%;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Title-case metric label above the rail. */
-.pito-achievement-track__label {
-  display: block;
-  color: var(--fg-dim);
-  margin-bottom: 0.25rem;
-}
-
-/* Flex row: cells + connectors span 100% of the wrapper. */
-.pito-achievement-track__rail {
-  display: flex;
-  align-items: flex-start;
-  width: 100%;
-}
-
-/* One column per threshold: dot on top, value label beneath, both centred. */
-.pito-achievement-track__cell {
+/* ── the material rail (TrackComponent): every tick IS its step's stone ── */
+.pito-shiny-rail { display: flex; flex-direction: column; gap: 6px; }
+.pito-shiny-rail__label  { color: var(--fg-default); }
+.pito-shiny-rail__ticks  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pito-shiny-rail__tick {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--m0), var(--m1));
+  border: 1px solid var(--medge);
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
-
-/* Connector glyphs stretch to fill the gap between adjacent cells.
-   overflow:hidden clips the 60-char fill to the computed flex width. */
-.pito-achievement-track__connector {
-  flex: 1 1 auto;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--fg-faded);
-  align-self: flex-start;
+.pito-shiny-rail__tick.is-lit {
+  box-shadow: 0 0 8px var(--halo), inset 0 1px 0 rgba(255,255,255,.3);
 }
-
-/* Elided-gap joiner: the collapsed track replaces a run of skipped thresholds
-   with a centred `─···─`. Shares the connector's flex-grow slot so it stretches
-   across the gap and the dots on each side still read as a continuous rail. */
-.pito-achievement-track__ellipsis {
-  flex: 1 1 auto;
-  overflow: hidden;
-  white-space: nowrap;
-  text-align: center;
-  color: var(--fg-faded);
-  align-self: flex-start;
+.pito-shiny-rail__tick.is-dim { filter: grayscale(.75) brightness(.45); }
+.pito-shiny-rail__tick.is-next {
+  width: 21px; height: 21px;
+  animation: pito-shiny-nextpulse 1.6s ease-in-out infinite;
 }
-
-/* Reached-run colour: dots AND connectors up to the standing ◉ all carry the
-   NEXT-tier token as data-accent (set in TrackComponent), so currentColor — the
-   base of the shimmer gradient below — resolves to the next tier's colour. */
-/* Each reached element also carries the per-tier CONTRASTING shimmer accent
-   (--pito-track-shimmer) used as the travelling highlight band of the reached-run
-   sweep below — the SAME tier→contrast map as the badge (muted→cyan, green→yellow,
-   cyan→orange, blue→orange, purple→yellow, orange→cyan, yellow→blue, pito→orange)
-   so the sweep contrasts the run's own (next-tier) colour instead of washing it
-   out white. All stops are theme tokens, so it stays theme-aware. */
-.pito-achievement-track [data-accent="muted"]  { color: var(--fg-dim);      --pito-track-shimmer: var(--accent-cyan); }
-.pito-achievement-track [data-accent="green"]  { color: var(--accent-green);  --pito-track-shimmer: var(--accent-yellow); }
-.pito-achievement-track [data-accent="cyan"]   { color: var(--accent-cyan);   --pito-track-shimmer: var(--accent-orange); }
-.pito-achievement-track [data-accent="blue"]   { color: var(--accent-blue);   --pito-track-shimmer: var(--accent-orange); }
-.pito-achievement-track [data-accent="purple"] { color: var(--accent-purple); --pito-track-shimmer: var(--accent-yellow); }
-.pito-achievement-track [data-accent="orange"] { color: var(--accent-orange); --pito-track-shimmer: var(--accent-cyan); }
-.pito-achievement-track [data-accent="yellow"] { color: var(--accent-yellow); --pito-track-shimmer: var(--accent-blue); }
-.pito-achievement-track [data-accent="pito"]   { color: var(--brand-pito);    --pito-track-shimmer: var(--accent-orange); }
-
-.pito-achievement-track__dot--upcoming { color: var(--fg-faded); }
-.pito-achievement-track__value         { color: var(--fg-dim); }
-
-/* ── Reached-run progress shimmer ──────────────────────────────────
-   The whole reached run (reached dots + the connectors between them, up to and
-   including the standing ◉) sweeps a bright band through the next-tier colour.
-   Base colour is currentColor (the data-accent next-tier hue above); a
-   --fg-default contrast band sweeps diagonally via the shared
-   pito-action-shimmer-sweep keyframe (135°, 3.4s) so the direction/feel matches the
-   kbd / token / hashtag shimmers. Per-element pito-shimmer-dN stagger (set in
-   TrackComponent) keeps the run from pulsing as one flat block. Upcoming
-   dots/connectors/ellipses carry neither class and stay dim + static. The
-   collapsed-track ellipsis joiner shares this sweep when it falls inside the
-   reached run (its right endpoint is reached or is the in-progress `next`). */
-.pito-achievement-track__dot--reached,
-.pito-achievement-track__connector--reached,
-.pito-achievement-track__ellipsis--reached {
-  background-image: linear-gradient(
-    var(--pito-shimmer-angle),
-    currentColor 0%,
-    currentColor 38%,
-    var(--pito-track-shimmer, var(--fg-default)) 50%,
-    currentColor 62%,
-    currentColor 100%
-  );
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* LONGHANDS, never the `animation` shorthand: this rule is defined AFTER the
-     `.pito-shimmer-dN` block, so an `animation` shorthand here would reset
-     animation-delay to 0 and clobber the per-element stagger (Z35), syncing the
-     whole reached run. The dN class is applied to each reached element by
-     TrackComponent. */
-  animation-name: pito-action-shimmer-sweep;
-  animation-duration: var(--pito-shimmer-speed);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+.pito-shiny-rail__tick--award { border-radius: 4px; width: 19px; height: 19px; }
+@keyframes pito-shiny-nextpulse {
+  0%,100% { box-shadow: 0 0 6px var(--halo), inset 0 1px 0 rgba(255,255,255,.3); transform: scale(1); }
+  50%     { box-shadow: 0 0 18px var(--halo), 0 0 32px var(--halo), inset 0 1px 0 rgba(255,255,255,.3); transform: scale(1.1); }
 }
+.pito-shiny-rail__legend { color: var(--fg-dim); font-size: 13px; }
 
 /* ── Icons (Lucide, vendored in public/icons/) ─────────────────
  *
