@@ -4,6 +4,29 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] — 2026-07-06
+
+### Added
+
+- **The JSON surface grew a mini status** — `GET /chat/:uuid.json` and
+  `/resume.json` now carry `me` (nickname identity) and
+  `notifications.unread`; the conversation object carries the context
+  meter (`pct`/`count`/`threshold`, the exact web-meter math). Every web
+  meter tick also sends a `conversation.update` message on the JSON
+  cable with fresh context and unread numbers — terminal and native
+  clients render live without polling.
+- **Error events always ship readable text to JSON clients** — payloads
+  that carry only an i18n `message_key` get the server-rendered `text`
+  added in the JSON projection (cable mirror and backfill alike), so
+  non-browser clients never invent copy. Stored payloads are untouched;
+  the web keeps re-rendering keys with current translations.
+
+### Fixed
+
+- **Channel list `next` keeps your table setup** — paging a sorted or
+  `with`-customized channel list no longer resets the added columns, and
+  counter sorts keep working past page 1.
+
 ## [1.2.0] — 2026-07-06
 
 ### Added

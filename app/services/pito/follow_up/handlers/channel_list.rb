@@ -169,8 +169,16 @@ module Pito
           # produced page 1, so this page can never drift from it.
           all_channels = Pito::Chat::Handlers::List.channels_relation.to_a
 
+          # G125.4 (TUI contract catch): the stamped column selection must ride
+          # into `next` exactly like it rides into `sort` — without it, counter
+          # sorts silently no-op past page 1 (sort_key_for is visibility-gated)
+          # and a `with`-customized table resets to defaults on the next page.
+          selected = Array(payload["list_columns"]).map(&:to_sym)
+
           if sort_token.present?
-            key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(sort_token)
+            key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(
+              sort_token, selected_columns: selected
+            )
             if key
               all_channels = all_channels.sort_by { |c| key.call(c) }
               all_channels.reverse! if sort_dir == "desc"
@@ -188,7 +196,10 @@ module Pito
             )
           end
 
-          new_payload = Pito::MessageBuilder::Channel::List.call(rows, conversation:)
+          new_payload = Pito::MessageBuilder::Channel::List.call(
+            rows, conversation:,
+            columns: selected.presence || Pito::MessageBuilder::Channel::ListColumns::DEFAULT_COLUMNS
+          )
 
           if all_channels.size > (offset + page_sz)
             new_cursor = {

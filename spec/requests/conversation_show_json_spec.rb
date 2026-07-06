@@ -33,6 +33,17 @@ RSpec.describe "GET /chat/:uuid.json", type: :request do
       expect(body["conversation"]).to have_key("title")
       expect(body["conversation"]["display_name"]).to eq(conversation.display_name)
 
+      # G125: the context meter — server-computed, the exact web-meter numbers.
+      ctx = body["conversation"]["context"]
+      expect(ctx["count"]).to eq(conversation.context_event_count)
+      expect(ctx["threshold"]).to eq(Pito::Shell::ContextMeterComponent::THRESHOLD)
+      expect(ctx["pct"]).to eq(Pito::Shell::ContextMeterComponent.pct(conversation.context_event_count))
+
+      # G125: identity + unread for the mini status.
+      expect(body["me"]["handle"]).to eq("@#{AppSetting.nickname}")
+      expect(body["me"]["name"]).to eq(AppSetting.nickname)
+      expect(body["notifications"]["unread"]).to eq(Notification.unread.count)
+
       expect(body["events"].map { |e| e["id"] }).to eq([ echo.id, sys.id ])
       first = body["events"].first
       expect(first.keys).to match_array(%w[id turn_id kind payload position created_at])

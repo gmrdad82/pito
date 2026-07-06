@@ -529,6 +529,24 @@ module Pito
           "pito:conversation:#{@conversation.uuid}",
           content:
         )
+
+        # G125: the JSON pane of the same tick — non-browser clients get a
+        # conversation.update whenever the web meter refreshes (identical
+        # trigger, identical numbers). Unread rides along so the TUI's mini
+        # status stays current without polling. Unknown types/fields are
+        # ignored by design on the client, so this is additive.
+        ActionCable.server.broadcast(
+          "pito:json:conversation:#{@conversation.uuid}",
+          {
+            type: "conversation.update",
+            context: {
+              pct:       Pito::Shell::ContextMeterComponent.pct(event_count),
+              count:     event_count,
+              threshold: Pito::Shell::ContextMeterComponent::THRESHOLD
+            },
+            notifications: { unread: Notification.unread.count }
+          }
+        )
       rescue StandardError => e
         Rails.logger.warn("[Broadcaster] broadcast_context_meter failed: #{e.class}: #{e.message}")
       end

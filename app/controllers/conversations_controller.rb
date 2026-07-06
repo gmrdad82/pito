@@ -53,13 +53,25 @@ class ConversationsController < ApplicationController
       # is explicit: 401.
       format.json do
         if @authenticated
+          count = @conversation.context_event_count
           render json: {
             conversation: {
               uuid:         @conversation.uuid,
               title:        @conversation.title,
               display_name: @conversation.display_name,
-              created_at:   @conversation.created_at.iso8601
+              created_at:   @conversation.created_at.iso8601,
+              # G125.1: the context meter, server-computed — pct is the exact
+              # number the web meter draws (ContextMeterComponent math).
+              context: {
+                pct:       Pito::Shell::ContextMeterComponent.pct(count),
+                count:     count,
+                threshold: Pito::Shell::ContextMeterComponent::THRESHOLD
+              }
             },
+            # G125.2: mini-status data for non-browser clients — identity +
+            # unread notifications (the web reads these from the HTML shell).
+            me:            { handle: "@#{AppSetting.nickname}", name: AppSetting.nickname },
+            notifications: { unread: Notification.unread.count },
             events: @events.map { |e| Pito::Stream::EventJson.call(e) }
           }
         else
@@ -90,7 +102,7 @@ class ConversationsController < ApplicationController
       # recency groups the sidebar renders, as data. Auth is enforced by the
       # concern (anonymous JSON → 401 before this runs).
       format.json do
-        render json: Conversation.recency_groups.transform_values { |convs|
+        groups = Conversation.recency_groups.transform_values { |convs|
           convs.map do |c|
             {
               uuid:             c.uuid,
@@ -100,6 +112,12 @@ class ConversationsController < ApplicationController
             }
           end
         }
+        # G125.2: identity + unread ride beside the recency groups (additive —
+        # the TUI ignores unknown keys, so older clients are unaffected).
+        render json: groups.merge(
+          me:            { handle: "@#{AppSetting.nickname}", name: AppSetting.nickname },
+          notifications: { unread: Notification.unread.count }
+        )
       end
 
       format.html { redirect_to root_path }

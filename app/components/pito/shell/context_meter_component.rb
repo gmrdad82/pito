@@ -28,9 +28,16 @@ module Pito
 
       attr_reader :conversation_name
 
+      # Fill percentage, 0–100, clamped — exposed as a class method so the
+      # JSON surface (conversation.context + the conversation.update cable
+      # message, G125) serves EXACTLY the number the web meter draws.
+      def self.pct(event_count)
+        [ (event_count.to_i * 100.0 / THRESHOLD).round(1), 100.0 ].min
+      end
+
       # Fill percentage, 0–100, clamped.
       def fill_pct
-        [ (@event_count * 100.0 / THRESHOLD).round(1), 100.0 ].min
+        self.class.pct(@event_count)
       end
 
       # Display string for the counter.

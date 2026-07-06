@@ -97,6 +97,21 @@ RSpec.describe Pito::Stream::Broadcaster do
         expect(html).to include(Pito::Shell::Chatbox::NameComponent::SLOT_ID)
       }
     end
+
+    # G125: the JSON pane of the same tick — every web meter refresh also
+    # sends conversation.update on the JSON stream (context + unread).
+    it "broadcasts conversation.update on the JSON stream with context + unread" do
+      count = conversation.context_event_count
+      expect {
+        broadcaster.broadcast_context_meter
+      }.to have_broadcasted_to("pito:json:conversation:#{conversation.uuid}").with { |msg|
+        expect(msg["type"]).to eq("conversation.update")
+        expect(msg["context"]["count"]).to eq(count)
+        expect(msg["context"]["threshold"]).to eq(Pito::Shell::ContextMeterComponent::THRESHOLD)
+        expect(msg["context"]["pct"]).to eq(Pito::Shell::ContextMeterComponent.pct(count))
+        expect(msg["notifications"]).to have_key("unread")
+      }
+    end
   end
 
   describe "#broadcast_auth_update" do
@@ -474,6 +489,25 @@ RSpec.describe Pito::Stream::Broadcaster do
       }
     end
 
+    # G125.3: message_key-only payloads (error events) gain server-rendered
+    # text in the JSON PROJECTION — the persisted payload stays key-only.
+    it "renders text for message_key-only payloads in the mirror, leaving the persisted payload untouched" do
+      event = Event.create_with_position!(
+        conversation:, turn:, kind: :error,
+        payload: { "message_key" => "pito.follow_up.channel_games.errors.invalid_action",
+                   "message_args" => { "action" => "frobnicate" } }
+      )
+
+      expect {
+        broadcaster.broadcast_event(event)
+      }.to have_broadcasted_to(json_stream).with { |msg|
+        expect(msg["event"]["payload"]["text"]).to be_present
+        expect(msg["event"]["payload"]["text"]).to include("frobnicate")
+        expect(msg["event"]["payload"]["message_key"]).to eq("pito.follow_up.channel_games.errors.invalid_action")
+      }
+      expect(event.reload.payload).not_to have_key("text")
+    end
+
     it "mirrors replace_event as event.replace" do
       event = broadcaster.emit(turn:, kind: :system, payload: { "text" => "before" })
       event.update!(payload: { "text" => "after" })
@@ -499,10 +533,16 @@ RSpec.describe Pito::Stream::Broadcaster do
       }
     end
 
-    it "does not mirror ephemeral chrome (the context meter)" do
+    # G125 amended the ephemeral-chrome rule: the meter tick DOES reach the
+    # JSON stream now — but as a conversation.update DATA message, never as a
+    # mirrored event (no HTML, no event.append/replace on chrome).
+    it "the context meter reaches the JSON stream only as conversation.update, never as an event mirror" do
       expect {
         broadcaster.broadcast_context_meter
-      }.not_to have_broadcasted_to(json_stream)
+      }.to have_broadcasted_to(json_stream).with { |msg|
+        expect(msg["type"]).to eq("conversation.update")
+        expect(msg).not_to have_key("event")
+      }
     end
   end
 end
