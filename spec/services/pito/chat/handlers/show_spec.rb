@@ -898,7 +898,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       payload = handler_for("game", "##{game.id}").call.events.first[:payload]
       footer  = payload["list_footer"].to_s
       expect(footer).to include("similar")
-      expect(footer).to include("linked-videos")
+      expect(footer).to include("videos")
       expect(footer).to include("channels")
       expect(footer).to include("at-a-glance")
     end

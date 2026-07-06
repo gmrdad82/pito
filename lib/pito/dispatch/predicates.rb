@@ -13,6 +13,7 @@ module Pito
       REGISTRY = {
         "has_any_videos"    => ->(entity) { entity.videos.any? },
         "has_linked_game"   => ->(entity) { entity.linked_games.first.present? },
+        "has_linked_games"  => ->(entity) { entity.linked_games.any? },
         "has_linked_videos" => ->(entity) { entity.linked_videos.any? }
       }.freeze
 

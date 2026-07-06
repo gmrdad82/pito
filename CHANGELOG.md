@@ -4,6 +4,29 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-07-06
+
+### Added
+
+- **A channel's games, as a cover grid** — `show channel @handle full` now
+  slots a games message between the detail card and the vids table: every
+  game linked to the channel's videos as a cover card with its `#id` and
+  that channel's vid count, alphabetized, five per row. Also reachable as
+  `show channel @handle with games`, free-chat `games channel @handle`, and
+  by replying `games` to any channel message. Replying `show <id>` on the
+  grid opens the game.
+- **Every show segment is a reply verb now** — replying `at-a-glance`,
+  `videos`, `similar`, `channels`, `game`, or `games` on a show or list
+  message emits that segment for the entity, exactly like the typed form.
+
+### Changed
+
+- **`vids` reads naturally everywhere** — the game segment `linked-videos`
+  is now `videos` (aliases `vids`, `linked-vids`): `show game #3 with vids`,
+  `vids game #3`. The vid segment `linked-game` is now just `game`:
+  `show vid #10 with game`, `game vid #10`. The two-word `linked` forms and
+  all reply wiring keep working unchanged.
+
 ## [1.1.5] — 2026-07-06
 
 ### Fixed

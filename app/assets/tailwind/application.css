@@ -1935,6 +1935,39 @@ html {
   display: block;
 }
 
+/* ── Channel games grid (Pito::Channel::GamesComponent, G120) — the channel's
+   linked games as cover cards: same 180px cards + 4px column gap as the
+   similar-games strip (5 per row in the 964px conversation column), wrapping
+   naturally to further rows. Card = strip cover, then ONE line: #id pinned
+   left, per-channel vid count pinned right (flush with the cover edge).
+   No title, no score bar (owner spec). */
+.pito-channel-games__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 180px);
+  justify-content: start;
+  gap: 2rem 4px;
+}
+.pito-channel-games__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 180px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.pito-channel-games__cover {
+  width: 180px;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
+.pito-channel-games__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  min-width: 0;
+}
+
 /* Game detail: two columns. Left (450px cover + fields) is fixed to the cover
    width; right (description + bars) takes the rest (= 450px in the 964px col). */
 .pito-game-detail__left {

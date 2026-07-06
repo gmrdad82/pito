@@ -15,7 +15,7 @@ en:
               "game": "Target noun"
               "#id": "Local numeric game id"
             Options:
-              "full": "Render every segment (detail, similar, linked-videos, channels, at-a-glance)"
+              "full": "Render every segment (detail, similar, videos, channels, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
               "only <segments>": "Render exactly the named segments"
               "without <segments>": "Render all segments except the named ones (full base minus named)"
@@ -23,7 +23,7 @@ en:
             Segments:
               "detail": "Game header and metadata (the bare-form default)"
               "similar": "Voyage-powered similar-game recommendations"
-              "linked-videos": "Vids linked to this game (shown only when linked videos exist)"
+              "videos": "Vids linked to this game (aliases: vids, linked-vids; shown only when linked videos exist)"
               "channels": "Channels that publish this game (pending-fill)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
         video:
@@ -33,14 +33,14 @@ en:
               "vid": "Target noun (aliases: vids, video, videos)"
               "#id": "Local numeric video id"
             Options:
-              "full": "Render every segment (detail, linked-game, at-a-glance)"
+              "full": "Render every segment (detail, game, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
               "only <segments>": "Render exactly the named segments"
               "without <segments>": "Render all segments except the named ones (full base minus named)"
               "--help": "Print this help message"
             Segments:
               "detail": "Video header and metadata (the bare-form default)"
-              "linked-game": "The game linked to this vid (shown only when a game is linked)"
+              "game": "The game linked to this vid (shown only when a game is linked)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
         channel:
           usage: "show channel @handle [full | with <segments> | only <segments> | without <segments>]"
@@ -49,13 +49,14 @@ en:
               "channel": "Target noun (aliases: channels)"
               "@handle": "Channel handle — omit to use the shift+tab scope"
             Options:
-              "full": "Render every segment (detail, videos, at-a-glance)"
+              "full": "Render every segment (detail, games, videos, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
               "only <segments>": "Render exactly the named segments"
               "without <segments>": "Render all segments except the named ones (full base minus named)"
               "--help": "Print this help message"
             Segments:
               "detail": "Channel header, stats, and metadata (the bare-form default)"
+              "games": "The channel's linked games as a cover grid (shown only when linked games exist)"
               "videos": "Paginated list of the channel's videos (shown only when videos exist)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
       # Segment verbs (D20/D21): each promotes one show/analyze :enhanced segment
@@ -87,23 +88,41 @@ en:
             Options:
               "--help": "Print this help message"
       videos:
-        usage: "videos channel @handle"
+        usage: "videos channel @handle  |  videos game #id"
         channel:
           usage: "videos channel @handle"
           sections:
             Arguments:
-              "channel": "Target noun (alias: vids)"
+              "channel": "Target noun (aliases: vids, linked-vids)"
               "@handle": "Channel handle — omit to use the shift+tab scope"
             Options:
               "--help": "Print this help message"
-      "linked-game":
-        usage: "linked-game vid #id"
+        game:
+          usage: "videos game #id"
+          sections:
+            Arguments:
+              "game": "Target noun (aliases: vids, linked-vids)"
+              "#id": "Local numeric game id"
+            Options:
+              "--help": "Print this help message"
+      game:
+        usage: "game vid #id"
         vid:
-          usage: "linked-game vid #id"
+          usage: "game vid #id"
           sections:
             Arguments:
               "vid": "Target noun"
               "#id": "Local numeric vid id"
+            Options:
+              "--help": "Print this help message"
+      games:
+        usage: "games channel @handle"
+        channel:
+          usage: "games channel @handle"
+          sections:
+            Arguments:
+              "channel": "Target noun"
+              "@handle": "Channel handle — omit to use the shift+tab scope"
             Options:
               "--help": "Print this help message"
       similar:
@@ -113,16 +132,6 @@ en:
           sections:
             Arguments:
               "game": "Target noun (alias: similars)"
-              "#id": "Local numeric game id"
-            Options:
-              "--help": "Print this help message"
-      "linked-videos":
-        usage: "linked-videos game #id"
-        game:
-          usage: "linked-videos game #id"
-          sections:
-            Arguments:
-              "game": "Target noun (alias: linked-vids)"
               "#id": "Local numeric game id"
             Options:
               "--help": "Print this help message"
@@ -475,6 +484,34 @@ en:
       show-game:
         target_usage: "#<show-game-hashtag> <action>"
         actions:
+          'at-a-glance':
+            usage: "#<show-game-hashtag> at-a-glance"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for this game (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          videos:
+            usage: "#<show-game-hashtag> videos"
+            sections:
+              Description:
+                "videos": "The vids linked to this game (aliases: vids, linked-vids)"
+              Options:
+                "--help": "Print this help message"
+          similar:
+            usage: "#<show-game-hashtag> similar"
+            sections:
+              Description:
+                "similar": "Voyage-powered similar-game recommendations (alias: similars)"
+              Options:
+                "--help": "Print this help message"
+          channels:
+            usage: "#<show-game-hashtag> channels"
+            sections:
+              Description:
+                "channels": "The channels that publish this game (alias: handles)"
+              Options:
+                "--help": "Print this help message"
           analyze:
             usage: "#<show-game-hashtag> analyze"
             sections:
@@ -537,6 +574,34 @@ en:
       list-games:
         target_usage: "#<list-games-hashtag> <action>"
         actions:
+          'at-a-glance':
+            usage: "#<list-games-hashtag> at-a-glance <id>"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for a listed game (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          videos:
+            usage: "#<list-games-hashtag> videos <id>"
+            sections:
+              Description:
+                "videos": "The vids linked to a listed game (aliases: vids, linked-vids)"
+              Options:
+                "--help": "Print this help message"
+          similar:
+            usage: "#<list-games-hashtag> similar <id>"
+            sections:
+              Description:
+                "similar": "Similar-game recommendations for a listed game (alias: similars)"
+              Options:
+                "--help": "Print this help message"
+          channels:
+            usage: "#<list-games-hashtag> channels <id>"
+            sections:
+              Description:
+                "channels": "The channels that publish a listed game (alias: handles)"
+              Options:
+                "--help": "Print this help message"
           analyze:
             usage: "#<list-games-hashtag> analyze"
             sections:
@@ -619,6 +684,20 @@ en:
       show-video:
         target_usage: "#<show-vid-hashtag> <action>"
         actions:
+          'at-a-glance':
+            usage: "#<show-vid-hashtag> at-a-glance"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for this vid (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          game:
+            usage: "#<show-vid-hashtag> game"
+            sections:
+              Description:
+                "game": "The game linked to this vid"
+              Options:
+                "--help": "Print this help message"
           analyze:
             usage: "#<show-vid-hashtag> analyze"
             sections:
@@ -665,6 +744,20 @@ en:
       list-videos:
         target_usage: "#<list-vids-hashtag> <action>"
         actions:
+          'at-a-glance':
+            usage: "#<list-vids-hashtag> at-a-glance <id>"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for a listed vid (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          game:
+            usage: "#<list-vids-hashtag> game <id>"
+            sections:
+              Description:
+                "game": "The game linked to a listed vid"
+              Options:
+                "--help": "Print this help message"
           analyze:
             usage: "#<list-vids-hashtag> analyze"
             sections:
@@ -758,6 +851,27 @@ en:
       list-channels:
         target_usage: "#<list-channels-hashtag> <action>"
         actions:
+          'at-a-glance':
+            usage: "#<list-channels-hashtag> at-a-glance @handle"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for a listed channel (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          videos:
+            usage: "#<list-channels-hashtag> videos @handle"
+            sections:
+              Description:
+                "videos": "A listed channel's videos (aliases: vids, linked-vids)"
+              Options:
+                "--help": "Print this help message"
+          games:
+            usage: "#<list-channels-hashtag> games @handle"
+            sections:
+              Description:
+                "games": "A listed channel's linked games as a cover grid"
+              Options:
+                "--help": "Print this help message"
           with:
             usage: "#<list-channels-hashtag> with <columns>"
             sections:
@@ -796,6 +910,27 @@ en:
       show-channel:
         target_usage: "#<show-channel-hashtag> <action>"
         actions:
+          'at-a-glance':
+            usage: "#<show-channel-hashtag> at-a-glance"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for this channel (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          videos:
+            usage: "#<show-channel-hashtag> videos"
+            sections:
+              Description:
+                "videos": "This channel's videos (aliases: vids, linked-vids)"
+              Options:
+                "--help": "Print this help message"
+          games:
+            usage: "#<show-channel-hashtag> games"
+            sections:
+              Description:
+                "games": "This channel's linked games as a cover grid"
+              Options:
+                "--help": "Print this help message"
           analyze:
             usage: "#<show-channel-hashtag> analyze"
             sections:
@@ -809,6 +944,17 @@ en:
               Arguments:
                 "channel": "Open the channel's YouTube page (aliases: youtube, yt)"
                 "studio": "Open the channel's YouTube Studio"
+              Options:
+                "--help": "Print this help message"
+
+      channel-games:
+        target_usage: "#<channel-games-hashtag> <action>"
+        actions:
+          show:
+            usage: "#<channel-games-hashtag> show <id>"
+            sections:
+              Arguments:
+                "<id>": "Local numeric game id from the grid cards"
               Options:
                 "--help": "Print this help message"
 

@@ -83,8 +83,8 @@ vocabularies:
   full_flag:
     members: [full]
   show_segments:
-    members: ["at-a-glance", channels, detail, "linked-game", "linked-videos", similar, videos]
-    synonyms: {similars: similar}
+    members: ["at-a-glance", channels, detail, game, games, similar, videos]
+    synonyms: {similars: similar, vids: videos, "linked-vids": videos}
   analyze_segments:
     members: [numbers, breakdowns]
   # Dynamic vocabularies — resolved at runtime via Grammar::Vocabulary resolver lambdas.
@@ -159,6 +159,18 @@ verbs:
           fill: ~
           reply_target: channel_detail
           emit_if: ~
+        # The channel's linked GAMES grid (owner 2026-07-06): similar-games-style
+        # cards (strip cover, #id + per-channel vid count, no title/score),
+        # alphabetical, 5 per row. Declared BEFORE videos so `full` lands it
+        # between detail and the vids table. Skipped silently when the channel
+        # has no linked games (mirrors videos/has_any_videos).
+        games:
+          builder: MessageBuilder::Channel::Games
+          kind: enhanced
+          default: false
+          fill: ~
+          reply_target: channel_games
+          emit_if: has_linked_games
         videos:
           builder: MessageBuilder::Channel::Videos
           kind: enhanced
@@ -181,7 +193,10 @@ verbs:
           fill: ~
           reply_target: video_detail
           emit_if: ~
-        "linked-game":
+        # Renamed from "linked-game" (owner 2026-07-06): a vid always has just
+        # one game, so the token is the bare singular — `show vid #3 with game`.
+        # No aliases by design. reply_target unchanged (persisted messages).
+        game:
           builder: MessageBuilder::Video::LinkedGame
           kind: enhanced
           default: false
@@ -211,13 +226,17 @@ verbs:
           reply_target: game_similar
           emit_if: ~
           aliases: [similars]
-        "linked-videos":
+        # Renamed from "linked-videos" (owner 2026-07-06) — `show game #3 with
+        # vids`. reply_target unchanged (persisted messages + the
+        # show/analyze/unlink/sort/with/without matrices keep working).
+        videos:
           builder: MessageBuilder::Game::LinkedVideos
           kind: enhanced
           default: false
           fill: ~
           reply_target: game_linked_videos
           emit_if: has_linked_videos
+          aliases: [vids, linked-vids]
         channels:
           builder: MessageBuilder::Game::Channels
           kind: enhanced
@@ -234,6 +253,9 @@ verbs:
           emit_if: ~
     reply:
       targets:
+        channel_games:
+          mode: append
+          ref: { resolver: game_by_id }          # `show <id>` → that game from the grid
         game_channels:
           mode: append
           ref: { resolver: channel_by_handle }   # `show @handle` → that channel (args = @handle)
@@ -372,9 +394,20 @@ verbs:
         - name: id
           kind: free
           optional: true
+    reply:
+      targets:
+        channel_detail: { mode: append }
+        game_detail:    { mode: append }
+        video_detail:   { mode: append }
+        channel_list:   { mode: append }
+        game_list:      { mode: append }
+        video_list:     { mode: append }
 
+  # `videos channel @h` AND (post-B rename) `vids game #3` — the flat form
+  # drives the `videos` segment on whatever entity the noun resolves. Absorbs
+  # the retired standalone `linked-videos` verb (linked-vids stays typeable).
   videos:
-    aliases: [vids]
+    aliases: [vids, linked-vids]
     description: pito.grammar.chat.videos
     auth: session
     chat:
@@ -388,13 +421,22 @@ verbs:
         - name: id
           kind: free
           optional: true
+    reply:
+      targets:
+        channel_detail: { mode: append }
+        game_detail:    { mode: append }
+        channel_list:   { mode: append }
+        game_list:      { mode: append }
 
-  "linked-game":
-    description: pito.grammar.chat.linked-game
+  # Renamed from "linked-game" (owner 2026-07-06, C): a vid has just one game,
+  # so the verb is the bare singular — `game vid #10`. No aliases by design;
+  # the two-word `linked game #7` keyed form below is unaffected.
+  game:
+    description: pito.grammar.chat.game
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
-      segment_of: { verb: show, segment: "linked-game" }
+      segment_of: { verb: show, segment: game }
       slots:
         - name: noun
           kind: enum
@@ -403,6 +445,10 @@ verbs:
         - name: id
           kind: free
           optional: true
+    reply:
+      targets:
+        video_detail: { mode: append }
+        video_list:   { mode: append }
 
   similar:
     aliases: [similars]
@@ -419,22 +465,10 @@ verbs:
         - name: id
           kind: free
           optional: true
-
-  "linked-videos":
-    aliases: [linked-vids]
-    description: pito.grammar.chat.linked-videos
-    auth: session
-    chat:
-      dispatch: Chat::Handlers::SegmentVerb
-      segment_of: { verb: show, segment: "linked-videos" }
-      slots:
-        - name: noun
-          kind: enum
-          source: nouns
-          optional: true
-        - name: id
-          kind: free
-          optional: true
+    reply:
+      targets:
+        game_detail: { mode: append }
+        game_list: { mode: append }
 
   channels:
     aliases: [handles]
@@ -451,6 +485,10 @@ verbs:
         - name: id
           kind: free
           optional: true
+    reply:
+      targets:
+        game_detail: { mode: append }
+        game_list: { mode: append }
 
   breakdowns:
     aliases: [breakdown, lifetime, life]
@@ -474,7 +512,7 @@ verbs:
   # to the OTHER entity, so each branch FORCES the parent's entity branch:
   #   linked game #7  → the linked-game card OF vid #7   (== show vid #7 only linked-game)
   #   linked vids #3  → the linked-videos table OF game #3 (== show game #3 only linked-videos)
-  # Coexists with the one-word linked-game / linked-videos verbs (untouched). The
+  # Coexists with the one-word game / videos segment verbs. The
   # branch `aliases:` mirror the `nouns` vocabulary synonyms (videos → vids, …).
   linked:
     description: pito.grammar.chat.linked
@@ -482,8 +520,8 @@ verbs:
     chat:
       dispatch: Chat::Handlers::SegmentVerb
       segment_of:
-        game: { verb: show, segment: "linked-game",   entity: vid,  aliases: [games, gamez] }
-        vids: { verb: show, segment: "linked-videos", entity: game, aliases: [videos, video, vid] }
+        game: { verb: show, segment: game,   entity: vid,  aliases: [games, gamez] }
+        vids: { verb: show, segment: videos, entity: game, aliases: [videos, video, vid] }
       slots:
         - name: noun
           kind: enum
@@ -1089,6 +1127,27 @@ verbs:
     # Grammar from config (namespace: :slash) + Slash::Handlers::Games.
     # `/games import [title]` opens the IGDB search sidebar (sidebar_open: "games_import").
     # Controller intercepts `/games import` before async pipeline; handler covers job path.
+    #
+    # ALSO a chat segment verb since G120 (owner 2026-07-06): free-chat
+    # `games channel @h` drives the channel's games grid — shape-routing keeps
+    # the two surfaces apart (`/games …` slash vs bare `games …` chat).
+    description: pito.grammar.chat.games
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::SegmentVerb
+      segment_of: { verb: show, segment: games }
+      slots:
+        - name: noun
+          kind: enum
+          source: nouns
+          optional: true
+        - name: id
+          kind: free
+          optional: true
+    reply:
+      targets:
+        channel_detail: { mode: append }
+        channel_list:   { mode: append }
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.games

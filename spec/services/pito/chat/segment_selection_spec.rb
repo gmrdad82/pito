@@ -8,7 +8,7 @@ RSpec.describe Pito::Chat::SegmentSelection do
     described_class.parse(raw, verb: verb, entity: entity)
   end
 
-  let(:all_game_names) { %w[detail similar linked-videos channels at-a-glance] }
+  let(:all_game_names) { %w[detail similar videos channels at-a-glance] }
 
   # ── :default mode (bare command) ─────────────────────────────────────────────
 
@@ -225,7 +225,7 @@ RSpec.describe Pito::Chat::SegmentSelection do
   describe "entity: :channel" do
     it "full returns all channel segment names in table order" do
       result = described_class.parse("show channel full", verb: :show, entity: :channel)
-      expect(result.names).to eq(%w[detail videos at-a-glance])
+      expect(result.names).to eq(%w[detail games videos at-a-glance])
     end
 
     it "bare command returns default names (detail only)" do
@@ -276,7 +276,7 @@ RSpec.describe Pito::Chat::SegmentSelection do
   describe "entity: :vid" do
     it "full returns all vid segment names in table order" do
       result = described_class.parse("show vid full", verb: :show, entity: :vid)
-      expect(result.names).to eq(%w[detail linked-game at-a-glance])
+      expect(result.names).to eq(%w[detail game at-a-glance])
     end
 
     it "bare command returns default names (detail only)" do
@@ -291,18 +291,18 @@ RSpec.describe Pito::Chat::SegmentSelection do
     it "'without channels' returns mode :without and all_game_names minus channels" do
       result = parse("show game #3 without channels")
       expect(result.mode).to eq(:without)
-      expect(result.names).to eq(%w[detail similar linked-videos at-a-glance])
+      expect(result.names).to eq(%w[detail similar videos at-a-glance])
     end
 
-    it "'without at-a-glance,similar' returns detail + linked-videos + channels in table order" do
+    it "'without at-a-glance,similar' returns detail + videos + channels in table order" do
       result = parse("show game #3 without at-a-glance,similar")
       expect(result.mode).to eq(:without)
-      expect(result.names).to eq(%w[detail linked-videos channels])
+      expect(result.names).to eq(%w[detail videos channels])
     end
 
     it "'without detail' removes only detail from all names" do
       result = parse("show game #3 without detail")
-      expect(result.names).to eq(%w[similar linked-videos channels at-a-glance])
+      expect(result.names).to eq(%w[similar videos channels at-a-glance])
     end
 
     it "produces no conflict when only 'without' is present" do
@@ -316,7 +316,7 @@ RSpec.describe Pito::Chat::SegmentSelection do
     end
 
     it "'without' with all segments named returns empty names" do
-      result = parse("show game #3 without detail,similar,linked-videos,channels,at-a-glance")
+      result = parse("show game #3 without detail,similar,videos,channels,at-a-glance")
       expect(result.names).to eq([])
     end
 

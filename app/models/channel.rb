@@ -3,6 +3,10 @@
 class Channel < ApplicationRecord
   belongs_to :youtube_connection, optional: true, inverse_of: :channels
   has_many :videos, dependent: :destroy
+  # The channel's games are its videos' games (links are explicit, never
+  # inferred): distinct via the through-chain for the games grid + guard.
+  has_many :video_game_links, through: :videos
+  has_many :linked_games, -> { distinct }, through: :video_game_links, source: :game
   has_many :stats, as: :entity, dependent: :destroy
   has_many :achievements, as: :achievable, dependent: :destroy
   has_many :achievement_metrics, as: :achievable, dependent: :destroy

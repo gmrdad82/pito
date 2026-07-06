@@ -46,6 +46,9 @@ en:
       game_similar:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
+      channel_games:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
       game_channels:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show @<handle>."
