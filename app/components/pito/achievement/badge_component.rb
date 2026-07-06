@@ -52,9 +52,11 @@ module Pito
 
       private
 
-      # Stable per-badge stagger bucket so adjacent badges don't rotate in sync.
+      # Stable per-badge stagger bucket — 20 shinies-specific steps (G128) so
+      # a wall of chips never gleams in sync (the shared shimmer offsets only
+      # have 8 buckets, which read as synchronized waves on long lanes).
       def offset_class
-        Pito::Shimmer.offset_class("#{@threshold}#{@metric}")
+        "pito-shiny-s#{"#{@threshold}#{@metric}#{@scope}".sum % 20}"
       end
 
       def css_classes

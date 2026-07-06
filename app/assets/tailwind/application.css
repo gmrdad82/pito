@@ -2537,6 +2537,29 @@ html {
 [data-material="diamond"] { --m0:#8ecbe9; --m1:#f2fbff; --m2:#bfe6f8; --ink:#082a44; --medge:#ffffff;
                             --gleam:rgba(255,255,255,.95); --gleam-hot:#ffffff; --halo:rgba(159,212,238,.7); --fire:.28; }
 
+/* 20-step gleam stagger (owner G128) — shinies-specific delay buckets so a
+   wall of chips never pulses in sync; 5s period / 20 = 0.25s per step. */
+.pito-shiny-s0 { animation-delay: 0.00s; }
+.pito-shiny-s1 { animation-delay: 0.25s; }
+.pito-shiny-s2 { animation-delay: 0.50s; }
+.pito-shiny-s3 { animation-delay: 0.75s; }
+.pito-shiny-s4 { animation-delay: 1.00s; }
+.pito-shiny-s5 { animation-delay: 1.25s; }
+.pito-shiny-s6 { animation-delay: 1.50s; }
+.pito-shiny-s7 { animation-delay: 1.75s; }
+.pito-shiny-s8 { animation-delay: 2.00s; }
+.pito-shiny-s9 { animation-delay: 2.25s; }
+.pito-shiny-s10 { animation-delay: 2.50s; }
+.pito-shiny-s11 { animation-delay: 2.75s; }
+.pito-shiny-s12 { animation-delay: 3.00s; }
+.pito-shiny-s13 { animation-delay: 3.25s; }
+.pito-shiny-s14 { animation-delay: 3.50s; }
+.pito-shiny-s15 { animation-delay: 3.75s; }
+.pito-shiny-s16 { animation-delay: 4.00s; }
+.pito-shiny-s17 { animation-delay: 4.25s; }
+.pito-shiny-s18 { animation-delay: 4.50s; }
+.pito-shiny-s19 { animation-delay: 4.75s; }
+
 /* the badge */
 .pito-shiny {
   position: relative;
