@@ -16,18 +16,30 @@ RSpec.describe Pito::Chat::Handlers::Import do
     )
   end
 
-  # ── bare import → usage hint ─────────────────────────────────────────────────
+  # ── #11: games are the only importable thing — `import <title>` and bare
+  #    `import` open the IGDB game-import sidebar; only `import videos` is sync. ──
 
-  it "returns a Result::Error with the usage_hint key for bare import" do
+  it "opens the empty import sidebar for bare `import`" do
     result = handler_for.call
-    expect(result).to be_a(Pito::Chat::Result::Error)
-    expect(result.message_key).to eq("pito.chat.import.usage_hint")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    payload = result.events.first[:payload]
+    expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+    expect((payload[:prefill] || payload["prefill"]).to_s).to be_empty
   end
 
-  it "returns the usage_hint for unrecognised nouns" do
+  it "treats `import <title>` (no noun) as a game import with the title prefilled" do
     result = handler_for("import something random").call
-    expect(result).to be_a(Pito::Chat::Result::Error)
-    expect(result.message_key).to eq("pito.chat.import.usage_hint")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    payload = result.events.first[:payload]
+    expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+    expect((payload[:prefill] || payload["prefill"]).to_s).to eq("something random")
+  end
+
+  it "#11: `import tekken` prefills the same as `import game tekken`" do
+    bare = handler_for("import tekken").call.events.first[:payload]
+    full = handler_for("import game tekken").call.events.first[:payload]
+    expect((bare[:prefill] || bare["prefill"]).to_s).to eq("tekken")
+    expect((full[:prefill] || full["prefill"]).to_s).to eq("tekken")
   end
 
   # ── import game / import games ────────────────────────────────────────────────
@@ -186,11 +198,13 @@ RSpec.describe Pito::Chat::Handlers::Import do
       end
     end
 
-    context "'import something totally random' — no fuzzy match → error" do
-      it "returns Result::Error with usage_hint" do
+    context "'import something totally random' — no noun → game import (#11)" do
+      it "opens the game-import sidebar with the whole phrase as the prefill" do
         result = handler_for("import something totally random").call
-        expect(result).to be_a(Pito::Chat::Result::Error)
-        expect(result.message_key).to eq("pito.chat.import.usage_hint")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        payload = result.events.first[:payload]
+        expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+        expect((payload[:prefill] || payload["prefill"]).to_s).to eq("something totally random")
       end
     end
   end

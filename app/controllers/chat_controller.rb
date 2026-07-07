@@ -536,14 +536,26 @@ class ChatController < ApplicationController
     m[1].to_s.strip
   end
 
-  # Detects free-chat `import game[s] [title]` and returns the title string
-  # (may be ""). Returns nil if the input doesn't match.
-  # Case-insensitive; captures everything after "game"/"games" as the prefill.
+  # Detects a free-chat IGDB game import and returns the prefill title (may be "").
+  # Returns nil if the input doesn't match.
+  #
+  # #11: games are the only importable thing, so the `game[s]` noun is now
+  # optional — `import tekken` and `import game tekken` both open the sidebar with
+  # "tekken" prefilled, and bare `import` opens it empty. `import videos`/`vids` is
+  # the sync-vids alias and is left for the async handler (returns nil here).
   # Slash commands (`/import …`) never match — they start with `/`.
   def import_game_command?(input)
-    m = input.to_s.strip.match(/\Aimport\s+games?(?:\s+(.*))?\z/i)
+    m = input.to_s.strip.match(/\Aimport\b\s*(.*)\z/i)
     return nil unless m
-    m[1].to_s.strip
+
+    rest        = m[1].to_s.strip
+    first, tail = rest.split(/\s+/, 2)
+    case first&.downcase
+    when nil, ""                          then ""          # bare `import` → empty sidebar
+    when "game", "games"                  then tail.to_s.strip
+    when "video", "videos", "vid", "vids" then nil         # sync-vids alias, not IGDB
+    else                                       rest         # `import <title>`
+    end
   end
 
   # Renders a Turbo Stream that populates #pito-sidebar with the IGDB import sidebar.

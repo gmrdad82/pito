@@ -541,10 +541,13 @@ verbs:
     chat:
       dispatch: Chat::Handlers::Import
       slots:
+        # #11: the noun is optional now — `import <title>` imports a game (games
+        # are the only importable thing). `import game[s] <title>` still works,
+        # and `import videos` stays the sync-vids alias.
         - name: noun
           kind: enum
           source: import_nouns
-          optional: false
+          optional: true
         - name: title
           kind: free
           optional: true
