@@ -4,6 +4,35 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-07-07
+
+### Added
+
+- **Fuzzy channel handles** — `show channel fighter` now resolves `@fighterpro`.
+  Resolution falls back to a pg_trgm similarity match when no exact handle matches,
+  on both the typed `show channel <handle>` path and channel-card replies.
+- **`search games like <title>`** — a similarity search that lists the games most
+  like a seed game (via the recommendation engine). It renders as a normal list
+  card, so `#id` show/link/analyze replies, `sort`/`with` column tweaks, and
+  `more`/`next` paging all work on the results.
+- **`more` to page a list** — reply `more` (a synonym of `next`) to go past the
+  first 50 rows of any list.
+- **Pull-to-refresh, redesigned** — deliberately stiffer to trigger, with a taller
+  five-row ASCII reveal (arrows → shrug → arrows → a circle that arms the reload),
+  and now available in mobile web browsers, not just the app shell.
+- **Bare `import <title>`** — games are the only importable thing, so `import tekken`
+  now works exactly like `import game tekken` (and bare `import` opens the sidebar).
+
+### Fixed
+
+- **`vids` works wherever `videos` does** — `show channel @h with vids` and a `vids`
+  reply on a channel card are now recognized (they were silently unknown before).
+- **`@`-less channel lookup** is locked with a regression test — `show channel
+  gmrdad82` resolves without the leading `@`.
+- **The pager keeps your sort and columns** — re-sorting or adding/removing columns
+  as a reply to an already-shown list now carries into `more`/`next` instead of
+  reverting; a video-list sort reply no longer dropped pagination entirely.
+
 ## [1.3.2] — 2026-07-07
 
 ### Fixed
