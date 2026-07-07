@@ -23,12 +23,9 @@ module Pito
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
 
-          unless action == "show"
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_channels.errors.invalid_action",
-              message_args: { action: action }
-            )
-          end
+          # verbs.yml decides availability — `show` is this card's only declared verb
+          # (NOT a hardcoded check). `show` needs its own no-follow-up-context dispatch.
+          return undeclared_action(action) unless declared?(action)
 
           # Dispatch as free-chat (no follow_up context) with the "channel" noun
           # so that Show's `channel_noun?` check fires and `channel_ref` reads

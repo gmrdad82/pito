@@ -9,7 +9,7 @@ en:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
       game_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: rm, reindex, link to vid <id|title>, unlink, footage <hours>, or price set <amount> / price unset."
+          invalid_action: "Unknown action '%{action}'. Try: channels, similar, vids, analyze, reindex, footage <hours>, price set <amount> / unset, link to vid <id|title>, or unlink."
           game_not_found: "Couldn't find the game for this message."
           video_not_found: "No vid matching \"%{ref}\"."
           missing_video_ref: "Specify a vid. Try: link to vid <id|title>."
@@ -20,11 +20,11 @@ en:
           invalid_action: "Unknown action '%{action}'. Try: show <id>, schedule <id> <when>, publish <id>, unlist <id>, delete <id>, link/unlink, sort by <col>, or with/without <col>."
       video_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: reindex."
+          invalid_action: "Unknown action '%{action}'. Try: game, analyze, reindex, schedule <when>, publish, unlist, link/unlink, or delete."
           video_not_found: "Couldn't find the vid for this message."
       channel_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: #<handle> visit channel or #<handle> visit studio."
+          invalid_action: "Unknown action '%{action}'. Try: games, vids, shinies, analyze, sync, or visit channel / visit studio."
           needs_destination: "Visit what? Try: #<handle> visit channel (or youtube / yt) or #<handle> visit studio."
           channel_not_found: "Couldn't find the channel for this message."
       channel_list:

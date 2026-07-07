@@ -4,6 +4,20 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] — 2026-07-08
+
+### Fixed
+
+- **Reply verbs work on every card again** — replying `game` to a `show vid` card
+  (and `channels` / `similar` / `vids` on a game card, `games` / `vids` / `shinies`
+  on a channel card, `at-a-glance` on any of them) returned "Unknown action". The
+  detail-card handlers carried a hand-maintained allowlist that had drifted from
+  `verbs.yml`, silently rejecting verbs the config declared as available. Reply
+  availability is now driven entirely by `verbs.yml` — every follow-up handler gates
+  on the same config matrix, so a verb that's declared for a card just works, and a
+  new segment verb needs zero handler changes. A build-failing guard keeps any
+  hardcoded verb list from creeping back in.
+
 ## [1.4.0] — 2026-07-07
 
 ### Added
