@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import PullRefreshController from "controllers/pito/pull_refresh_controller"
 
-const THRESHOLD_PX = 90
+const THRESHOLD_PX = 150
 
 function touchEvent(type, y) {
   const ev = new Event(type, { bubbles: true })
@@ -28,7 +28,7 @@ describe("pito--pull-refresh controller", () => {
   let app, el, ctrl, shellSpy
 
   async function build({ native }) {
-    shellSpy = vi.spyOn(PullRefreshController, "nativeShell").mockReturnValue(native)
+    shellSpy = vi.spyOn(PullRefreshController, "enabled").mockReturnValue(native)
 
     el = document.createElement("div")
     el.setAttribute("data-controller", "pito--pull-refresh")
@@ -105,7 +105,7 @@ describe("pito--pull-refresh controller", () => {
     document.body.appendChild(template)
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 455)) // pull = 45 = half threshold
+    el.dispatchEvent(touchEvent("touchmove", 425)) // pull = 75 = half threshold
     const hint = el.querySelector("[data-pull-refresh-hint]")
     expect(hint).not.toBeNull()
     expect(parseFloat(hint.style.opacity)).toBeCloseTo(0.5)
@@ -126,10 +126,10 @@ describe("pito--pull-refresh controller", () => {
     fakeGeometry(el, { atBottom: true })
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 20px
-    expect(el.style.transform).toBe("translateY(-20px)")
+    el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 60px
+    expect(el.style.transform).toBe("translateY(-60px)")
 
-    el.dispatchEvent(touchEvent("touchmove", 200)) // pull = 300 → capped at 40px
-    expect(el.style.transform).toBe("translateY(-40px)")
+    el.dispatchEvent(touchEvent("touchmove", 200)) // pull = 300 → capped at 150px
+    expect(el.style.transform).toBe("translateY(-150px)")
   })
 })

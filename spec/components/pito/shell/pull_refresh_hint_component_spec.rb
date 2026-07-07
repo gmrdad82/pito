@@ -32,4 +32,14 @@ RSpec.describe Pito::Shell::PullRefreshHintComponent, type: :component do
     inner = render_inline(described_class.new).css(".pito-pull-hint__shrug").first
     expect(glyphs).to include(CGI.unescapeHTML(inner.inner_html))
   end
+
+  # #2: the reveal is a 5-row ASCII block — three filled arrows, the shrug+copy
+  # row, and the filled circle that arms the reload.
+  it "renders three arrow rows and a circle reload row" do
+    inner = render_inline(described_class.new).css("template#pito-pull-refresh-hint").first.inner_html
+    expect(inner.scan("pito-pull-hint__arrow").size).to eq(3)
+    expect(inner).to include("pito-pull-hint__circle")
+    expect(inner).to include("▲")
+    expect(inner).to include("●")
+  end
 end

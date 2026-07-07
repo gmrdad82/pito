@@ -25,12 +25,12 @@
 import { Controller } from "@hotwired/stimulus"
 
 const NATIVE_MARKER = "Hotwire Native"
-const THRESHOLD_PX  = 90   // pull distance that arms the reload
-const MAX_LIFT_PX   = 40   // visual cap — the pane lifts at most this much
+const THRESHOLD_PX  = 150  // pull distance that arms the reload (deliberately stiff)
+const MAX_LIFT_PX   = 150  // visual cap — reveals the full 5-row ASCII block
 
 export default class extends Controller {
   connect() {
-    if (!this.constructor.nativeShell()) return
+    if (!this.constructor.enabled()) return
 
     this.startY = null
     this.pull   = 0
@@ -46,9 +46,15 @@ export default class extends Controller {
     this.abort?.abort()
   }
 
-  // Overridable in tests; the UA gate is the whole feature flag.
-  static nativeShell() {
-    return navigator.userAgent.includes(NATIVE_MARKER)
+  // Overridable in tests; this gate is the whole feature flag. Enabled in the
+  // Hotwire Native shell AND on mobile-web touch browsers (owner: mobile too, not
+  // only the APK). Desktop stays OFF — it has reload buttons and key combos, and
+  // the bottom-overscroll gesture would fight a trackpad.
+  static enabled() {
+    const ua = navigator.userAgent
+    if (ua.includes(NATIVE_MARKER)) return true
+    const touch = (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window
+    return touch && /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
   }
 
   #atBottom() {
@@ -66,7 +72,9 @@ export default class extends Controller {
     const delta = this.startY - event.touches[0].clientY
     this.pull = Math.max(delta, 0)
 
-    const lift = Math.min(this.pull / 3, MAX_LIFT_PX)
+    // Reveal proportionally so the full 5-row block is showing right as the
+    // pull reaches THRESHOLD (and the circle row arms).
+    const lift = Math.min((this.pull / THRESHOLD_PX) * MAX_LIFT_PX, MAX_LIFT_PX)
     this.element.style.transition = "none"
     this.element.style.transform  = this.pull > 0 ? `translateY(-${lift}px)` : ""
 
