@@ -27,6 +27,35 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
       kind:    "system")
   end
 
+  # #12 — a reply column mutation must fold the new column set into the pager
+  # cursor so `next`/`more` keeps the customized columns on later pages.
+  describe "column mutation folds into the pager cursor (#12)" do
+    let(:cursor_event) do
+      instance_double(Event, kind: "system", payload: event_payload.merge(
+        "list_cursor" => {
+          "offset" => 2, "raw" => "list games", "channel" => nil,
+          "sort_token" => nil, "sort_direction" => nil, "columns" => []
+        }
+      ))
+    end
+
+    it "carries the new column into list_cursor['columns']" do
+      result = handler.call(event: cursor_event, rest: "with platform", conversation:)
+      expect(result.payload["list_cursor"]["columns"]).to include("platform")
+    end
+
+    it "drops the column from list_cursor['columns'] on `without`" do
+      base = event_payload.merge(
+        "list_columns" => %w[platform],
+        "list_cursor"  => { "offset" => 2, "raw" => "list games", "channel" => nil,
+                            "sort_token" => nil, "sort_direction" => nil, "columns" => %w[platform] }
+      )
+      ev = instance_double(Event, kind: "system", payload: base)
+      result = handler.call(event: ev, rest: "without platform", conversation:)
+      expect(result.payload["list_cursor"]["columns"]).not_to include("platform")
+    end
+  end
+
   # ── Handler class declarations (via Matrix) ─────────────────────────────────
 
   it "registers the game_list target" do

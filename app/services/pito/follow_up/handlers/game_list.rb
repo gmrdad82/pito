@@ -95,10 +95,13 @@ module Pito
 
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          # Preserve the continuation cursor — mutate replies operate on the current
-          # page's ids and cannot recompute the next-batch cursor. Carry it forward so
-          # #handle next still works after a sort mutation on a capped list.
-          new_payload["list_cursor"]  = payload["list_cursor"] if payload.key?("list_cursor")
+          # Carry the continuation cursor forward AND fold in the just-applied sort so
+          # `next`/`more` keeps paging in this order (#12). Only when the sort resolved
+          # (key present); an unknown column is a no-op and leaves the cursor's sort.
+          if payload.key?("list_cursor") && (cursor = payload["list_cursor"])
+            cursor = cursor.merge("sort_token" => sort_token.presence, "sort_direction" => direction.to_s) if key
+            new_payload["list_cursor"] = cursor
+          end
 
           Pito::FollowUp::Result::Mutation.new(
             kind:    event.kind.to_sym,
@@ -144,10 +147,11 @@ module Pito
           # original values so the same #<handle> keeps working.
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          # Preserve the continuation cursor — mutate replies operate on the current
-          # page's ids and cannot recompute the next-batch cursor. Carry it forward so
-          # #handle next still works after a column mutation on a capped list.
-          new_payload["list_cursor"]  = payload["list_cursor"] if payload.key?("list_cursor")
+          # Carry the cursor forward with the NEW column set so `next`/`more` keeps the
+          # customized columns on later pages (#12).
+          if payload.key?("list_cursor") && (cursor = payload["list_cursor"])
+            new_payload["list_cursor"] = cursor.merge("columns" => new_cols.map(&:to_s))
+          end
 
           Pito::FollowUp::Result::Mutation.new(
             kind:    event.kind.to_sym,

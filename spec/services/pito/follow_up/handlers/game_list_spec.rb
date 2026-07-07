@@ -168,6 +168,37 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
   # ── `next` pagination ────────────────────────────────────────────────────────
   # Stub page_size to 2 so we can use tiny fixtures.
 
+  # #12 — a reply `sort by` mutation must fold the new sort into the pager cursor
+  # so `next`/`more` keeps paging in that order on later pages.
+  describe "reply sort folds into the pager cursor (#12)" do
+    let!(:sg1) { create(:game, title: "Zeta") }
+    let!(:sg2) { create(:game, title: "Alpha") }
+
+    let(:cursor_event) do
+      instance_double(Event, kind: "system", payload: {
+        "reply_target" => "game_list",
+        "game_ids"     => [ sg1.id, sg2.id ],
+        "list_columns" => [],
+        "list_cursor"  => {
+          "offset" => 2, "raw" => "list games", "channel" => nil,
+          "sort_token" => nil, "sort_direction" => nil, "columns" => []
+        }
+      })
+    end
+
+    it "writes the new sort_token + direction into list_cursor" do
+      result = handler.call(event: cursor_event, rest: "sort by title", conversation:)
+      cursor = result.payload["list_cursor"]
+      expect(cursor["sort_token"]).to eq("title")
+      expect(cursor["sort_direction"]).to eq("asc")
+    end
+
+    it "records desc direction from `sort by title desc`" do
+      result = handler.call(event: cursor_event, rest: "sort by title desc", conversation:)
+      expect(result.payload["list_cursor"]["sort_direction"]).to eq("desc")
+    end
+  end
+
   describe "`next` pagination" do
     let(:pager_stub) { { page_size: 2, more_verb: "next" } }
     let!(:g1) { create(:game, title: "Alpha") }
