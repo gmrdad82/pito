@@ -4,6 +4,20 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] — 2026-07-07
+
+### Fixed
+
+- **One channel's outage no longer blanks a whole breakdown** — analytics
+  fetches are now isolated per subject: if YouTube fails for one channel or
+  video (the Subscribed chart was hitting this — the API 5xx's the
+  subscribedStatus dimension for some channels), the rest still aggregate
+  and render. A failed subject contributes nothing and is not cached, so it
+  refetches and recovers on its own; genuine bugs still surface rather than
+  being silently zeroed.
+- **Empty charts say so** — a metric with genuinely no data shows a centered
+  "No data yet." over the paper instead of a blank canvas that read as broken.
+
 ## [1.3.1] — 2026-07-06
 
 ### Fixed
