@@ -42,7 +42,9 @@ module Pito
       # Action aliases that share copy with another action.
       # "order" has no own copy block; it renders the "sort" page instead.
       ACTION_ALIASES = {
-        "order" => "sort"
+        "order" => "sort",
+        "vids"  => "videos",  # per-target reply alias of the `videos` verb
+        "more"  => "next"     # per-target reply alias of the pager `next` verb
       }.freeze
 
       def call(target:, action: nil, event: nil)

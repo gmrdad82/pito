@@ -178,6 +178,8 @@ verbs:
           fill: ~
           reply_target: video_list
           emit_if: has_any_videos
+          # `show channel @h with vids` — mirror the game.videos segment alias.
+          aliases: [vids]
         "at-a-glance":
           builder: MessageBuilder::Analytics::Enhanced
           kind: enhanced
@@ -423,10 +425,12 @@ verbs:
           optional: true
     reply:
       targets:
-        channel_detail: { mode: append }
-        game_detail:    { mode: append }
-        channel_list:   { mode: append }
-        game_list:      { mode: append }
+        # `vids` accepted as a reply wherever `videos` is (verb-level aliases are
+        # excluded from reply tokens by design — must be per-target).
+        channel_detail: { mode: append, aliases: [vids] }
+        game_detail:    { mode: append, aliases: [vids] }
+        channel_list:   { mode: append, aliases: [vids] }
+        game_list:      { mode: append, aliases: [vids] }
 
   # Renamed from "linked-game" (owner 2026-07-06, C): a vid has just one game,
   # so the verb is the bare singular — `game vid #10`. No aliases by design;
@@ -921,17 +925,21 @@ verbs:
   next:
     # Pager verb: `more_verb: next` in the list pager concern.
     # No chat branch — only available as a follow-up reply on paginated list targets.
+    # `more` is accepted as a per-target alias (natural word for "show more").
     reply:
       targets:
         channel_list:
           mode: append
           concern: pager
+          aliases: [more]
         game_list:
           mode: append
           concern: pager
+          aliases: [more]
         video_list:
           mode: append
           concern: pager
+          aliases: [more]
 
   visit:
     # Reply-only verb on channel_detail — opens YouTube channel page or Studio in browser.

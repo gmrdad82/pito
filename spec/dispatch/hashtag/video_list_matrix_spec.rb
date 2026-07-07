@@ -98,9 +98,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(Pito::FollowUp::Registry.mode_for("video_list", action: "order")).to eq(:mutate)
     end
 
-    it "actions_for('video_list') lists all 19 declared actions (G122/G123 add game + at-a-glance)" do
+    it "actions_for('video_list') lists all 20 declared actions (G122/G123 add game + at-a-glance; more alias of next)" do
       expect(Pito::FollowUp::Registry.actions_for("video_list")).to match_array(
-        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze next game at-a-glance]
+        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze next more game at-a-glance]
       )
     end
 

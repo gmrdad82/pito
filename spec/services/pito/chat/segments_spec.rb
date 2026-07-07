@@ -255,9 +255,9 @@ RSpec.describe Pito::Chat::Segments do
         expect(map.keys).to match_array(canonical_names + %w[similars vids linked-vids])
       end
 
-      it "has only canonical names as keys for show/channel (no aliases declared)" do
+      it "has canonical names plus the videos alias (vids) as keys for show/channel" do
         map = described_class.alias_map(verb: :show, entity: :channel)
-        expect(map.keys).to match_array(%w[detail games videos at-a-glance])
+        expect(map.keys).to match_array(%w[detail games videos at-a-glance] + %w[vids])
       end
     end
   end

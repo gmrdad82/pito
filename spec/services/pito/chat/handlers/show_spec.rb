@@ -489,6 +489,12 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(event[:payload]["body"]).to include("GMR Dad")
     end
 
+    # Regression for #6: a bare handle with no leading @ must resolve.
+    it "resolves a bare handle with no @ (show channel gmrdad82)" do
+      event = show_real("show channel gmrdad82").events.first
+      expect(event[:payload]["body"]).to include("GMR Dad").and include("@gmrdad82")
+    end
+
     it "renders the description in the card" do
       event = show_real("show channel @gmrdad82").events.first
       expect(event[:payload]["body"]).to include("Stories.")

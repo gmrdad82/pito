@@ -44,7 +44,7 @@ module Pito
             Pito::FollowUp::AnalyzeReply.append(
               level: :channel, ids: analyze_channel_ids(event, ref), conversation:, period:
             )
-          when "next"
+          when "next", "more"
             list_next_channels(event:, conversation:)
           else
             Pito::FollowUp::Result::Error.new(

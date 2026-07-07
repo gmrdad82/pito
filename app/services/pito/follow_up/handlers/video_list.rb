@@ -43,7 +43,7 @@ module Pito
             refs = args.to_s.scan(/#?(\d+)/).flatten.map(&:to_i)
             ids  = refs.presence || Array(event.payload["video_ids"]).map(&:to_i)
             Pito::FollowUp::AnalyzeReply.append(level: :vid, ids:, conversation:, period:)
-          when "next"
+          when "next", "more"
             list_next_videos(event:, conversation:, viewport_width:)
           else
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)

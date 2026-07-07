@@ -41,7 +41,7 @@ module Pito
             refs = args.to_s.scan(/#?(\d+)/).flatten.map(&:to_i)
             ids  = refs.presence || Array(event.payload["game_ids"]).map(&:to_i)
             Pito::FollowUp::AnalyzeReply.append(level: :game, ids:, conversation:, period:)
-          when "next"
+          when "next", "more"
             list_next_games(event:, conversation:)
           else
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
