@@ -142,7 +142,7 @@ class Game
 
         builder = Apicalypse.new
           .search(query)
-          .fields("id", "name", "slug", "cover.image_id", "first_release_date", "game_type", "version_parent")
+          .fields("id", "name", "slug", "cover.image_id", "first_release_date", "game_type", "version_parent", "platforms.name")
           .limit(limit)
 
         unless include_editions
@@ -357,6 +357,28 @@ class Game
         rows.reject { |row| !row.equal?(top) && row["name"].to_s.start_with?(prefix) }
       end
 
+      # 2026-07-08 — the owner only plays PlayStation / Xbox / Switch / Steam (PC),
+      # so drop search hits that offer NO platform on that set. IGDB routinely
+      # carries a second, ARCADE-ONLY entry for the same title under a duplicate
+      # slug (e.g. "Tekken 7" id 394038, slug `tekken-7--1`, Arcade only) that has
+      # `version_parent = null` and an identical name to the real console release —
+      # so neither the edition filter nor the colon-prefix denoise catches it, and
+      # it surfaces as a confusing duplicate row. Filtering to the owner's platforms
+      # removes it (and any other unplayable-platform noise) without touching the
+      # game_type / bundle allowlist.
+      #
+      # `Pito::Games::PlatformTokens` is the single source of truth for the four
+      # operator platforms (ps/switch/xbox/steam); Arcade, Stadia, Mac, etc. match
+      # nothing and yield an empty token list. NULL-TOLERANT: a row with no
+      # `platforms` listed is KEPT — missing platform data must never silently drop
+      # a legitimate title (mirrors the game_type null-tolerance).
+      def reject_unsupported_platforms(rows)
+        rows.reject do |row|
+          names = Array(row["platforms"]).filter_map { |p| p["name"] }
+          names.any? && Pito::Games::PlatformTokens.tokens(names).empty?
+        end
+      end
+
       # Edition / DLC / bundle name markers. IGDB's SEARCH endpoint does not
       # reliably hydrate `game_type` / `version_parent` for these rows, so the
       # API-side filter misses them — this is the name-level safety net.
@@ -391,6 +413,9 @@ class Game
 
       # IGB1 (2026-06-28) — unified per-row post-fetch filter.
       #
+      # Rule 0 (2026-07-08): Drop rows with no owner-supported platform
+      #   (reject_unsupported_platforms) — runs first so an arcade-only row can
+      #   never become `top`. See that method for the Arcade-duplicate rationale.
       # Rule 1: Drop cover-less rows for every game type.
       # Rule 2: game_type 10 (expanded_game) — always keep. These are
       #   standalone titles even when the name contains "Edition" or a colon
@@ -410,6 +435,7 @@ class Game
       # searched directly. Callers can raise the limit if needed.
       def filter_search_hits(hits, query)
         hits = reject_coverless(hits)
+        hits = reject_unsupported_platforms(hits)
         return hits if hits.empty?
 
         top      = hits.first

@@ -32,6 +32,11 @@ All notable changes to PITO are documented here. The format follows
 - **The pager keeps your sort and columns** — re-sorting or adding/removing columns
   as a reply to an already-shown list now carries into `more`/`next` instead of
   reverting; a video-list sort reply no longer dropped pagination entirely.
+- **Arcade-only games no longer clutter import search** — IGDB carries a separate,
+  arcade-only entry for many titles (e.g. a second "Tekken 7" for the 2015 arcade
+  cabinet) that collides by name with the console/PC release and can't be told
+  apart in the sidebar. Import search now keeps only games on a platform you play
+  (PlayStation / Xbox / Switch / Steam), so the arcade duplicate drops out.
 
 ## [1.3.2] — 2026-07-07
 

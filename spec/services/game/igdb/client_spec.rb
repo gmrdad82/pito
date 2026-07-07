@@ -301,6 +301,60 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(hits.map { |h| h["id"] }).to contain_exactly(4001, 4004)
     end
 
+    # 2026-07-08 — owner plays only PS/Xbox/Switch/Steam. IGDB carries a second,
+    # arcade-only "Tekken 7" (id 394038, slug tekken-7--1) with version_parent=null
+    # and an identical name to the console release (id 7498) — neither the edition
+    # filter nor the colon denoise catches it. Filtering to owner platforms drops it.
+    it "drops arcade-only rows but keeps the same-named console/PC release (Tekken 7 dup)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 7498,   "name" => "Tekken 7", "game_type" => 10, "cover" => cover,
+          "platforms" => [ { "name" => "PlayStation 4" }, { "name" => "PC (Microsoft Windows)" }, { "name" => "Xbox One" } ] },
+        { "id" => 394038, "name" => "Tekken 7", "game_type" => 0, "cover" => cover,
+          "platforms" => [ { "name" => "Arcade" } ] }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("tekken 7")
+      expect(hits.map { |h| h["id"] }).to eq([ 7498 ])
+    end
+
+    it "keeps a row that is on Arcade AND an owner platform" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 19555, "name" => "Some Fighter", "game_type" => 0, "cover" => cover,
+          "platforms" => [ { "name" => "Arcade" }, { "name" => "PlayStation VR" } ] }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("some fighter")
+      expect(hits.map { |h| h["id"] }).to eq([ 19555 ])
+    end
+
+    it "keeps a row with no platforms listed (null-tolerant — missing data must not drop a title)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 8001, "name" => "Platformless Game", "game_type" => 0, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("platformless")
+      expect(hits.map { |h| h["id"] }).to eq([ 8001 ])
+    end
+
+    it "requests platforms.name in the search fields (needed for the platform filter)" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
+
+      described_class.new.search_games("anything")
+      expect(captured_body).to include("platforms.name")
+    end
+
     # IGB1 — cover-less rows drop for every game_type.
     it "drops cover-less rows regardless of game_type (IGB1)" do
       body = [
