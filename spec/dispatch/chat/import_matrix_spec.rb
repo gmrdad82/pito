@@ -61,29 +61,39 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
     ).call
   end
 
-  # ── Bare `import` / unrecognized noun → Result::Error (usage hint) ─────────
-  #
-  # None of the branch regexes match, so the handler falls to the else branch
-  # and returns Result::Error with the usage hint i18n key.
-  describe "bare / unknown noun → Result::Error (usage_hint)" do
+  # ── #11: import is game-import-by-default. Games are the only importable thing,
+  #    so bare `import` opens the sidebar EMPTY, and `import <anything-but-videos>`
+  #    opens it with the rest as the game-title prefill.
+  describe "bare `import` → :system, sidebar_open: 'games_import', empty prefill" do
+    [ "import", "import   " ].each do |raw|
+      it "#{raw.inspect} → sidebar with empty prefill" do
+        result  = call(raw)
+        payload = result.events.first[:payload]
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+        expect((payload[:prefill] || payload["prefill"]).to_s).to be_empty
+      end
+    end
+  end
+
+  describe "import <title> (no noun) → :system, sidebar_open, prefill = the rest (#11)" do
     {
-      "import"             => "bare verb, no noun",
-      "import   "          => "bare verb with trailing spaces only",
-      "import something"   => "unknown noun token",
-      "import channel"     => "channel noun (not game or vid/video)",
-      "import channels"    => "plural channel noun — still not a game or video",
-      "import foobar"      => "arbitrary unknown token",
-      "import sync"        => "adjacent verb word, not a recognized noun",
-      "import 123"         => "bare numeric token, no noun",
-      "import #5"          => "hash-prefixed id, no noun",
-      "import all"         => "scope word only, no noun",
-      "import for @pito"   => "for clause only, no noun (video never matched)"
-    }.each do |raw, desc|
-      it "#{raw.inspect} (#{desc}) → Result::Error with usage_hint key" do
-        result = call(raw)
-        expect(result).to be_a(Pito::Chat::Result::Error)
-        expect(result.message_key).to eq("pito.chat.import.usage_hint")
-        expect(result.message_args).to eq({})
+      "import something" => "something",
+      "import channel"   => "channel",
+      "import channels"  => "channels",
+      "import foobar"    => "foobar",
+      "import sync"      => "sync",
+      "import 123"       => "123",
+      "import #5"        => "#5",
+      "import all"       => "all",
+      "import for @pito" => "for @pito"
+    }.each do |raw, expected_prefill|
+      it "#{raw.inspect} → game import, prefill #{expected_prefill.inspect}" do
+        result  = call(raw)
+        payload = result.events.first[:payload]
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+        expect((payload[:prefill] || payload["prefill"]).to_s).to eq(expected_prefill)
       end
     end
   end

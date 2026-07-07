@@ -4,7 +4,9 @@
 #
 # Two sub-forms:
 #
-#   import game[s] [title]  — open the IGDB import sidebar (fast-path). The
+#   import [game[s]] [title] — open the IGDB import sidebar (fast-path). Games are
+#                              the only importable thing, so the noun is optional:
+#                              `import tekken` == `import game tekken` (#11). The
 #                              ChatController intercepts this before the async
 #                              pipeline; this handler handles the job-path
 #                              fallback by returning the same sidebar_open event
@@ -17,7 +19,7 @@
 #                              @handle → that channel. The optional `for @handle`
 #                              clause in the raw text OVERRIDES the shift+tab scope.
 #
-# Bare `import` with no noun → usage hint.
+# Bare `import` (no title) → opens the IGDB sidebar empty.
 module Pito
   module Chat
     module Handlers
@@ -32,17 +34,15 @@ module Pito
           raw = message.raw.to_s
           noun, correction = detect_import_noun(raw)
 
-          result = case noun
-          when "game"
-            handle_import_game(raw, noun_token: correction&.dig(:original))
-          when "videos"
-            handle_import_videos(raw)
-          else
-            Pito::Chat::Result::Error.new(
-              message_key:  "pito.chat.import.usage_hint",
-              message_args: {}
-            )
-          end
+          # #11: games are the only importable thing, so anything that isn't the
+          # `import videos` sync alias — `import game <title>`, `import <title>`,
+          # bare `import` — is an IGDB game import.
+          result =
+            if noun == "videos"
+              handle_import_videos(raw)
+            else
+              handle_import_game(raw, noun_token: correction&.dig(:original))
+            end
 
           prepend_typo_note(result, correction)
         end
@@ -96,15 +96,18 @@ module Pito
           ])
         end
 
-        # Extract the title from `import game[s] [title]`.
-        # Strips leading `import` + the noun token (exact "game/games" or the
-        # fuzzy-matched token) to get the rest.
+        # Extract the title from `import [game[s]] [title]` (#11 — the noun is
+        # optional). Strips the leading `import` verb, then an optional `game[s]`
+        # noun (or the fuzzy-matched noun_token); whatever remains is the title.
         def parse_import_game_title(raw, noun_token: nil)
-          if noun_token
-            raw.to_s.strip.sub(/\Aimport\s+#{Regexp.escape(noun_token)}\s*/i, "").strip
-          else
-            raw.to_s.strip.sub(/\Aimport\s+games?\s*/i, "").strip
-          end
+          rest = raw.to_s.strip.sub(/\Aimport\b\s*/i, "")
+          rest =
+            if noun_token
+              rest.sub(/\A#{Regexp.escape(noun_token)}\b\s*/i, "")
+            else
+              rest.sub(/\Agames?\b\s*/i, "")
+            end
+          rest.strip
         end
 
         # Prepends a short note event when a fuzzy correction fired.
