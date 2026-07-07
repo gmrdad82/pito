@@ -49,6 +49,27 @@ RSpec.describe Pito::Analytics::Primitives, "parallel cold fetches" do
     }.to raise_error(RuntimeError, "API down")
   end
 
+  # G131: a per-subject Channel::Youtube error is ISOLATED in the pool — the
+  # surviving subjects' rows still come back, the fetch does not raise, and the
+  # failing subject writes no row (stays cold, can recover).
+  it "isolates a per-subject YouTube error and returns the survivors' rows" do
+    bad = vid_ids.first
+    allow_any_instance_of(::Channel::Youtube::AnalyticsClient).to receive(:daily) do |_, videos:, **|
+      raise ::Channel::Youtube::TransientError, "5xx" if videos == [ bad ]
+
+      [ { day: "2026-01-10", views: 7 } ]
+    end
+
+    result = nil
+    expect {
+      result = described_class.fetch(groups: [ [ channel, vid_ids ] ], window:, report: "daily", now: Time.current)
+    }.not_to raise_error
+
+    (vid_ids - [ bad ]).each { |vid| expect(result[vid]).to eq([ { "day" => "2026-01-10", "views" => 7 } ]) }
+    expect(result[bad]).to eq([])
+    expect(AnalyticsPrimitive.where(video_youtube_id: bad, report: "daily")).to be_empty
+  end
+
   it "never spawns threads for warm subjects" do
     vid_ids.each do |vid|
       create(:analytics_primitive, video_youtube_id: vid, report: "daily",

@@ -812,6 +812,7 @@ en:
           - "The lifetime analytics for %{title}, at a glance."
         unavailable: "Analytics aren't available right now — a channel may need re-auth."
         na: "n/a"
+        no_data: "No data yet."
         metrics:
           views: "Views"
           watch_hours: "Watched hours"

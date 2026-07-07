@@ -58,7 +58,9 @@ module Pito
 
           if subjects == :channel
             sid = channel.youtube_channel_id
-            acc[sid] = primitive_for(channel:, subject_id: sid, videos: nil, report:, method:, window:, now:, require_keys:)
+            acc[sid] = isolate(subject_id: sid, report:) do
+              primitive_for(channel:, subject_id: sid, videos: nil, report:, method:, window:, now:, require_keys:)
+            end
           elsif report == "scalars" && Array(subjects).many?
             # Batched cold path (0.9.0 Phase 3): all of a group's cold videos in
             # one dimensions=video request per ≤200-slice instead of one request
@@ -86,12 +88,24 @@ module Pito
         end
 
         cold.each_slice(SCALARS_BATCH_SIZE) do |slice|
-          rows = client(channel).scalars_by_video(
-            channel_id: channel.youtube_channel_id,
-            start_date: window.start_date,
-            end_date:   window.end_date,
-            videos:     slice
-          )
+          begin
+            rows = client(channel).scalars_by_video(
+              channel_id: channel.youtube_channel_id,
+              start_date: window.start_date,
+              end_date:   window.end_date,
+              videos:     slice
+            )
+          rescue ::Channel::Youtube::Error => e
+            # G131: a failed slice contributes zeros IN MEMORY only — the videos
+            # are NOT stored, so they stay cold and refetch next time (never a
+            # persisted zero that would mask recovery). Distinct from the
+            # per-video isolate: a whole batched request fails as a unit.
+            Rails.logger.warn(
+              "[Analytics::Primitives] scalars slice (#{slice.size} vids): #{e.class}: #{e.message} — skipping"
+            )
+            slice.each { |vid| result[vid] = {} }
+            next
+          end
           by_vid = rows.group_by { |r| r[:video].to_s }
           slice.each do |vid|
             # No row = no activity in range — store {} so the emptiness is warm
@@ -131,7 +145,11 @@ module Pito
 
         workers = [ max_concurrency, cold.size ].min
         if workers <= 1
-          cold.each { |vid| result[vid] = fetch_and_store_one(channel:, subject_id: vid, videos: [ vid ], report:, method:, window:, now:) }
+          cold.each do |vid|
+            result[vid] = isolate(subject_id: vid, report:) do
+              fetch_and_store_one(channel:, subject_id: vid, videos: [ vid ], report:, method:, window:, now:)
+            end
+          end
           return result
         end
 
@@ -145,7 +163,12 @@ module Pito
             Rails.application.executor.wrap do
               while (vid = pop_nonblock(queue))
                 begin
-                  metrics = fetch_and_store_one(channel:, subject_id: vid, videos: [ vid ], report:, method:, window:, now:)
+                  # isolate swallows the Channel::Youtube family per-subject (returns
+                  # the report-shaped empty); a genuine (non-YouTube) bug still raises
+                  # here and trips the abort-and-raise below (G131).
+                  metrics = isolate(subject_id: vid, report:) do
+                    fetch_and_store_one(channel:, subject_id: vid, videos: [ vid ], report:, method:, window:, now:)
+                  end
                   mutex.synchronize { result[vid] = metrics }
                 rescue StandardError => e
                   mutex.synchronize { error ||= e }
@@ -172,6 +195,24 @@ module Pito
         return warm unless warm.nil?
 
         fetch_and_store_one(channel:, subject_id:, videos:, report:, method:, window:, now:)
+      end
+
+      # Per-subject fault isolation (G131): a subject whose YouTube fetch fails
+      # contributes NOTHING (a report-shaped empty) instead of aborting the whole
+      # multi-subject fetch — the rest aggregate and render. The failing subject
+      # is NOT cached (the client call raises BEFORE `store`), so it refetches and
+      # can recover next time. Scoped to the Channel::Youtube error family:
+      # programming / DB errors still propagate to the Breakdown / AnalyzeMetricFill
+      # backstops (which downgrade to no_data), so real bugs surface as no-data and
+      # are never silently zeroed. Empty is report-shaped — scalars values are
+      # Hashes (LikesHearts#ratio does `r["likes"]`), every other report is Array.
+      def isolate(subject_id:, report:)
+        yield
+      rescue ::Channel::Youtube::Error => e
+        Rails.logger.warn(
+          "[Analytics::Primitives] #{report} subject=#{subject_id}: #{e.class}: #{e.message} — skipping"
+        )
+        report == "scalars" ? {} : []
       end
 
       def fetch_and_store_one(channel:, subject_id:, videos:, report:, method:, window:, now:)

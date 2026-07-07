@@ -2942,6 +2942,20 @@ html {
     linear-gradient(var(--fg-faded), var(--fg-faded));
 }
 
+/* G131: the "No data yet." line centred over the dotted paper so an empty
+   metric reads as intentional. .pito-metric__chart is position:relative, so
+   the overlay fills it; pointer-events:none keeps the paper inert. */
+.pito-metric__nodata-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 0.85em;
+}
+
 /* Discrete tick VALUES (no rotation). y: overlaid inside-left at the data
    height, faint chip for legibility over the braille. x: spread below. */
 .pito-metric__yticks {

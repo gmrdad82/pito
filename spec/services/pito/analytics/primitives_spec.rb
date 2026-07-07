@@ -267,6 +267,64 @@ RSpec.describe Pito::Analytics::Primitives, type: :service do
     end
   end
 
+  # ── Per-subject fault isolation (G131) ───────────────────────────────────────
+  # A channel whose YouTube fetch raises a Channel::Youtube error must NOT abort
+  # the whole multi-channel breakdown — the surviving channels' rows still come
+  # back, and the failing channel is NOT cached (so it refetches / can recover).
+
+  describe ".fetch — one channel's YouTube error is isolated (channel-scope)" do
+    let(:good) { create(:channel, :on_connection) }
+    let(:bad)  { create(:channel, :on_connection) }
+
+    before do
+      allow_any_instance_of(::Channel::Youtube::AnalyticsClient)
+        .to receive(:by_subscribed_status) do |_client, channel_id:, **_rest|
+          if channel_id == good.youtube_channel_id
+            [ { subscribed_status: "SUBSCRIBED", views: 100 },
+              { subscribed_status: "UNSUBSCRIBED", views: 300 } ]
+          else
+            raise ::Channel::Youtube::TransientError, "5xx after 3 attempts: Server error"
+          end
+        end
+    end
+
+    it "returns the good channel's rows and an empty result for the failing one" do
+      result = described_class.fetch(
+        groups: [ [ good, :channel ], [ bad, :channel ] ],
+        window: live_window,
+        report: "subscribed_status",
+        now:    now
+      )
+
+      expect(result[good.youtube_channel_id]).to eq([
+        { "subscribed_status" => "SUBSCRIBED", "views" => 100 },
+        { "subscribed_status" => "UNSUBSCRIBED", "views" => 300 }
+      ])
+      expect(result[bad.youtube_channel_id]).to eq([])
+    end
+
+    it "does NOT cache the failing channel (no AnalyticsPrimitive row → it refetches)" do
+      described_class.fetch(
+        groups: [ [ good, :channel ], [ bad, :channel ] ],
+        window: live_window,
+        report: "subscribed_status",
+        now:    now
+      )
+
+      expect(AnalyticsPrimitive.where(video_youtube_id: bad.youtube_channel_id, report: "subscribed_status")).to be_empty
+      expect(AnalyticsPrimitive.where(video_youtube_id: good.youtube_channel_id, report: "subscribed_status")).to exist
+    end
+
+    it "does not swallow non-YouTube errors (a real bug still propagates)" do
+      allow_any_instance_of(::Channel::Youtube::AnalyticsClient)
+        .to receive(:by_subscribed_status).and_raise(NoMethodError, "boom")
+
+      expect {
+        described_class.fetch(groups: [ [ good, :channel ] ], window: live_window, report: "subscribed_status", now: now)
+      }.to raise_error(NoMethodError)
+    end
+  end
+
   # ── RecordNotUnique (concurrent-insert race) ─────────────────────────────────
 
   describe ".fetch — RecordNotUnique falls back to the winning concurrent row" do
