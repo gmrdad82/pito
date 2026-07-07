@@ -40,6 +40,8 @@ module Pito
         # @return [Result::Append | Result::Mutation | Result::Error]
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
+          # verbs.yml decides availability (the matrix), not a hardcoded list.
+          return undeclared_action(action) unless declared?(action)
 
           case action
           when "show"
@@ -79,10 +81,9 @@ module Pito
               conversation:, period:
             )
           else
-            Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_linked_videos.errors.invalid_action",
-              message_args: { action: action }
-            )
+            # Declared-but-unhandled (a verbs.yml/handler mismatch) — reject rather
+            # than silently drop. The top-of-method gate already handles undeclared.
+            undeclared_action(action)
           end
         end
 

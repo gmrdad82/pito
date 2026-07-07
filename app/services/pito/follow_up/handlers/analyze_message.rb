@@ -19,7 +19,8 @@ module Pito
 
         def call(event:, rest:, conversation:, **)
           action, args = parse_rest(rest)
-          return invalid_action(action) unless %w[with without].include?(action)
+          # verbs.yml decides availability (the matrix), not a hardcoded list.
+          return undeclared_action(action) unless declared?(action)
 
           metrics = Pito::Analytics::MetricSelection.symbolize(args.to_s.split(/[\s,]+/))
           return no_metrics if metrics.empty?
@@ -46,13 +47,6 @@ module Pito
             metrics.each { |m| with.delete(m); without |= [ m ] }
           end
           [ with.uniq, without.uniq ]
-        end
-
-        def invalid_action(action)
-          Pito::FollowUp::Result::Error.new(
-            message_key:  "pito.follow_up.analyze_message.errors.invalid_action",
-            message_args: { action: }
-          )
         end
 
         def no_metrics

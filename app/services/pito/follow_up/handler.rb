@@ -126,6 +126,24 @@ module Pito
 
       private
 
+      # Config-driven availability gate — verbs.yml (the Matrix, via the Registry)
+      # is the SOLE source of truth for which reply verbs a card accepts. No handler
+      # keeps a literal allowlist: that drift is exactly what shadowed `game` on the
+      # video card. `declared?` is true when `action` is a verb THIS reply_target
+      # declares; `undeclared_action` builds this target's invalid_action error.
+      # A handler gates with `return undeclared_action(action) unless declared?(action)`,
+      # then dispatches the declared verb (special-case or delegate to VerbDelegator).
+      def declared?(action)
+        Pito::FollowUp::Registry.actions_for(self.class.target_id).include?(action.to_s)
+      end
+
+      def undeclared_action(action)
+        Pito::FollowUp::Result::Error.new(
+          message_key:  "pito.follow_up.#{self.class.target_id}.errors.invalid_action",
+          message_args: { action: action.to_s }
+        )
+      end
+
       # Split `rest` into [action, args].
       # "preview tokyo-night" → ["preview", "tokyo-night"]
       # "confirm"            → ["confirm", ""]

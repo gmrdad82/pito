@@ -32,22 +32,22 @@ module Pito
         # @return [Result::Append | Result::Error]
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, _args = parse_rest(rest)
+          # verbs.yml decides availability (NOT a hardcoded list — that shadowed `game`).
+          return undeclared_action(action) unless declared?(action)
 
           if action == "analyze"
-            # Analyze THIS video (the detail card's single entity).
+            # Analyze THIS video (the detail card's single entity) — a follow-up-only
+            # path (AnalyzeReply), not a chat verb, so it stays special-cased here.
             return Pito::FollowUp::AnalyzeReply.append(
               level: :vid, ids: [ event.payload["video_id"] ].compact, conversation:, period:
             )
           end
 
-          if %w[rm del delete reindex link unlink shinies sync publish pub unlist schedule].include?(action)
-            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
-          end
-
-          Pito::FollowUp::Result::Error.new(
-            message_key:  "pito.follow_up.video_detail.errors.invalid_action",
-            message_args: { action: action }
-          )
+          # Every OTHER declared reply verb (game, at-a-glance, reindex, link/unlink,
+          # schedule/publish/unlist, shinies, sync, …) routes through the SAME chat
+          # handler via VerbDelegator — no per-verb branch, so a new segment verb
+          # works on replies the moment verbs.yml declares its reply.target.
+          Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
         end
       end
     end

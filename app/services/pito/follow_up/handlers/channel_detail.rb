@@ -37,14 +37,12 @@ module Pito
         # @return [Result::Append | Result::Error]
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, dest_word = parse_rest(rest)
+          # verbs.yml decides availability (NOT a hardcoded list — that shadowed the
+          # games/vids/shinies segment verbs).
+          return undeclared_action(action) unless declared?(action)
 
-          # `#<handle> sync` → re-sync THIS channel (the chat sync handler reads the
-          # card's channel_id from the follow-up context).
-          if action == "sync"
-            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
-          end
-
-          # `#<handle> analyze` → analyze THIS channel (the detail card's entity).
+          # `#<handle> analyze` → analyze THIS channel (the detail card's entity) — a
+          # follow-up-only path (AnalyzeReply), not a chat verb, so it stays here.
           if action == "analyze"
             ch = resolve_channel_from_event(event)
             return channel_not_found_error if ch.nil?
@@ -54,27 +52,31 @@ module Pito
             )
           end
 
-          unless action == "visit"
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.channel_detail.errors.invalid_action",
-              message_args: { action: action }
-            )
+          # `#<handle> visit <channel|studio>` → open the YouTube page / Studio. A
+          # follow-up-only verb (no chat equivalent), so it stays special-cased.
+          if action == "visit"
+            destination = DESTINATION_MAP[dest_word.to_s.downcase]
+            if destination.nil?
+              return Pito::FollowUp::Result::Error.new(
+                message_key:  "pito.follow_up.channel_detail.errors.needs_destination",
+                message_args: {}
+              )
+            end
+
+            ch = resolve_channel_from_event(event)
+            return channel_not_found_error if ch.nil?
+
+            return Pito::FollowUp::Result::Append.new(events: [
+              { kind: :system, payload: Pito::MessageBuilder::Channel::Visit.call(ch, conversation:, destination:) }
+            ])
           end
 
-          destination = DESTINATION_MAP[dest_word.to_s.downcase]
-          if destination.nil?
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.channel_detail.errors.needs_destination",
-              message_args: {}
-            )
-          end
-
-          ch = resolve_channel_from_event(event)
-          return channel_not_found_error if ch.nil?
-
-          Pito::FollowUp::Result::Append.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Channel::Visit.call(ch, conversation:, destination:) }
-          ])
+          # Every OTHER reply verb this card declares in verbs.yml (games, vids/videos,
+          # shinies, at-a-glance, sync, …) routes through the matrix-gated
+          # VerbDelegator. verbs.yml `reply.targets` is the single source of truth —
+          # NEVER reintroduce a hardcoded list (it silently shadowed the segment verbs).
+          # Unknown actions get this target's invalid_action copy from there.
+          Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
         end
 
         private

@@ -26,12 +26,9 @@ module Pito
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil) # rubocop:disable Lint/UnusedMethodArgument
           action, _args = parse_rest(rest)
 
-          unless action == "consume"
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.channel_visit.errors.invalid_action",
-              message_args: { action: action }
-            )
-          end
+          # verbs.yml decides availability — `consume` is this card's only declared
+          # verb (an internal visit-consume step), not a hardcoded check.
+          return undeclared_action(action) unless declared?(action)
 
           channel = ::Channel.find_by(id: event.payload["channel_id"])
           unless channel

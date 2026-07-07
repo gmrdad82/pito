@@ -33,14 +33,14 @@ module Pito
         # @return [Result::Append | Result::Error]
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
-
-          if %w[rm del delete reindex link unlink platform shinies sync].include?(action)
-            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
-          end
+          # verbs.yml decides availability (NOT a hardcoded list — that shadowed the
+          # channels/similar/vids segment verbs).
+          return undeclared_action(action) unless declared?(action)
 
           case action
           when "analyze"
-            # Analyze THIS game (the detail card's single entity).
+            # Analyze THIS game (the detail card's single entity) — a follow-up-only
+            # path (AnalyzeReply), not a chat verb, so it stays special-cased.
             Pito::FollowUp::AnalyzeReply.append(
               level: :game, ids: [ event.payload["game_id"] ].compact, conversation:, period:
             )
@@ -49,10 +49,13 @@ module Pito
           when "price"
             handle_price(event, args, conversation)
           else
-            Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_detail.errors.invalid_action",
-              message_args: { action: action }
-            )
+            # Every OTHER reply verb this card declares in verbs.yml (channels,
+            # similar, vids/videos, at-a-glance, reindex, link/unlink, platform,
+            # shinies, sync, rm/delete, …) routes through the matrix-gated
+            # VerbDelegator. verbs.yml `reply.targets` is the single source of truth —
+            # NEVER reintroduce a hardcoded list (it silently shadowed the segment
+            # verbs). Unknown actions get this target's invalid_action copy from there.
+            Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
         end
 

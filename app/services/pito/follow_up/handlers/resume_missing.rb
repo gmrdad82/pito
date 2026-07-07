@@ -21,7 +21,8 @@ module Pito
 
         def call(event:, rest:, conversation:, **)
           action, _args = parse_rest(rest)
-          return invalid_action(action) unless %w[new create].include?(action)
+          # verbs.yml decides availability (the matrix), not a hardcoded list.
+          return undeclared_action(action) unless declared?(action)
 
           name = event.payload.with_indifferent_access[:resume_name].to_s.strip
           return invalid_action(action) if name.blank?

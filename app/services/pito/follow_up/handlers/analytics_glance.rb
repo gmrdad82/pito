@@ -21,7 +21,8 @@ module Pito
 
         def call(event:, rest:, conversation:, period: nil, **)
           action, args = parse_rest(rest)
-          return invalid_action(action) unless %w[with without analyze].include?(action)
+          # verbs.yml decides availability (the matrix), not a hardcoded list.
+          return undeclared_action(action) unless declared?(action)
 
           scope = resolve_scope(event)
           return scope_not_found if scope.nil?
@@ -76,13 +77,6 @@ module Pito
           else
             Pito::Analytics::MetricSelection::Selection.new(with: [], without: metrics)
           end
-        end
-
-        def invalid_action(action)
-          Pito::FollowUp::Result::Error.new(
-            message_key:  "pito.follow_up.analytics_glance.errors.invalid_action",
-            message_args: { action: }
-          )
         end
 
         def scope_not_found
