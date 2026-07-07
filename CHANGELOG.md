@@ -27,8 +27,8 @@ All notable changes to PITO are documented here. The format follows
 
 - **`vids` works wherever `videos` does** — `show channel @h with vids` and a `vids`
   reply on a channel card are now recognized (they were silently unknown before).
-- **`@`-less channel lookup** is locked with a regression test — `show channel
-  gmrdad82` resolves without the leading `@`.
+- **`@`-less channel lookup** is locked with a regression test —
+  `show channel gmrdad82` resolves without the leading `@`.
 - **The pager keeps your sort and columns** — re-sorting or adding/removing columns
   as a reply to an already-shown list now carries into `more`/`next` instead of
   reverting; a video-list sort reply no longer dropped pagination entirely.
