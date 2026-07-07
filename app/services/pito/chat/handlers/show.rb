@@ -193,8 +193,8 @@ module Pito
           end
           return :needs_ref if handle.blank?
 
-          norm = handle.to_s.sub(/\A@+/, "").downcase
-          ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+          # Exact @-agnostic match, then a pg_trgm fuzzy fallback (#7).
+          ::Channel.resolve_handle(handle)
         end
 
         # The shift+tab channel scope as a concrete @handle, or nil for @all / blank

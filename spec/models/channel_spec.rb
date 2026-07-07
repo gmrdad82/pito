@@ -25,6 +25,44 @@ RSpec.describe Channel, type: :model do
     end
   end
 
+  describe ".resolve_handle (#7 — exact then pg_trgm fuzzy)" do
+    let!(:channel) { create(:channel, handle: "@fighterpro", title: "Fighter Pro") }
+
+    it "resolves an exact @handle" do
+      expect(described_class.resolve_handle("@fighterpro")).to eq(channel)
+    end
+
+    it "resolves @-agnostically (no leading @)" do
+      expect(described_class.resolve_handle("fighterpro")).to eq(channel)
+    end
+
+    it "resolves case-insensitively" do
+      expect(described_class.resolve_handle("FIGHTERPRO")).to eq(channel)
+    end
+
+    it "fuzzy-resolves a partial handle (fighter → @fighterpro)" do
+      expect(described_class.resolve_handle("fighter")).to eq(channel)
+    end
+
+    it "fuzzy-resolves a typo'd handle" do
+      expect(described_class.resolve_handle("fihgterpro")).to eq(channel)
+    end
+
+    it "returns nil for a below-threshold non-match" do
+      expect(described_class.resolve_handle("zzzzzz")).to be_nil
+    end
+
+    it "returns nil for blank input" do
+      expect(described_class.resolve_handle("")).to be_nil
+      expect(described_class.resolve_handle("@")).to be_nil
+    end
+
+    it "prefers an exact match over a fuzzy neighbour" do
+      exact = create(:channel, handle: "@fighter", title: "Fighter")
+      expect(described_class.resolve_handle("fighter")).to eq(exact)
+    end
+  end
+
   describe "#youtube_channel_url" do
     it "returns the @handle form URL when handle is present" do
       channel = build(:channel, handle: "@gmrdad82", youtube_channel_id: "UCtest")
