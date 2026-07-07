@@ -442,20 +442,34 @@ html {
 }
 
 /* ── Pull-to-refresh hint (G81) ──
-   Cloned under the scrollback's last message by pito--pull-refresh (Android
-   shell only); opacity tracks the drag, .is-armed flips it yellow — the
-   action class — when releasing would reload. */
+   Cloned under the scrollback's last message by pito--pull-refresh (Hotwire
+   Native AND mobile-web); opacity tracks the drag. A vertical 5-row ASCII block
+   (arrow / shrug+copy / arrow / arrow / circle); .is-armed flips the circle row
+   to the action color when releasing would reload. */
 .pito-pull-hint {
   display: flex;
-  justify-content: center;
-  gap: 1ch;
+  flex-direction: column;
+  align-items: center;
   padding-top: 8px;
   color: var(--fg-faded);
   opacity: 0;
   transition: opacity 120ms ease-out;
 }
 
-.pito-pull-hint.is-armed {
+.pito-pull-hint__row {
+  display: flex;
+  justify-content: center;
+  gap: 1ch;
+}
+
+/* The circle row is the reload trigger — it flips to the action color once the
+   pull passes THRESHOLD_PX; the arrows and shrug stay faded so the circle reads
+   as "release here". */
+.pito-pull-hint__circle {
+  color: var(--fg-faded);
+}
+
+.pito-pull-hint.is-armed .pito-pull-hint__circle {
   color: var(--accent-yellow);
 }
 
