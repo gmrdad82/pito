@@ -4,6 +4,12 @@ en:
       list:
         descriptions:
           list: "List games, channels, or vids"
+      search:
+        descriptions:
+          search: "Find games similar to another one (search games like <title>)"
+        needs_seed: "Search for what? Try `search games like <title>` — e.g. `search games like tekken 7`."
+        seed_not_found: "No game called \"%{title}\" in your library yet. `list games` to see what's there, then `search games like <its title>`."
+        no_matches: "Nothing in your library is close enough to \"%{title}\" to call it similar — yet."
       greet:
         descriptions:
           greet: "Say hi (hi / hello / hola, any case) — PITO greets you with what it can do"

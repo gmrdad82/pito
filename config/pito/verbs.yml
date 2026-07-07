@@ -779,6 +779,20 @@ verbs:
           optional: true
           introducer: for
 
+  # `search games like <title>` — similarity search (#8). The free `query` slot
+  # slurps "[games] like <title>"; the handler extracts the seed after `like`,
+  # runs Recommendation::GameSimilarity, and renders a game_list card (so #id
+  # replies, sort/with, and more/next paging all work via the existing pager).
+  search:
+    description: pito.grammar.chat.search
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::Search
+      slots:
+        - name: query
+          kind: free
+          optional: true
+
   link:
     description: pito.grammar.chat.link
     auth: session
