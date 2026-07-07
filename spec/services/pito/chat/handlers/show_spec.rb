@@ -495,6 +495,12 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(event[:payload]["body"]).to include("GMR Dad").and include("@gmrdad82")
     end
 
+    # #7: a fuzzy/partial handle resolves via pg_trgm.
+    it "fuzzy-resolves a partial handle (show channel gmrdad)" do
+      event = show_real("show channel gmrdad").events.first
+      expect(event[:payload]["body"]).to include("GMR Dad")
+    end
+
     it "renders the description in the card" do
       event = show_real("show channel @gmrdad82").events.first
       expect(event[:payload]["body"]).to include("Stories.")

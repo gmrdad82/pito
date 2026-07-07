@@ -79,10 +79,12 @@ module Pito
       #
       # Required context: none.
       register(:channel_by_handle, lambda { |input, context:|
-        handle = input.to_s.sub(/\A@/, "").strip
+        handle = input.to_s.strip
         return Invalid.new(reason: "blank handle") if handle.empty?
 
-        ::Channel.find_by(handle:) || Invalid.new(reason: "channel not found: #{handle}")
+        # Exact @-agnostic match, then a pg_trgm fuzzy fallback (#7) — shared with
+        # the typed `show channel <handle>` path.
+        ::Channel.resolve_handle(handle) || Invalid.new(reason: "channel not found: #{handle}")
       })
 
       # :video_by_id

@@ -87,6 +87,25 @@ class Channel < ApplicationRecord
     "@#{handle.to_s.sub(/\A@+/, '')}"
   end
 
+  # Resolve a "@handle" / bare "handle" string to a Channel (#7). Exact,
+  # @-agnostic, case-insensitive match FIRST; then a pg_trgm fuzzy fallback (best
+  # match above the trigram threshold) so "fighter" finds "@fighterpro". Returns
+  # nil when nothing matches. The fuzzy query uses the same REPLACE(handle,'@','')
+  # expression as index_channels_on_normalized_handle_trigram, so it's index-backed.
+  # Shared by the typed `show channel <handle>` path and the :channel_by_handle
+  # reply resolver.
+  def self.resolve_handle(input)
+    norm = input.to_s.sub(/\A@+/, "").downcase
+    return nil if norm.blank?
+
+    exact = find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+    return exact if exact
+
+    where("REPLACE(handle, '@', '') % ?", norm)
+      .order(Arel.sql("similarity(REPLACE(handle, '@', ''), #{connection.quote(norm)}) DESC"))
+      .first
+  end
+
   # YouTube channel page URL.
   # Handle present: https://www.youtube.com/@<handle without leading @>
   # Otherwise:      https://www.youtube.com/channel/<youtube_channel_id>

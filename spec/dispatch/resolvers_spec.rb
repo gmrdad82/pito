@@ -67,6 +67,12 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       expect(result).to be_a(invalid_class)
       expect(result.reason).to match(/channel not found/)
     end
+
+    it "fuzzy: resolves a partial handle to the nearest Channel (#7)" do
+      channel = create(:channel, handle: "@fighterpro")
+      result  = described_class.resolve(:channel_by_handle, "fighter")
+      expect(result).to eq(channel)
+    end
   end
 
   # ── :video_by_id ─────────────────────────────────────────────────────────────
