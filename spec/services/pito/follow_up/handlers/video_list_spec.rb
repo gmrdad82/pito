@@ -201,6 +201,33 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
   # ── `next` pagination ────────────────────────────────────────────────────────
   # Stub page_size to 2 so we can use tiny fixtures.
 
+  # #12 regression — a `sort by` reply on a video list previously DROPPED the pager
+  # cursor entirely (ending pagination). It must now be preserved AND carry the sort.
+  describe "reply sort preserves + folds into the pager cursor (#12)" do
+    let!(:v_a) { create(:video, :public, title: "Zeta Run",  channel:) }
+    let!(:v_b) { create(:video, :public, title: "Alpha Run", channel:) }
+
+    let(:cursor_event) do
+      instance_double(Event, kind: "system", payload: {
+        "reply_target" => "video_list",
+        "video_ids"    => [ video.id, v_a.id, v_b.id ],
+        "list_columns" => [],
+        "list_cursor"  => {
+          "offset" => 2, "channel" => nil, "filter" => nil,
+          "sort_token" => nil, "sort_direction" => nil, "columns" => []
+        }
+      })
+    end
+
+    it "keeps the list_cursor (was dropped before) and records the new sort" do
+      result = handler.call(event: cursor_event, rest: "sort by title", conversation:)
+      cursor = result.payload["list_cursor"]
+      expect(cursor).not_to be_nil
+      expect(cursor["sort_token"]).to eq("title")
+      expect(cursor["sort_direction"]).to eq("asc")
+    end
+  end
+
   describe "`next` pagination" do
     let(:pager_stub) { { page_size: 2, more_verb: "next" } }
     let!(:v2) { create(:video, :public, title: "Raid Run",   channel:) }

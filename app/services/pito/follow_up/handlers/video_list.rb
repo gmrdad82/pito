@@ -97,6 +97,13 @@ module Pito
 
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
+          # Carry the cursor forward AND fold in the just-applied sort so `next`/`more`
+          # keeps paging in this order (#12). (Previously the sort reply dropped the
+          # cursor entirely, ending pagination.)
+          if payload.key?("list_cursor") && (cursor = payload["list_cursor"])
+            cursor = cursor.merge("sort_token" => sort_token.presence, "sort_direction" => direction.to_s) if key
+            new_payload["list_cursor"] = cursor
+          end
 
           Pito::FollowUp::Result::Mutation.new(
             kind:    event.kind.to_sym,
@@ -138,10 +145,11 @@ module Pito
           # Preserve the original handle so the same #<handle> keeps working.
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
-          # Preserve the continuation cursor — mutate replies operate on the current
-          # page's ids and cannot recompute the next-batch cursor. Carry it forward so
-          # #handle next still works after a column mutation on a capped list.
-          new_payload["list_cursor"]  = payload["list_cursor"] if payload.key?("list_cursor")
+          # Carry the cursor forward with the NEW column set so `next`/`more` keeps the
+          # customized columns on later pages (#12).
+          if payload.key?("list_cursor") && (cursor = payload["list_cursor"])
+            new_payload["list_cursor"] = cursor.merge("columns" => new_cols.map(&:to_s))
+          end
 
           Pito::FollowUp::Result::Mutation.new(
             kind:    event.kind.to_sym,
