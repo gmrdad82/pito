@@ -242,13 +242,41 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     end
   end
 
+  # ── declared segment verbs delegate to VerbDelegator ─────────────────────────
+  #
+  # games / videos / vids / shinies / at-a-glance are declared for channel_detail
+  # in verbs.yml, so they route to the matrix-gated VerbDelegator (they were
+  # silently rejected before the hardcoded-gate removal).
+  describe "declared segment verbs → delegate to VerbDelegator" do
+    %w[games videos vids shinies at-a-glance].each do |verb|
+      context verb.inspect do
+        subject(:result) { call(verb) }
+
+        it "is declared in actions_for('channel_detail')" do
+          expect(Pito::FollowUp::Registry.actions_for("channel_detail")).to include(verb)
+        end
+
+        it "does NOT return an invalid_action Error" do
+          expect(result).not_to be_a(Pito::FollowUp::Result::Error)
+        end
+
+        it "delegates to VerbDelegator with the verb as rest" do
+          result
+          expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+            hash_including(source_event:, rest: verb, conversation:)
+          )
+        end
+      end
+    end
+  end
+
   # ── Unknown action → invalid_action Error ─────────────────────────────────────
   #
-  # channel_detail declares only "visit" and "sync". All other verbs return
-  # invalid_action directly — NOT via VerbDelegator.
+  # Verbs NOT declared for channel_detail in verbs.yml are rejected with
+  # invalid_action by the config-driven gate — NOT via VerbDelegator.
 
   describe "unknown action → invalid_action Error" do
-    %w[open show delete rm link unlink shinies reindex bogus update help].each do |unknown|
+    %w[open show delete rm link unlink reindex bogus update help].each do |unknown|
       context unknown.inspect do
         subject(:result) { call(unknown) }
 

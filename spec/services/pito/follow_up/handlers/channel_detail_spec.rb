@@ -170,6 +170,26 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     end
   end
 
+  # ── regression guard: config↔handler contract ────────────────────────────────
+  # games / vids / shinies / at-a-glance were declared in verbs.yml for
+  # channel_detail but shadowed by the `unless action == "visit"` reject. Every
+  # config-declared reply verb (bar the follow-up-only specials) must reach the
+  # matrix-gated VerbDelegator.
+  describe "every config-declared reply verb reaches VerbDelegator" do
+    let(:source_event) { build_detail_event }
+    let(:sentinel)     { Pito::FollowUp::Result::Append.new(events: []) }
+    before { allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(sentinel) }
+
+    specials  = %w[analyze visit] # follow-up-only, handled in-card
+    delegated = Pito::FollowUp::Registry.actions_for("channel_detail") - specials
+
+    delegated.each do |verb|
+      it "delegates '#{verb}' instead of rejecting it" do
+        expect(handler.call(event: source_event, rest: verb, conversation:)).to eq(sentinel)
+      end
+    end
+  end
+
   # ── channel not found ───────────────────────────────────────────────────────
 
   describe "#call — channel missing from DB" do

@@ -299,6 +299,44 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     end
   end
 
+  # ── game (REPORTED BUG): `#<handle> game` shows the vid's linked game ──────────
+  # verbs.yml declares the `game` segment verb with a video_detail reply target, but
+  # a hardcoded gate here silently rejected it with "Unknown action 'game'".
+  describe "#call — game (the vid's linked game)" do
+    let(:source_event) { build_video_detail_event }
+    let!(:linked_game) { create(:game, title: "Elden Ring") }
+    before { VideoGameLink.create!(video:, game: linked_game) }
+
+    subject(:result) { handler.call(event: source_event, rest: "game", conversation:) }
+
+    it "does NOT return an invalid_action error" do
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
+    end
+
+    it "appends the linked-game card (routed through the segment verb)" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+  end
+
+  # ── regression guard: config↔handler contract ────────────────────────────────
+  # Every reply verb verbs.yml declares for video_detail must reach the matrix-gated
+  # VerbDelegator — a hardcoded allowlist here is what shadowed `game`. This locks
+  # the contract so the whole class of "verb not working on replies" can't return.
+  describe "every config-declared reply verb reaches VerbDelegator" do
+    let(:source_event) { build_video_detail_event }
+    let(:sentinel)     { Pito::FollowUp::Result::Append.new(events: []) }
+    before { allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(sentinel) }
+
+    specials  = %w[analyze] # follow-up-only, handled in-card (not delegated)
+    delegated = Pito::FollowUp::Registry.actions_for("video_detail") - specials
+
+    delegated.each do |verb|
+      it "delegates '#{verb}' instead of rejecting it" do
+        expect(handler.call(event: source_event, rest: verb, conversation:)).to eq(sentinel)
+      end
+    end
+  end
+
   # ── registry ──────────────────────────────────────────────────────────────────
 
   describe "registry" do
