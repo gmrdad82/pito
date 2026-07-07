@@ -68,9 +68,9 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
   describe "Registry — actions_for('game_detail')" do
     subject(:actions) { Pito::FollowUp::Registry.actions_for("game_detail") }
 
-    it "returns all 16 declared actions (G121/G123 add the segment verbs)" do
+    it "returns all 17 declared actions (G121/G123 add the segment verbs; vids alias of videos)" do
       expect(actions).to match_array(
-        %w[rm del delete reindex link unlink footage platform price shinies sync analyze at-a-glance videos similar channels]
+        %w[rm del delete reindex link unlink footage platform price shinies sync analyze at-a-glance videos vids similar channels]
       )
     end
 

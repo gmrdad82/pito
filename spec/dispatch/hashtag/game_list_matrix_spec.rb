@@ -84,9 +84,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "order")).to   eq(:mutate)
     end
 
-    it "Registry.actions_for('game_list') is exactly the 19 verb actions (universals excluded; segment verbs G123)" do
+    it "Registry.actions_for('game_list') is exactly the 21 verb actions (universals excluded; segment verbs G123; vids/more aliases)" do
       expect(Pito::FollowUp::Registry.actions_for("game_list")).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze next at-a-glance videos similar channels]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels]
       )
     end
   end
@@ -474,10 +474,10 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       end
     end
 
-    it "actions_for returns all 19 declared actions (segment verbs joined in G123)" do
+    it "actions_for returns all 21 declared actions (segment verbs joined in G123; vids/more aliases)" do
       actions = Pito::FollowUp::Registry.actions_for("game_list").map(&:to_s)
       expect(actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze next at-a-glance videos similar channels]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels]
       )
     end
   end

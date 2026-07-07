@@ -232,6 +232,13 @@ RSpec.describe Pito::Chat::SegmentSelection do
       result = described_class.parse("show channel @handle", verb: :show, entity: :channel)
       expect(result.names).to eq(%w[detail])
     end
+
+    it "'with vids' resolves to the canonical 'videos' segment (vids alias)" do
+      result = described_class.parse("show channel @h with vids", verb: :show, entity: :channel)
+      expect(result.mode).to eq(:with)
+      expect(result.names).to include("videos")
+      expect(result.unknown).to eq([])
+    end
   end
 
   # ── segment aliases ───────────────────────────────────────────────────────────

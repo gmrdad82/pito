@@ -233,6 +233,13 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
       expect(result.events.first[:payload]["list_cursor"]).to be_nil
     end
 
+    # #5: `more` is a per-target reply alias of `next` and must page identically.
+    it "`more` pages identically to `next`" do
+      result = handler.call(event: cursor_event, rest: "more", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:payload]["list_cursor"]).to be_nil
+    end
+
     context "mid-batch: 5 videos, page_size=2, offset=2" do
       let!(:v4) { create(:video, :public, title: "Speed Run", channel:) }
       let!(:v5) { create(:video, :public, title: "Unboxing",  channel:) }

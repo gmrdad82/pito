@@ -62,9 +62,9 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
         .to include("shinies", "analyze", "sort", "order", "next")
     end
 
-    it "actions_for('channel_list') matches the declared set (with/without joined — G26.2; segment verbs G123)" do
+    it "actions_for('channel_list') matches the declared set (with/without joined — G26.2; segment verbs G123; vids/more aliases)" do
       expect(Pito::FollowUp::Registry.actions_for("channel_list"))
-        .to match_array(%w[shinies analyze sort order next with without at-a-glance videos games])
+        .to match_array(%w[shinies analyze sort order next more with without at-a-glance videos vids games])
     end
 
     it "sort and order are :mutate actions (re-render in place, no consume)" do
