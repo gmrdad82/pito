@@ -35,7 +35,7 @@ module Pito
         # relationship verb — grouped with link/unlink beside the game
         # commands. (G120-G122: linked-game → game, linked-videos folded into
         # videos, games = the channel games grid.)
-        "pito.copy.help.games_group_title"     => %w[list show import delete reindex link unlink linked footage price platform shinies similar game],
+        "pito.copy.help.games_group_title"     => %w[list search show import delete reindex link unlink linked footage price platform shinies similar game],
         "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos],
         "pito.copy.help.channels_group_title"  => %w[sync channels games],
         # analyze spans channel/vid/game — its own group (was missing from the

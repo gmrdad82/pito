@@ -199,6 +199,37 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     end
   end
 
+  # #8 — search results page a stored similarity ranking (ranked_ids), not a
+  # replayed list query.
+  describe "search pagination via ranked_ids cursor (#8)" do
+    let!(:rg1) { create(:game, title: "Alpha") }
+    let!(:rg2) { create(:game, title: "Beta") }
+    let!(:rg3) { create(:game, title: "Gamma") }
+
+    before do
+      allow(Pito::Dispatch::Config).to receive(:pager).with(verb: :list)
+        .and_return({ page_size: 2, more_verb: "next" })
+    end
+
+    let(:ranked_cursor_event) do
+      instance_double(Event, payload: {
+        "reply_target" => "game_list",
+        "list_cursor"  => {
+          "offset"         => 2,
+          "ranked_ids"     => [ rg1.id, rg2.id, rg3.id ],
+          "columns"        => [],
+          "sort_token"     => nil,
+          "sort_direction" => nil
+        }
+      })
+    end
+
+    it "pages the stored ranking (offset 2 → the 3rd game) preserving order" do
+      result = handler.call(event: ranked_cursor_event, rest: "next", conversation:)
+      expect(result.events.first[:payload]["game_ids"]).to eq([ rg3.id ])
+    end
+  end
+
   describe "`next` pagination" do
     let(:pager_stub) { { page_size: 2, more_verb: "next" } }
     let!(:g1) { create(:game, title: "Alpha") }

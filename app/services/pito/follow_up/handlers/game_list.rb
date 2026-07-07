@@ -183,15 +183,22 @@ module Pito
           # Rebuild the game relation — replay GameListFilter with the stored raw,
           # then the chat handler's shared query builders (the SAME code path
           # that produced page 1, so this page can never drift from it).
-          all_games = Pito::Chat::GameListFilter.call(cursor["raw"].to_s)
-
-          # Re-apply channel scope if stored.
-          if cursor["channel"].present?
-            ch        = Pito::Chat::Handlers::List.find_channel_by_handle(cursor["channel"])
-            all_games = ch ? Pito::Chat::Handlers::List.games_scoped_to_channel(all_games, ch) : ::Game.none
-          end
-
-          all_games = Pito::Chat::Handlers::List.games_relation(all_games, columns:).to_a
+          all_games =
+            if cursor["ranked_ids"]
+              # Search results (#8): page the stored similarity ranking in order,
+              # NOT a replayed list query. ranked_ids is the full ranked id list.
+              ids   = Array(cursor["ranked_ids"]).map(&:to_i)
+              by_id = Pito::Chat::Handlers::List.games_relation(::Game.where(id: ids), columns:).index_by(&:id)
+              ids.filter_map { |id| by_id[id] }
+            else
+              base = Pito::Chat::GameListFilter.call(cursor["raw"].to_s)
+              # Re-apply channel scope if stored.
+              if cursor["channel"].present?
+                ch   = Pito::Chat::Handlers::List.find_channel_by_handle(cursor["channel"])
+                base = ch ? Pito::Chat::Handlers::List.games_scoped_to_channel(base, ch) : ::Game.none
+              end
+              Pito::Chat::Handlers::List.games_relation(base, columns:).to_a
+            end
 
           if sort_token.present?
             key = Pito::MessageBuilder::Game::ListColumns.sort_key_for(sort_token, selected_columns: columns)
@@ -223,6 +230,7 @@ module Pito
               "sort_direction" => sort_dir,
               "columns"        => columns.map(&:to_s)
             }
+            new_cursor["ranked_ids"] = cursor["ranked_ids"] if cursor["ranked_ids"]
             new_payload["list_cursor"] = new_cursor
             total = all_games.size
             more_text = Pito::Copy.render(

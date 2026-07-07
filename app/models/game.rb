@@ -35,6 +35,22 @@ class Game < ApplicationRecord
 
   has_neighbors :summary_embedding
 
+  # Resolve a free-text title to a Game for the `search games like <title>` seed
+  # (#8): exact case-insensitive match first, then a pg_trgm fuzzy fallback
+  # (best match above the trigram threshold), backed by index_games_on_title_trigram.
+  # Returns nil when nothing matches.
+  def self.resolve_by_title(query)
+    q = query.to_s.strip
+    return nil if q.blank?
+
+    exact = find_by("title ILIKE ?", q)
+    return exact if exact
+
+    where("title % ?", q)
+      .order(Arel.sql("similarity(title, #{connection.quote(q)}) DESC"))
+      .first
+  end
+
   validates :title, presence: true
 
   # Price (EUR) has three meanings: nil = unset/unknown (renders "—"), an explicit

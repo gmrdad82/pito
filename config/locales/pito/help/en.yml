@@ -6,6 +6,8 @@ en:
     chat_help:
       list:
         usage: "list games  |  list vids  |  list channels"
+      search:
+        usage: "search games like <title>"
       show:
         usage: "show game #id  |  show vid #id  |  show channel @handle"
         game:

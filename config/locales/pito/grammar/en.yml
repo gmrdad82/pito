@@ -28,6 +28,7 @@ en:
         unlist: "Unlist a vid on YouTube"
         schedule: "Schedule a vid for future publishing"
         find: "Search vids by title, genre, or platform"
+        search: "Find games similar to another one (search games like <title>)"
         link: "Link a vid to a game"
         unlink: "Unlink a vid from a game"
         sync: "Sync vids or channels from YouTube (scope via shift+tab channel)"
