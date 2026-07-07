@@ -614,11 +614,11 @@ RSpec.describe Pito::Grammar::ConfigSource do
         expect(spec.slots.map(&:name)).to eq([ :noun, :title ])
       end
 
-      it ":noun slot is an :enum slot with optional? false" do
+      it ":noun slot is an :enum slot with optional? true (bare `import <title>` / `import`)" do
         slot = spec.slot(:noun)
         expect(slot.kind).to eq(:enum)
         expect(slot.source).to eq(:import_nouns)
-        expect(slot.optional?).to be(false)
+        expect(slot.optional?).to be(true)
       end
 
       it ":title slot is a :free optional slot" do
