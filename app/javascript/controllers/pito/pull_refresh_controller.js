@@ -25,8 +25,12 @@
 import { Controller } from "@hotwired/stimulus"
 
 const NATIVE_MARKER = "Hotwire Native"
-const THRESHOLD_PX  = 150  // pull distance that arms the reload (deliberately stiff; trigger effort unchanged)
-const MAX_LIFT_PX   = 340  // visual cap — reveals the full taller ASCII block (3 arrows + shrug + 6 arrows + circle) so the arming circle is visible at THRESHOLD (keep in sync with PullRefreshHintComponent::ARROWS_BEFORE/AFTER)
+// The pane tracks the finger 1:1 and is capped at the hint block's OWN measured
+// height, so pulling reveals EXACTLY the ASCII block (arrows first) and never
+// over-runs into a blank gap; the reload arms once the block is fully revealed
+// (the circle is in view). FALLBACK_LIFT is used only when offsetHeight is
+// unavailable (jsdom under test).
+const FALLBACK_LIFT = 260
 
 export default class extends Controller {
   connect() {
@@ -65,6 +69,7 @@ export default class extends Controller {
   #start(event) {
     this.startY = this.#atBottom() ? event.touches[0].clientY : null
     this.pull   = 0
+    this.armed  = false
   }
 
   #move(event) {
@@ -72,25 +77,29 @@ export default class extends Controller {
     const delta = this.startY - event.touches[0].clientY
     this.pull = Math.max(delta, 0)
 
-    // Reveal proportionally so the full ASCII block is showing right as the
-    // pull reaches THRESHOLD (and the circle row arms).
-    const lift = Math.min((this.pull / THRESHOLD_PX) * MAX_LIFT_PX, MAX_LIFT_PX)
+    // 1:1 with the finger, capped at the hint block's own height — reveals exactly
+    // the block (no over-run / blank gap). Armed once fully revealed (circle shown).
+    const hint    = this.#hint()
+    const maxLift = (hint && hint.offsetHeight) || FALLBACK_LIFT
+    const lift    = Math.min(this.pull, maxLift)
+    this.armed    = this.pull >= maxLift
+
     this.element.style.transition = "none"
     this.element.style.transform  = this.pull > 0 ? `translateY(-${lift}px)` : ""
 
-    // Indicator (G81): the shrug fades in with the pull and arms yellow when
-    // releasing would reload.
-    const hint = this.#hint()
     if (hint) {
-      hint.style.opacity = Math.min(this.pull / THRESHOLD_PX, 1)
-      hint.classList.toggle("is-armed", this.pull >= THRESHOLD_PX)
+      // Arrows visible IMMEDIATELY — opacity reaches full at ~a third of the pull,
+      // so they read from the first movement instead of fading in late.
+      hint.style.opacity = Math.min(this.pull / (maxLift * 0.35), 1)
+      hint.classList.toggle("is-armed", this.armed)
     }
   }
 
   #end() {
     if (this.startY === null) return
-    const armed = this.pull >= THRESHOLD_PX
+    const armed = this.armed
     this.startY = null
+    this.pull   = 0
 
     if (armed) {
       this._reload()
