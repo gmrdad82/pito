@@ -421,6 +421,103 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     end
   end
 
+  describe ".validate — mcp blocks (G130, read-only tool ontology)" do
+    # A well-formed mcp block on a chat verb; the verb keeps its chat branch so
+    # only the mcp key is under test.
+    def mcp_doc(mcp)
+      doc = valid_doc
+      doc[:verbs][:show] = { chat: { slots: [] }, mcp: mcp }
+      doc
+    end
+
+    MINIMAL_MCP = {
+      tool:        "pito_show",
+      description: "Show a game",
+      params:      { ref: { type: "string", required: true, hint: "numeric id" } },
+      input:       "show %{ref}"
+    }.freeze
+
+    # ── INERTNESS: an mcp block is purely additive ────────────────────────────────
+    it "a verb WITH a well-formed mcp block still validates clean" do
+      expect(described_class.validate(mcp_doc(MINIMAL_MCP))).to eq([])
+    end
+
+    it "mcp is NOT a dispatch branch — a verb with only an mcp block declares none" do
+      doc = valid_doc
+      doc[:verbs][:orphan] = { mcp: MINIMAL_MCP }
+      expect(messages(doc)).to include("verbs.orphan: verb declares no branch (expected one of chat/slash/reply)")
+    end
+
+    it "accepts input_suffixes plus array/enum params" do
+      doc = mcp_doc(
+        tool:           "pito_list",
+        description:    "List things",
+        params:         { noun:    { type: "string", enum: %w[games vids], required: true },
+                          columns: { type: "array", items: "string" } },
+        input:          "list %{noun}",
+        input_suffixes: { columns: " with %{values}" }
+      )
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    # ── the walker catches malformed blocks ───────────────────────────────────────
+    it "rejects an unknown key inside an mcp block (did-you-mean)" do
+      expect(messages(mcp_doc(MINIMAL_MCP.merge(descriptn: "x"))))
+        .to include(a_string_matching(/verbs\.show\.mcp\.descriptn: unknown key \(did you mean description\?\)/))
+    end
+
+    it "requires tool and description" do
+      expect(messages(mcp_doc(input: "show %{ref}")))
+        .to include("verbs.show.mcp.tool: missing required key",
+                    "verbs.show.mcp.description: missing required key")
+    end
+
+    it "rejects a param with an invalid type and lists the allowed set" do
+      doc = mcp_doc(tool: "t", description: "d", params: { ref: { type: "stringg" } }, input: "x")
+      expect(messages(doc))
+        .to include(a_string_matching(/verbs\.show\.mcp\.params\.ref\.type: invalid mcp param type "stringg"/))
+    end
+
+    it "requires each param to declare a type" do
+      doc = mcp_doc(tool: "t", description: "d", params: { ref: { required: true } }, input: "x")
+      expect(messages(doc)).to include("verbs.show.mcp.params.ref.type: missing required key")
+    end
+
+    it "rejects a non-Array enum on a param" do
+      doc = mcp_doc(tool: "t", description: "d", params: { noun: { type: "string", enum: "games" } }, input: "x")
+      expect(messages(doc)).to include(a_string_matching(/verbs\.show\.mcp\.params\.noun\.enum: expected an Array/))
+    end
+
+    it "rejects a non-string input template" do
+      doc = mcp_doc(tool: "t", description: "d", input: 42)
+      expect(messages(doc)).to include("verbs.show.mcp.input: expected a String, got Integer")
+    end
+
+    # ── top-level mcp_readers section ─────────────────────────────────────────────
+    it "accepts a well-formed mcp_readers section" do
+      doc = valid_doc
+      doc[:mcp_readers] = {
+        pito_conversations: { tool: "pito_conversations", description: "list convos" },
+        pito_messages:      { tool: "pito_messages", description: "read msgs",
+                              params: { limit: { type: "integer" } } }
+      }
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "rejects an unknown key inside an mcp_readers entry (input is verb-only)" do
+      doc = valid_doc
+      doc[:mcp_readers] = { r: { tool: "t", description: "d", input: "x" } }
+      expect(messages(doc)).to include(a_string_matching(/mcp_readers\.r\.input: unknown key/))
+    end
+
+    it "requires an mcp_readers entry to declare tool and description" do
+      doc = valid_doc
+      doc[:mcp_readers] = { r: { params: {} } }
+      expect(messages(doc)).to include("mcp_readers.r.tool: missing required key",
+                                       "mcp_readers.r.description: missing required key")
+    end
+  end
+
   describe ".alias_collisions" do
     it "returns [] when no token repeats within a namespace" do
       doc = { verbs: { foo: { chat: {}, aliases: [ "f" ] }, bar: { chat: {}, aliases: [ "b" ] } } }

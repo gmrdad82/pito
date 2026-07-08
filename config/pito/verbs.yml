@@ -100,6 +100,19 @@ verbs:
     # Aliases sourced from lib/pito/grammar/specs.rb — :list spec, aliases: [:ls]
     aliases: [ls]
     description: pito.grammar.chat.list
+    mcp:
+      tool: pito_list
+      description: "List your library — games, vids (videos), or channels. Optionally add extra columns, sort, or restrict to specific numeric ids."
+      params:
+        noun:    { type: string, enum: [games, vids, channels], required: true, hint: "what to list" }
+        columns: { type: array,  items: string, required: false, hint: "extra kv-table columns, e.g. [platform, genre]" }
+        sort:    { type: string, required: false, hint: "column name, optionally followed by desc (e.g. price desc)" }
+        ids:     { type: array,  items: integer, required: false, hint: "restrict to these numeric ids" }
+      input: "list %{noun}"
+      input_suffixes:
+        ids:     " %{values}"
+        columns: " with %{values}"
+        sort:    " sort %{value}"
     availability:
       chat: true
       slash: false
@@ -118,6 +131,16 @@ verbs:
 
   show:
     description: pito.grammar.chat.show
+    mcp:
+      tool: pito_show
+      description: "Show one game, vid, or channel. `ref` is a numeric id (games/vids) or an @handle (channels). Optionally request extra segments such as similar, videos, channels, games, or at-a-glance."
+      params:
+        noun:     { type: string, enum: [game, vid, channel], required: true }
+        ref:      { type: string, required: true, hint: "numeric id (e.g. 3) or @handle" }
+        segments: { type: array, items: string, required: false, hint: "extra sections, e.g. [similar, at-a-glance]" }
+      input: "show %{noun} %{ref}"
+      input_suffixes:
+        segments: " with %{values}"
     auth: session
     chat:
       dispatch: Chat::Handlers::Show
@@ -280,6 +303,17 @@ verbs:
   analyze:
     aliases: [analytics, stats]
     description: pito.grammar.chat.analyze
+    mcp:
+      tool: pito_analyze
+      description: "YouTube analytics numbers for a game, vid, or channel over a period. Bare (no noun/ref) analyzes all your channels. `period` accepts e.g. 7d, 28d, or lifetime."
+      params:
+        noun:   { type: string, enum: [game, vid, channel], required: false }
+        ref:    { type: string, required: false, hint: "numeric id or @handle" }
+        period: { type: string, required: false, hint: "e.g. 7d, 28d, lifetime" }
+      input: "analyze"
+      input_suffixes:
+        noun: " %{value}"
+        ref:  " %{value}"
     auth: session
     chat:
       dispatch: Chat::Handlers::Analyze
@@ -384,6 +418,14 @@ verbs:
   "at-a-glance":
     aliases: [glance, overview]
     description: pito.grammar.chat.at-a-glance
+    mcp:
+      tool: pito_glance
+      description: "At-a-glance analytics snapshot for one game, vid, or channel. `period` accepts e.g. 7d, 28d, or lifetime."
+      params:
+        noun:   { type: string, enum: [game, vid, channel], required: true }
+        ref:    { type: string, required: true, hint: "numeric id or @handle" }
+        period: { type: string, required: false, hint: "e.g. 7d, 28d, lifetime" }
+      input: "at-a-glance %{noun} %{ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -411,6 +453,13 @@ verbs:
   videos:
     aliases: [vids, linked-vids]
     description: pito.grammar.chat.videos
+    mcp:
+      tool: pito_videos
+      description: "List the videos of a channel (by @handle) or the videos linked to a game (by numeric id)."
+      params:
+        noun: { type: string, enum: [channel, game], required: true }
+        ref:  { type: string, required: true, hint: "numeric game id or channel @handle" }
+      input: "videos %{noun} %{ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -437,6 +486,12 @@ verbs:
   # the two-word `linked game #7` keyed form below is unaffected.
   game:
     description: pito.grammar.chat.game
+    mcp:
+      tool: pito_game_of_vid
+      description: "Show the game linked to a given video."
+      params:
+        vid_ref: { type: string, required: true, hint: "numeric video id" }
+      input: "game vid %{vid_ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -457,6 +512,12 @@ verbs:
   similar:
     aliases: [similars]
     description: pito.grammar.chat.similar
+    mcp:
+      tool: pito_similar
+      description: "Show games similar to a given game."
+      params:
+        game_ref: { type: string, required: true, hint: "numeric game id" }
+      input: "similar game %{game_ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -477,6 +538,12 @@ verbs:
   channels:
     aliases: [handles]
     description: pito.grammar.chat.channels
+    mcp:
+      tool: pito_channels_of_game
+      description: "Show the channels that cover a given game (channel distribution)."
+      params:
+        game_ref: { type: string, required: true, hint: "numeric game id" }
+      input: "channels game %{game_ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -497,6 +564,16 @@ verbs:
   breakdowns:
     aliases: [breakdown, lifetime, life]
     description: pito.grammar.chat.breakdowns
+    mcp:
+      tool: pito_breakdowns
+      description: "Lifetime analytics breakdowns (percentages by dimension) for a game, vid, or channel."
+      params:
+        noun: { type: string, enum: [game, vid, channel], required: false }
+        ref:  { type: string, required: false, hint: "numeric id or @handle" }
+      input: "breakdowns"
+      input_suffixes:
+        noun: " %{value}"
+        ref:  " %{value}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -889,6 +966,13 @@ verbs:
 
   shinies:
     description: pito.grammar.chat.shinies
+    mcp:
+      tool: pito_shinies
+      description: "Show the shinies (achievement chips / award ladders) earned by a game, vid, or channel."
+      params:
+        noun: { type: string, enum: [game, vid, channel], required: true }
+        ref:  { type: string, required: true, hint: "numeric id or @handle" }
+      input: "shinies %{noun} %{ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::Shinies
@@ -1162,6 +1246,12 @@ verbs:
     # `games channel @h` drives the channel's games grid — shape-routing keeps
     # the two surfaces apart (`/games …` slash vs bare `games …` chat).
     description: pito.grammar.chat.games
+    mcp:
+      tool: pito_games
+      description: "List the games a channel plays (by @handle)."
+      params:
+        channel_ref: { type: string, required: true, hint: "channel @handle" }
+      input: "games channel %{channel_ref}"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentVerb
@@ -1272,3 +1362,19 @@ verbs:
       slots: []
       dispatch:
         client: theme
+
+# ── MCP reader tools (G130) — no backing verb; read persisted app history ────────
+# Declared here (a sibling of `verbs:`, not a verb) because they dispatch NOTHING
+# through the Router: the Pito::Mcp readers SELECT persisted Conversation/Event rows
+# (source: "app" only) and project them through Pito::Mcp::EventText. Read-only by
+# construction — there is no chat/slash/reply surface. See docs/claude/mcp.md.
+mcp_readers:
+  pito_conversations:
+    tool: pito_conversations
+    description: "List your saved conversations (recency-grouped): uuid, title, and last activity. Pass a uuid to pito_messages to read one."
+  pito_messages:
+    tool: pito_messages
+    description: "Read recent messages from a conversation, newest last. Defaults to the latest active conversation. Call again for fresher state — pito is pull-only, there is no push."
+    params:
+      conversation_uuid: { type: string,  required: false, hint: "from pito_conversations; defaults to the latest active conversation" }
+      limit:             { type: integer, required: false, hint: "how many recent messages (default 30)" }

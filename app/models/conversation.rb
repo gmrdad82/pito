@@ -11,6 +11,13 @@ class Conversation < ApplicationRecord
 
   validates :uuid, uniqueness: { case_sensitive: true }
 
+  # ── Source (G130): app scrollback vs the read-only MCP anchor ────────────────
+  # "app" — the owner's real conversations (sidebar, resume, auto-purge, singleton).
+  # "mcp" — the ONE anchor the read-only MCP Executor dispatches against; context
+  # only, it never gains events and never appears in any app-facing listing.
+  SOURCES = %w[app mcp].freeze
+  validates :source, inclusion: { in: SOURCES }
+
   # ── Routing ─────────────────────────────────────────────────
   # Use the UUID in URLs instead of the numeric primary key.
   def to_param
@@ -58,16 +65,29 @@ class Conversation < ApplicationRecord
   end
 
   # ── Query helpers ────────────────────────────────────────────
+  # The primary APP conversation (source-scoped so it can never grab the MCP
+  # anchor). Callers that mean "the owner's current conversation" use this.
   def self.singleton
-    first_or_create!
+    where(source: "app").first_or_create!
   end
 
-  # Returns conversations ordered by last activity (most recent first).
+  # The single MCP anchor (source: "mcp"). The read-only Executor needs a
+  # persisted conversation id (handle minting, scope/period state) but never
+  # persists its events, so this row stays empty forever. Excluded from
+  # singleton / by_recent_activity, so it never leaks into the app scrollback,
+  # the resume sidebar, or the nightly auto-purge.
+  def self.mcp_anchor
+    where(source: "mcp").first_or_create!
+  end
+
+  # Returns APP conversations ordered by last activity (most recent first).
   # "Last activity" = MAX(events.created_at) for the conversation, falling
   # back to the conversation's own created_at when it has no events.
-  # Each returned record has a `last_activity_at` virtual attribute.
+  # Each returned record has a `last_activity_at` virtual attribute. The MCP
+  # anchor is excluded (source: "app"), so it never surfaces in resume/purge.
   def self.by_recent_activity
-    left_joins(:events)
+    where(source: "app")
+      .left_joins(:events)
       .select(
         "conversations.*",
         "COALESCE(MAX(events.created_at), conversations.created_at) AS last_activity_at"

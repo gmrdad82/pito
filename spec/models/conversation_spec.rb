@@ -177,6 +177,57 @@ RSpec.describe Conversation, type: :model do
     end
   end
 
+  describe "source separation (G130 — the MCP anchor)" do
+    it "rejects a source outside app/mcp" do
+      expect(build(:conversation, source: "bogus")).not_to be_valid
+    end
+
+    describe ".mcp_anchor" do
+      it "creates a single source: 'mcp' conversation" do
+        expect(Conversation.mcp_anchor.source).to eq("mcp")
+      end
+
+      it "returns the same anchor across calls" do
+        expect(Conversation.mcp_anchor).to eq(Conversation.mcp_anchor)
+      end
+    end
+
+    describe ".singleton" do
+      it "returns a source: 'app' conversation" do
+        expect(Conversation.singleton.source).to eq("app")
+      end
+
+      it "never returns the mcp anchor, even when it is the only existing row" do
+        anchor    = Conversation.mcp_anchor
+        singleton = Conversation.singleton
+        expect(singleton).not_to eq(anchor)
+        expect(singleton.source).to eq("app")
+      end
+    end
+
+    describe "app-facing listings exclude the anchor" do
+      let!(:anchor)  { Conversation.mcp_anchor }
+      let!(:app_conv) { create(:conversation) }
+
+      it "by_recent_activity omits the mcp anchor" do
+        ids = Conversation.by_recent_activity.map(&:id)
+        expect(ids).to include(app_conv.id)
+        expect(ids).not_to include(anchor.id)
+      end
+
+      it "recency_groups omits the mcp anchor" do
+        groups  = Conversation.recency_groups
+        all_ids = (groups[:recent] + groups[:older]).map(&:id)
+        expect(all_ids).not_to include(anchor.id)
+      end
+
+      it "purgeable never selects the mcp anchor" do
+        purgeable_ids = Conversation.purgeable(older_than: 1.day.from_now).map(&:id)
+        expect(purgeable_ids).not_to include(anchor.id)
+      end
+    end
+  end
+
   describe "#context_event_count" do
     it "counts only :system, :enhanced, :confirmation messages (not thinking/echo/follow-ups)" do
       conv = create(:conversation)

@@ -74,6 +74,54 @@ session cookie is `SameSite=lax`. The skip is keyed on `request.media_type`
 `401 {error: "unauthenticated"}` from `Sessions::AuthConcern` instead of the
 browser redirect-to-root.
 
+## MCP server (read-only — G130)
+
+A second non-browser surface: an AI chat client (claude.ai, ChatGPT, any MCP
+client) connects over the Model Context Protocol and READS PITO. Strictly
+read-only, OAuth-gated, and isolated in its own container.
+
+- **Ontology is config.** Every tool is declared ONCE in `config/pito/verbs.yml`
+  — a per-verb `mcp:` block promotes a read-only chat verb to a tool, and a
+  top-level `mcp_readers:` block declares the two verb-less readers
+  (`pito_conversations`, `pito_messages`). No Ruby tool tables. `Pito::Dispatch::
+Schema` validates the blocks (read-only allowlist, unique tool names, template
+  placeholders ⊆ params); the add-a-tool proof pins the config-only contract.
+- **`Pito::Mcp::Registry`** projects those blocks into the MCP `tools/list` JSON
+  (name + description + JSON-Schema `inputSchema`).
+- **`Pito::Mcp::Executor`** builds the chat grammar string from a tool call's
+  `input` template + `input_suffixes` (arrays comma-joined; `period` forwarded to
+  `Router.call`), routes it through the UNMODIFIED `Pito::Dispatch::Router`, and
+  projects the Result via `Pito::Mcp::EventText`. It NEVER persists (the dispatch
+  jobs — which persist + broadcast — are never invoked). `Pito::Mcp::AnalyticsFill`
+  computes the three pending-analytics families (glance / analyze+breakdowns /
+  channel-distribution) INLINE via the same services the fill jobs use, so a caller
+  never receives a "pending" marker. `Pito::Mcp::EventText` renders payloads to
+  markdown (tables → GH tables, breakdowns → % lists, cards de-HTML'd).
+- **Readers** (`Pito::Mcp::Readers`) SELECT persisted `source: "app"` rows only.
+- **Conversation separation.** `conversations.source` is `app` | `mcp`. The
+  Executor dispatches against `Conversation.mcp_anchor` (a single `source: "mcp"`
+  row, context only — its events are never persisted). `singleton` and
+  `by_recent_activity` (→ resume sidebar, `/resume.json`, auto-purge) scope to
+  `source: "app"`, so the anchor never leaks into any app-facing listing.
+- **Endpoint.** `McpController` (`ActionController::Base`, no cookie session) serves
+  JSON-RPC 2.0 at `POST /mcp` (protocol `2025-06-18`): `initialize`,
+  `notifications/initialized`, `tools/list`, `tools/call`, `ping`. Bearer-gated
+  (`Pito::Mcp::Auth` → `OauthToken`); a missing/invalid token gets `401` +
+  `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource"`.
+- **OAuth 2.1 (hand-rolled, public clients).** Three tables (`oauth_clients`,
+  `oauth_codes`, `oauth_tokens` — digests only, never a raw secret), four endpoints
+  (`/oauth/register` RFC 7591, `GET/POST /oauth/authorize` = the TOTP consent page,
+  `/oauth/token` = PKCE-S256 code exchange + refresh), and two discovery docs
+  (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`).
+  PKCE is mandatory; codes are single-use + 5-minute; access tokens are 24h and
+  rotate on refresh; refresh tokens never expire (revocation only — the owner
+  approves once per client with one TOTP). Consent reuses `Pito::Auth::TotpVerifier`
+  - the `SessionThrottle` IP throttle; comparisons are timing-safe.
+- **Container.** `docker-compose.yml` runs a dedicated `pito-mcp` Puma (same image,
+  `-p 3001`, no SolidQueue supervisor) exposed at `127.0.0.1:3029`; cloudflared on
+  the host routes `^/(mcp|oauth|\.well-known)` there and everything else to `web`,
+  so a stuck tool call cannot starve the app/APK/TUI workers.
+
 ## UI stack
 
 - **CSS**: Tailwind v4 via `tailwindcss-rails`. Theme tokens as CSS custom

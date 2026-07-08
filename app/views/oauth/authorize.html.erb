@@ -1,0 +1,40 @@
+<h1 class="mb-4">Authorize <span class="font-bold"><%= @client.name %></span></h1>
+
+<p class="text-fg-dim mb-4">
+  This app is asking to connect to PITO with <span class="font-bold">read-only</span>
+  access — it can list and read your games, videos, channels, analytics, and past
+  conversations. It cannot import, edit, publish, delete, schedule, or change
+  anything.
+</p>
+
+<details class="mb-4 text-fg-dim">
+  <summary class="cursor-pointer">Tools it will be able to call (<%= @tools.size %>)</summary>
+  <ul class="mt-2 pl-4">
+    <% @tools.each do |tool| %>
+      <li>· <span class="text-fg"><%= tool[:name] %></span> — <%= tool[:description] %></li>
+    <% end %>
+  </ul>
+</details>
+
+<% if @error.present? %>
+  <p class="mb-4 font-bold"><%= @error %></p>
+<% end %>
+
+<%= form_with url: oauth_authorize_path, method: :post, local: true do %>
+  <%= hidden_field_tag :client_id,             params[:client_id] %>
+  <%= hidden_field_tag :redirect_uri,          params[:redirect_uri] %>
+  <%= hidden_field_tag :response_type,         params[:response_type] %>
+  <%= hidden_field_tag :code_challenge,        params[:code_challenge] %>
+  <%= hidden_field_tag :code_challenge_method, params[:code_challenge_method] %>
+  <%= hidden_field_tag :state,                 params[:state] %>
+
+  <label for="totp_code" class="block mb-2">Enter your current 6-digit code to approve:</label>
+  <%= text_field_tag :totp_code, nil,
+        id: "totp_code", autocomplete: "one-time-code", inputmode: "numeric",
+        pattern: "\\d{6}", maxlength: 6, autofocus: true,
+        class: "w-full border border-default bg-root text-fg p-2 mb-4" %>
+
+  <div class="flex gap-3">
+    <%= submit_tag "Approve", class: "border border-default px-4 py-2 font-bold cursor-pointer" %>
+  </div>
+<% end %>
