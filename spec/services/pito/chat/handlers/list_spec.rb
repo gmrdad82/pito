@@ -23,6 +23,39 @@ RSpec.describe Pito::Chat::Handlers::List do
     Array(payload["table_rows"]).map { |row| row[:cells][1][:text] }
   end
 
+  # ── Explicit ids: `list videos 2, #4, 7` → exactly those, typed order ────────
+
+  describe "list <noun> <ids>" do
+    let!(:ch) { create(:channel) }
+    let!(:v1) { create(:video, channel: ch, title: "One") }
+    let!(:v2) { create(:video, channel: ch, title: "Two") }
+    let!(:v3) { create(:video, channel: ch, title: "Three") }
+
+    it "lists exactly the named vids in the typed order" do
+      payload = handler_for("list videos #{v3.id}, ##{v1.id}").call.events.first[:payload]
+      expect(video_titles(payload)).to eq(%w[Three One])
+    end
+
+    it "still works for a single id" do
+      payload = handler_for("list videos #{v2.id}").call.events.first[:payload]
+      expect(video_titles(payload)).to eq(%w[Two])
+    end
+
+    it "bypasses the channel scope (you named the rows)" do
+      other = create(:channel, handle: "@other")
+      payload = handler_for("list videos #{v1.id}", channel: other.at_handle).call.events.first[:payload]
+      expect(video_titles(payload)).to eq(%w[One])
+    end
+
+    it "lists games by id too" do
+      g1 = create(:game, title: "Alpha")
+      g2 = create(:game, title: "Beta")
+      payload = handler_for("list games #{g2.id}, #{g1.id}").call.events.first[:payload]
+      titles  = Array(payload["table_rows"]).map { |r| r[:cells][1][:text] }
+      expect(titles).to eq(%w[Beta Alpha])
+    end
+  end
+
   # ── Width-aware default columns ─────────────────────────────────────────────
 
   describe "width-aware default columns" do

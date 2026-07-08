@@ -31,12 +31,14 @@ module Pito
           event.payload.is_a?(Hash) && event.payload.dig("analytics", "status") == "pending"
         end
 
+        # `scope` is a single Video/Game/Channel OR an Array of same-level records
+        # (multi-id `at-a-glance videos 2,3,4` → one combined glance over the set).
         def pending(scope, period: nil, conversation: nil)
           # The glance always shows lifetime data — force "lifetime" regardless of
           # the period arg (which may come from the user's `show` context).
           glance_period = "lifetime"
           token         = SecureRandom.hex(4)
-          intro = Pito::Copy.render_html("pito.copy.analytics.intro", { title: scope.title }, shimmer: [ :title ])
+          intro = Pito::Copy.render_html("pito.copy.analytics.intro", { title: scope_title(scope) }, shimmer: [ :title ])
           payload = {
             "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, pending: true, token: token)),
             "html"      => true,
@@ -69,16 +71,29 @@ module Pito
           end
         end
 
+        # Single scope → scope_id; a set → scope_ids (both derive scope_type from the
+        # member class, so the fill job reconstructs the right entity/entities).
         def marker(status, scope:, period:, intro:, token: nil)
+          multi = scope.is_a?(Array)
           {
             "status"      => status,
-            "scope_type"  => scope&.class&.name,
-            "scope_id"    => scope&.id,
+            "scope_type"  => (multi ? scope.first : scope)&.class&.name,
+            "scope_id"    => multi ? nil : scope&.id,
+            "scope_ids"   => multi ? scope.map(&:id) : nil,
             "period"      => period,
             "intro"       => intro,
             "token"       => token,
             "metric_keys" => token ? Pito::Analytics::ScalarsTableComponent::GLANCE_METRICS.map { |m| m[:key].to_s } : nil
           }.compact
+        end
+
+        # A single entity's own title, or "N vids/games/channels" for a set.
+        MULTI_PLURALS = { "Video" => "vids", "Game" => "games", "Channel" => "channels" }.freeze
+
+        def scope_title(scope)
+          return scope.title unless scope.is_a?(Array)
+
+          "#{scope.size} #{MULTI_PLURALS.fetch(scope.first&.class&.name, 'items')}"
         end
       end
     end

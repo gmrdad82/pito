@@ -67,6 +67,13 @@ module Pito
           end
         when ::Channel
           usable?(scope) ? [ [ scope, [] ] ] : [] # [] videos → whole channel, no filter
+        when Array
+          # A SET of same-level entities (multi-id at-a-glance) — flatten each
+          # member's channel groups and MERGE by channel so a channel is fetched
+          # once with the union of its video ids (an empty list = whole channel).
+          scope.flat_map { |member| channel_groups(member) }
+               .group_by { |channel, _ids| channel.id }
+               .map { |_id, pairs| [ pairs.first.first, pairs.flat_map { |_ch, ids| ids }.uniq ] }
         else
           []
         end

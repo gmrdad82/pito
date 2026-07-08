@@ -79,6 +79,25 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyticsGlance, type: :service do
     expect(Pito::Dispatch::Matrix.actions_for("analytics_glance")).to include("analyze")
   end
 
+  # ── combined (multi-id) glance: analyze re-runs over the whole set ───────────
+
+  describe "#call — analyze on a COMBINED (scope_ids) glance" do
+    let!(:video2) { create(:video, channel:) }
+    let(:multi_glance) do
+      build_glance_event(payload_overrides: {
+        "analytics" => { "scope_id" => nil, "scope_ids" => [ video.id, video2.id ] }
+      })
+    end
+
+    it "analyzes the whole set — entity_ids = both ids, title '2 vids'" do
+      allow(Pito::MessageBuilder::Analyze::Message).to receive(:pair).and_return([])
+      handler.call(event: multi_glance, rest: "analyze", conversation:)
+      expect(Pito::MessageBuilder::Analyze::Message).to have_received(:pair).with(
+        hash_including(level: :vid, entity_ids: [ video.id, video2.id ], title: "2 vids")
+      )
+    end
+  end
+
   # ── with <metric> → new analyze pair ────────────────────────────────────────
 
   describe "#call — with <metric>" do

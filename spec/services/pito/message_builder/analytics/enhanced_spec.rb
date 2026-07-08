@@ -234,4 +234,30 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
       end
     end
   end
+
+  # Multi-id at-a-glance: `.pending` accepts a SET of same-level records and emits
+  # one combined pending glance whose marker carries scope_ids for the fill.
+  describe ".pending over a set (combined glance)" do
+    let(:video2) { create(:video, channel: channel, title: "Boss Fight Encore") }
+
+    subject(:payload) { described_class.pending([ video, video2 ], period: "lifetime") }
+
+    it "stores scope_ids (not a single scope_id) in the marker" do
+      expect(payload.dig("analytics", "scope_ids")).to eq([ video.id, video2.id ])
+      expect(payload.dig("analytics", "scope_id")).to be_nil
+    end
+
+    it "keeps scope_type as the member class" do
+      expect(payload.dig("analytics", "scope_type")).to eq("Video")
+    end
+
+    it "titles the intro as 'N vids'" do
+      expect(payload["body"]).to include("2 vids")
+    end
+
+    it "is still a pending glance the fill job recognises" do
+      event = build_stubbed(:event, payload:)
+      expect(described_class.pending?(event)).to be(true)
+    end
+  end
 end
