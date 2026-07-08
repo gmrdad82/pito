@@ -12,6 +12,21 @@ module Pito
     class PullRefreshHintComponent < ViewComponent::Base
       TEMPLATE_ID = "pito-pull-refresh-hint"
 
+      # Decorative ASCII arrow rows above / below the shrug line, before the
+      # arming circle. A taller stack = a longer, more deliberate pull reveal
+      # (the JS caps the lift so the whole block, circle included, shows at the
+      # arm threshold). Rows total = ARROWS_BEFORE + shrug + ARROWS_AFTER + circle.
+      ARROWS_BEFORE = 3
+      ARROWS_AFTER  = 6
+
+      def arrows_before
+        ARROWS_BEFORE
+      end
+
+      def arrows_after
+        ARROWS_AFTER
+      end
+
       # Same gate as the refresh nudge: the scrollback is an authenticated
       # surface, and anonymous layouts stay free of chrome templates.
       def render?

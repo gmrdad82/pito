@@ -25,8 +25,8 @@
 import { Controller } from "@hotwired/stimulus"
 
 const NATIVE_MARKER = "Hotwire Native"
-const THRESHOLD_PX  = 150  // pull distance that arms the reload (deliberately stiff)
-const MAX_LIFT_PX   = 150  // visual cap — reveals the full 5-row ASCII block
+const THRESHOLD_PX  = 150  // pull distance that arms the reload (deliberately stiff; trigger effort unchanged)
+const MAX_LIFT_PX   = 340  // visual cap — reveals the full taller ASCII block (3 arrows + shrug + 6 arrows + circle) so the arming circle is visible at THRESHOLD (keep in sync with PullRefreshHintComponent::ARROWS_BEFORE/AFTER)
 
 export default class extends Controller {
   connect() {
@@ -72,7 +72,7 @@ export default class extends Controller {
     const delta = this.startY - event.touches[0].clientY
     this.pull = Math.max(delta, 0)
 
-    // Reveal proportionally so the full 5-row block is showing right as the
+    // Reveal proportionally so the full ASCII block is showing right as the
     // pull reaches THRESHOLD (and the circle row arms).
     const lift = Math.min((this.pull / THRESHOLD_PX) * MAX_LIFT_PX, MAX_LIFT_PX)
     this.element.style.transition = "none"
@@ -96,14 +96,15 @@ export default class extends Controller {
       this._reload()
       return
     }
-    // Spring back
+    // Spring back, and REMOVE the hint from the DOM. It is `display:flex` so an
+    // idle opacity:0 block still occupies layout height — leaving it appended left
+    // a permanent dead gap at the bottom of the scrollback after any pull (and a
+    // bare tap that reached #end used to clone one in). It is re-cloned lazily on
+    // the next pull, so the reveal is unaffected. (Do NOT call #hint() here — that
+    // clones.)
     this.element.style.transition = "transform 150ms ease-out"
     this.element.style.transform  = ""
-    const hint = this.#hint()
-    if (hint) {
-      hint.style.opacity = 0
-      hint.classList.remove("is-armed")
-    }
+    this.element.querySelector("[data-pull-refresh-hint]")?.remove()
   }
 
   // The shrug indicator, cloned lazily from the layout's server-rendered

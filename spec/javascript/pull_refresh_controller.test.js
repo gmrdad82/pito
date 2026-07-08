@@ -114,11 +114,25 @@ describe("pito--pull-refresh controller", () => {
     el.dispatchEvent(touchEvent("touchmove", 500 - (THRESHOLD_PX + 10)))
     expect(hint.classList.contains("is-armed")).toBe(true)
 
-    // Short release resets it
+    // Short release springs back AND removes the hint from the DOM, so it never
+    // lingers as invisible dead space at the bottom of the scrollback.
     el.dispatchEvent(touchEvent("touchmove", 460))
     el.dispatchEvent(touchEvent("touchend", 460))
-    expect(hint.classList.contains("is-armed")).toBe(false)
-    expect(String(hint.style.opacity)).toBe("0")
+    expect(el.querySelector("[data-pull-refresh-hint]")).toBeNull()
+  })
+
+  it("does not spawn a hint (dead space) on a bare touch that never pulls (G-fix)", async () => {
+    await build({ native: true })
+    fakeGeometry(el, { atBottom: true })
+
+    const template = document.createElement("template")
+    template.id = "pito-pull-refresh-hint"
+    template.innerHTML = '<div class="pito-pull-hint" data-pull-refresh-hint>shrug</div>'
+    document.body.appendChild(template)
+
+    el.dispatchEvent(touchEvent("touchstart", 500))
+    el.dispatchEvent(touchEvent("touchend", 500)) // no movement
+    expect(el.querySelector("[data-pull-refresh-hint]")).toBeNull()
   })
 
   it("lifts the pane during the drag as feedback (capped)", async () => {
@@ -126,10 +140,10 @@ describe("pito--pull-refresh controller", () => {
     fakeGeometry(el, { atBottom: true })
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 60px
-    expect(el.style.transform).toBe("translateY(-60px)")
+    el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 60*(340/150) = 136px
+    expect(el.style.transform).toBe("translateY(-136px)")
 
-    el.dispatchEvent(touchEvent("touchmove", 200)) // pull = 300 → capped at 150px
-    expect(el.style.transform).toBe("translateY(-150px)")
+    el.dispatchEvent(touchEvent("touchmove", 200)) // pull = 300 → capped at MAX_LIFT 340px
+    expect(el.style.transform).toBe("translateY(-340px)")
   })
 })
