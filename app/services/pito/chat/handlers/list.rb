@@ -133,6 +133,22 @@ module Pito
 
         private
 
+        # Explicit ids typed after the noun — `list videos 2, #4, #5, 7` → [2, 4, 5, 7]
+        # (comma and/or space separated, optional `#`). When present, the list is
+        # EXACTLY those entities: channel scope + visibility filter are bypassed (you
+        # named the rows). Only STANDALONE numeric tokens count — digits inside a word
+        # (`ps5`, `2077`-as-a-genre) never read as ids. Order is the typed order.
+        def explicit_ids
+          message.raw.split(/[\s,]+/).filter_map { |t| Regexp.last_match(1).to_i if t.match(/\A#?(\d+)\z/) }.uniq
+        end
+
+        # Order a relation/array by the typed id order and render as a list payload
+        # via the given builder, preserving the id sequence the user asked for.
+        def id_ordered(records, ids)
+          by_id = records.index_by(&:id)
+          ids.filter_map { |id| by_id[id] }
+        end
+
         # Returns the part of the raw input that precedes the first clause keyword
         # (`with`, or a sort verb: sort/sorted/order/ordered). The noun is detected
         # from this head so that column names inside a clause (e.g. the games
@@ -152,6 +168,9 @@ module Pito
         # of listing. Checked against the head only, so `with <columns>` /
         # `sorted by` clauses never trip it.
         def list_games(head)
+          ids = explicit_ids
+          return games_by_ids_result(ids) if ids.any?
+
           return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
           game_suggestions = Pito::Chat::GameListFilter.suggestions(head)
@@ -306,13 +325,21 @@ module Pito
         # 3. Parse extra columns from `with` clause.
         # 4. Order by title ASC; eager-load associations needed for columns.
         def list_videos
-          # Resolve channel scope.
-          scoped, error = channel_scoped_videos
-          return error if error
+          ids = explicit_ids
 
-          # Apply privacy filter.
-          filter_key = visibility_filter_from(message.raw)
-          scoped     = scoped.public_send(filter_key) if filter_key
+          if ids.any?
+            # `list videos 2, #4, 7` → exactly those vids (channel scope + privacy
+            # filter bypassed — you named the rows), in the typed order.
+            scoped = ::Video.where(id: ids)
+          else
+            # Resolve channel scope.
+            scoped, error = channel_scoped_videos
+            return error if error
+
+            # Apply privacy filter.
+            filter_key = visibility_filter_from(message.raw)
+            scoped     = scoped.public_send(filter_key) if filter_key
+          end
 
           # Parse extra columns.
           columns = Pito::Chat::WithColumns.parse(
@@ -328,6 +355,9 @@ module Pito
           if videos.empty?
             return videos_empty(channel)
           end
+
+          # Explicit-id list: render exactly those, in the typed order, unpaginated.
+          return videos_by_ids_result(videos, ids, columns) if ids.any?
 
           sort = Pito::Chat::SortClause.parse(message.raw)
           if sort
@@ -369,6 +399,28 @@ module Pito
             payload["list_footer"] = [ payload["list_footer"].presence, more_text ].compact.join(" ")
           end
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+        end
+
+        # `list <noun> <ids>` → the named rows in the typed order, unpaginated (an
+        # explicit id set is a bounded pick, not a page to walk).
+        def videos_by_ids_result(videos, ids, columns)
+          rows    = id_ordered(videos.to_a, ids)
+          payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
+        end
+
+        # `list games 2, #4, 7` → exactly those games in the typed order.
+        def games_by_ids_result(ids)
+          columns = Pito::Chat::WithColumns.parse(
+            message.raw, vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
+          )
+          columns = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns) if columns.empty?
+          games   = self.class.games_relation(::Game.where(id: ids), columns:)
+          return games_empty if games.empty?
+
+          rows    = id_ordered(games.to_a, ids)
+          payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
 
         # Returns [relation, nil] or [nil, Result::Ok(error event)] for unknown handle.

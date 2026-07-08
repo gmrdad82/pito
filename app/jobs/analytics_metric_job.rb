@@ -23,7 +23,7 @@ class AnalyticsMetricJob < ApplicationJob
     turn        = event.turn
     broadcaster = Pito::Stream::Broadcaster.new(conversation: turn.conversation)
     token       = marker["token"]
-    scope       = resolve_scope(marker["scope_type"], marker["scope_id"])
+    scope       = resolve_scope(marker)
 
     cell = scope ? Pito::Analytics::MetricFill.for(scope:, period: marker["period"], key:) : Pito::Analytics::MetricFill::UNAVAILABLE
     swap_cell(broadcaster, token:, key:, cell:)
@@ -100,7 +100,7 @@ class AnalyticsMetricJob < ApplicationJob
 
   # Build the filled ready payload from the stashed primitives (no YouTube calls).
   def ready_payload(event, marker, store)
-    scope   = resolve_scope(marker["scope_type"], marker["scope_id"])
+    scope   = resolve_scope(marker)
     metrics = (store["metrics"] || {}).each_with_object({}) { |(k, v), h| h[k.to_sym] = { current: v["current"], previous: v["previous"] } }
     result  = Pito::Analytics::Scalars::Result.new(metrics:, label: window_label(marker["period"]), comparable: false)
     series  = (store["series"] || {}).transform_keys(&:to_sym)
@@ -125,9 +125,17 @@ class AnalyticsMetricJob < ApplicationJob
     Pito::Analytics::Scalars::Result.new(metrics: {}, label: "", comparable: false)
   end
 
-  def resolve_scope(type, id)
-    return nil unless %w[Video Game Channel].include?(type.to_s)
+  # Single scope (scope_id) or a SET (scope_ids → an Array the Scalars/MetricFill
+  # channel-group walk aggregates). nil when the type is unknown or nothing resolves.
+  def resolve_scope(marker)
+    type = marker["scope_type"].to_s
+    return nil unless %w[Video Game Channel].include?(type)
 
-    type.constantize.find_by(id:)
+    model = type.constantize
+    if (ids = marker["scope_ids"]).present?
+      model.where(id: ids).to_a.presence
+    else
+      model.find_by(id: marker["scope_id"])
+    end
   end
 end

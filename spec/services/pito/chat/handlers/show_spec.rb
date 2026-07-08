@@ -468,6 +468,21 @@ RSpec.describe Pito::Chat::Handlers::Show do
       events = handler_with(period: nil, conversation: conv).call.events
       expect(analytics_period_from(events)).to eq("lifetime")
     end
+
+    it "at-a-glance over multiple vid ids → ONE combined glance (scope_ids, '2 vids')" do
+      ch = create(:channel)
+      v1 = create(:video, channel: ch, title: "A")
+      v2 = create(:video, channel: ch, title: "B")
+
+      result = Pito::Dispatch::Router.call(
+        input: "at-a-glance videos #{v1.id},#{v2.id}",
+        conversation: Conversation.singleton, channel: "@all", period: nil, viewport_width: 900
+      )
+      glance = result.events.find { |e| e[:payload]["analytics"] }
+      expect(glance[:payload].dig("analytics", "scope_ids")).to match_array([ v1.id, v2.id ])
+      expect(glance[:payload].dig("analytics", "scope_id")).to be_nil
+      expect(glance[:payload]["body"]).to include("2 vids")
+    end
   end
 
   # ── Channel branch — @handle resolution ───────────────────────────────────────

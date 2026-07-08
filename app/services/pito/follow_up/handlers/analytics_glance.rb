@@ -33,7 +33,7 @@ module Pito
 
           pair = Pito::MessageBuilder::Analyze::Message.pair(
             level:        scope[:level],
-            entity_ids:   [ scope[:id] ],
+            entity_ids:   scope[:ids],
             title:        scope[:title],
             period:       period.presence || conversation.stats_period,
             conversation:,
@@ -45,29 +45,33 @@ module Pito
 
         private
 
-        # Entity from the glance's analytics marker → { level:, id:, title: }.
+        PLURALS = { vid: "vids", game: "games", channel: "channels" }.freeze
+        MODELS  = { "Video" => ::Video, "Game" => ::Game, "Channel" => ::Channel }.freeze
+        LEVELS  = { "Video" => :vid, "Game" => :game, "Channel" => :channel }.freeze
+
+        # Entity/entities from the glance's analytics marker → { level:, ids:, title: }.
+        # Handles a single glance (scope_id) AND a combined multi-id glance (scope_ids)
+        # so `analyze` / `with` / `without` on either re-runs over the same scope.
         def resolve_scope(event)
           marker = event.payload["analytics"] || {}
-          record =
-            case marker["scope_type"]
-            when "Video"   then ::Video.find_by(id: marker["scope_id"])
-            when "Game"    then ::Game.find_by(id: marker["scope_id"])
-            when "Channel" then ::Channel.find_by(id: marker["scope_id"])
-            end
-          return nil unless record
+          model  = MODELS[marker["scope_type"]]
+          return nil unless model
 
-          level =
-            case marker["scope_type"]
-            when "Game"    then :game
-            when "Channel" then :channel
-            else                :vid
-            end
+          ids     = marker["scope_ids"].presence || Array(marker["scope_id"]).compact
+          records = model.where(id: ids).to_a
+          return nil if records.empty?
 
-          {
-            level: level,
-            id:    record.id,
-            title: record.respond_to?(:at_handle) ? record.at_handle : record.title
-          }
+          level = LEVELS.fetch(marker["scope_type"], :vid)
+          { level:, ids: records.map(&:id), title: scope_title(level, records) }
+        end
+
+        # One entity's name/handle, or "N vids/games/channels" for a set.
+        def scope_title(level, records)
+          if records.one?
+            r = records.first
+            return r.respond_to?(:at_handle) ? r.at_handle : r.title
+          end
+          "#{records.size} #{PLURALS.fetch(level, level.to_s)}"
         end
 
         def build_selection(action, args)

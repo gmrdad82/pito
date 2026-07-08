@@ -129,6 +129,31 @@ module Pito
           call
         end
 
+        # Multi-id at-a-glance: `at-a-glance videos 2,3,4` → ONE combined glance over
+        # the set. Show is otherwise single-entity — ONLY the at-a-glance segment
+        # supports a set (analyze/breakdowns already do multi via ScopeResolver).
+        def glance_multi?
+          @forced_segment == "at-a-glance" && glance_ids.size > 1
+        end
+
+        # Ids typed after the noun — `2, #4, 5` → [2, 4, 5]. Only STANDALONE numeric
+        # tokens count (digits inside a word like `ps5` are never read as ids).
+        def glance_ids
+          message.raw.split(/[\s,]+/).filter_map { |t| Regexp.last_match(1).to_i if t.match(/\A#?(\d+)\z/) }.uniq
+        end
+
+        # Resolve the named entities and emit ONE combined pending glance; the fill
+        # pipeline aggregates the metrics across the set (Scalars/MetricFill walk the
+        # merged channel groups).
+        def emit_multi_glance(model)
+          records = model.where(id: glance_ids).to_a
+          return Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {}) if records.empty?
+
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(records, period: analytics_period, conversation:) }
+          ])
+        end
+
         private
 
         # ── Channel branch (`show channel @handle`) ──────────────────────────────
@@ -259,6 +284,8 @@ module Pito
         # ── Video branch ───────────────────────────────────────────────────────
 
         def handle_video
+          return emit_multi_glance(::Video) if glance_multi?
+
           if (ordinal = extract_ordinal)
             # Ordinal form: `show first|last [<privacy>] vid`.
             # Delegate to OrdinalResolver; not-found → existing video_not_found path.
@@ -307,6 +334,8 @@ module Pito
         # ── Game branch ────────────────────────────────────────────────────────
 
         def handle_game
+          return emit_multi_glance(::Game) if glance_multi?
+
           if (ordinal = extract_ordinal)
             # Ordinal form: `show first|last [<genre>] game`.
             # Delegate to OrdinalResolver; not-found → existing game_not_found path.

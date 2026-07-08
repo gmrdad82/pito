@@ -13,7 +13,7 @@ require "rails_helper"
 # + unknown → invalid_action Error
 #
 # Scope resolution: Video (level :vid), Game (level :game), Channel (level :channel).
-# scope_not_found: find_by returns nil.
+# scope_not_found: where returns [].
 #
 # Bug contract: a declared action that hits invalid_action is a BUG — this spec
 # will fail on that action and the failure is reported verbatim.
@@ -55,9 +55,12 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
   let(:channel_event) { glance_event(scope_type: "Channel", scope_id: 5) }
 
   before do
-    allow(::Video).to   receive(:find_by).with(id: 42).and_return(video_stub)
-    allow(::Game).to    receive(:find_by).with(id: 99).and_return(game_stub)
-    allow(::Channel).to receive(:find_by).with(id: 5).and_return(channel_stub)
+    # resolve_scope now loads the scope set via `where(id: [ids])` (handles a
+    # single glance AND a combined multi-id glance); `.to_a` on the stubbed Array
+    # returns itself.
+    allow(::Video).to   receive(:where).with(id: [ 42 ]).and_return([ video_stub ])
+    allow(::Game).to    receive(:where).with(id: [ 99 ]).and_return([ game_stub ])
+    allow(::Channel).to receive(:where).with(id: [ 5 ]).and_return([ channel_stub ])
 
     allow(Pito::MessageBuilder::Analyze::Message).to receive(:pair).and_return(sentinel_pair)
   end
@@ -178,9 +181,9 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
   describe "scope resolution — Video → level :vid" do
     subject(:result) { call(event: video_event, rest: "with views") }
 
-    it "calls ::Video.find_by with the scope_id" do
+    it "loads the scope set via ::Video.where" do
       result
-      expect(::Video).to have_received(:find_by).with(id: 42)
+      expect(::Video).to have_received(:where).with(id: [ 42 ])
     end
 
     it "returns Result::Append (not scope_not_found)" do
@@ -203,9 +206,9 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
   describe "scope resolution — Game → level :game" do
     subject(:result) { call(event: game_event, rest: "with views") }
 
-    it "calls ::Game.find_by with the scope_id" do
+    it "loads the scope set via ::Game.where" do
       result
-      expect(::Game).to have_received(:find_by).with(id: 99)
+      expect(::Game).to have_received(:where).with(id: [ 99 ])
     end
 
     it "returns Result::Append (not scope_not_found)" do
@@ -228,9 +231,9 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
   describe "scope resolution — Channel → level :channel" do
     subject(:result) { call(event: channel_event, rest: "analyze") }
 
-    it "calls ::Channel.find_by with the scope_id" do
+    it "loads the scope set via ::Channel.where" do
       result
-      expect(::Channel).to have_received(:find_by).with(id: 5)
+      expect(::Channel).to have_received(:where).with(id: [ 5 ])
     end
 
     it "returns Result::Append (not scope_not_found)" do
@@ -256,10 +259,10 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
     end
   end
 
-  describe "scope_not_found — find_by returns nil" do
+  describe "scope_not_found — where returns []" do
     let(:missing_event) { glance_event(scope_type: "Video", scope_id: 9999) }
 
-    before { allow(::Video).to receive(:find_by).with(id: 9999).and_return(nil) }
+    before { allow(::Video).to receive(:where).with(id: [ 9999 ]).and_return([]) }
 
     subject(:result) { call(event: missing_event, rest: "with views") }
 
