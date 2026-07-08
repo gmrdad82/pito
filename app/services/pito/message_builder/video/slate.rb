@@ -5,38 +5,32 @@ module Pito
     module Video
       # Builds the `schedule <id> slate` upcoming-schedule planning view.
       #
-      # Lists SCHEDULED videos (privacy_status :private + a FUTURE publish_at),
-      # excluding the reference vid, filtered by the conversation's channel scope
-      # (shift+tab) and bounded by its stats period (shift+space):
+      # ONE combined :system list of SCHEDULED videos (privacy_status :private + a
+      # FUTURE publish_at), excluding the reference vid, filtered by the
+      # conversation's channel scope (shift+tab) and bounded by its stats period
+      # (shift+space), ordered by go-live (publish_at asc).
       #
-      #   * a :system WEEK message (next 7 days) — ALWAYS emitted.
-      #   * a :enhanced REST message (day 8 … end of period) — ONLY when the period
-      #     is wider than 7 days AND the rest window holds scheduled vids.
-      #
-      # Both reuse Video::List with the [channel, scheduled, game] columns, so the
-      # table looks exactly like `list videos`. Empty windows yield witty copy.
+      # Columns: # (id), Title, Channel, Go-live — the last a HUMAN relative date
+      # ("in 3 hours", "tomorrow at noon", "on 1st of March") via the slate-only
+      # `:scheduled` column, so near vs far reads at a glance without a week/rest
+      # split. Reuses Video::List, so the table stays repliable (show/sort/with/…).
+      # An empty period yields witty copy.
       module Slate
         module_function
 
-        COLUMNS   = %i[channel game].freeze
+        COLUMNS   = %i[channel scheduled].freeze
         WEEK_DAYS = 7
 
         # period token → window length in days. `lifetime` ⇒ no upper bound; an
         # unrecognised / discrete future period (e.g. "May") collapses to a
-        # week-only window, where an empty rest is a perfectly valid result.
+        # week-only window, where an empty result is a perfectly valid outcome.
         PERIOD_DAYS = { "7d" => 7, "28d" => 28, "1m" => 30, "3m" => 90, "1y" => 365 }.freeze
 
-        # @return [Array<Hash>] one or two events ({ kind:, payload: }).
+        # @return [Array<Hash>] a single event ({ kind:, payload: }).
         def call(exclude_id:, channel_scope:, period:, conversation:, now: Time.current)
           window_end = window_end_for(period, now)
           videos     = scheduled_videos(exclude_id:, channel_scope:, now:, window_end:)
-
-          week_cutoff = now + WEEK_DAYS.days
-          week, rest  = videos.partition { |v| v.publish_at <= week_cutoff }
-
-          events = [ week_event(week, conversation) ]
-          events << rest_event(rest, conversation) if beyond_week?(period, now, window_end) && rest.any?
-          events
+          [ slate_event(videos, conversation) ]
         end
 
         # ── Window ────────────────────────────────────────────────────────────
@@ -47,12 +41,6 @@ module Pito
 
           days = PERIOD_DAYS[token] || WEEK_DAYS # unknown/discrete → week only
           now + days.days
-        end
-
-        def beyond_week?(period, now, window_end)
-          return true if period.to_s == "lifetime"
-
-          window_end.present? && window_end > now + WEEK_DAYS.days
         end
 
         # ── Query ─────────────────────────────────────────────────────────────
@@ -75,25 +63,21 @@ module Pito
           scope.where(channel_id: ids)
         end
 
-        # ── Events ────────────────────────────────────────────────────────────
+        # ── Event ─────────────────────────────────────────────────────────────
 
-        def week_event(videos, conversation)
+        def slate_event(videos, conversation)
           payload =
             if videos.any?
-              list_payload(videos, conversation, "pito.copy.schedule.slate.week")
+              list_payload(videos, conversation)
             else
               Pito::MessageBuilder::Text.call("pito.copy.schedule.slate.empty")
             end
           { kind: :system, payload: payload }
         end
 
-        def rest_event(videos, conversation)
-          { kind: :enhanced, payload: list_payload(videos, conversation, "pito.copy.schedule.slate.rest") }
-        end
-
-        def list_payload(videos, conversation, intro_key)
+        def list_payload(videos, conversation)
           payload = Pito::MessageBuilder::Video::List.call(videos, conversation: conversation, columns: COLUMNS)
-          payload["body"] = Pito::Copy.render(intro_key, count: videos.size)
+          payload["body"] = Pito::Copy.render("pito.copy.schedule.slate.lined_up", count: videos.size)
           payload
         end
       end

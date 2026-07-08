@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::MessageBuilder::Video::ListColumns do
+  include ActiveSupport::Testing::TimeHelpers
+
   # ── vocabulary ──────────────────────────────────────────────────────────────
 
   describe ".vocabulary" do
@@ -395,6 +397,33 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(result.size).to eq(2)
       expect(result[0][:text]).to eq("10000")
       expect(result[1][:text]).to eq("500")
+    end
+  end
+
+  # The slate's :scheduled column is internal — it renders when passed explicitly,
+  # but is invisible to the with/without/sort vocabulary + options footer, so
+  # `list videos` and its column levers are unchanged.
+  describe "internal :scheduled column" do
+    it "renders the go-live time via cells when passed explicitly" do
+      travel_to(Time.zone.local(2026, 3, 1, 10, 0)) do
+        v = create(:video, :public, channel: create(:channel), title: "Sched", publish_at: Time.zone.local(2026, 3, 1, 13, 0))
+        cell = described_class.cells(v, [ :scheduled ]).first
+        expect(cell[:text]).to eq("in 3 hours")
+      end
+    end
+
+    it "is NOT in the with/without vocabulary" do
+      expect(described_class.vocabulary).not_to have_key("scheduled")
+    end
+
+    it "is NOT offered as an addable column in the options footer" do
+      footer = described_class.options_footer([]).to_s
+      expect(footer).not_to include("scheduled")
+    end
+
+    it "is NOT offered as removable even when shown" do
+      footer = described_class.options_footer([ :scheduled ]).to_s
+      expect(footer).not_to include("scheduled")
     end
   end
 end

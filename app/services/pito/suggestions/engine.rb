@@ -585,7 +585,10 @@ module Pito
           vocab   = list_columns.vocabulary
           typed   = committed.filter_map { |t| vocab[t.to_s.downcase] }
 
-          canonicals = verb == "without" ? current : (list_columns::COLUMNS.keys - current)
+          # Internal columns (e.g. Video's slate-only :scheduled) are never user-
+          # addable OR removable, so they never appear as with/without suggestions.
+          declared   = list_columns::COLUMNS.reject { |_, cfg| cfg[:internal] }.keys
+          canonicals = verb == "without" ? (current & declared) : (declared - current)
           (canonicals - typed).map { |c| list_columns.display_token(c) }
         end
 
@@ -908,7 +911,9 @@ module Pito
         # Remaining addable columns after the ones already typed in the clause.
         def with_clause_candidates(rest, with_idx, surface)
           committed = rest[(with_idx + 1)..].filter_map { |t| surface.vocabulary[t] }
-          (surface::COLUMNS.keys - default_columns_for(surface) - committed)
+          # Skip internal columns (e.g. Video's slate-only :scheduled).
+          declared = surface::COLUMNS.reject { |_, cfg| cfg[:internal] }.keys
+          (declared - default_columns_for(surface) - committed)
             .map { |c| column_display_token(surface, c) }
         end
 

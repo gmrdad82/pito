@@ -35,7 +35,9 @@ module Pito
           # [token, description] pairs for the Columns group — tokens are the
           # real parser aliases, descriptions come from copy keyed by canonical.
           def column_rows
-            ListColumns::COLUMNS.map do |canonical, cfg|
+            # PUBLIC_COLUMNS only — internal columns (e.g. the slate's :scheduled)
+            # are not user-addable, so they never appear in the help.
+            ListColumns::PUBLIC_COLUMNS.map do |canonical, cfg|
               [ cfg[:aliases].join(", "), c("col_#{canonical}_desc") ]
             end
           end
