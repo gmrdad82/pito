@@ -304,5 +304,16 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       expect(result.events.first[:payload]["text"]).to be_present
       expect(result.events.first[:payload]["table_rows"]).to be_nil
     end
+
+    it "filters to `only @handles` (union), overriding the shift+tab scope" do
+      mine   = create(:channel, handle: "@mine")
+      theirs = create(:channel, handle: "@theirs")
+      create(:video, channel: mine,   privacy_status: :private, publish_at: 2.days.from_now, title: "Mine")
+      create(:video, channel: theirs, privacy_status: :private, publish_at: 2.days.from_now, title: "Theirs")
+
+      result = schedule_real("schedule #{video.id} slate only @mine")
+      titles = result.events.first[:payload]["table_rows"].map { |r| r[:cells][1][:text] }
+      expect(titles).to eq(%w[Mine])
+    end
   end
 end

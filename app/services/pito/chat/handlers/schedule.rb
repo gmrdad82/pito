@@ -40,9 +40,12 @@ module Pito
           body = prepend_follow_up_ref(body)
           return needs_ref if body.empty?
 
-          # `schedule <id> slate` (or a reply `#<h> schedule slate`) → the
-          # upcoming-schedule planning view rather than the schedule-a-time flow.
-          return slate(body) if body.last&.value.to_s.downcase == SLATE_KEYWORD
+          # `schedule <id> slate [only @h1, @h2]` (or a reply `#<h> schedule slate`) →
+          # the upcoming-schedule planning view rather than the schedule-a-time flow.
+          # `slate` may be followed by an `only @handles` channel filter, so match it
+          # anywhere (not just as the last token).
+          slate_idx = body.index { |t| t.value.to_s.downcase == SLATE_KEYWORD }
+          return slate(body, slate_idx) if slate_idx
 
           when_result = extract_when(body)
           # when_result is either [:ok, Time, ref_tokens] or [:err, Result::Error]
@@ -102,14 +105,23 @@ module Pito
         # `schedule <id> slate` — render the upcoming-schedule planner, obeying the
         # conversation's channel scope (shift+tab) + stats period (shift+space) and
         # excluding the reference vid (the leading id, or the source vid on a reply).
-        def slate(body)
+        def slate(body, slate_idx)
           events = Pito::MessageBuilder::Video::Slate.call(
-            exclude_id:    slate_exclude_id(body[0...-1]),
+            exclude_id:    slate_exclude_id(body[0...slate_idx]),
             channel_scope: channel.presence || conversation.scope_channel,
+            only_handles:  slate_only_handles,
             period:        conversation.stats_period,
             conversation:  conversation
           )
           Pito::Chat::Result::Ok.new(events: events)
+        end
+
+        # `slate only @h1, @h2` → the explicit channel filter (union). Handles come
+        # from the raw so comma / `@` tokenisation never matters; empty when no `only`.
+        def slate_only_handles
+          return [] unless message.raw.match?(/\bonly\b/i)
+
+          message.raw.scan(/@[A-Za-z0-9_.\-]+/)
         end
 
         # The vid id to exclude from the slate: the typed leading ref, or — on a

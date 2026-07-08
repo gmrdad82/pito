@@ -82,6 +82,35 @@ RSpec.describe Pito::MessageBuilder::Video::Slate do
     end
   end
 
+  describe "only @handles filter" do
+    let!(:ch_a) { create(:channel, handle: "@a") }
+    let!(:ch_b) { create(:channel, handle: "@b") }
+    let!(:ch_c) { create(:channel, handle: "@c") }
+
+    def slate_ids(only_handles:)
+      described_class.call(
+        exclude_id: nil, channel_scope: "@all", period: "7d", conversation:, only_handles:
+      ).first[:payload]["video_ids"]
+    end
+
+    it "scopes to the UNION of the named channels, overriding shift+tab" do
+      va = scheduled(2.days.from_now, on: ch_a)
+      vb = scheduled(3.days.from_now, on: ch_b)
+      scheduled(2.days.from_now, on: ch_c) # not named → excluded
+      expect(slate_ids(only_handles: %w[@a @b])).to match_array([ va.id, vb.id ])
+    end
+
+    it "ignores unknown handles (match nothing)" do
+      va = scheduled(2.days.from_now, on: ch_a)
+      expect(slate_ids(only_handles: %w[@a @nope])).to eq([ va.id ])
+    end
+
+    it "is tolerant of missing @ and case" do
+      va = scheduled(2.days.from_now, on: ch_a)
+      expect(slate_ids(only_handles: %w[A])).to eq([ va.id ])
+    end
+  end
+
   describe "rendering" do
     it "renders the Channel + Go-live columns (Game swapped out)" do
       scheduled(Time.zone.local(2026, 6, 24, 14, 30))

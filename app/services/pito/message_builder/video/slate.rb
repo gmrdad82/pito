@@ -26,10 +26,13 @@ module Pito
         # week-only window, where an empty result is a perfectly valid outcome.
         PERIOD_DAYS = { "7d" => 7, "28d" => 28, "1m" => 30, "3m" => 90, "1y" => 365 }.freeze
 
+        # @param only_handles [Array<String>] explicit `only @h1, @h2` channel filter
+        #   → the slate is scoped to the UNION of those channels' scheduled vids,
+        #   overriding the shift+tab channel_scope. Empty = full slate (shift+tab scope).
         # @return [Array<Hash>] a single event ({ kind:, payload: }).
-        def call(exclude_id:, channel_scope:, period:, conversation:, now: Time.current)
+        def call(exclude_id:, channel_scope:, period:, conversation:, only_handles: [], now: Time.current)
           window_end = window_end_for(period, now)
-          videos     = scheduled_videos(exclude_id:, channel_scope:, now:, window_end:)
+          videos     = scheduled_videos(exclude_id:, channel_scope:, only_handles:, now:, window_end:)
           [ slate_event(videos, conversation) ]
         end
 
@@ -45,11 +48,17 @@ module Pito
 
         # ── Query ─────────────────────────────────────────────────────────────
 
-        def scheduled_videos(exclude_id:, channel_scope:, now:, window_end:)
+        def scheduled_videos(exclude_id:, channel_scope:, only_handles:, now:, window_end:)
           scope = ::Video.where(privacy_status: :private).where("publish_at > ?", now)
           scope = scope.where("publish_at <= ?", window_end) if window_end
           scope = scope.where.not(id: exclude_id) if exclude_id.present?
-          scope = filter_channel(scope, channel_scope)
+          # `only @h1, @h2` overrides the shift+tab scope with the UNION of the named
+          # channels; otherwise fall back to the single shift+tab channel scope.
+          scope = if only_handles.present?
+                    filter_channels(scope, only_handles)
+          else
+                    filter_channel(scope, channel_scope)
+          end
           scope.includes(:channel).order(:publish_at).to_a
         end
 
@@ -58,9 +67,19 @@ module Pito
         def filter_channel(scope, channel_scope)
           return scope if channel_scope.blank? || channel_scope == "@all"
 
-          target = channel_scope.to_s.delete_prefix("@").downcase
-          ids    = ::Channel.all.select { |c| c.handle.to_s.delete_prefix("@").downcase == target }.map(&:id)
-          scope.where(channel_id: ids)
+          scope.where(channel_id: channel_ids_for([ channel_scope ]))
+        end
+
+        # Scope to the UNION of the given channel handles (unknown handles simply
+        # match nothing). An empty list → no rows.
+        def filter_channels(scope, handles)
+          scope.where(channel_id: channel_ids_for(handles))
+        end
+
+        # Handles (tolerant of a leading "@" and case) → matching channel ids.
+        def channel_ids_for(handles)
+          targets = handles.map { |h| h.to_s.delete_prefix("@").downcase }
+          ::Channel.all.select { |c| targets.include?(c.handle.to_s.delete_prefix("@").downcase) }.map(&:id)
         end
 
         # ── Event ─────────────────────────────────────────────────────────────
