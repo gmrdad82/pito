@@ -4,6 +4,26 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.3] — 2026-07-08
+
+### Changed
+
+- **Schedule slate, rebuilt** — `schedule <id> slate` is now one combined list of
+  everything scheduled (id · title · channel · go-live), sorted by go-live, with no
+  week/rest split. The go-live reads in human form — "in 3 hours", "tomorrow at
+  noon", "in 2 days", "on 1st of March" — so near vs far is obvious at a glance.
+  The `with` / `without` / `sort` column options are unchanged.
+- **Taller pull-to-refresh reveal** — three arrows above the shrug line and six
+  below it before the arming circle, for a more deliberate pull.
+
+### Fixed
+
+- **No more dead space at the bottom of the scrollback** — the pull-to-refresh hint
+  was cloned into the scrollback on the first pull and left there; as a flex block
+  it kept its height even while invisible, leaving a permanent gap above the chatbox
+  (and a bare tap could even spawn one). It is now removed on release and recreated
+  only during an actual pull.
+
 ## [1.4.2] — 2026-07-08
 
 ### Changed
