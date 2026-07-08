@@ -13,11 +13,13 @@ module Pito
       TEMPLATE_ID = "pito-pull-refresh-hint"
 
       # Decorative ASCII arrow rows above / below the shrug line, before the
-      # arming circle. A taller stack = a longer, more deliberate pull reveal
-      # (the JS caps the lift so the whole block, circle included, shows at the
-      # arm threshold). Rows total = ARROWS_BEFORE + shrug + ARROWS_AFTER + circle.
-      ARROWS_BEFORE = 3
-      ARROWS_AFTER  = 6
+      # arming circle. Kept COMPACT (redesign D5): the JS caps the lift at this
+      # block's own height, so a shorter block = the ● disc is reachable with a
+      # comfortable pull, well before mid-screen. Rows total =
+      # ARROWS_BEFORE + shrug + ARROWS_AFTER + circle (top→bottom; the circle is
+      # last, so it is uncovered + filled last = the arm point).
+      ARROWS_BEFORE = 2
+      ARROWS_AFTER  = 4
 
       def arrows_before
         ARROWS_BEFORE

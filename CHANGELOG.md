@@ -4,6 +4,32 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-07-09
+
+### Added
+
+- **Connect an AI chat (MCP)** — PITO now speaks the Model Context Protocol at
+  `/mcp`, so an AI assistant (claude.ai on your phone, ChatGPT, or any MCP client)
+  can READ your PITO over a one-time connection: list and show your games, videos,
+  and channels; pull analytics, breakdowns, at-a-glance snapshots, similar games,
+  channel coverage, and shinies; and read your past conversations. Thirteen typed
+  tools in all, declared entirely in `config/pito/verbs.yml` — no new plumbing per
+  tool. It is strictly **read-only**: nothing it can call imports, edits, publishes,
+  deletes, links, schedules, or changes anything, and MCP calls never write to your
+  scrollback or show up in the resume sidebar. Auth is standard OAuth 2.1 (PKCE +
+  dynamic registration) with a single TOTP approval per client — authenticate once,
+  then it refreshes silently. Served by a dedicated container so a slow model
+  tool-loop can never slow the web app, the APK, or the TUI. See the README
+  "Connect an AI chat (MCP)" section to attach a client.
+
+### Fixed
+
+- **Pull-to-refresh, reworked** — pulling up now fills the arrow/disc gauge with a
+  smooth pito-blue gradient (no more one-row-at-a-time stepping), the disc is
+  reachable with a modest pull instead of dragging to mid-screen, and a downward
+  pull no longer parks the scrollback with a blank gap below the content. Release
+  with the disc filled to refresh. (Mobile / Hotwire Native.)
+
 ## [1.4.4] — 2026-07-08
 
 ### Added
