@@ -9,9 +9,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import PullRefreshController from "controllers/pito/pull_refresh_controller"
 
-// The controller arms once the pull reaches the hint block's height; under jsdom
-// offsetHeight is 0 so it falls back to FALLBACK_LIFT (260) — the effective arm/cap.
-const ARM_LIFT = 260
+// The controller arms once the pull reaches the gauge block's height; under jsdom
+// offsetHeight is 0 so it falls back to FALLBACK_LIFT (160) — the effective arm/cap.
+const ARM_LIFT = 160
 
 function touchEvent(type, y) {
   const ev = new Event(type, { bubbles: true })
@@ -97,7 +97,7 @@ describe("pito--pull-refresh controller", () => {
     expect(reload).not.toHaveBeenCalled()
   })
 
-  it("reveals the shrug hint during the drag and arms it at the threshold (G81)", async () => {
+  it("fills the gauge by --pull-progress during the drag and arms it at the threshold (G81)", async () => {
     await build({ native: true })
     fakeGeometry(el, { atBottom: true })
 
@@ -107,20 +107,38 @@ describe("pito--pull-refresh controller", () => {
     document.body.appendChild(template)
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 454)) // pull = 46 → ~0.5 opacity (46 / (260*0.35))
+    el.dispatchEvent(touchEvent("touchmove", 460)) // pull = 40 → progress 40/160 = 0.25
     const hint = el.querySelector("[data-pull-refresh-hint]")
     expect(hint).not.toBeNull()
-    expect(parseFloat(hint.style.opacity)).toBeCloseTo(0.5, 1) // ramps fast — visible early
+    // Continuous fill fraction (NOT opacity, NOT per-row) — cascades to the gauge.
+    expect(parseFloat(el.style.getPropertyValue("--pull-progress"))).toBeCloseTo(0.25, 2)
     expect(hint.classList.contains("is-armed")).toBe(false)
 
     el.dispatchEvent(touchEvent("touchmove", 500 - (ARM_LIFT + 10)))
     expect(hint.classList.contains("is-armed")).toBe(true)
+    // Fully pulled → fill saturates at 1 (● disc fully blue = release to refresh).
+    expect(parseFloat(el.style.getPropertyValue("--pull-progress"))).toBeCloseTo(1, 5)
 
-    // Short release springs back AND removes the hint from the DOM, so it never
-    // lingers as invisible dead space at the bottom of the scrollback.
-    el.dispatchEvent(touchEvent("touchmove", 460))
-    el.dispatchEvent(touchEvent("touchend", 460))
+    // Short release springs back, removes the gauge AND clears the fill so nothing
+    // lingers as dead space or a stray blue tint at the bottom of the scrollback.
+    el.dispatchEvent(touchEvent("touchmove", 470))
+    el.dispatchEvent(touchEvent("touchend", 470))
     expect(el.querySelector("[data-pull-refresh-hint]")).toBeNull()
+    expect(el.style.getPropertyValue("--pull-progress")).toBe("")
+  })
+
+  it("a DOWNWARD pull is inert — no lift, no fill, no arm, no reload (B1)", async () => {
+    await build({ native: true })
+    fakeGeometry(el, { atBottom: true })
+    const reload = vi.spyOn(ctrl, "_reload").mockImplementation(() => {})
+
+    el.dispatchEvent(touchEvent("touchstart", 300))
+    el.dispatchEvent(touchEvent("touchmove", 500)) // finger DOWN 200px → delta negative
+    expect(el.style.transform).toBe("")
+    expect(parseFloat(el.style.getPropertyValue("--pull-progress") || "0")).toBe(0)
+
+    el.dispatchEvent(touchEvent("touchend", 500))
+    expect(reload).not.toHaveBeenCalled()
   })
 
   it("does not spawn a hint (dead space) on a bare touch that never pulls (G-fix)", async () => {
@@ -145,7 +163,7 @@ describe("pito--pull-refresh controller", () => {
     el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 60 (1:1, no over-run)
     expect(el.style.transform).toBe("translateY(-60px)")
 
-    el.dispatchEvent(touchEvent("touchmove", 60)) // pull = 440 → capped at the block height (260)
-    expect(el.style.transform).toBe("translateY(-260px)")
+    el.dispatchEvent(touchEvent("touchmove", 60)) // pull = 440 → capped at the block height (160)
+    expect(el.style.transform).toBe(`translateY(-${ARM_LIFT}px)`)
   })
 })

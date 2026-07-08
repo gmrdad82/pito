@@ -25,12 +25,16 @@
 import { Controller } from "@hotwired/stimulus"
 
 const NATIVE_MARKER = "Hotwire Native"
-// The pane tracks the finger 1:1 and is capped at the hint block's OWN measured
-// height, so pulling reveals EXACTLY the ASCII block (arrows first) and never
-// over-runs into a blank gap; the reload arms once the block is fully revealed
-// (the circle is in view). FALLBACK_LIFT is used only when offsetHeight is
+// The pane tracks the finger 1:1 and is capped at the gauge block's OWN measured
+// height, so pulling slides the conversation UP to uncover EXACTLY the gauge
+// (arrows first, ● last) and never over-runs into a blank gap. As it uncovers, a
+// continuous `--pull-progress` (0→1) drives the muted→pito-blue fill of the glyphs
+// (CSS, background-clip:text) — no per-row stepping, no opacity fade. The reload
+// ARMS once the ● disc is fully filled (progress 1) and FIRES on release; a short
+// release springs back. The block is intentionally COMPACT so the disc is reachable
+// well before mid-screen. FALLBACK_LIFT is used only when offsetHeight is
 // unavailable (jsdom under test).
-const FALLBACK_LIFT = 260
+const FALLBACK_LIFT = 160
 
 export default class extends Controller {
   connect() {
@@ -75,24 +79,26 @@ export default class extends Controller {
   #move(event) {
     if (this.startY === null) return
     const delta = this.startY - event.touches[0].clientY
+    // Only an UPWARD pull (delta > 0) engages. A DOWNWARD gesture is inert — no
+    // lift, no fill, no arm, no parked gap (B1): pull clamps to 0.
     this.pull = Math.max(delta, 0)
 
-    // 1:1 with the finger, capped at the hint block's own height — reveals exactly
-    // the block (no over-run / blank gap). Armed once fully revealed (circle shown).
-    const hint    = this.#hint()
-    const maxLift = (hint && hint.offsetHeight) || FALLBACK_LIFT
-    const lift    = Math.min(this.pull, maxLift)
-    this.armed    = this.pull >= maxLift
+    // 1:1 with the finger, capped at the gauge block's own (compact) height —
+    // slides the conversation up to uncover exactly the block. Armed once fully
+    // uncovered (● disc reached). `progress` (0→1) drives the CSS blue fill.
+    const hint     = this.#hint()
+    const maxLift  = (hint && hint.offsetHeight) || FALLBACK_LIFT
+    const lift     = Math.min(this.pull, maxLift)
+    const progress = maxLift > 0 ? lift / maxLift : 0
+    this.armed     = this.pull >= maxLift
 
     this.element.style.transition = "none"
     this.element.style.transform  = this.pull > 0 ? `translateY(-${lift}px)` : ""
+    // Cascades to the cloned gauge (a descendant) via CSS custom-property
+    // inheritance; the gauge's gradient fills muted→pito-blue by this fraction.
+    this.element.style.setProperty("--pull-progress", progress.toFixed(3))
 
-    if (hint) {
-      // Arrows visible IMMEDIATELY — opacity reaches full at ~a third of the pull,
-      // so they read from the first movement instead of fading in late.
-      hint.style.opacity = Math.min(this.pull / (maxLift * 0.35), 1)
-      hint.classList.toggle("is-armed", this.armed)
-    }
+    if (hint) hint.classList.toggle("is-armed", this.armed)
   }
 
   #end() {
@@ -113,6 +119,7 @@ export default class extends Controller {
     // clones.)
     this.element.style.transition = "transform 150ms ease-out"
     this.element.style.transform  = ""
+    this.element.style.removeProperty("--pull-progress")
     this.element.querySelector("[data-pull-refresh-hint]")?.remove()
   }
 

@@ -441,36 +441,37 @@ html {
   animation-iteration-count: infinite;
 }
 
-/* ── Pull-to-refresh hint (G81) ──
+/* ── Pull-to-refresh gauge (G81 / pull-refresh redesign) ──
    Cloned under the scrollback's last message by pito--pull-refresh (Hotwire
-   Native AND mobile-web); opacity tracks the drag. A vertical 5-row ASCII block
-   (arrow / shrug+copy / arrow / arrow / circle); .is-armed flips the circle row
-   to the action color when releasing would reload. */
+   Native AND mobile-web); pulling up slides the conversation up to uncover it. A
+   vertical ASCII block (arrows / shrug+copy / arrows / ● circle). It renders
+   MUTED (--fg-faded) and FILLS pito-blue as ONE continuous vertical gradient
+   driven by --pull-progress (0→1, set on the scrollback by the controller) —
+   clipped to the glyph TEXT (background-clip:text, same recipe as the mini-status
+   shimmer) so the ▲/●/kaomoji stay glyphs. The fill grows top→bottom, so the
+   circle (bottom row) is the LAST to turn blue: fully blue == armed == release to
+   refresh. No opacity fade, no per-row stepping. */
 .pito-pull-hint {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 8px;
-  color: var(--fg-faded);
-  opacity: 0;
-  transition: opacity 120ms ease-out;
+  --pull-fill: calc(var(--pull-progress, 0) * 100%);
+  color: var(--fg-faded); /* fallback when background-clip:text is unsupported */
+  background-image: linear-gradient(
+    to bottom,
+    var(--brand-pito) var(--pull-fill),
+    var(--fg-faded) var(--pull-fill)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .pito-pull-hint__row {
   display: flex;
   justify-content: center;
   gap: 1ch;
-}
-
-/* The circle row is the reload trigger — it flips to the action color once the
-   pull passes THRESHOLD_PX; the arrows and shrug stay faded so the circle reads
-   as "release here". */
-.pito-pull-hint__circle {
-  color: var(--fg-faded);
-}
-
-.pito-pull-hint.is-armed .pito-pull-hint__circle {
-  color: var(--accent-yellow);
 }
 
 /* ── Mini-status "me" shimmer (G70) ──
