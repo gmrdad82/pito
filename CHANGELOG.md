@@ -4,6 +4,17 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] — 2026-07-08
+
+### Changed
+
+- **Cleaner `show vid` and `show channel` cards** — on the video card the last-sync
+  time now sits directly under visibility, and tags moved out of the key/value table
+  into their own hairline-separated section beneath the description (labelled and
+  wrapped, just like the description). On the channel card the description likewise
+  moved out of the key/value table into a hairline-separated section below it,
+  matching the video card.
+
 ## [1.4.1] — 2026-07-08
 
 ### Fixed
