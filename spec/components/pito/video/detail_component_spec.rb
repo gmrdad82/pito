@@ -99,6 +99,16 @@ RSpec.describe Pito::Video::DetailComponent do
       video.update!(last_synced_at: nil)
       expect(render_inline(described_class.new(video: video)).text).to include("Last sync at")
     end
+
+    it "renders the Last sync at row directly after the visibility (privacy) row" do
+      node = render_inline(described_class.new(video: video))
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      text = grid.text
+      privacy_pos   = text.index(I18n.t("pito.video.detail.privacy"))
+      last_sync_pos = text.index(I18n.t("pito.video.detail.last_sync_at"))
+      expect(privacy_pos).not_to be_nil
+      expect(privacy_pos).to be < last_sync_pos
+    end
   end
 
   describe "tags" do
@@ -108,10 +118,29 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(node.text).to include("rpg")
     end
 
-    it "omits the tags row when tags array is empty" do
+    it "omits the tags section when tags array is empty" do
       v = create(:video, channel: channel, tags: [])
       node = render_inline(described_class.new(video: v))
       expect(node.text).not_to include(I18n.t("pito.video.detail.tags"))
+    end
+
+    it "renders tags as a section below the description (not a kv-row)" do
+      node = render_inline(described_class.new(video: video))
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      # Tags are NOT in the kv-table grid anymore…
+      expect(grid.text).not_to include(I18n.t("pito.video.detail.tags"))
+      # …they render in their own labelled body below the description.
+      right = node.css(".pito-video-detail__right").first
+      expect(right.css(".pito-video-detail__tags").first).not_to be_nil
+      html = right.inner_html
+      expect(html.index("pito-video-detail__description")).to be < html.index("pito-video-detail__tags")
+    end
+
+    it "separates the tags section with its own hairline" do
+      node  = render_inline(described_class.new(video: video))
+      right = node.css(".pito-video-detail__right").first
+      # kv→description hairline + description→tags hairline = two detail hairlines.
+      expect(right.css("div.pito-detail-hairline").length).to eq(2)
     end
   end
 
