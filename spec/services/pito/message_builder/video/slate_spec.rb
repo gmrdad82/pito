@@ -20,8 +20,8 @@ RSpec.describe Pito::MessageBuilder::Video::Slate do
     described_class.call(exclude_id:, channel_scope:, period:, conversation:)
   end
 
-  describe "week / rest split" do
-    it "emits only the :system week message for period 7d" do
+  describe "combined list (no week/rest split)" do
+    it "emits a single :system list for period 7d" do
       scheduled(2.days.from_now)
       events = call(period: "7d")
       expect(events.size).to eq(1)
@@ -29,35 +29,28 @@ RSpec.describe Pito::MessageBuilder::Video::Slate do
       expect(events.first[:payload]["table_rows"].size).to eq(1)
     end
 
-    it "adds an :enhanced rest message for a longer period when the rest window has vids" do
-      scheduled(2.days.from_now)   # this week
-      scheduled(14.days.from_now)  # the rest
-      events = call(period: "28d")
-      expect(events.map { |e| e[:kind] }).to eq(%i[system enhanced])
-      expect(events[0][:payload]["table_rows"].size).to eq(1)
-      expect(events[1][:payload]["table_rows"].size).to eq(1)
-    end
-
-    it "omits the :enhanced message when period > 7d but the rest window is empty" do
+    it "combines the whole period into ONE list (28d) — near and far together" do
       scheduled(2.days.from_now)
+      scheduled(14.days.from_now)
       events = call(period: "28d")
-      expect(events.size).to eq(1)
-      expect(events.first[:kind]).to eq(:system)
+      expect(events.map { |e| e[:kind] }).to eq(%i[system])
+      expect(events.first[:payload]["table_rows"].size).to eq(2)
     end
 
-    it "treats `lifetime` as unbounded (still splits week vs rest)" do
+    it "spans `lifetime` (unbounded) in one list" do
       scheduled(3.days.from_now)
       scheduled(200.days.from_now)
       events = call(period: "lifetime")
-      expect(events.map { |e| e[:kind] }).to eq(%i[system enhanced])
+      expect(events.size).to eq(1)
+      expect(events.first[:payload]["table_rows"].size).to eq(2)
     end
 
-    it "collapses an unrecognised/discrete period to a week-only window (no enhanced)" do
-      scheduled(3.days.from_now)
-      scheduled(14.days.from_now)
+    it "bounds by the period window (unrecognised/discrete → week-only)" do
+      scheduled(3.days.from_now)   # inside the week window
+      scheduled(14.days.from_now)  # outside it
       events = call(period: "May")
       expect(events.size).to eq(1)
-      expect(events.first[:kind]).to eq(:system)
+      expect(events.first[:payload]["table_rows"].size).to eq(1)
     end
   end
 
@@ -90,12 +83,19 @@ RSpec.describe Pito::MessageBuilder::Video::Slate do
   end
 
   describe "rendering" do
-    it "renders channel and game columns (no Scheduled column)" do
+    it "renders the Channel + Go-live columns (Game swapped out)" do
       scheduled(Time.zone.local(2026, 6, 24, 14, 30))
       payload = call(period: "7d").first[:payload]
       heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
-      expect(heading_texts).to include("Channel")
-      expect(heading_texts).not_to include("Scheduled")
+      expect(heading_texts).to include("Channel").and include("Go live")
+      expect(heading_texts).not_to include("Game")
+    end
+
+    it "renders the go-live time in human form" do
+      scheduled(now + 3.hours)
+      payload    = call(period: "7d").first[:payload]
+      cells_text = payload["table_rows"].first[:cells].map { |c| c[:text] }.join(" ")
+      expect(cells_text).to include("in 3 hours")
     end
 
     it "renders a witty empty message (no table) when nothing is scheduled" do

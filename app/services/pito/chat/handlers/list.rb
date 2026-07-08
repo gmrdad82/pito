@@ -282,7 +282,9 @@ module Pito
         # is the width-derived budget. COLUMNS.keys is already canonical order, so
         # this respects it. Explicit `with` columns bypass this entirely.
         def auto_filled_columns(list_columns)
-          all_cols = list_columns::COLUMNS.keys
+          # Skip internal columns (e.g. Video's slate-only :scheduled) — auto-fill
+          # only ever surfaces user-facing columns.
+          all_cols = list_columns::COLUMNS.reject { |_, cfg| cfg[:internal] }.keys
           cap      = [ all_cols.size, MAX_AUTOFILL_COLS ].min
           all_cols.first(column_budget(cap))
         end

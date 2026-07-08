@@ -935,8 +935,8 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       )
     end
 
-    it "video COLUMNS canonical order is [:channel, :visibility, :game, :duration, :views, :likes, :category] (comments removed — G26.1)" do
-      expect(Pito::MessageBuilder::Video::ListColumns::COLUMNS.keys).to eq(
+    it "video user-facing (PUBLIC) COLUMNS canonical order is [:channel, :visibility, :game, :duration, :views, :likes, :category] (comments removed — G26.1; :scheduled is internal, slate-only)" do
+      expect(Pito::MessageBuilder::Video::ListColumns::PUBLIC_COLUMNS.keys).to eq(
         [ :channel, :visibility, :game, :duration, :views, :likes, :category ]
       )
     end
@@ -957,7 +957,8 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
     end
 
     it "video auto-fill first 6 canonical columns when viewport wide enough" do
-      all_cols   = Pito::MessageBuilder::Video::ListColumns::COLUMNS.keys
+      # Auto-fill draws from user-facing columns only (internal :scheduled excluded).
+      all_cols   = Pito::MessageBuilder::Video::ListColumns::PUBLIC_COLUMNS.keys
       autofill_6 = all_cols.first(6)
       expect(autofill_6).to eq([ :channel, :visibility, :game, :duration, :views, :likes ])
     end

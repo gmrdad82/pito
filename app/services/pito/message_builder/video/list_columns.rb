@@ -104,8 +104,24 @@ module Pito
             heading:    "Category",
             cell_class: "text-fg-dim pito-cell-category",
             value:      ->(v) { v.category_name.presence || "—" }
+          },
+          # Go-live date in human form ("in 3 hours", "tomorrow at noon", "on 1st of
+          # March") — the schedule slate's default column. `internal: true` keeps it
+          # OUT of the with/without/sort vocabulary, the options footer, and the
+          # viewport auto-fill: the slate passes it explicitly, but it is never a
+          # user-tweakable column elsewhere (owner: "with/without/sort remains as they are").
+          scheduled: {
+            aliases:    %w[scheduled],
+            heading:    "Go live",
+            internal:   true,
+            cell_class: "text-fg-dim pito-cell-scheduled whitespace-nowrap",
+            value:      ->(v) { Pito::Formatter::RelativeWhen.call(v.publish_at) }
           }
         }.freeze
+
+        # Canonical keys for the USER-FACING columns only (internal columns are
+        # excluded from the with/without/sort vocabulary + footer + auto-fill).
+        PUBLIC_COLUMNS = COLUMNS.reject { |_, cfg| cfg[:internal] }.freeze
 
         # Returns the display token String for a canonical Symbol.
         #   display_token(:duration) # => "duration"
@@ -126,7 +142,7 @@ module Pito
         # Maps every alias (downcased) → its canonical column Symbol.
         # Memoised so the Hash is built once.
         def vocabulary
-          @vocabulary ||= COLUMNS.each_with_object({}) do |(canonical, cfg), vocab|
+          @vocabulary ||= PUBLIC_COLUMNS.each_with_object({}) do |(canonical, cfg), vocab|
             cfg[:aliases].each { |a| vocab[a] = canonical }
           end.freeze
         end
@@ -169,8 +185,10 @@ module Pito
         #             (e.g. :category, which has no sort key) are excluded via
         #             compact.
         def options_footer(cols)
-          addable   = (COLUMNS.keys - cols).map { |c| display_token(c) }
-          removable = cols.map { |c| display_token(c) }
+          # Internal columns (e.g. the slate's :scheduled) are never offered to add,
+          # remove, or sort by — only PUBLIC_COLUMNS participate in the footer.
+          addable   = (PUBLIC_COLUMNS.keys - cols).map { |c| display_token(c) }
+          removable = cols.select { |c| PUBLIC_COLUMNS.key?(c) }.map { |c| display_token(c) }
           sort_keys = base_sort_tokens + cols.map { |c| SORT_VOCAB.key(c) }.compact
           Pito::Lists::OptionsFooter.call(addable:, removable:, sort_keys:, noun: "columns")
         end
