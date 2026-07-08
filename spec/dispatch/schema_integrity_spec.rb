@@ -280,4 +280,121 @@ RSpec.describe "verbs.yml schema integrity", type: :dispatch do
       expect(VERBS.keys).to all(satisfy { |v| Pito::Dispatch::Config.verb(v).is_a?(Hash) })
     end
   end
+
+  # ══ LAYER 4 — MCP (G130) ═════════════════════════════════════════════════════
+  # The read-only MCP tool ontology lives in the SAME file. These guards enforce
+  # what Pito::Dispatch::Schema can't check per-node (they need the whole DOC):
+  # tool-name uniqueness, the read-only allowlist (a `mcp:` block on a WRITE verb
+  # is a security regression → red), and grammar-template soundness. Structural
+  # per-node validation (key/type/enum) is already covered by LAYER 1.
+  describe "MCP — the read-only tool ontology is sound" do
+    # Verbs promoted to tools, and the standalone reader tools.
+    MCP_VERB_ROWS   = VERBS.filter_map { |verb, body| { verb: verb.to_s, block: body[:mcp] } if body[:mcp] }.freeze
+    MCP_READER_ROWS = (DOC[:mcp_readers] || {}).map { |key, body| { key: key.to_s, block: body } }.freeze
+
+    # The EXACT set of verbs allowed to carry an `mcp:` block (the 11 readers in
+    # docs/claude/mcp.md). Adding a tool is a reviewed act: a new mcp block on a
+    # verb NOT listed here is red until the author adds it — the guard against an
+    # accidental exposure. (The add-a-tool proof exercises config extensibility
+    # via injection, bypassing this shipped-config allowlist.)
+    MCP_VERB_ALLOWLIST = %w[
+      list show analyze at-a-glance videos game similar channels breakdowns shinies games
+    ].freeze
+
+    # Verbs that MUTATE state — they must NEVER be exposed as an MCP tool (owner
+    # rule 1: read-only). An explicit blocklist makes the security intent legible.
+    MCP_WRITE_VERBS = %w[
+      import publish unlist delete link unlink footage price platform schedule
+      reindex sync find search rename connect disconnect login logout new resume
+    ].freeze
+
+    # All declared tool names (verb-backed + readers).
+    MCP_TOOL_NAMES = (MCP_VERB_ROWS.map { |r| r[:block][:tool] } +
+                      MCP_READER_ROWS.map { |r| r[:block][:tool] }).freeze
+
+    it "the verbs carrying an mcp block are EXACTLY the read-only allowlist" do
+      expect(MCP_VERB_ROWS.map { |r| r[:verb] }).to match_array(MCP_VERB_ALLOWLIST)
+    end
+
+    it "no write/mutating verb is exposed as a tool" do
+      exposed = MCP_VERB_ROWS.map { |r| r[:verb] } & MCP_WRITE_VERBS
+      expect(exposed).to(eq([]), -> { "write verbs exposed via mcp: #{exposed.inspect}" })
+    end
+
+    it "tool names are unique across verb blocks and readers" do
+      dupes = MCP_TOOL_NAMES.tally.select { |_, n| n > 1 }.keys
+      expect(dupes).to(eq([]), -> { "duplicate tool names: #{dupes.inspect}" })
+    end
+
+    it "every declared tool surfaces in Pito::Mcp::Registry (config ⇒ registry loses nothing)" do
+      expect(Pito::Mcp::Registry.tool_names).to match_array(MCP_TOOL_NAMES)
+    end
+
+    # ── per-verb-tool contracts ────────────────────────────────────────────────
+    MCP_VERB_ROWS.each do |row|
+      verb  = row[:verb]
+      block = row[:block]
+
+      describe "verbs.#{verb}.mcp (#{block[:tool]})" do
+        it "has a non-blank tool name and description" do
+          expect(block[:tool].to_s).to match(/\S/)
+          expect(block[:description].to_s).to match(/\S/)
+        end
+
+        it "declares an input grammar template" do
+          expect(block[:input].to_s).to match(/\S/)
+        end
+
+        it "every %{placeholder} in `input` is a declared param" do
+          placeholders = block[:input].to_s.scan(/%\{(\w+)\}/).flatten
+          params       = (block[:params] || {}).keys.map(&:to_s)
+          undeclared   = placeholders - params
+          expect(undeclared).to(eq([]), -> { "input references undeclared params: #{undeclared.inspect}" })
+        end
+
+        it "every input_suffixes key is a declared param, templated with %{value}/%{values} only" do
+          suffixes = block[:input_suffixes] || {}
+          params   = (block[:params] || {}).keys.map(&:to_s)
+          suffixes.each do |name, tmpl|
+            expect(params).to include(name.to_s), "suffix #{name} is not a declared param"
+            stray = tmpl.to_s.scan(/%\{(\w+)\}/).flatten - %w[value values]
+            expect(stray).to(eq([]), -> { "suffix #{name} uses stray placeholders: #{stray.inspect}" })
+          end
+        end
+
+        it "each param has a valid type and a boolean `required` when present" do
+          (block[:params] || {}).each do |name, spec|
+            expect(Pito::Dispatch::Schema::MCP_PARAM_TYPES).to include(spec[:type].to_s),
+                                                                "param #{name} has an invalid type #{spec[:type].inspect}"
+            expect([ true, false ]).to include(spec[:required]) if spec.key?(:required)
+            expect(spec[:enum]).to(be_a(Array).and(be_present)) if spec.key?(:enum)
+          end
+        end
+      end
+    end
+
+    # ── reader-tool contracts ──────────────────────────────────────────────────
+    MCP_READER_ROWS.each do |row|
+      block = row[:block]
+
+      describe "mcp_readers.#{row[:key]} (#{block[:tool]})" do
+        it "has a non-blank tool name and description" do
+          expect(block[:tool].to_s).to match(/\S/)
+          expect(block[:description].to_s).to match(/\S/)
+        end
+
+        it "declares NO input template or suffixes (readers are not dispatched)" do
+          expect(block).not_to have_key(:input)
+          expect(block).not_to have_key(:input_suffixes)
+        end
+
+        it "each param has a valid type" do
+          (block[:params] || {}).each do |name, spec|
+            expect(Pito::Dispatch::Schema::MCP_PARAM_TYPES).to include(spec[:type].to_s),
+                                                                "param #{name} has an invalid type #{spec[:type].inspect}"
+          end
+        end
+      end
+    end
+  end
 end

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= AppSetting.theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PITO — authorize</title>
+  <% if Rails.env.development? %>
+    <link rel="icon" type="image/svg+xml" href="/favicon-dev.svg">
+  <% end %>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+  <meta name="turbo-cache-control" content="no-preview">
+  <%= stylesheet_link_tag "tailwind", media: "all" %>
+</head>
+<body class="bg-root text-fg font-mono">
+  <main class="min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-lg border border-default p-6"><%= yield %></div>
+  </main>
+
+  <% if Rails.env.development? %>
+    <%= render(Pito::DevelopmentBannerComponent.new) %>
+  <% end %>
+</body>
+</html>

@@ -28,10 +28,22 @@ module Pito
     # / reply) no token may map to two verbs.
     module Schema
       # ── Allowed keys, per level (unknown key ⇒ rejected) ──────────────────────
-      TOP_KEYS             = %i[schema_version universal_reply vocabularies verbs].freeze
+      TOP_KEYS             = %i[schema_version universal_reply vocabularies verbs mcp_readers].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns].freeze
+      VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns mcp].freeze
+
+      # MCP tool blocks (G130) — a per-verb `mcp:` promotes a READ-ONLY verb into an
+      # MCP tool; the top-level `mcp_readers:` declares tools with no backing verb
+      # (pito_conversations / pito_messages). `input:`/`params:` are an INDEPENDENT
+      # declaration (NOT derived from chat.slots) — the Executor interpolates params
+      # into the `input:` grammar template. See docs/claude/mcp.md.
+      MCP_KEYS             = %i[tool description params input input_suffixes].freeze
+      MCP_REQUIRED         = %i[tool description].freeze
+      MCP_READER_KEYS      = %i[tool description params].freeze
+      MCP_READER_REQUIRED  = %i[tool description].freeze
+      MCP_PARAM_KEYS       = %i[type enum required items hint].freeze
+      MCP_PARAM_TYPES      = %w[string integer number boolean array].freeze
       AVAILABILITY_KEYS    = %i[chat slash].freeze
       CHAT_KEYS            = %i[slots dispatch segment_of].freeze
       # A `segment_of:` block (plan-0.9.5 D20) marks a chat verb as a "segment verb":
@@ -171,6 +183,7 @@ module Pito
           validate_universal_reply(@doc[:universal_reply]) if @doc.key?(:universal_reply)
           validate_vocabularies(@doc[:vocabularies]) if @doc.key?(:vocabularies)
           validate_verbs(@doc[:verbs]) if @doc.key?(:verbs)
+          validate_mcp_readers(@doc[:mcp_readers]) if @doc.key?(:mcp_readers)
           self
         end
 
@@ -261,6 +274,69 @@ module Pito
           validate_reply(body[:reply], join(path, "reply")) if body.key?(:reply)
           validate_segments(body[:segments], join(path, "segments")) if body.key?(:segments)
           validate_concerns(body[:concerns], join(path, "concerns")) if body.key?(:concerns)
+          validate_mcp(body[:mcp], join(path, "mcp")) if body.key?(:mcp)
+        end
+
+        # ── MCP tool blocks (G130) ──────────────────────────────────────────────
+        # A per-verb `mcp:` block; `params`/`input`/`input_suffixes` are optional
+        # (a param-less tool is valid). Keys/types are validated; the read-only
+        # allowlist + tool-name uniqueness + placeholder⊆params live in the
+        # schema-integrity SUITE (they need the whole document, not one node).
+        def validate_mcp(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::MCP_KEYS, path, required: Schema::MCP_REQUIRED)
+          validate_string(body[:tool], join(path, "tool")) if body.key?(:tool)
+          validate_string(body[:description], join(path, "description")) if body.key?(:description)
+          validate_string(body[:input], join(path, "input")) if body.key?(:input)
+          validate_mcp_params(body[:params], join(path, "params")) if body.key?(:params)
+          validate_mcp_input_suffixes(body[:input_suffixes], join(path, "input_suffixes")) if body.key?(:input_suffixes)
+        end
+
+        def validate_mcp_params(params, path)
+          return unless expect_hash(params, path)
+
+          params.each do |name, spec|
+            p = join(path, name)
+            next unless expect_hash(spec, p)
+
+            check_keys(spec, Schema::MCP_PARAM_KEYS, p, required: %i[type])
+            validate_enum(spec[:type], Schema::MCP_PARAM_TYPES, join(p, "type"), "mcp param type") if spec.key?(:type)
+            validate_boolean(spec[:required], join(p, "required")) if spec.key?(:required)
+            validate_string(spec[:hint], join(p, "hint")) if spec.key?(:hint)
+            validate_string(spec[:items], join(p, "items")) if spec.key?(:items)
+            validate_mcp_enum(spec[:enum], join(p, "enum")) if spec.key?(:enum)
+          end
+        end
+
+        # An mcp param `enum:` is an Array of allowed scalar values.
+        def validate_mcp_enum(values, path)
+          return err(path, "expected an Array, got #{values.class}") unless values.is_a?(Array)
+
+          values.each_with_index do |v, i|
+            err("#{path}[#{i}]", "expected a scalar, got #{v.class}") unless scalar?(v)
+          end
+        end
+
+        def validate_mcp_input_suffixes(suffixes, path)
+          return unless expect_hash(suffixes, path)
+
+          suffixes.each { |name, tmpl| validate_string(tmpl, join(path, name)) }
+        end
+
+        # Top-level `mcp_readers:` — reader tools with no backing verb.
+        def validate_mcp_readers(section)
+          return unless expect_hash(section, "mcp_readers")
+
+          section.each do |name, body|
+            path = join("mcp_readers", name)
+            next unless expect_hash(body, path)
+
+            check_keys(body, Schema::MCP_READER_KEYS, path, required: Schema::MCP_READER_REQUIRED)
+            validate_string(body[:tool], join(path, "tool")) if body.key?(:tool)
+            validate_string(body[:description], join(path, "description")) if body.key?(:description)
+            validate_mcp_params(body[:params], join(path, "params")) if body.key?(:params)
+          end
         end
 
         def validate_availability(body, path)

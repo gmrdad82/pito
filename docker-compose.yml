@@ -91,6 +91,44 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # MCP (G130): a SECOND Puma serving the SAME image on :3001, exposed at
+  # 127.0.0.1:3029. cloudflared (on the host) routes app.pitomd.com paths
+  # ^/(mcp|oauth|\.well-known) here; everything else stays on web:80. Isolating the
+  # read-only MCP tool loop in its own container means a slow model call can never
+  # starve the web app / APK / TUI Puma workers. Same DB + credentials; it runs NO
+  # SolidQueue supervisor (web owns background jobs — MCP must not double-process).
+  pito-mcp:
+    image: ghcr.io/gmrdad82/pito:${PITO_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PITO_VERSION: ${PITO_VERSION:-}
+    command: bundle exec puma -C config/puma.rb -p 3001
+    ports:
+      - "127.0.0.1:3029:3001"
+    volumes:
+      - rails_storage:/var/lib/pito-assets
+      - ./config/master.key:/rails/config/master.key:ro
+      - ./config/credentials.yml.enc:/rails/config/credentials.yml.enc:ro
+    environment:
+      RAILS_ENV: production
+      # No SolidQueue supervisor here — web runs it; MCP must not double-process.
+      SOLID_QUEUE_IN_PUMA: "false"
+      WEB_CONCURRENCY: "1"
+      PITO_APP_BASE_URL: ${PITO_APP_BASE_URL:-http://localhost:3028}
+      PITO_TAG: ${PITO_TAG:-}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Direct-HTTPS alternative to the cloudflared tunnel: Caddy terminates TLS
   # (automatic Let's Encrypt) and reverse-proxies to web over the compose
   # network. OFF by default — it runs only when COMPOSE_PROFILES=caddy is set

@@ -13,6 +13,21 @@ Rails.application.routes.draw do
       to: "youtube_connections/oauth_callbacks#failure",
       as: :youtube_connection_oauth_failure
 
+  # MCP (G130): read-only Model Context Protocol endpoint (JSON-RPC 2.0), Bearer-
+  # authenticated via hand-rolled OAuth. Served by a dedicated Puma container in
+  # production; cloudflared routes /mcp, /oauth, /.well-known to it.
+  post "/mcp", to: "mcp#handle", as: :mcp
+
+  # OAuth 2.1 (public clients, PKCE) for MCP.
+  post "/oauth/register",  to: "oauth#register",  as: :oauth_register
+  get  "/oauth/authorize", to: "oauth#authorize", as: :oauth_authorize
+  post "/oauth/authorize", to: "oauth#approve"
+  post "/oauth/token",     to: "oauth#token",     as: :oauth_token
+
+  # OAuth discovery documents (RFC 8414 / RFC 9728).
+  get "/.well-known/oauth-authorization-server", to: "well_known#authorization_server"
+  get "/.well-known/oauth-protected-resource",   to: "well_known#protected_resource"
+
   root "start_screens#show"
   get   "/notifications",     to: "notifications#index",  as: :notifications
   patch "/notifications/:id", to: "notifications#update", as: :notification

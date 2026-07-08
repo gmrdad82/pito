@@ -375,6 +375,36 @@ pito --help      # the rest
 Same on Linux, macOS, and Windows (WSL2) — and on both amd64 and arm64 (the image is
 multi-arch, so a Raspberry Pi 5 or Apple Silicon box is fine too).
 
+**The MCP service.** Alongside the `web` container, the compose file ships a second
+Puma, `pito-mcp` — the same image on an isolated port, so a slow AI tool-loop can
+never starve the app. `pito update` re-fetches `docker-compose.yml`, then bring it
+up with `docker compose up -d pito-mcp`. Your tunnel/reverse proxy routes the paths
+`^/(mcp|oauth|\.well-known)` to it (port 3029) and everything else to `web`.
+
+### Connect an AI chat (MCP)
+
+PITO speaks the [Model Context Protocol](https://modelcontextprotocol.io) at
+`/mcp`, so an AI assistant can **read** your PITO — your games, videos, channels,
+analytics, breakdowns, at-a-glance snapshots, similar games, channel coverage,
+shinies, and your past conversations — as first-class tools. It is strictly
+**read-only**: nothing it can call changes anything, and MCP calls never appear in
+your scrollback or resume sidebar.
+
+To attach a client (e.g. claude.ai, on your phone or desktop):
+
+1. In the client's connector settings, add a custom MCP connector with the URL
+   `https://<your-pito-host>/mcp` (whatever domain your tunnel serves, e.g.
+   `https://app.pitomd.com/mcp`).
+2. The client discovers PITO's OAuth automatically and opens a **consent page** in
+   your browser. It shows the app name and the read-only tool list, and asks for
+   your current **6-digit TOTP code** — the same code you use for `/authenticate`.
+3. Enter the code once to approve. That's it — the client refreshes its access
+   silently from then on; you never enter a code again for that client (revoke by
+   deleting its `OauthClient` / `OauthToken` rows in `pito console`).
+
+Then ask the assistant things like _"what games does @gmrdad82 play?"_ or _"what did
+PITO say about retention yesterday?"_ and it will call the matching tool.
+
 ### Native — for hacking on it (development mode)
 
 ```bash

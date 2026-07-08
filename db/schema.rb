@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_07_204958) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_08_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -148,11 +148,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_07_204958) do
     t.datetime "deleting_at"
     t.text "draft"
     t.string "scope_channel", default: "@all", null: false
+    t.string "source", default: "app", null: false
     t.string "stats_period", default: "7d", null: false
     t.string "title"
     t.datetime "updated_at", null: false
     t.uuid "uuid", null: false
     t.index ["deleting_at"], name: "index_conversations_on_deleting_at"
+    t.index ["source"], name: "index_conversations_on_source"
     t.index ["uuid"], name: "index_conversations_on_uuid", unique: true
   end
 
@@ -277,6 +279,42 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_07_204958) do
     t.text "message", null: false
     t.datetime "read_at"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "oauth_clients", force: :cascade do |t|
+    t.string "client_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.jsonb "redirect_uris", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.index ["client_id"], name: "index_oauth_clients_on_client_id", unique: true
+  end
+
+  create_table "oauth_codes", force: :cascade do |t|
+    t.string "client_id", null: false
+    t.string "code_challenge", null: false
+    t.string "code_challenge_method", default: "S256", null: false
+    t.string "code_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "redirect_uri", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "used", default: false, null: false
+    t.index ["client_id"], name: "index_oauth_codes_on_client_id"
+    t.index ["code_digest"], name: "index_oauth_codes_on_code_digest", unique: true
+  end
+
+  create_table "oauth_tokens", force: :cascade do |t|
+    t.string "client_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "refresh_digest", null: false
+    t.datetime "revoked_at"
+    t.string "token_digest", null: false
+    t.datetime "updated_at", null: false
+    t.index ["client_id"], name: "index_oauth_tokens_on_client_id"
+    t.index ["refresh_digest"], name: "index_oauth_tokens_on_refresh_digest", unique: true
+    t.index ["token_digest"], name: "index_oauth_tokens_on_token_digest", unique: true
   end
 
   create_table "shares", force: :cascade do |t|

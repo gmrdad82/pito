@@ -33,11 +33,12 @@
 module DispatchConfigInjection
   # Merge the given YAML fragments into the live config document, install it, and
   # rebuild the derived caches. Returns the injected (deep-frozen) document.
-  def inject_dispatch_config!(verbs: nil, vocabularies: nil, universal_reply: nil)
+  def inject_dispatch_config!(verbs: nil, vocabularies: nil, universal_reply: nil, mcp_readers: nil)
     doc = Pito::Dispatch::Config.data.deep_dup # ActiveSupport deep_dup → unfrozen tree
     merge_section!(doc, :verbs, verbs)
     merge_section!(doc, :vocabularies, vocabularies)
     merge_section!(doc, :universal_reply, universal_reply)
+    merge_section!(doc, :mcp_readers, mcp_readers)
 
     @injected_dispatch_document = deep_freeze(doc)
     Pito::Dispatch::Config.instance_variable_set(:@data, @injected_dispatch_document)
