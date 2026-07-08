@@ -34,9 +34,21 @@ RSpec.describe Pito::Channel::DetailComponent, type: :component do
     expect(node.at_css(".whitespace-pre-wrap")).to be_present
   end
 
-  it "omits the description row when the channel has none" do
+  it "omits the description section when the channel has none" do
     channel.update!(description: nil)
     expect(render_card.text).not_to include("Description")
+  end
+
+  it "renders the description as a hairline-separated section below the kv-table (not a kv-row)" do
+    node = render_card
+    grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+    # Description is NOT in the kv-table grid anymore…
+    expect(grid.text).not_to include(I18n.t("pito.channel.detail.description"))
+    # …it renders in its own labelled body below, separated by a detail hairline.
+    expect(node.at_css(".pito-channel-detail__description")).to be_present
+    expect(node.at_css("div.pito-detail-hairline")).to be_present
+    html = node.to_html
+    expect(html.index("grid-cols-[max-content_1fr]")).to be < html.index("pito-channel-detail__description")
   end
 
   it "renders an absolute Last sync at stamp when synced" do
