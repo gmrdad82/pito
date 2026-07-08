@@ -4,6 +4,25 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.4] — 2026-07-08
+
+### Added
+
+- **Multiple ids at once** — `list`, `analyze`, `at-a-glance`, and `breakdowns` now
+  take several ids together (comma and/or space, optional `#`): `list videos 2, #4, 7`
+  lists exactly those in the order you typed; `analyze videos 2,3,4` /
+  `at-a-glance videos 2,3,4` / `breakdowns games 5,6` evaluate them as ONE combined
+  card. A single id still works everywhere.
+- **Slate, filtered by channel** — `schedule <id> slate only @handle1, @handle2`
+  scopes the schedule to just those channels (the union); without `only` you still
+  get the full slate.
+
+### Fixed
+
+- **Pull-to-refresh no longer over-runs into blank space** — the reveal now tracks
+  your finger 1:1, capped at the arrow block's own height, so the arrows show from
+  the first movement and there's no dead gap below them.
+
 ## [1.4.3] — 2026-07-08
 
 ### Changed

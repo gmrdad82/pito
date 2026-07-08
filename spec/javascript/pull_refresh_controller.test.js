@@ -2,14 +2,16 @@
 //
 // Vitest (jsdom) suite for pito--pull-refresh (G74): bottom pull-to-refresh,
 // Android shell ONLY. A touch starting with the scrollback at the bottom and
-// dragging UP past THRESHOLD_PX reloads on release; short pulls spring back;
+// dragging UP past ARM_LIFT reloads on release; short pulls spring back;
 // non-shell UAs get no listeners at all.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import PullRefreshController from "controllers/pito/pull_refresh_controller"
 
-const THRESHOLD_PX = 150
+// The controller arms once the pull reaches the hint block's height; under jsdom
+// offsetHeight is 0 so it falls back to FALLBACK_LIFT (260) — the effective arm/cap.
+const ARM_LIFT = 260
 
 function touchEvent(type, y) {
   const ev = new Event(type, { bubbles: true })
@@ -64,7 +66,7 @@ describe("pito--pull-refresh controller", () => {
     const reload = vi.spyOn(ctrl, "_reload").mockImplementation(() => {})
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 500 - (THRESHOLD_PX + 10)))
+    el.dispatchEvent(touchEvent("touchmove", 500 - (ARM_LIFT + 10)))
     el.dispatchEvent(touchEvent("touchend", 0))
 
     expect(reload).toHaveBeenCalledTimes(1)
@@ -76,7 +78,7 @@ describe("pito--pull-refresh controller", () => {
     const reload = vi.spyOn(ctrl, "_reload").mockImplementation(() => {})
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 500 - (THRESHOLD_PX - 30)))
+    el.dispatchEvent(touchEvent("touchmove", 500 - (ARM_LIFT - 30)))
     el.dispatchEvent(touchEvent("touchend", 0))
 
     expect(reload).not.toHaveBeenCalled()
@@ -105,13 +107,13 @@ describe("pito--pull-refresh controller", () => {
     document.body.appendChild(template)
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 425)) // pull = 75 = half threshold
+    el.dispatchEvent(touchEvent("touchmove", 454)) // pull = 46 → ~0.5 opacity (46 / (260*0.35))
     const hint = el.querySelector("[data-pull-refresh-hint]")
     expect(hint).not.toBeNull()
-    expect(parseFloat(hint.style.opacity)).toBeCloseTo(0.5)
+    expect(parseFloat(hint.style.opacity)).toBeCloseTo(0.5, 1) // ramps fast — visible early
     expect(hint.classList.contains("is-armed")).toBe(false)
 
-    el.dispatchEvent(touchEvent("touchmove", 500 - (THRESHOLD_PX + 10)))
+    el.dispatchEvent(touchEvent("touchmove", 500 - (ARM_LIFT + 10)))
     expect(hint.classList.contains("is-armed")).toBe(true)
 
     // Short release springs back AND removes the hint from the DOM, so it never
@@ -135,15 +137,15 @@ describe("pito--pull-refresh controller", () => {
     expect(el.querySelector("[data-pull-refresh-hint]")).toBeNull()
   })
 
-  it("lifts the pane during the drag as feedback (capped)", async () => {
+  it("lifts the pane 1:1 with the finger, capped at the block height", async () => {
     await build({ native: true })
     fakeGeometry(el, { atBottom: true })
 
     el.dispatchEvent(touchEvent("touchstart", 500))
-    el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 60*(340/150) = 136px
-    expect(el.style.transform).toBe("translateY(-136px)")
+    el.dispatchEvent(touchEvent("touchmove", 440)) // pull = 60 → lift 60 (1:1, no over-run)
+    expect(el.style.transform).toBe("translateY(-60px)")
 
-    el.dispatchEvent(touchEvent("touchmove", 200)) // pull = 300 → capped at MAX_LIFT 340px
-    expect(el.style.transform).toBe("translateY(-340px)")
+    el.dispatchEvent(touchEvent("touchmove", 60)) // pull = 440 → capped at the block height (260)
+    expect(el.style.transform).toBe("translateY(-260px)")
   })
 })
