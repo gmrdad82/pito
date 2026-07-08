@@ -75,15 +75,8 @@
             )) %>
       <% end %>
 
-      <% if tags_label.present? %>
-        <%= render(Pito::Table::KeyValueRowComponent.new(
-              key_text:    t("pito.video.detail.tags"),
-              value_text:  tags_label,
-              key_class:   "text-fg-dim whitespace-nowrap",
-              value_class: "text-fg"
-            )) %>
-      <% end %>
-
+      <%# Last sync at — directly after visibility (privacy); tags are no longer a
+          kv-row, they live in their own section below the description. %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.video.detail.last_sync_at"),
             value_text:  last_sync_label,
@@ -99,6 +92,14 @@
     <% if description.present? %>
       <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
       <div class="pito-video-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
+    <% end %>
+
+    <%# Tags — its own hairline-separated section below the description, rendered
+        like Description (label row + comma-joined tags beneath), not a kv-row. %>
+    <% if tags_label.present? %>
+      <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+      <div class="text-fg-dim mt-1"><%= t("pito.video.detail.tags") %></div>
+      <div class="pito-video-detail__tags text-fg whitespace-pre-wrap"><%= tags_label %></div>
     <% end %>
   <% end %>
 

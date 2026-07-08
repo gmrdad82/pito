@@ -64,15 +64,8 @@
             value_class: "text-fg"
           )) %>
 
-      <% if description.present? %>
-        <%= render(Pito::Table::KeyValueRowComponent.new(
-              key_text:    t("pito.channel.detail.description"),
-              value_text:  description,
-              key_class:   "text-fg-dim whitespace-nowrap",
-              value_class: "text-fg whitespace-pre-wrap"
-            )) %>
-      <% end %>
-
+      <%# Description is no longer a kv-row — it lives in its own hairline-separated
+          section below the kv-table (parity with show vid). %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.channel.detail.last_sync_at"),
             value_text:  last_sync_label,
@@ -92,6 +85,15 @@
             value_component: Pito::Table::LinkValueComponent.new(url: @channel.youtube_studio_url)
           )) %>
     </div>
+
+    <%# Hairline between the kv-table and the description (parity with show vid). %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+
+    <%# Description — label on its own row, body beneath (like show vid). %>
+    <% if description.present? %>
+      <div class="text-fg-dim mt-1"><%= t("pito.channel.detail.description") %></div>
+      <div class="pito-channel-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
+    <% end %>
   <% end %>
 
 <% end %>
