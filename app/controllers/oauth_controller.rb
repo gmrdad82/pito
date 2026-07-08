@@ -54,7 +54,7 @@ class OauthController < ApplicationController
 
     raw_code, = OauthCode.mint(
       client_id:      @client.client_id,
-      redirect_uri:   params[:redirect_uri],
+      redirect_uri:   @redirect_uri,
       code_challenge: params[:code_challenge],
       code_challenge_method: "S256"
     )
@@ -88,6 +88,11 @@ class OauthController < ApplicationController
       render_consent_error("This redirect URI is not registered for the client.")
       return false
     end
+
+    # Pin the redirect target to the CLIENT-REGISTERED URI (from the model), not the
+    # raw param — they're equal (allows_redirect? just confirmed it), but redirecting
+    # to the stored value means we NEVER bounce to an attacker-shaped param string.
+    @redirect_uri = @client.redirect_uris.find { |uri| uri == params[:redirect_uri].to_s }
 
     # From here the redirect_uri is trusted, so protocol errors go BACK to it.
     unless params[:response_type].to_s == "code"
@@ -146,11 +151,11 @@ class OauthController < ApplicationController
   # ── redirect helpers (redirect_uri is validated before any of these) ─────────
 
   def redirect_back(code:, state:)
-    build_redirect(params[:redirect_uri], code: code, state: state.presence)
+    build_redirect(@redirect_uri, code: code, state: state.presence)
   end
 
   def redirect_error(error)
-    redirect_to build_redirect(params[:redirect_uri], error: error, state: params[:state].presence),
+    redirect_to build_redirect(@redirect_uri, error: error, state: params[:state].presence),
                 allow_other_host: true
   end
 
