@@ -1,7 +1,3 @@
-# Verb ontology — seed of the D7 config-driven dispatch system.
-# Verb declarations migrate here in P1–P3 (see docs/claude/0.9.5-yaml-schema.md §3
-# for the full schema and the plan doc for migration phases).
-# The schema governing this file's shape is docs/claude/0.9.5-yaml-schema.md.
 schema_version: 1
 
 # Universal reply actions injected on every followupable event (Share::UniversalActions).
