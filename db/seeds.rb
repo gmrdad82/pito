@@ -29,3 +29,19 @@
 
   Notification.create!(attrs.merge(updated_at: attrs[:created_at]))
 end
+
+# ── Demo MCP OAuth client — DEVELOPMENT ONLY (idempotent) ───────────────────────
+#
+# A fixed public client so the `mkt-mcp` capture scenario can render the /oauth
+# consent page ("Authorize Claude") for the pitomd landing shot. NEVER seeded in
+# production — a standing registered client there is a token-exfiltration surface;
+# real clients self-register via RFC 7591 dynamic registration. The client_id is
+# fixed (not a secret — PKCE binds the grant); its only use is the capture URL in
+# lib/support/pitomd/mkt-mcp.yml.
+if Rails.env.development? && !OauthClient.exists?(client_id: "mkt-capture-demo")
+  OauthClient.create!(
+    client_id:     "mkt-capture-demo",
+    name:          "Claude",
+    redirect_uris: [ "https://claude.ai/api/mcp/auth_callback" ]
+  )
+end

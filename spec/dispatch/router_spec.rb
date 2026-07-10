@@ -193,5 +193,52 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
       expect(body).to include("VIDEOS")
       expect(body).to include("CHANNELS")
     end
+
+    # ── verb-level fallback (extracted noun isn't a real noun page) ────────────
+    #
+    # extract_noun grabs the first plain word after the verb, ref tokens (#id)
+    # aside — for a dual-ref connective form that word is the connector itself
+    # ("to"), which has no `pito.chat_help.link.to` page. help_page must fall
+    # back to the verb-level page rather than returning nil and letting the
+    # Router dispatch a --help message into the handler.
+
+    it "falls back to the verb-level page for 'link #1 to game #1 --help' (extracted noun :to has no page) and never dispatches the handler" do
+      fake = echo_handler
+      stub_const("Pito::Chat::Handlers::Link", fake)
+
+      result = described_class.call(input: "link #1 to game #1 --help", conversation:)
+      body   = result.events.first[:payload]["body"]
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["html"]).to be(true)
+      expect(body).to include("Usage:")
+      expect(body).to include("link game")
+      expect(body).to include("link video")
+      expect(fake.last_kwargs).to be_nil  # handler never invoked
+      expect(fake.last_context).to be_nil
+    end
+
+    it "falls back to the verb-level page for a nonsense noun ('delete bogus --help') and never dispatches the handler" do
+      fake = echo_handler
+      stub_const("Pito::Chat::Handlers::Delete", fake)
+
+      result = described_class.call(input: "delete bogus --help", conversation:)
+      body   = result.events.first[:payload]["body"]
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(body).to include("Usage:")
+      expect(body).to include("delete game")
+      expect(body).to include("delete video")
+      expect(fake.last_kwargs).to be_nil  # handler never invoked
+      expect(fake.last_context).to be_nil
+    end
+
+    it "still routes 'delete game --help' to the delete-game noun page (real noun, unaffected by the fallback)" do
+      result = described_class.call(input: "delete game --help", conversation:)
+      body   = result.events.first[:payload]["body"]
+
+      expect(body).to include("delete game")
+      expect(body).to include("#id")
+    end
   end
 end

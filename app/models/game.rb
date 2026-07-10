@@ -152,7 +152,11 @@ class Game < ApplicationRecord
   end
 
   def score_drift_too_large?(new_score)
-    return false if score.nil?
+    # A never-scored game can't "drift": its FIRST real score may jump from 0 (or
+    # nil) to anything — it's a new game finally getting IGDB ratings, not a
+    # glitched swing (owner 2026-07-09). The guard only protects an ALREADY-
+    # established score from a single bad sync.
+    return false if score.nil? || score.zero?
 
     (new_score - score).abs > SCORE_DRIFT_THRESHOLD
   end

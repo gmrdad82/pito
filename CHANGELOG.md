@@ -4,6 +4,75 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] — 2026-07-10
+
+### Added
+
+- **`publish_at` video column** — a scheduled video's go-live time is now its own
+  first-class column (`list vids with publish_at`), sortable (`sort by publish_at`)
+  and shown as a named "Publish at" field on `show vid`, instead of being buried in
+  the visibility label. Visibility keeps its four scopes (public / unlisted /
+  scheduled / private); the exact timestamp is now visible without opening the vid.
+- **Richer MCP tools** — the `pito_list` MCP tool now advertises, per noun, exactly
+  which extra columns, filters, and sort keys it accepts (read straight from the
+  chatbox grammar, so the two can't drift), gains a `filter` argument, and rejects
+  unknown columns/nouns with a helpful error instead of silently ignoring them. The
+  `filter` argument documents the real values it accepts (`upcoming`, `rpg`, `ps5`,
+  `xsx`, …) rather than bare category names. An AI client can now pull a
+  scheduled-video slate (with publish times) in one call instead of fetching each
+  video separately. Every tool now declares its read-only nature explicitly in
+  config (a required per-tool flag, schema-enforced): nine pure-read tools carry
+  `readOnlyHint: true`, while the four analytics tools (`analyze`, `glance`,
+  `breakdowns`, `channels_of_game`) declare `false` — their first call for a
+  period computes and caches (and may query the YouTube Analytics API), which
+  their descriptions state openly — so a strict client may ask before calling
+  them. No tool can modify library data either way.
+- **One game-filter vocabulary** — the genre / platform tokens `list games`
+  understands now come from the same config vocabulary that `--help`, the MCP
+  tools, and `find` read (a guard keeps them in lockstep), which adds a batch of
+  new working tokens (`sony`, `psn`, `microsoft`, `windows`, `xsx`, `xss`,
+  `series x`, `series s`, `xb1`, `xbone`, `nintendo`, `iphone`, `ipad`, `mobile`,
+  …) including two-word forms (`list games series x`). `arcade` is gone, matching
+  the v1.4.0 platform drop — and Arcade is now stripped from imported platform
+  data too (a migration scrubs previously imported rows), so the word no longer
+  exists anywhere in PITO.
+- **Filters and columns in `--help`** — `list games --help` / `list vids --help`
+  now list the available filters (e.g. `upcoming`, `scheduled`) alongside the
+  columns, and both are generated from the same source the table and MCP use, so a
+  new column or filter shows up everywhere at once. `show vid #id --help`,
+  `show vids --help`, `list vids --help`, `game --help` / `games --help`, and
+  `search --help` now render (previously some alias, id, segment-verb, and
+  query-verb forms showed nothing). `/jobs --help`, `/games --help`, and
+  `/rename --help` now show their full command pages (subcommands / arguments)
+  instead of a bare generic page.
+
+### Changed
+
+- **Chatbox autocomplete keys** — when the suggestion palette is open, **Tab**
+  accepts the highlighted suggestion and **Enter** always submits the chatbox as
+  typed. Enter no longer silently completes a half-typed verb, so what you see is
+  what you send.
+
+### Fixed
+
+- **Stale scheduled times** — a video that already went live no longer shows its
+  old go-live timestamp in `list vids with publish_at`: past times render as "—"
+  and sort with the unscheduled bucket, so the schedule slate only ever shows
+  genuinely upcoming publishes (the `show vid` field already behaved this way).
+- **`--help` always helps** — a chat command carrying `--help` whose noun can't be
+  parsed (e.g. `link #3 to game #5 --help`) now renders the verb's help page
+  instead of falling through to the command itself.
+- **Blank filter labels** — `list games --help` no longer renders empty token
+  cells for the genre / platform filter rows.
+- **IGDB release days** — a game's release date now records the real day from
+  IGDB's timestamp instead of defaulting to the first of the month, so countdowns
+  and the "upcoming" slate are accurate and already-released games stop being
+  counted as upcoming. A missing-date sentinel (epoch 0) degrades to month
+  precision instead of fabricating day 1.
+- **First real score for a new game** — a game whose score moves from 0 (unknown)
+  to its first real value is no longer blocked by the score-drift guard; the guard
+  still catches suspicious large swings between two real scores.
+
 ## [1.5.0] — 2026-07-09
 
 ### Added

@@ -5,17 +5,22 @@ module Pito
     module Video
       # Builder for the `list videos --help` system message.
       #
-      # Mirrors Game::ListHelp but for videos: renders a `Usage:` line, an
-      # `Options:` group, and a `Columns:` group derived from
-      # Video::ListColumns::COLUMNS. All user-facing strings come from Pito::Copy
-      # (`pito.copy.list.videos_help.*`).
+      # Renders a `Usage:` line, an `Options:` group, and `Columns:` + `Filters:`
+      # groups DERIVED from the config capability vocabulary
+      # (`Pito::Grammar::Capability`) — the single grammar `--help`, MCP, and
+      # autocomplete all read. Add a column/filter to verbs.yml `capabilities:` and
+      # it appears here with its config description automatically; no per-column copy
+      # lives here. The usage/options wording stays in `pito.copy.list.videos_help.*`.
       module ListHelp
+        NOUN = "vids"
+
         class << self
           # @return [Hash] system payload ({ "html" => true, "body" => <pre block> })
           def call
             groups = [
               [ c("options_title"), option_rows ],
-              [ c("columns_title"), column_rows ]
+              [ c("columns_title"), column_rows ],
+              [ c("filters_title"), filter_rows ]
             ]
             body = Pito::MessageBuilder::ManPage.render(usage: c("usage"), groups:)
             { "html" => true, "body" => body }
@@ -32,13 +37,21 @@ module Pito
             ]
           end
 
-          # [token, description] pairs for the Columns group — tokens are the
-          # real parser aliases, descriptions come from copy keyed by canonical.
+          # [token, description] rows from the config capability set. Tokens are the
+          # real parser aliases (canonical first); descriptions resolve the config
+          # `desc` copy key — so the list can never drift from the actual grammar.
           def column_rows
-            # PUBLIC_COLUMNS only — internal columns (e.g. the slate's :scheduled)
-            # are not user-addable, so they never appear in the help.
-            ListColumns::PUBLIC_COLUMNS.map do |canonical, cfg|
-              [ cfg[:aliases].join(", "), c("col_#{canonical}_desc") ]
+            Pito::Grammar::Capability.public_columns(:list, NOUN).map do |col|
+              [ col.tokens.join(", "), Pito::Copy.render(col.desc) ]
+            end
+          end
+
+          def filter_rows
+            Pito::Grammar::Capability.filters(:list, NOUN).map do |filter|
+              # A vocabulary-backed filter has no literal tokens — show its name
+              # (the desc copy carries example values) rather than a blank cell.
+              tokens = filter.tokens.any? ? filter.tokens : [ filter.name ]
+              [ tokens.join(", "), Pito::Copy.render(filter.desc) ]
             end
           end
 

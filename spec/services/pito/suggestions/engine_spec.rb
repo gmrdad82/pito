@@ -683,9 +683,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(result[:stage]).to eq(:verb)
       end
 
-      it "uses the VIDEO surface's display tokens on video_list (duration canonical, comms gone — G26)" do
+      it "uses the VIDEO surface's display tokens on video_list (duration canonical, comms gone — G26; publish_at — U6)" do
         stamp("vl-1", "video_list", "list_columns" => %w[views])
-        expect(labels("#vl-1 with ", 11)).to eq(%w[category channel duration game likes visibility])
+        expect(labels("#vl-1 with ", 11)).to eq(%w[category channel duration game likes publish_at visibility])
       end
 
       it "derives game_linked_videos columns from the VIDEO surface" do

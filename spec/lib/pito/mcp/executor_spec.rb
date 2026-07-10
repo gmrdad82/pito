@@ -29,6 +29,13 @@ RSpec.describe Pito::Mcp::Executor do
         .to eq("list games 2, 4, 5 with platform, genre sort price desc")
     end
 
+    it "appends a filter clause as bare tokens before with/sort (U5)" do
+      expect(described_class.build_input(descriptor("pito_list"),
+                                         { "noun" => "vids", "filter" => %w[scheduled],
+                                           "columns" => %w[publish_at], "sort" => "publish_at" }))
+        .to eq("list vids scheduled with publish_at sort publish_at")
+    end
+
     it "omits absent optional clauses" do
       expect(described_class.build_input(descriptor("pito_list"), { "noun" => "channels" }))
         .to eq("list channels")
@@ -65,6 +72,38 @@ RSpec.describe Pito::Mcp::Executor do
     it "does not dispatch when a required argument is missing" do
       expect(Pito::Dispatch::Router).not_to receive(:call)
       described_class.call(tool: "pito_show", arguments: { "noun" => "game" })
+    end
+  end
+
+  # ── U5: MCP-boundary allowlist validation (unknown → error, not silent drop) ────
+  describe "capability + enum validation" do
+    it "errors on an unknown noun and names the valid set" do
+      result = described_class.call(tool: "pito_list", arguments: { "noun" => "movies" })
+      expect(result.is_error).to be(true)
+      expect(result.text).to match(/Unknown noun "movies"\. Valid: games, vids, channels/)
+    end
+
+    it "errors on an unknown column for the given noun, listing the valid columns" do
+      result = described_class.call(tool: "pito_list", arguments: { "noun" => "games", "columns" => %w[bogus] })
+      expect(result.is_error).to be(true)
+      expect(result.text).to match(/Unknown column "bogus" for games/)
+      expect(result.text).to include("platform", "genre")
+    end
+
+    it "does NOT dispatch when a column is invalid" do
+      expect(Pito::Dispatch::Router).not_to receive(:call)
+      described_class.call(tool: "pito_list", arguments: { "noun" => "games", "columns" => %w[bogus] })
+    end
+
+    it "accepts a valid per-noun column (publish_at on vids)" do
+      expect(Pito::Dispatch::Router).to receive(:call).and_call_original
+      result = described_class.call(tool: "pito_list", arguments: { "noun" => "vids", "columns" => %w[publish_at] })
+      expect(result.is_error).to be(false)
+    end
+
+    it "stays lenient on filter (genre/platform values + toggles pass through)" do
+      expect(Pito::Dispatch::Router).to receive(:call).and_call_original
+      described_class.call(tool: "pito_list", arguments: { "noun" => "vids", "filter" => %w[scheduled] })
     end
   end
 

@@ -17,6 +17,18 @@ RSpec.describe Game::Igdb::GameMapper, type: :service do
       expect(attrs[:platforms]).to eq([ "Nintendo Switch", "PC (Microsoft Windows)" ])
     end
 
+    it "strips Arcade (owner-dropped platform, v1.4.0) from the mapped list" do
+      json = {
+        "id" => 1, "name" => "Tekken 7",
+        "platforms" => [
+          { "id" => 52, "name" => "Arcade", "slug" => "arcade" },
+          { "id" => 48, "name" => "PlayStation 4", "slug" => "ps4" }
+        ]
+      }
+      attrs = described_class.map_game(json)
+      expect(attrs[:platforms]).to eq([ "PlayStation 4" ])
+    end
+
     it "resets platforms to [] when IGDB sends an empty list" do
       attrs = described_class.map_game({ "id" => 1, "name" => "X", "platforms" => [] })
       expect(attrs[:platforms]).to eq([])

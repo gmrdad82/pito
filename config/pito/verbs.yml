@@ -27,20 +27,37 @@ vocabularies:
   config_keys:
     members: [client_id, client_secret, redirect_uri, api_key, slack, discord, nickname]
   genres:
-    members: [Shooter, Simulation, RPG, Racing, Strategy, Sports, Puzzle, Platformer, Fighting, Adventure]
+    # ONE vocab for find slots, the chat list filter, --help and MCP (v1.6
+    # unification — GameListFilter's private alias maps derive from here).
+    # Members mirror the IGDB genres the library actually carries; the
+    # member→match-substring behavior stays in Ruby (GameListFilter).
+    members: [Shooter, Simulation, RPG, Racing, Strategy, Sports, Puzzle, Platformer,
+              Fighting, Adventure, Action, Indie, "Hack and slash"]
     synonyms: {fps: Shooter, shooter: Shooter, sim: Simulation, simulation: Simulation,
-               rpg: RPG, racing: Racing, strategy: Strategy, sports: Sports,
-               puzzle: Puzzle, platformer: Platformer, fighting: Fighting, adventure: Adventure}
+               rpg: RPG, "role-playing": RPG, racing: Racing, strategy: Strategy,
+               sports: Sports, sport: Sports, puzzle: Puzzle, platformer: Platformer,
+               platform: Platformer, fighting: Fighting, adventure: Adventure,
+               hack: "Hack and slash", beat: "Hack and slash",
+               "hack-and-slash": "Hack and slash"}
   platforms:
     # "Xbox" (the bare family) is a deliberate member: as an ILIKE substring it
     # matches One / Series X / Series S / the combined "Series X|S" — so plain
     # `xbox` tracks the whole family (owner 2026-07-03: Series S too, not only X).
+    # PlayStation / Xbox Series / Nintendo / Mobile are family members for the
+    # same reason: chat `ps`/`playstation`/`sony` cover PS4+PS5, `mobile` covers
+    # iOS+Android (v1.6 unification with the chat list filter; Arcade stays
+    # dropped — owner v1.4.0).
     members: ["PlayStation 5", "Nintendo Switch", PC, Xbox, "Xbox Series X",
-              "Xbox Series S", "PlayStation 4", "Xbox One", iOS, Android]
-    synonyms: {ps5: "PlayStation 5", playstation: "PlayStation 5", ps: "PlayStation 5",
-               sony: "PlayStation 5", switch: "Nintendo Switch", steam: PC, pc: PC,
-               xbox: Xbox, xsx: "Xbox Series X", "series x": "Xbox Series X",
-               xss: "Xbox Series S", "series s": "Xbox Series S"}
+              "Xbox Series S", "PlayStation 4", "Xbox One", iOS, Android,
+              PlayStation, "Xbox Series", Nintendo, Mobile]
+    synonyms: {ps5: "PlayStation 5", ps4: "PlayStation 4", playstation: PlayStation,
+               ps: PlayStation, psn: PlayStation, sony: PlayStation, switch: "Nintendo Switch",
+               nintendo: Nintendo, steam: PC, pc: PC, windows: PC,
+               xbox: Xbox, microsoft: Xbox, xsx: "Xbox Series X",
+               "series x": "Xbox Series X", xss: "Xbox Series S",
+               "series s": "Xbox Series S", xbs: "Xbox Series",
+               xb1: "Xbox One", xbone: "Xbox One",
+               iphone: iOS, ipad: iOS, mobile: Mobile}
   release_status:
     members: [released, upcoming, tba]
     synonyms: {unreleased: upcoming, "to be announced": tba, tbd: tba}
@@ -102,15 +119,18 @@ verbs:
     description: pito.grammar.chat.list
     mcp:
       tool: pito_list
-      description: "List your library — games, vids (videos), or channels. Optionally add extra columns, sort, or restrict to specific numeric ids."
+      read_only: true
+      description: "List your library — games, vids (videos), or channels. Prefer this over repeated pito_show calls: append extra `columns`, restrict with `filter`, and `sort` in ONE call — the valid values for each are enumerated per-noun in the param descriptions. `ids` restricts to specific numeric ids."
       params:
         noun:    { type: string, enum: [games, vids, channels], required: true, hint: "what to list" }
-        columns: { type: array,  items: string, required: false, hint: "extra kv-table columns, e.g. [platform, genre]" }
-        sort:    { type: string, required: false, hint: "column name, optionally followed by desc (e.g. price desc)" }
+        columns: { type: array,  items: string, required: false, capability: columns, hint: "extra kv-table columns to append to the table" }
+        filter:  { type: array,  items: string, required: false, capability: filters, hint: "restrict the list to a subset" }
+        sort:    { type: string, required: false, capability: sort, hint: "column to sort by, optionally followed by desc (e.g. price desc)" }
         ids:     { type: array,  items: integer, required: false, hint: "restrict to these numeric ids" }
       input: "list %{noun}"
       input_suffixes:
         ids:     " %{values}"
+        filter:  " %{values}"
         columns: " with %{values}"
         sort:    " sort %{value}"
     availability:
@@ -128,11 +148,51 @@ verbs:
       pager:
         page_size: 50
         more_verb: next
+    # v1.6 unified grammar — the CONFIG vocabulary --help / MCP / autocomplete read.
+    # Behavior (cell/sort procs) stays in Ruby `{Game,Video,Channel}::ListColumns`,
+    # keyed by these names; the orphan-guard spec keeps config ↔ Ruby in 1:1 sync.
+    capabilities:
+      columns:
+        games:
+          platform:  { aliases: [platforms],  sortable: false, requires_with: true, desc: pito.copy.help.columns.games.platform }
+          genre:     { aliases: [genres],      sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.genre }
+          developer: { aliases: [dev],         sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.developer }
+          publisher: { sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.publisher }
+          channels:  { aliases: [channel],     sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.channels }
+          footage:   { sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.footage }
+          price:     { aliases: [prices],      sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.price }
+          views:     { sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.views }
+          likes:     { sortable: true,  requires_with: true, desc: pito.copy.help.columns.games.likes }
+        vids:
+          channel:    { sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.channel }
+          visibility: { aliases: [status],     sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.visibility }
+          game:       { aliases: [games],      sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.game }
+          duration:   { aliases: [length],     sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.duration }
+          views:      { sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.views }
+          likes:      { sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.likes }
+          category:   { aliases: [categories], sortable: false, requires_with: true, desc: pito.copy.help.columns.vids.category }
+          publish_at: { aliases: [publish],    sortable: true,  requires_with: true, desc: pito.copy.help.columns.vids.publish_at }
+          scheduled:  { internal: true, sortable: false, requires_with: true, desc: pito.copy.help.columns.vids.scheduled }
+        channels:
+          subs:  { aliases: [sub, subscribers],   sortable: true, requires_with: true, default: true, desc: pito.copy.help.columns.channels.subs }
+          views: { aliases: [view],               sortable: true, requires_with: true, default: true, desc: pito.copy.help.columns.channels.views }
+          vids:  { aliases: [vid, videos, video], sortable: true, requires_with: true, default: true, desc: pito.copy.help.columns.channels.vids }
+          likes: { sortable: true, requires_with: true, desc: pito.copy.help.columns.channels.likes }
+      filters:
+        games:
+          upcoming: { tokens: [upcoming], scope: upcoming, desc: pito.copy.help.filters.games.upcoming }
+          genre:    { vocabulary: genres,    desc: pito.copy.help.filters.games.genre }
+          platform: { vocabulary: platforms, desc: pito.copy.help.filters.games.platform }
+        vids:
+          published: { tokens: [published], scope: published, desc: pito.copy.help.filters.vids.published }
+          unlisted:  { tokens: [unlisted],  scope: unlisted,  desc: pito.copy.help.filters.vids.unlisted }
+          scheduled: { tokens: [scheduled], scope: scheduled, desc: pito.copy.help.filters.vids.scheduled }
 
   show:
     description: pito.grammar.chat.show
     mcp:
       tool: pito_show
+      read_only: true
       description: "Show one game, vid, or channel. `ref` is a numeric id (games/vids) or an @handle (channels). Optionally request extra segments such as similar, videos, channels, games, or at-a-glance."
       params:
         noun:     { type: string, enum: [game, vid, channel], required: true }
@@ -305,7 +365,8 @@ verbs:
     description: pito.grammar.chat.analyze
     mcp:
       tool: pito_analyze
-      description: "YouTube analytics numbers for a game, vid, or channel over a period. Bare (no noun/ref) analyzes all your channels. `period` accepts e.g. 7d, 28d, or lifetime."
+      read_only: false
+      description: "YouTube analytics numbers for a game, vid, or channel over a period. Bare (no noun/ref) analyzes all your channels. `period` accepts e.g. 7d, 28d, or lifetime. First call for a period computes and caches the numbers (may query the YouTube Analytics API); repeat calls read the cache."
       params:
         noun:   { type: string, enum: [game, vid, channel], required: false }
         ref:    { type: string, required: false, hint: "numeric id or @handle" }
@@ -420,7 +481,8 @@ verbs:
     description: pito.grammar.chat.at-a-glance
     mcp:
       tool: pito_glance
-      description: "At-a-glance analytics snapshot for one game, vid, or channel. `period` accepts e.g. 7d, 28d, or lifetime."
+      read_only: false
+      description: "At-a-glance analytics snapshot for one game, vid, or channel. `period` accepts e.g. 7d, 28d, or lifetime. First call for a period computes and caches the numbers (may query the YouTube Analytics API); repeat calls read the cache."
       params:
         noun:   { type: string, enum: [game, vid, channel], required: true }
         ref:    { type: string, required: true, hint: "numeric id or @handle" }
@@ -455,6 +517,7 @@ verbs:
     description: pito.grammar.chat.videos
     mcp:
       tool: pito_videos
+      read_only: true
       description: "List the videos of a channel (by @handle) or the videos linked to a game (by numeric id)."
       params:
         noun: { type: string, enum: [channel, game], required: true }
@@ -488,6 +551,7 @@ verbs:
     description: pito.grammar.chat.game
     mcp:
       tool: pito_game_of_vid
+      read_only: true
       description: "Show the game linked to a given video."
       params:
         vid_ref: { type: string, required: true, hint: "numeric video id" }
@@ -514,6 +578,7 @@ verbs:
     description: pito.grammar.chat.similar
     mcp:
       tool: pito_similar
+      read_only: true
       description: "Show games similar to a given game."
       params:
         game_ref: { type: string, required: true, hint: "numeric game id" }
@@ -540,7 +605,8 @@ verbs:
     description: pito.grammar.chat.channels
     mcp:
       tool: pito_channels_of_game
-      description: "Show the channels that cover a given game (channel distribution)."
+      read_only: false
+      description: "Show the channels that cover a given game (channel distribution). First call computes watch-time via the YouTube Analytics API and caches it for a day; repeat calls read the cache."
       params:
         game_ref: { type: string, required: true, hint: "numeric game id" }
       input: "channels game %{game_ref}"
@@ -566,7 +632,8 @@ verbs:
     description: pito.grammar.chat.breakdowns
     mcp:
       tool: pito_breakdowns
-      description: "Lifetime analytics breakdowns (percentages by dimension) for a game, vid, or channel."
+      read_only: false
+      description: "Lifetime analytics breakdowns (percentages by dimension) for a game, vid, or channel. First call computes and caches the numbers; repeat calls read the cache."
       params:
         noun: { type: string, enum: [game, vid, channel], required: false }
         ref:  { type: string, required: false, hint: "numeric id or @handle" }
@@ -968,6 +1035,7 @@ verbs:
     description: pito.grammar.chat.shinies
     mcp:
       tool: pito_shinies
+      read_only: true
       description: "Show the shinies (achievement chips / award ladders) earned by a game, vid, or channel."
       params:
         noun: { type: string, enum: [game, vid, channel], required: true }
@@ -1248,6 +1316,7 @@ verbs:
     description: pito.grammar.chat.games
     mcp:
       tool: pito_games
+      read_only: true
       description: "List the games a channel plays (by @handle)."
       params:
         channel_ref: { type: string, required: true, hint: "channel @handle" }
@@ -1371,9 +1440,11 @@ verbs:
 mcp_readers:
   pito_conversations:
     tool: pito_conversations
+    read_only: true
     description: "List your saved conversations (recency-grouped): uuid, title, and last activity. Pass a uuid to pito_messages to read one."
   pito_messages:
     tool: pito_messages
+    read_only: true
     description: "Read recent messages from a conversation, newest last. Defaults to the latest active conversation. Call again for fresher state — pito is pull-only, there is no push."
     params:
       conversation_uuid: { type: string,  required: false, hint: "from pito_conversations; defaults to the latest active conversation" }

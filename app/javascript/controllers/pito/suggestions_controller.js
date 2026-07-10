@@ -17,21 +17,24 @@
 // VERB STAGE (palette)
 //   Float-above .pito-suggestions-palette lists matching catalog entries.
 //   ArrowUp/ArrowDown → navigate rows (single step).
-//   Enter  → accept highlighted item (_insertToken), no submit.
+//   Tab    → ACCEPT highlighted item (_insertToken); does NOT submit (owner 2026-07-09).
+//   Enter  → ALWAYS submit the current chatbox value (never accepts a row).
 //   Space  → dismiss palette; space types normally → field becomes "/cmd " → arg stage.
 //   Esc    → close palette.
 //   Other  → type normally; onInput re-filters the palette.
 //
-// Tab is NOT handled anywhere (owner #9): the inline completion feature was
-// removed, so Tab behaves natively in every state (palette open or not).
+// Tab-to-accept / Enter-to-submit (owner 2026-07-09) is the inverse of the old
+// Enter-accepts behavior: the palette is discovery, Tab commits a suggestion, and
+// Enter always sends whatever is typed. Shift+Tab is untouched (channel cycling in
+// chat-form). Outside the palette, Tab behaves natively.
 //
 // FREE-FORM / ARG STAGE (non-palette)
 //   Free input (no / or #) and non-palette arg stages produce no suggestions.
 //   Enter → pass through → form submits.
 //
 // handleKeydown dispatch rule:
-//   palette open?  → Arrow→nav; Enter→accept; Space→dismiss (no preventDefault); Esc→close; other→pass through
-//   else           → all keys pass through (no Tab handling)
+//   palette open?  → Arrow→nav; Tab→accept; Enter→submit (no preventDefault); Space→dismiss; Esc→close; other→pass through
+//   else           → all keys pass through (Tab native)
 //
 // Implements tasks ad+ae+af+ag:
 //   ad — skeleton: connect, modeFor, onInput
@@ -128,19 +131,20 @@ export default class extends Controller {
         this._moveSelection(-1)
         return
       }
-      if (event.key === "Enter" && !event.shiftKey) {
-        // Exact complete verb typed (no trailing space) → let Enter SUBMIT
-        // instead of accepting a palette row. The palette is for discovery
-        // while typing a PARTIAL verb; once the verb is complete, Enter sends.
-        // Slash commands [owner I3] and — G75 — free chat verbs, where the
-        // rule honors EVERY alias ("ls" + Enter sends, not just "list").
-        if (this._isExactCompleteSlashVerb() || this._isExactCompleteChatVerb()) {
-          this._closePalette()
-          return   // no preventDefault → chat-form#handleKeydown submits the form
-        }
+      if (event.key === "Tab" && !event.shiftKey) {
+        // Tab ACCEPTS the highlighted suggestion (owner 2026-07-09). preventDefault
+        // so focus never moves; stopImmediatePropagation so no other handler sees
+        // it. Shift+Tab is left ALONE — it is channel cycling in chat-form.
         event.preventDefault()
         event.stopImmediatePropagation()
         this._acceptPaletteSelection()
+        return
+      }
+      if (event.key === "Enter" && !event.shiftKey) {
+        // Enter ALWAYS submits the current chatbox value — it NEVER accepts a
+        // palette row (owner 2026-07-09; Tab does that). Close the palette chrome
+        // but do NOT preventDefault, so chat-form#handleKeydown submits the form.
+        this._closePalette()
         return
       }
       if (event.key === "Escape") {
@@ -458,25 +462,6 @@ export default class extends Controller {
     return before.trim().length > 0 && !before.includes(" ")
   }
 
-  // True when the field holds an EXACT, complete free-chat verb — canonical
-  // name OR any alias ("list", "ls") — with no trailing space. Mirrors
-  // _isExactCompleteSlashVerb for the G75 verb stage: Enter must SEND the
-  // bare verb (its default reading), not accept the highlighted row.
-  _isExactCompleteChatVerb() {
-    if (!this.hasFieldTarget) return false
-    const field  = this.fieldTarget
-    const value  = field.value
-    if (value.length === 0 || value[0] === "#" || value[0] === "/") return false
-    const cursor = field.selectionStart ?? value.length
-    const before = value.slice(0, cursor)
-    if (before.includes(" ")) return false        // past the verb → not verb stage
-    const token = before.toLowerCase()
-    return (this._catalog?.chat || []).some(e =>
-      e.name.toLowerCase() === token ||
-      (e.aliases || []).some(a => a.toLowerCase() === token),
-    )
-  }
-
   // Hashtag reply ARG stage at a FRESH token: `#<handle> <verb> [<args>] ` with
   // a trailing space. The engine serves the verb's argument menu here (columns
   // for with/without, sort keys, metrics, row ids — E13) tagged stage:"verb",
@@ -517,26 +502,6 @@ export default class extends Controller {
     const verb = before.slice(1, firstSpace).toLowerCase()
     if (verb !== "config") return false
     return before.endsWith(" ")                   // only at the start of a fresh token
-  }
-
-  // Verb-stage: true when the field holds an EXACT, complete slash command verb
-  // with no trailing space (e.g. "/connect", "/config") — the text after "/"
-  // equals a known catalog command name. Used so Enter SUBMITS the complete
-  // command (its read/default version) instead of the open palette accepting a
-  // row. A PARTIAL verb ("/conn") returns false → the palette still accepts on
-  // Enter, preserving command discovery. Applies to every slash command.
-  // [owner I3, 2026-06-26]
-  _isExactCompleteSlashVerb() {
-    if (!this.hasFieldTarget) return false
-    const field  = this.fieldTarget
-    const value  = field.value
-    if (value[0] !== "/") return false
-    const cursor = field.selectionStart ?? value.length
-    const before = value.slice(0, cursor)
-    if (before.indexOf(" ") !== -1) return false  // past the verb → not bare verb stage
-    const verb = before.slice(1).toLowerCase()    // text after "/"
-    if (verb.length === 0) return false
-    return (this._catalog?.slash || []).some(e => e.name.toLowerCase() === verb)
   }
 
   // ── ae: arg-stage palette fetch (debounced POST /suggestions) ─────────────

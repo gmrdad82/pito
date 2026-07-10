@@ -75,15 +75,15 @@ RSpec.describe Pito::Grammar::Normalizer do
         expect(match.values[:genre]).to eq([ "Racing", "RPG" ])
       end
 
-      it "resolves platform to 'PlayStation 5' via `for` introducer" do
-        expect(match.values[:platform]).to eq("PlayStation 5")
+      it "resolves platform to the 'PlayStation' family via `for` introducer (v1.6 vocab)" do
+        expect(match.values[:platform]).to eq("PlayStation")
       end
 
       it "returns the full expected values hash" do
         expect(match.values).to eq(
           status: "upcoming",
           genre:  [ "Racing", "RPG" ],
-          platform: "PlayStation 5"
+          platform: "PlayStation"
         )
       end
 
@@ -253,7 +253,7 @@ RSpec.describe Pito::Grammar::Normalizer do
   describe "connective `for` as introducer" do
     it "fills introducer-gated slot when `for` precedes the value" do
       match = described_class.call(lex("list for playstation"), namespace: :chat)
-      expect(match.values[:platform]).to eq("PlayStation 5")
+      expect(match.values[:platform]).to eq("PlayStation")
     end
 
     it "consumes the `for` token (not in leftovers or unknowns)" do

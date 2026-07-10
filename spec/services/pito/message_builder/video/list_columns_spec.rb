@@ -426,4 +426,65 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(footer).not_to include("scheduled")
     end
   end
+
+  # U6 — publish_at is the PUBLIC, sortable counterpart to the internal :scheduled
+  # column: a bare "DD-MM-YYYY HH:MM" go-live timestamp, split out of the
+  # visibility scope so it is a first-class with/sort column (and MCP field).
+  describe "public :publish_at column (U6)" do
+    let(:channel) { create(:channel, handle: "@ch") }
+
+    it "maps 'publish_at' and the 'publish' alias to :publish_at in the vocabulary" do
+      expect(described_class.vocabulary["publish_at"]).to eq(:publish_at)
+      expect(described_class.vocabulary["publish"]).to eq(:publish_at)
+    end
+
+    it "IS offered as an addable column in the options footer (unlike :scheduled)" do
+      footer = described_class.options_footer([]).to_s
+      expect(footer).to include("publish_at")
+    end
+
+    it "returns nil for 'publish_at' sort when :publish_at is not in selected_columns" do
+      expect(described_class.sort_key_for("publish_at", selected_columns: [])).to be_nil
+    end
+
+    it "sorts by go-live epoch when :publish_at is selected (nil sorts as 0)" do
+      key   = described_class.sort_key_for("publish_at", selected_columns: [ :publish_at ])
+      sched = create(:video, :scheduled, channel: channel, title: "Sched")
+      live  = create(:video, :public, channel: channel, title: "Live")
+      expect(key).to be_a(Proc)
+      expect(key.call(sched)).to eq(sched.publish_at.to_i)
+      expect(key.call(live)).to eq(0)
+    end
+
+    it "sorts a stale past publish_at into the same 0 bucket as nil, both before a future one" do
+      key    = described_class.sort_key_for("publish_at", selected_columns: [ :publish_at ])
+      future = create(:video, :scheduled, channel: channel, title: "Future")
+      past   = create(:video, :public, channel: channel, title: "Past", publish_at: 1.day.ago)
+      nilpa  = create(:video, :public, channel: channel, title: "NilPA")
+
+      expect(key.call(past)).to eq(0)
+      expect(key.call(nilpa)).to eq(0)
+      expect(key.call(future)).to eq(future.publish_at.to_i)
+    end
+
+    it "renders the bare SyncStamp timestamp for a scheduled vid" do
+      travel_to(Time.zone.local(2026, 3, 1, 10, 0)) do
+        v    = create(:video, :public, channel: channel, title: "Sched", publish_at: Time.zone.local(2026, 3, 1, 13, 0))
+        cell = described_class.cells(v, [ :publish_at ]).first
+        expect(cell[:text]).to eq("01-03-2026 13:00")
+      end
+    end
+
+    it "renders '—' for a vid with no publish_at" do
+      v    = create(:video, :public, channel: channel, title: "Live", publish_at: nil)
+      cell = described_class.cells(v, [ :publish_at ]).first
+      expect(cell[:text]).to eq("—")
+    end
+
+    it "renders '—' (not the timestamp) for a vid with a stale past publish_at" do
+      v    = create(:video, :public, channel: channel, title: "Stale", publish_at: 1.day.ago)
+      cell = described_class.cells(v, [ :publish_at ]).first
+      expect(cell[:text]).to eq("—")
+    end
+  end
 end

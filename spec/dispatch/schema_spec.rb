@@ -433,6 +433,7 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     MINIMAL_MCP = {
       tool:        "pito_show",
       description: "Show a game",
+      read_only:   true,
       params:      { ref: { type: "string", required: true, hint: "numeric id" } },
       input:       "show %{ref}"
     }.freeze
@@ -452,12 +453,23 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
       doc = mcp_doc(
         tool:           "pito_list",
         description:    "List things",
+        read_only:      true,
         params:         { noun:    { type: "string", enum: %w[games vids], required: true },
                           columns: { type: "array", items: "string" } },
         input:          "list %{noun}",
         input_suffixes: { columns: " with %{values}" }
       )
       expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "requires read_only on every mcp block (strict per-tool declaration)" do
+      expect(messages(mcp_doc(MINIMAL_MCP.except(:read_only))))
+        .to include("verbs.show.mcp.read_only: missing required key")
+    end
+
+    it "rejects a non-boolean read_only" do
+      expect(messages(mcp_doc(MINIMAL_MCP.merge(read_only: "yes"))))
+        .to include(a_string_matching(/verbs\.show\.mcp\.read_only: expected/))
     end
 
     # ── the walker catches malformed blocks ───────────────────────────────────────
@@ -497,8 +509,8 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     it "accepts a well-formed mcp_readers section" do
       doc = valid_doc
       doc[:mcp_readers] = {
-        pito_conversations: { tool: "pito_conversations", description: "list convos" },
-        pito_messages:      { tool: "pito_messages", description: "read msgs",
+        pito_conversations: { tool: "pito_conversations", description: "list convos", read_only: true },
+        pito_messages:      { tool: "pito_messages", description: "read msgs", read_only: true,
                               params: { limit: { type: "integer" } } }
       }
       expect(described_class.validate(doc)).to eq([])
@@ -515,6 +527,40 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
       doc[:mcp_readers] = { r: { params: {} } }
       expect(messages(doc)).to include("mcp_readers.r.tool: missing required key",
                                        "mcp_readers.r.description: missing required key")
+    end
+  end
+
+  describe ".validate — capability blocks (v1.6 unified grammar)" do
+    # A well-formed capabilities block on a chat verb; the verb keeps its chat
+    # branch so only the capabilities key is under test.
+    def cap_doc(capabilities)
+      doc = valid_doc
+      doc[:verbs][:list] = { chat: { slots: [] }, capabilities: capabilities }
+      doc
+    end
+
+    MINIMAL_CAP_COLUMN = { aliases: %w[title], desc: "pito.copy.column.title" }.freeze
+
+    it "rejects a capabilities column declaring heading: (removed from CAP_COLUMN_KEYS)" do
+      doc = cap_doc(columns: { games: { title: MINIMAL_CAP_COLUMN.merge(heading: "Title") } })
+      expect(messages(doc)).to include("verbs.list.capabilities.columns.games.title.heading: unknown key")
+    end
+
+    it "rejects a capabilities filter declaring neither tokens nor vocabulary" do
+      doc = cap_doc(filters: { games: { upcoming: { desc: "d" } } })
+      expect(messages(doc)).to include(
+        "verbs.list.capabilities.filters.games.upcoming: filter must declare tokens (non-empty Array) or vocabulary (String)"
+      )
+    end
+
+    it "accepts a capabilities filter declaring only a non-empty tokens: array" do
+      doc = cap_doc(filters: { games: { upcoming: { tokens: %w[x], desc: "d" } } })
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "accepts a capabilities filter declaring only vocabulary:" do
+      doc = cap_doc(filters: { games: { genre: { vocabulary: "genres", desc: "d" } } })
+      expect(described_class.validate(doc)).to eq([])
     end
   end
 

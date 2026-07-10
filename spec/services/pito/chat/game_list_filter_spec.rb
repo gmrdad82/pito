@@ -158,6 +158,31 @@ RSpec.describe Pito::Chat::GameListFilter do
         expect(result_titles("list games xbox")).not_to include(ps5_game.title)
       end
     end
+
+    context "with `sony` (v1.6 unified vocab: PlayStation family)" do
+      it "matches both PS4 and PS5 games (parity with `ps`)" do
+        expect(result_titles("list games sony").sort).to eq(result_titles("list games ps").sort)
+      end
+    end
+
+    context "with `series x` (bigram token from the unified vocab)" do
+      it "returns only Xbox Series X games" do
+        xsx_game = create(:game, title: "Series X Only", platforms: [ "Xbox Series X" ])
+        titles   = result_titles("list games series x")
+        expect(titles).to include(xsx_game.title)
+        expect(titles).not_to include(ps5_game.title)
+      end
+    end
+
+    context "with `arcade` (dropped from the vocab — owner v1.4.0)" do
+      it "is no longer recognized vocabulary" do
+        expect(described_class.recognized?("arcade")).to be false
+      end
+
+      it "is an unknown token to the list handler (no-guess: no silent list-everything)" do
+        expect(result_titles("list games arcade")).to be_empty
+      end
+    end
   end
 
   # ── Genre filtering ───────────────────────────────────────────────────────

@@ -89,5 +89,43 @@ RSpec.describe Pito::MessageBuilder::Game::ListHelp do
     it "body includes views column description — summed across linked vids (G26.2)" do
       expect(result["body"]).to include("summed across linked vids")
     end
+
+    # U4 — filters are a first-class --help section, derived from the config.
+    it "body includes a Filters section with the config game filters" do
+      expect(result["body"]).to include("Filters:")
+      expect(result["body"]).to include("upcoming")
+      expect(result["body"]).to include("genre")
+      expect(result["body"]).to include("platform")
+    end
+
+    it "renders a config filter description (single grammar)" do
+      expect(result["body"]).to include("future or undated release")
+    end
+
+    # Regression: a vocabulary-backed filter (genre/platform — declares
+    # `vocabulary:` but no literal `tokens:`) used to render a BLANK token
+    # cell because `filter.tokens` was empty. These assertions are scoped to
+    # the Filters-section slice of the body — "genre" and "platform" also
+    # appear as Columns tokens, so an unscoped `include` (as above) cannot
+    # actually catch a blank Filters row.
+    describe "Filters section token cells" do
+      subject(:filters_section) { result["body"][/Filters:.*/m] }
+
+      it "renders a non-blank token for the token-backed upcoming filter" do
+        expect(filters_section).to include('<span class="text-cyan">upcoming</span>')
+      end
+
+      it "renders a non-blank token for the vocabulary-backed genre filter (name fallback)" do
+        expect(filters_section).to include('<span class="text-cyan">genre</span>')
+      end
+
+      it "renders a non-blank token for the vocabulary-backed platform filter (name fallback)" do
+        expect(filters_section).to include('<span class="text-cyan">platform</span>')
+      end
+
+      it "never renders a blank token cell for any filter row" do
+        expect(filters_section).not_to include('<span class="text-cyan"></span>')
+      end
+    end
   end
 end

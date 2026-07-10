@@ -30,7 +30,10 @@ module Pito
           game:     { key: ->(v) { v.linked_games.map(&:title).join(", ").downcase },   requires_with: true },
           duration: { key: ->(v) { v.duration_seconds.to_i },                           requires_with: true },
           views:    { key: ->(v) { v.view_count.to_i },                                 requires_with: true },
-          likes:    { key: ->(v) { v.like_count.to_i },                                 requires_with: true }
+          likes:    { key: ->(v) { v.like_count.to_i },                                 requires_with: true },
+          # Scheduled go-live epoch; nil AND a stale past publish_at (already live —
+          # see Video.scheduled) both sort first, in the same bucket.
+          publish_at: { key: ->(v) { v.publish_at && v.publish_at > Time.current ? v.publish_at.to_i : 0 }, requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -48,7 +51,9 @@ module Pito
           "duration" => :duration,
           "length"   => :duration,
           "views"   => :views,
-          "likes"   => :likes
+          "likes"   => :likes,
+          "publish_at" => :publish_at,
+          "publish"    => :publish_at
         }.freeze
 
         COLUMNS = {
@@ -104,6 +109,20 @@ module Pito
             heading:    "Category",
             cell_class: "text-fg-dim pito-cell-category",
             value:      ->(v) { v.category_name.presence || "—" }
+          },
+          # Scheduled go-live as a bare absolute timestamp ("DD-MM-YYYY HH:MM"),
+          # "—" once live / never scheduled. The PUBLIC, sortable counterpart to the
+          # internal relative `scheduled` slate column: `list vids with publish_at`,
+          # `sort by publish_at`, and the MCP `columns:["publish_at"]` all read this
+          # (owner U6 — publish_at is its own first-class column, split out of the
+          # visibility scope so the scheduled time is visible without a `show vid`).
+          publish_at: {
+            aliases:    %w[publish_at publish],
+            heading:    "Publish at",
+            cell_class: "text-fg-dim pito-cell-publish-at whitespace-nowrap",
+            # A stale past publish_at is not "scheduled" (see Video.scheduled) —
+            # only render the timestamp while it's still in the future.
+            value:      ->(v) { v.publish_at.present? && v.publish_at > Time.current ? Pito::Formatter::SyncStamp.call(v.publish_at) : "—" }
           },
           # Go-live date in human form ("in 3 hours", "tomorrow at noon", "on 1st of
           # March") — the schedule slate's default column. `internal: true` keeps it

@@ -868,11 +868,11 @@ module Pito
 
         SORT_KEYWORDS = %w[sort sorted order ordered].freeze
 
-        # Noun-specific single-token filters the list handler raw-parses.
-        LIST_FILTER_TOKENS = {
-          "games" => %w[upcoming],
-          "vids"  => %w[published unlisted scheduled]
-        }.freeze
+        # Noun-specific single-token filters the list handler raw-parses —
+        # derived from the config capability reader so they can't drift from
+        # verbs.yml. Vocabulary-backed filters (genre, platform) carry an
+        # empty `tokens` list, so this yields exactly the bare openers.
+        def list_filter_tokens(noun) = Pito::Grammar::Capability.filters(:list, noun).flat_map(&:tokens)
 
         # Completions for the clause the cursor sits in:
         #   after the noun     → the kwarg openers (with, sorted by, filters)
@@ -900,7 +900,7 @@ module Pito
             elsif with_idx
               with_clause_candidates(rest, with_idx, surface)
             else
-              [ "with", "sorted by" ] + LIST_FILTER_TOKENS.fetch(noun, []) - rest
+              [ "with", "sorted by" ] + list_filter_tokens(noun) - rest
             end
 
           prefix_filter(candidates, partial)

@@ -151,16 +151,16 @@ RSpec.describe Pito::Grammar::Vocabularies do
       expect(platforms.resolve("ps5")).to eq("PlayStation 5")
     end
 
-    it 'resolves "playstation" to "PlayStation 5"' do
-      expect(platforms.resolve("playstation")).to eq("PlayStation 5")
+    it 'resolves "playstation" to the bare PlayStation family (matches PS4 + PS5 by substring)' do
+      expect(platforms.resolve("playstation")).to eq("PlayStation")
     end
 
-    it 'resolves "ps" to "PlayStation 5"' do
-      expect(platforms.resolve("ps")).to eq("PlayStation 5")
+    it 'resolves "ps" to the PlayStation family' do
+      expect(platforms.resolve("ps")).to eq("PlayStation")
     end
 
-    it 'resolves "sony" to "PlayStation 5"' do
-      expect(platforms.resolve("sony")).to eq("PlayStation 5")
+    it 'resolves "sony" to the PlayStation family' do
+      expect(platforms.resolve("sony")).to eq("PlayStation")
     end
 
     it 'resolves "switch" to "Nintendo Switch"' do

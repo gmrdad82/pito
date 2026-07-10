@@ -23,11 +23,20 @@ module Pito
     module Registry
       module_function
 
-      # MCP tools/list — [{ name:, description:, inputSchema: }], name-sorted for a
-      # stable wire order (the TOOL MATRIX pins this against the declarations).
+      # MCP tools/list — [{ name:, description:, inputSchema:, annotations: }],
+      # name-sorted for a stable wire order (the TOOL MATRIX pins this against the
+      # declarations). `readOnlyHint` mirrors each tool's REQUIRED `read_only:`
+      # config flag — no write verb is ever exposed, but the analytics tools warm
+      # a persistent cache / may call the YouTube API on a cold read, so they
+      # declare false and a strict client may confirm before calling them.
       def tools
         descriptors.values.map do |d|
-          { name: d[:name], description: d[:description], inputSchema: input_schema(d[:params]) }
+          {
+            name:        d[:name],
+            description: d[:description],
+            inputSchema: input_schema(d[:params], d[:verb]),
+            annotations: { "readOnlyHint" => d[:read_only] }
+          }
         end
       end
 
@@ -60,6 +69,7 @@ module Pito
           out[block[:tool].to_s] = {
             name:           block[:tool].to_s,
             description:    block[:description].to_s,
+            read_only:      block[:read_only] == true,
             kind:           :verb,
             verb:           verb.to_s,
             input:          block[:input].to_s,
@@ -72,6 +82,7 @@ module Pito
           out[body[:tool].to_s] = {
             name:           body[:tool].to_s,
             description:    body[:description].to_s,
+            read_only:      body[:read_only] == true,
             kind:           :reader,
             verb:           nil,
             input:          nil,
@@ -85,13 +96,15 @@ module Pito
 
       # JSON-Schema object for a tool's params (MCP `inputSchema`). No params → a
       # valid no-arg object. `additionalProperties: false` so a client can't smuggle
-      # extra keys past the grammar builder.
-      def input_schema(params)
+      # extra keys past the grammar builder. `verb` is the backing chat verb (nil for
+      # readers) — used to resolve any `capability:` param against the right grammar.
+      def input_schema(params, verb = nil)
+        nouns      = capability_nouns(params)
         properties = {}
         required   = []
 
         params.each do |name, spec|
-          properties[name.to_s] = property_schema(spec)
+          properties[name.to_s] = property_schema(spec, verb, nouns)
           required << name.to_s if spec[:required]
         end
 
@@ -101,13 +114,55 @@ module Pito
       end
 
       # One param → its JSON-Schema fragment: `hint` → `description`, `enum` carried
-      # through, an array param nests `items` (default string).
-      def property_schema(spec)
+      # through, an array param nests `items` (default string). A `capability:` param
+      # gets its description ENRICHED with the per-noun valid tokens read live from
+      # `Pito::Grammar::Capability` (U5: the client sees exactly what the chatbox
+      # grammar accepts, so it can list-with-columns instead of N pito_show calls).
+      def property_schema(spec, verb = nil, nouns = [])
         frag = { "type" => spec[:type].to_s }
-        frag["description"] = spec[:hint].to_s          if spec[:hint]
-        frag["enum"]        = spec[:enum].map(&:to_s)   if spec[:enum]
+        desc = capability_description(spec, verb, nouns)
+        frag["description"] = desc                       if desc.present?
+        frag["enum"]        = spec[:enum].map(&:to_s)    if spec[:enum]
         frag["items"]       = { "type" => (spec[:items] || "string").to_s } if spec[:type].to_s == "array"
         frag
+      end
+
+      # The `noun` param's enum values (the nouns a `capability:` param enumerates
+      # over), or [] when the tool has no noun enum.
+      def capability_nouns(params)
+        noun = params[:noun] || params["noun"]
+        Array(noun && (noun[:enum] || noun["enum"])).map(&:to_s)
+      end
+
+      # Base `hint`, plus — for a `capability:` param — a per-noun enumeration of the
+      # valid tokens (e.g. "vids: channel, visibility, …, publish_at; games: …").
+      def capability_description(spec, verb, nouns)
+        base = spec[:hint].to_s
+        cap  = spec[:capability]
+        return base unless cap && verb
+
+        per_noun = nouns.filter_map do |noun|
+          tokens = capability_tokens(cap.to_s, verb, noun)
+          "#{noun}: #{tokens.join(", ")}" if tokens.any?
+        end
+        return base if per_noun.empty?
+
+        enumeration = "Valid per noun — #{per_noun.join("; ")}."
+        base.present? ? "#{base}. #{enumeration}" : enumeration
+      end
+
+      # Config-derived valid tokens for a `capability:` reference (canonical names;
+      # filters expand to their PASSABLE values — a vocabulary-backed filter like
+      # `genre` enumerates rpg/fps/… because the category name itself is not a
+      # token the grammar accepts).
+      def capability_tokens(capability, verb, noun)
+        cap = Pito::Grammar::Capability
+        case capability
+        when "columns" then cap.public_columns(verb.to_sym, noun).map(&:name)
+        when "sort"    then cap.sortable_columns(verb.to_sym, noun).reject(&:internal).map(&:name)
+        when "filters" then cap.filters(verb.to_sym, noun).flat_map { |f| cap.filter_tokens(f) }
+        else []
+        end
       end
     end
   end

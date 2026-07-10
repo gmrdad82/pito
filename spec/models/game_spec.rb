@@ -32,6 +32,17 @@ RSpec.describe Game, type: :model do
       expect(game.score).to eq(55)
     end
 
+    it "allows a first real score to jump from 0 (a new game, not a glitched swing)" do
+      game = create(:game, igdb_rating: 82.0, igdb_rating_count: 100)
+      game.update_column(:score, 0) # a never-really-scored game sitting at 0
+
+      # An IGDB sync writes real ratings → auto-recompute from 0 must NOT raise,
+      # even though the jump (0 → ~82) is far beyond the 30-point drift guard.
+      expect { game.update!(igdb_rating: 82.0, igdb_rating_count: 200) }
+        .not_to raise_error
+      expect(game.reload.score).to be > described_class::SCORE_DRIFT_THRESHOLD
+    end
+
     it "does not recompute score when non-rating fields change" do
       game = create(:game,
                     title: "Original",

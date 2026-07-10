@@ -15,14 +15,20 @@ module Pito
       # column sorts while visible) — the Options group lists with/without,
       # sort, and --help.
       #
-      # All user-facing strings come from Pito::Copy
-      # (`pito.copy.list.channels_help.*`).
+      # The columns section is DERIVED from the config capability vocabulary
+      # (`Pito::Grammar::Capability`) — the single grammar `--help`, MCP, and
+      # autocomplete all read — so it never drifts from the parser vocabulary. The
+      # usage/options wording stays in Pito::Copy (`pito.copy.list.channels_help.*`).
+      # Channels carry no filters, so there is no Filters group.
       module ListHelp
+        NOUN = "channels"
+
         class << self
           # @return [Hash] system payload ({ "html" => true, "body" => <pre block> })
           def call
             groups = [
-              [ c("options_title"), option_rows ]
+              [ c("options_title"), option_rows ],
+              [ c("columns_title"), column_rows ]
             ]
             body = Pito::MessageBuilder::ManPage.render(usage: c("usage"), groups:)
             { "html" => true, "body" => body }
@@ -38,6 +44,15 @@ module Pito
               [ c("opt_sort"), c("opt_sort_desc") ],
               [ c("opt_help"), c("opt_help_desc") ]
             ]
+          end
+
+          # [token, description] rows from the config capability set (subs/views/
+          # vids default-on, likes addable) — descriptions resolve the config `desc`
+          # copy key, so the columns never drift from the actual grammar.
+          def column_rows
+            Pito::Grammar::Capability.public_columns(:list, NOUN).map do |col|
+              [ col.tokens.join(", "), Pito::Copy.render(col.desc) ]
+            end
           end
 
           def c(key) = Pito::Copy.render("pito.copy.list.channels_help.#{key}")
