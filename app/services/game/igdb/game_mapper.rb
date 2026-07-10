@@ -85,12 +85,15 @@ class Game
 
       # Pulls non-blank, deduplicated platform `name` strings out of the IGDB
       # `platforms` payload. Returns `[]` (never nil) so the `null: false`
-      # column constraint always holds.
+      # column constraint always holds. "Arcade" is stripped — the owner dropped
+      # the platform in v1.4.0 and doesn't want it stored at all (2026-07-10);
+      # existing rows were scrubbed by StripArcadeFromGamePlatforms.
       def extract_platform_names(payload)
         Array(payload)
           .select { |row| row.is_a?(Hash) }
           .map { |row| row["name"].to_s.strip }
           .reject(&:empty?)
+          .reject { |name| name.casecmp?("Arcade") }
           .uniq
       end
 
@@ -165,7 +168,11 @@ class Game
 
         case category
         when 0 # day
-          { year: year, month: row["m"], day: row["d"] }
+          # IGDB release_dates rows have NO `d` field — the DAY lives only in the
+          # `date` unix timestamp (y/m are given). Reading a nonexistent `row["d"]`
+          # left release_day NULL for every game (every title stuck in
+          # `awaiting_release`, release_date pinned to the 1st). Derive it from `date`.
+          { year: year, month: row["m"], day: unix_to_date(row["date"])&.day }
         when 1 # month
           { year: year, month: row["m"] }
         when 2 # year
@@ -212,7 +219,9 @@ class Game
       end
 
       def unix_to_date(seconds)
-        return nil if seconds.nil?
+        # Epoch 0 is IGDB's missing-date sentinel, not 1970-01-01 — treating it
+        # as real would fabricate day-1 precision on a day-precision row.
+        return nil if seconds.nil? || seconds.to_i.zero?
         Time.at(seconds.to_i).utc.to_date
       rescue StandardError
         nil

@@ -224,4 +224,42 @@ RSpec.describe Pito::Slash::HelpBuilder do
       expect(body).to include("/disconnect")
     end
   end
+
+  # ── Handlers that override #show_help now render their RICH page via the
+  #    dispatcher path (previously dead — the dispatcher rendered generic help).
+  #    These drive the real HelpBuilder.call, closing that coverage gap.
+
+  describe ".call — /games --help (rich Subcommands page, not generic)" do
+    subject(:result) { described_class.call(invocation: build_invocation(raw: "/games --help")) }
+
+    include_examples "man-page result"
+
+    it "renders the import subcommand section, not the bare generic page" do
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("Subcommands")
+      expect(body).to include("import")
+    end
+  end
+
+  describe ".call — /jobs --help (rich Subcommands page)" do
+    subject(:result) { described_class.call(invocation: build_invocation(raw: "/jobs --help")) }
+
+    include_examples "man-page result"
+
+    it "renders the subcommands section" do
+      expect(result.events.first[:payload]["body"]).to include("Subcommands")
+    end
+  end
+
+  describe ".call — /rename --help (rich Arguments page)" do
+    subject(:result) { described_class.call(invocation: build_invocation(raw: "/rename --help")) }
+
+    include_examples "man-page result"
+
+    it "renders the arguments section with the new-title argument" do
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("Arguments")
+      expect(body).to include("new title")
+    end
+  end
 end

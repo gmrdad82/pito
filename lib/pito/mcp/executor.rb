@@ -51,6 +51,9 @@ module Pito
         missing = missing_required(descriptor, args)
         return Result.new(text: missing_message(missing), is_error: true) if missing.any?
 
+        invalid = validation_errors(descriptor, args)
+        return Result.new(text: invalid.join("\n"), is_error: true) if invalid.any?
+
         result = Pito::Dispatch::Router.call(
           input:        build_input(descriptor, args),
           conversation: mcp_conversation,
@@ -132,6 +135,48 @@ module Pito
 
       def missing_message(missing)
         "Missing required argument#{missing.size > 1 ? 's' : ''}: #{missing.join(', ')}."
+      end
+
+      # Reject unknown values at the MCP boundary (U5 rec 3) rather than letting the
+      # chatbox grammar silently drop them: `enum` params (e.g. noun) are checked
+      # against their allowlist, and a `capability: columns` param against the ACTUAL
+      # noun's real column set from Pito::Grammar::Capability. `filter`/`sort` stay
+      # lenient (genre/platform values + sort directions are open) — matching the
+      # chatbox, which is deliberately forgiving; the MCP surface only hardens the
+      # closed sets. Returns a list of human-readable error lines ([] when clean).
+      def validation_errors(descriptor, args)
+        verb = descriptor[:verb]
+        noun = args["noun"].to_s
+
+        (descriptor[:params] || {}).flat_map do |name, spec|
+          value = args[name.to_s]
+          next [] unless present?(value)
+
+          if spec[:enum]
+            enum_errors(name, value, spec[:enum].map(&:to_s))
+          elsif spec[:capability].to_s == "columns" && verb.present?
+            column_errors(value, verb, noun)
+          else
+            []
+          end
+        end
+      end
+
+      def enum_errors(name, value, allowed)
+        Array(value).map(&:to_s).reject { |v| allowed.include?(v) }
+                    .map { |bad| %(Unknown #{name} "#{bad}". Valid: #{allowed.join(', ')}.) }
+      end
+
+      # Validate column tokens against the noun's real (public) column vocabulary.
+      # Skipped when the noun resolves to no columns (an invalid noun is already
+      # reported by its own enum check, so this avoids a confusing double error).
+      def column_errors(value, verb, noun)
+        vocab = Pito::Grammar::Capability.column_vocabulary(verb.to_sym, noun)
+        return [] if vocab.empty?
+
+        valid = Pito::Grammar::Capability.public_columns(verb.to_sym, noun).map(&:name)
+        Array(value).map(&:to_s).reject { |v| vocab.key?(v.downcase) }
+                    .map { |bad| %(Unknown column "#{bad}" for #{noun}. Valid columns: #{valid.join(', ')}.) }
       end
 
       # ── helpers ────────────────────────────────────────────────────────────────

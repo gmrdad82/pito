@@ -147,6 +147,35 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
       end
     end
 
+    # U4 — noun aliases resolve to the verb's canonical page, so `show vid --help`,
+    # `show vids --help`, and `list vids --help` render the same pages the canonical
+    # `video`/`videos` forms do (previously they fell through to nil).
+    describe "noun-alias normalisation" do
+      it "renders the show video segment page for the :vid alias" do
+        result = described_class.call(:show, noun: :vid)
+        expect(result).to be_a(Hash)
+        expect(result["body"]).to include("Segments")
+      end
+
+      it "renders the show video segment page for the :vids alias" do
+        expect(described_class.call(:show, noun: :vids)["body"]).to include("Segments")
+      end
+
+      it "renders the list videos columns page for the :vids alias" do
+        expect(described_class.call(:list, noun: :vids)["body"]).to include("Columns:")
+      end
+
+      it "renders the list games columns page for the singular :game alias" do
+        expect(described_class.call(:list, noun: :game)["body"]).to include("Columns:")
+      end
+
+      it "does NOT over-fold a verb whose canonical noun is already :vid (analyze)" do
+        # analyze's canonical is :vid — :video must resolve back to it, not to nil.
+        expect(described_class.call(:analyze, noun: :video)).to be_a(Hash)
+        expect(described_class.call(:analyze, noun: :vid)).to be_a(Hash)
+      end
+    end
+
     # ── Verb-level pages (bare `<verb> --help`) ───────────────────────────────
 
     describe "verb-level page (noun: nil)" do

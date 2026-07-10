@@ -24,39 +24,12 @@ module Pito
     module CommandHelp
       module_function
 
-      # Known noun tokens for each verb.  Determines rendering strategy and
-      # the order in which nouns are listed on the verb-level page.
-      VERB_NOUNS = {
-        show:     %i[game video channel],
-        delete:   %i[game video],
-        reindex:  %i[game video],
-        footage:  %i[update snippet],
-        price:    %i[set unset],
-        link:     %i[game video],
-        unlink:   %i[game video],
-        publish:  %i[video],
-        unlist:   %i[video],
-        schedule: %i[video],
-        platform: %i[game],
-        # `import` is canonically the IGDB game import; `import videos` is a
-        # de-emphasized alias of `sync videos`, listed last as an alias note.
-        import:   %i[game videos],
-        sync:     %i[videos channels],
-        shinies:  %i[channel video game],
-        analyze:  %i[channel vid game],
-        # Segment verbs (D20/D21): the noun forms each accepts (its parent
-        # segment's entity availability). Single-noun verbs render that one page.
-        "at-a-glance": %i[channel vid game],
-        videos:        %i[channel],
-        "linked-game": %i[vid],
-        similar:       %i[game],
-        "linked-videos": %i[game],
-        channels:      %i[game],
-        breakdowns:    %i[channel vid game],
-        # The `linked` two-word forms (E14) — two noun pages: `linked game` (a
-        # vid's game) and `linked vids` (a game's vids). Multi-noun verb.
-        linked:        %i[game vids]
-      }.freeze
+      # The per-verb noun forms are DERIVED from the `pito.chat_help` copy subtree
+      # (see `verb_nouns`) — the noun pages authored there ARE the source of truth,
+      # so the routing table can never drift from the copy (a stale entry for a
+      # retired verb, or a missing form for a real one, is impossible by
+      # construction). Rendering strategy + verb-level noun order follow the copy's
+      # declaration order.
 
       # Canonical display token per (verb, noun). The verb-level page labels and
       # the list index lead with the short canonical noun (`vid`/`vids`) for the
@@ -68,30 +41,83 @@ module Pito
         sync:   { videos: "vids" }
       }.freeze
 
+      # The `list` noun forms (canonical, plural). Not in VERB_NOUNS because list
+      # is rendered via the per-noun ListHelp builders below.
+      LIST_NOUNS = %i[games videos channels].freeze
+
       # @param verb [Symbol]
       # @param noun [Symbol, nil]
       # @return [Hash, nil]
       def call(verb, noun: nil)
+        valid = valid_nouns(verb)
+        # A verb with no noun pages but a `usage:` (e.g. search) renders a
+        # usage-only page; a verb with neither is unknown → nil.
+        return render_usage_only(verb) if valid.nil?
+
+        # Normalise a typed alias to THIS verb's canonical noun (vid/vids/videos →
+        # the verb's video form; singular/plural folded) so `show vid --help` and
+        # `list vids --help` render the same page `show video`/`list videos` do.
+        noun = canonical_noun(valid, noun) if noun
+
         if verb == :list
           case noun
-          when :games    then return Pito::MessageBuilder::Game::ListHelp.call
-          when :videos   then return Pito::MessageBuilder::Video::ListHelp.call
-          when :channels then return Pito::MessageBuilder::Channel::ListHelp.call
-          when nil       then return render_list_index
-          end
-        end
-
-        nouns = VERB_NOUNS[verb]
-        return nil unless nouns # unknown verb
-
-        if noun
+          when :games    then Pito::MessageBuilder::Game::ListHelp.call
+          when :videos   then Pito::MessageBuilder::Video::ListHelp.call
+          when :channels then Pito::MessageBuilder::Channel::ListHelp.call
+          when nil       then render_list_index
+          end # unknown list noun → nil
+        elsif noun
           render_noun_page(verb, noun)
         else
-          render_verb_page(verb, nouns)
+          render_verb_page(verb, valid)
         end
       end
 
       # ── Private ──────────────────────────────────────────────────────────────
+
+      # Valid noun set for a verb (LIST_NOUNS for list; the copy-derived forms
+      # otherwise). nil ⇒ unknown verb (no noun pages in the copy).
+      def valid_nouns(verb)
+        verb == :list ? LIST_NOUNS : verb_nouns[verb]
+      end
+      private_class_method :valid_nouns
+
+      # verb(Symbol) → [noun Symbols], derived from the `pito.chat_help.<verb>`
+      # copy: a verb's noun forms are its sub-keys whose value is a Hash (a noun
+      # page with usage/sections), in declaration order. `usage`-only verbs (no
+      # noun pages, e.g. search) and `list` (rendered via the ListHelp builders)
+      # are excluded. Deliberately NOT memoised: help renders are rare and a
+      # cached table would survive locale reloads (dev) and stubbed translations
+      # (specs) with no reset hook.
+      def verb_nouns
+        subtree = I18n.t("pito.chat_help")
+        return {}.freeze unless subtree.is_a?(Hash)
+
+        subtree.each_with_object({}) do |(verb, body), out|
+          next if verb == :list || !body.is_a?(Hash)
+
+          nouns = body.keys.reject { |k| k == :usage }.select { |k| body[k].is_a?(Hash) }
+          out[verb] = nouns.freeze if nouns.any?
+        end.freeze
+      end
+
+      # Fold a typed noun to the verb's canonical member by comparing stems, so
+      # aliases and singular/plural resolve without a per-verb alias table:
+      #   stem: drop a trailing "s", then map "vid" → "video".
+      # Returns +noun+ unchanged when it is already valid or has no stem match.
+      def canonical_noun(valid, noun)
+        return noun if valid.include?(noun)
+
+        target = noun_stem(noun)
+        valid.find { |member| noun_stem(member) == target } || noun
+      end
+      private_class_method :canonical_noun
+
+      def noun_stem(token)
+        stem = token.to_s.downcase.sub(/s\z/, "")
+        stem == "vid" ? "video" : stem
+      end
+      private_class_method :noun_stem
 
       # Render a specific noun page.
       def render_noun_page(verb, noun)
@@ -176,6 +202,20 @@ module Pito
         { "html" => true, "body" => body }
       end
       private_class_method :render_list_index
+
+      # Usage-only page for a verb that has a `pito.chat_help.<verb>.usage` line but
+      # no noun sub-pages (a query verb like `search`): the usage line + an Options
+      # group with `--help`. nil when the verb has no help copy at all (truly
+      # unknown verb).
+      def render_usage_only(verb)
+        usage = Pito::Copy.render_soft("pito.chat_help.#{verb}.usage")
+        return nil if usage.blank?
+
+        groups = [ [ "Options", [ [ "--help", "Print this help message" ] ] ] ]
+        body   = Pito::MessageBuilder::ManPage.render(usage:, groups:)
+        { "html" => true, "body" => body }
+      end
+      private_class_method :render_usage_only
 
       # Convert I18n sections hash into ManPage groups array.
       def build_groups(sections)

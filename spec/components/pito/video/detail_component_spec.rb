@@ -164,6 +164,39 @@ RSpec.describe Pito::Video::DetailComponent do
     end
   end
 
+  # U6 — the scheduled go-live is split out of the Visibility scope: Visibility
+  # shows the bare "Scheduled" scope (not "Scheduled for <time>"), and the time
+  # lives in its own "Publish at" field matching the list column name.
+  describe "publish at (U6)" do
+    # Far-future so it is always a scheduled (future publish_at) vid regardless of
+    # test-clock, and SyncStamp formats the given instant independent of "now".
+    let(:go_live)   { Time.zone.local(2099, 3, 1, 13, 0) }
+    let(:scheduled) { create(:video, :scheduled, channel: channel, title: "Sched", publish_at: go_live) }
+
+    it "shows Visibility as the bare 'Scheduled' scope (no welded time)" do
+      text = render_inline(described_class.new(video: scheduled)).text
+      expect(text).to include("Scheduled")
+      expect(text).not_to include("Scheduled for")
+    end
+
+    it "renders a 'Publish at' field with the bare timestamp" do
+      text = render_inline(described_class.new(video: scheduled)).text
+      expect(text).to include(I18n.t("pito.video.detail.publish_at"))
+      expect(text).to include(Pito::Formatter::SyncStamp.call(go_live))
+    end
+
+    it "omits the 'Publish at' field for a non-scheduled vid" do
+      text = render_inline(described_class.new(video: video)).text
+      expect(text).not_to include(I18n.t("pito.video.detail.publish_at"))
+    end
+
+    it "omits the 'Publish at' field for a stale past publish_at (already live)" do
+      stale = create(:video, :scheduled, channel: channel, title: "Stale", publish_at: 2.days.ago)
+      text  = render_inline(described_class.new(video: stale)).text
+      expect(text).not_to include(I18n.t("pito.video.detail.publish_at"))
+    end
+  end
+
   describe "stat counts" do
     it "renders '0 Views' for nil view_count" do
       allow(video).to receive(:view_count).and_return(nil)

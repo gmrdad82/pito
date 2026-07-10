@@ -9,18 +9,19 @@
 //
 // COVERAGE
 //   Verb-stage palette:
-//     - slash catalog filter + Arrow nav + Enter accept + Tab no-op + Esc close
+//     - slash catalog filter + Arrow nav + Tab accept + Enter submit + Esc close
 //     - Space dismisses palette (lets space type normally)
 //   External hashtag picker (pito:hashtag-picker:open from shift+r):
 //     - opens inline palette with handle rows
-//     - Arrow nav + Enter accept inserts `#handle ` at position 0
+//     - Arrow nav + Tab accept inserts `#handle ` at position 0
 //     - Escape closes without inserting
 //     - ignores event when unauthenticated or empty handles
 //   Fetched palettes:
 //     - hashtag reply-verb palette render (stage:"verb" fetch)
 //     - slash /config arg-stage palette render (stage:"verb" fetch)
-//   I3 — Enter sends complete slash commands:
-//     - exact verb Enter falls through to submit; partial verb accepts palette row
+//   Tab accepts / Enter submits (owner 2026-07-09):
+//     - whenever a palette is open, Tab accepts the highlighted row and Enter
+//       ALWAYS submits the typed value verbatim (never accepts)
 //   Stage classifiers:
 //     - _isHashtagReplyVerbStage
 //   Misc:
@@ -223,23 +224,25 @@ describe("pito--suggestions controller", () => {
       expect(rows[0].classList.contains("is-selected")).toBe(true)
     })
 
-    it("Enter accepts the highlighted item and inserts its text", async () => {
+    it("Tab accepts the highlighted item and inserts its text (owner 2026-07-09)", async () => {
       input(textarea, "/co")
       await waitForConnect()
       // First row is selected (index 0 = config or connect depending on catalog order)
-      key(textarea, "Enter")
-      // After accept, palette should be hidden and field updated
+      key(textarea, "Tab")
+      // After accept, palette should be hidden and field updated with the token.
       expect(palette.classList.contains("hidden")).toBe(true)
       expect(textarea.value.startsWith("/")).toBe(true)
     })
 
-    it("Tab does not accept a palette selection (Tab is no longer handled — #9)", async () => {
+    it("Enter does NOT accept a palette row — it always submits the current value", async () => {
       input(textarea, "/co")
       await waitForConnect()
       const valueBefore = textarea.value
-      key(textarea, "Tab")
-      // Tab is not intercepted at all anymore — it never accepts/inserts anything.
+      key(textarea, "Enter")
+      // Enter never accepts/inserts — the typed value is untouched (chat-form submits
+      // it); suggestions only closes the palette chrome, without preventDefault.
       expect(textarea.value).toBe(valueBefore)
+      expect(palette.classList.contains("hidden")).toBe(true)
     })
 
     it("Escape closes the palette", async () => {
@@ -311,12 +314,12 @@ describe("pito--suggestions controller", () => {
       expect(cmds).toContain("#doomguy-21")
     })
 
-    it("Enter accepts first handle and inserts `#handle ` at position 0", async () => {
+    it("Tab accepts first handle and inserts `#handle ` at position 0", async () => {
       textarea.value = ""
       textarea.selectionStart = textarea.selectionEnd = 0
       openHashtagPicker(["kappa-5874", "doomguy-21"])
 
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
 
       expect(textarea.value).toBe("#kappa-5874 ")
     })
@@ -324,18 +327,18 @@ describe("pito--suggestions controller", () => {
     it("palette closes after accepting", async () => {
       openHashtagPicker(["kappa-5874", "doomguy-21"])
 
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
 
       expect(palette.classList.contains("hidden")).toBe(true)
     })
 
-    it("ArrowDown + Enter accepts the second handle", async () => {
+    it("ArrowDown + Tab accepts the second handle", async () => {
       textarea.value = ""
       textarea.selectionStart = textarea.selectionEnd = 0
       openHashtagPicker(["kappa-5874", "doomguy-21"])
 
       ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
 
       expect(textarea.value).toBe("#doomguy-21 ")
     })
@@ -432,25 +435,25 @@ describe("pito--suggestions controller", () => {
       expect(labels).not.toContain("#with")
     })
 
-    it("Enter accepts the highlighted verb → `#handle <verb> `", async () => {
+    it("Tab accepts the highlighted verb → `#handle <verb> `", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
       textarea.value = "#kappa-5874 "
       textarea.selectionStart = textarea.selectionEnd = 12
       await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
 
       // First row ("show") is selected by default.
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
       expect(textarea.value).toBe("#kappa-5874 show ")
     })
 
-    it("ArrowDown + Enter inserts the second verb token", async () => {
+    it("ArrowDown + Tab inserts the second verb token", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
       textarea.value = "#kappa-5874 "
       textarea.selectionStart = textarea.selectionEnd = 12
       await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
 
       ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
       expect(textarea.value).toBe("#kappa-5874 with ")
     })
 
@@ -471,7 +474,7 @@ describe("pito--suggestions controller", () => {
       textarea.selectionStart = textarea.selectionEnd = 14
       await ctrl._fetchArgSuggestions("#kappa-5874 wi", 14)
 
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
       expect(textarea.value).toBe("#kappa-5874 with ")
     })
 
@@ -549,14 +552,14 @@ describe("pito--suggestions controller", () => {
       expect(labels).toEqual(expect.arrayContaining(["google", "voyage", "igdb", "webhook"]))
     })
 
-    it("Enter accepts the highlighted provider → '/config google '", async () => {
+    it("Tab accepts the highlighted provider → '/config google '", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(CONFIG_PROVIDERS()))
       textarea.value = "/config "
       textarea.selectionStart = textarea.selectionEnd = 8
       await ctrl._fetchArgSuggestions("/config ", 8)
 
       // First row ("google") is selected by default.
-      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
       expect(textarea.value).toBe("/config google ")
     })
 
@@ -579,10 +582,11 @@ describe("pito--suggestions controller", () => {
     })
   })
 
-  // ── I3: verb-stage Enter sends a complete slash command ───────────────────
-  // A complete command with no trailing space ("/connect", "/config") is
-  // Enter-sendable; a partial verb ("/conn") still accepts the palette row.
-  describe("verb-stage Enter sends complete slash commands (I3)", () => {
+  // ── Verb-stage: Enter ALWAYS submits, Tab accepts (owner 2026-07-09) ───────
+  // The old exact-vs-partial Enter distinction (I3) is gone: Enter always submits
+  // the typed value verbatim, and Tab is the accept key. The palette is pure
+  // discovery. (The _isExactComplete* helpers were removed with that distinction.)
+  describe("verb-stage Enter submits / Tab accepts", () => {
     let ctrl
 
     beforeEach(async () => {
@@ -591,21 +595,7 @@ describe("pito--suggestions controller", () => {
       ctrl._mode = "slash"
     })
 
-    it("_isExactCompleteSlashVerb: true for an exact command, false for a partial", () => {
-      textarea.value = "/connect"; textarea.selectionStart = textarea.selectionEnd = 8
-      expect(ctrl._isExactCompleteSlashVerb()).toBe(true)
-      textarea.value = "/config"; textarea.selectionStart = textarea.selectionEnd = 7
-      expect(ctrl._isExactCompleteSlashVerb()).toBe(true)
-      textarea.value = "/conn"; textarea.selectionStart = textarea.selectionEnd = 5
-      expect(ctrl._isExactCompleteSlashVerb()).toBe(false)
-    })
-
-    it("_isExactCompleteSlashVerb: false once a space follows the verb", () => {
-      textarea.value = "/config "; textarea.selectionStart = textarea.selectionEnd = 8
-      expect(ctrl._isExactCompleteSlashVerb()).toBe(false)
-    })
-
-    it("Enter on an exact command closes the palette and falls through to submit", () => {
+    it("Enter on an exact command closes the palette and submits (value untouched)", () => {
       textarea.value = "/connect"; textarea.selectionStart = textarea.selectionEnd = 8
       ctrl._refreshVerbPalette("/connect", 8)
       expect(ctrl._paletteOpen).toBe(true)
@@ -615,10 +605,10 @@ describe("pito--suggestions controller", () => {
 
       expect(ctrl._paletteOpen).toBe(false)     // palette closed
       expect(ev.defaultPrevented).toBe(false)   // Enter not swallowed → form submits
-      expect(textarea.value).toBe("/connect")   // command NOT mutated by a palette accept
+      expect(textarea.value).toBe("/connect")   // NOT mutated by a palette accept
     })
 
-    it("Enter on a partial verb still accepts the palette selection", () => {
+    it("Enter on a PARTIAL verb also submits — it does NOT accept the palette row", () => {
       textarea.value = "/conn"; textarea.selectionStart = textarea.selectionEnd = 5
       ctrl._refreshVerbPalette("/conn", 5)
       expect(ctrl._paletteOpen).toBe(true)
@@ -626,7 +616,19 @@ describe("pito--suggestions controller", () => {
       const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
       ctrl.handleKeydown(ev)
 
-      expect(ev.defaultPrevented).toBe(true)    // palette intercepted Enter
+      expect(ev.defaultPrevented).toBe(false)   // Enter falls through → submits
+      expect(textarea.value).toBe("/conn")      // typed value untouched (no completion)
+    })
+
+    it("Tab on a partial verb accepts the palette selection (completes the command)", () => {
+      textarea.value = "/conn"; textarea.selectionStart = textarea.selectionEnd = 5
+      ctrl._refreshVerbPalette("/conn", 5)
+      expect(ctrl._paletteOpen).toBe(true)
+
+      const ev = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })
+      ctrl.handleKeydown(ev)
+
+      expect(ev.defaultPrevented).toBe(true)    // Tab intercepted → accept
       expect(textarea.value).toBe("/connect ")  // completed to the full command
     })
   })
@@ -821,22 +823,7 @@ describe("pito--suggestions controller", () => {
       expect(ctrl._isFreeVerbStage("  ", 2)).toBe(false)
     })
 
-    it("_isExactCompleteChatVerb: canonical name, every alias, never past a space", () => {
-      textarea.value = "list"; textarea.selectionStart = textarea.selectionEnd = 4
-      expect(ctrl._isExactCompleteChatVerb()).toBe(true)
-      textarea.value = "ls"; textarea.selectionStart = textarea.selectionEnd = 2
-      expect(ctrl._isExactCompleteChatVerb()).toBe(true)
-      textarea.value = "lifetime"; textarea.selectionStart = textarea.selectionEnd = 8
-      expect(ctrl._isExactCompleteChatVerb()).toBe(true)
-      textarea.value = "lis"; textarea.selectionStart = textarea.selectionEnd = 3
-      expect(ctrl._isExactCompleteChatVerb()).toBe(false)
-      textarea.value = "list "; textarea.selectionStart = textarea.selectionEnd = 5
-      expect(ctrl._isExactCompleteChatVerb()).toBe(false)
-      textarea.value = "/list"; textarea.selectionStart = textarea.selectionEnd = 5
-      expect(ctrl._isExactCompleteChatVerb()).toBe(false)
-    })
-
-    it("Enter on an exact chat verb (alias incl.) closes the palette and falls through to submit", async () => {
+    it("Enter on an exact chat verb (alias incl.) closes the palette and submits", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
       textarea.value = "ls"; textarea.selectionStart = textarea.selectionEnd = 2
       await ctrl._fetchArgSuggestions("ls", 2)
@@ -850,7 +837,7 @@ describe("pito--suggestions controller", () => {
       expect(textarea.value).toBe("ls")          // row NOT accepted
     })
 
-    it("Enter mid-token accepts the highlighted row (discovery preserved)", async () => {
+    it("Enter mid-token SUBMITS — it does not accept the highlighted row (owner 2026-07-09)", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
       textarea.value = "li"; textarea.selectionStart = textarea.selectionEnd = 2
       await ctrl._fetchArgSuggestions("li", 2)
@@ -859,7 +846,20 @@ describe("pito--suggestions controller", () => {
       const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
       textarea.dispatchEvent(ev)
 
-      expect(ev.defaultPrevented).toBe(true)     // palette consumed Enter
+      expect(ev.defaultPrevented).toBe(false)    // Enter falls through → chat-form submits
+      expect(textarea.value).toBe("li")          // typed value untouched (row NOT accepted)
+    })
+
+    it("Tab mid-token accepts the highlighted row (discovery → completion)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      textarea.value = "li"; textarea.selectionStart = textarea.selectionEnd = 2
+      await ctrl._fetchArgSuggestions("li", 2)
+      expect(ctrl._paletteOpen).toBe(true)
+
+      const ev = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })
+      textarea.dispatchEvent(ev)
+
+      expect(ev.defaultPrevented).toBe(true)     // Tab consumed → accept
       expect(textarea.value).toBe("link ")       // first row accepted
     })
   })

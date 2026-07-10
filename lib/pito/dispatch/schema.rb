@@ -31,19 +31,39 @@ module Pito
       TOP_KEYS             = %i[schema_version universal_reply vocabularies verbs mcp_readers].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns mcp].freeze
+      VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns mcp capabilities].freeze
+
+      # Capability blocks (v1.6 unified grammar) — a per-verb `capabilities:` declares
+      # the CONFIG vocabulary that --help, MCP, and autocomplete all read: per-noun
+      # `columns` (name → aliases/desc copy keys + sortable/requires_with/
+      # internal flags) and `filters` (token or vocabulary + desc). The rendering
+      # BEHAVIOR (cell/sort procs, filter scopes) stays in Ruby, keyed by these names;
+      # an orphan-guard spec keeps config ↔ Ruby in 1:1 sync. See plan-v1.6.
+      CAPABILITY_KEYS       = %i[columns filters].freeze
+      CAP_COLUMN_KEYS       = %i[aliases desc sortable requires_with internal default].freeze
+      CAP_FILTER_KEYS       = %i[tokens vocabulary scope desc].freeze
 
       # MCP tool blocks (G130) — a per-verb `mcp:` promotes a READ-ONLY verb into an
       # MCP tool; the top-level `mcp_readers:` declares tools with no backing verb
       # (pito_conversations / pito_messages). `input:`/`params:` are an INDEPENDENT
       # declaration (NOT derived from chat.slots) — the Executor interpolates params
       # into the `input:` grammar template. See docs/claude/mcp.md.
-      MCP_KEYS             = %i[tool description params input input_suffixes].freeze
-      MCP_REQUIRED         = %i[tool description].freeze
-      MCP_READER_KEYS      = %i[tool description params].freeze
-      MCP_READER_REQUIRED  = %i[tool description].freeze
-      MCP_PARAM_KEYS       = %i[type enum required items hint].freeze
+      # `read_only` is REQUIRED on every tool (verb-backed and reader alike): the
+      # readOnlyHint annotation each client sees is declared per tool in config,
+      # never assumed — a tool whose read path warms a persistent cache or calls
+      # an external API (the analytics four) declares `read_only: false`.
+      MCP_KEYS             = %i[tool description read_only params input input_suffixes].freeze
+      MCP_REQUIRED         = %i[tool description read_only].freeze
+      MCP_READER_KEYS      = %i[tool description read_only params].freeze
+      MCP_READER_REQUIRED  = %i[tool description read_only].freeze
+      MCP_PARAM_KEYS       = %i[type enum required items hint capability].freeze
       MCP_PARAM_TYPES      = %w[string integer number boolean array].freeze
+      # A param may declare `capability: columns|filters|sort` — a REFERENCE to the
+      # backing verb's `capabilities:` vocabulary. The Registry derives the param's
+      # per-noun enumeration (description) and the Executor derives the allowlist it
+      # validates against, both from `Pito::Grammar::Capability` — so the MCP schema
+      # can never drift from the chatbox grammar (U2: no hardcoded lists).
+      MCP_CAPABILITY_REFS  = %w[columns filters sort].freeze
       AVAILABILITY_KEYS    = %i[chat slash].freeze
       CHAT_KEYS            = %i[slots dispatch segment_of].freeze
       # A `segment_of:` block (plan-0.9.5 D20) marks a chat verb as a "segment verb":
@@ -275,6 +295,71 @@ module Pito
           validate_segments(body[:segments], join(path, "segments")) if body.key?(:segments)
           validate_concerns(body[:concerns], join(path, "concerns")) if body.key?(:concerns)
           validate_mcp(body[:mcp], join(path, "mcp")) if body.key?(:mcp)
+          validate_capabilities(body[:capabilities], join(path, "capabilities")) if body.key?(:capabilities)
+        end
+
+        # ── Capability blocks (v1.6) ────────────────────────────────────────────
+        def validate_capabilities(body, path)
+          return unless expect_hash(body, path)
+
+          check_keys(body, Schema::CAPABILITY_KEYS, path)
+          validate_cap_columns(body[:columns], join(path, "columns")) if body.key?(:columns)
+          validate_cap_filters(body[:filters], join(path, "filters")) if body.key?(:filters)
+        end
+
+        # columns: { <noun>: { <col-name>: { aliases, desc, sortable, requires_with, internal, default } } }
+        def validate_cap_columns(columns, path)
+          return unless expect_hash(columns, path)
+
+          columns.each do |noun, cols|
+            np = join(path, noun)
+            next unless expect_hash(cols, np)
+
+            cols.each do |name, spec|
+              cp = join(np, name)
+              next unless expect_hash(spec, cp)
+
+              check_keys(spec, Schema::CAP_COLUMN_KEYS, cp)
+              validate_aliases(spec[:aliases], join(cp, "aliases")) if spec.key?(:aliases)
+              validate_string(spec[:desc], join(cp, "desc")) if spec.key?(:desc)
+              %i[sortable requires_with internal default].each do |flag|
+                validate_boolean(spec[flag], join(cp, flag.to_s)) if spec.key?(flag)
+              end
+            end
+          end
+        end
+
+        # filters: { <noun>: { <filter>: { tokens:[…] | vocabulary:, scope:, desc: } } }
+        def validate_cap_filters(filters, path)
+          return unless expect_hash(filters, path)
+
+          filters.each do |noun, defs|
+            np = join(path, noun)
+            next unless expect_hash(defs, np)
+
+            defs.each do |name, spec|
+              fp = join(np, name)
+              next unless expect_hash(spec, fp)
+
+              check_keys(spec, Schema::CAP_FILTER_KEYS, fp)
+              validate_aliases(spec[:tokens], join(fp, "tokens")) if spec.key?(:tokens)
+              validate_string(spec[:vocabulary], join(fp, "vocabulary")) if spec.key?(:vocabulary)
+              validate_string(spec[:scope], join(fp, "scope")) if spec.key?(:scope)
+              validate_string(spec[:desc], join(fp, "desc")) if spec.key?(:desc)
+              validate_cap_filter_matcher(spec, fp)
+            end
+          end
+        end
+
+        # A filter with neither a non-empty tokens list nor a vocabulary can never
+        # match input — it is structurally valid but wholly inert (a blank help
+        # row). Require one or the other.
+        def validate_cap_filter_matcher(spec, path)
+          has_tokens     = spec[:tokens].is_a?(Array) && !spec[:tokens].empty?
+          has_vocabulary = spec[:vocabulary].is_a?(String) && !spec[:vocabulary].empty?
+          return if has_tokens || has_vocabulary
+
+          err(path, "filter must declare tokens (non-empty Array) or vocabulary (String)")
         end
 
         # ── MCP tool blocks (G130) ──────────────────────────────────────────────
@@ -288,6 +373,7 @@ module Pito
           check_keys(body, Schema::MCP_KEYS, path, required: Schema::MCP_REQUIRED)
           validate_string(body[:tool], join(path, "tool")) if body.key?(:tool)
           validate_string(body[:description], join(path, "description")) if body.key?(:description)
+          validate_boolean(body[:read_only], join(path, "read_only")) if body.key?(:read_only)
           validate_string(body[:input], join(path, "input")) if body.key?(:input)
           validate_mcp_params(body[:params], join(path, "params")) if body.key?(:params)
           validate_mcp_input_suffixes(body[:input_suffixes], join(path, "input_suffixes")) if body.key?(:input_suffixes)
@@ -306,6 +392,7 @@ module Pito
             validate_string(spec[:hint], join(p, "hint")) if spec.key?(:hint)
             validate_string(spec[:items], join(p, "items")) if spec.key?(:items)
             validate_mcp_enum(spec[:enum], join(p, "enum")) if spec.key?(:enum)
+            validate_enum(spec[:capability], Schema::MCP_CAPABILITY_REFS, join(p, "capability"), "mcp param capability") if spec.key?(:capability)
           end
         end
 
@@ -335,6 +422,7 @@ module Pito
             check_keys(body, Schema::MCP_READER_KEYS, path, required: Schema::MCP_READER_REQUIRED)
             validate_string(body[:tool], join(path, "tool")) if body.key?(:tool)
             validate_string(body[:description], join(path, "description")) if body.key?(:description)
+            validate_boolean(body[:read_only], join(path, "read_only")) if body.key?(:read_only)
             validate_mcp_params(body[:params], join(path, "params")) if body.key?(:params)
           end
         end

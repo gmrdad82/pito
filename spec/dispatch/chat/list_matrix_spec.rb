@@ -220,10 +220,10 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       expect(parse_video_columns("list vids with views, likes, duration")).to eq([ :views, :likes, :duration ])
     end
 
-    it "all video columns in one with clause → all 7 canonicals de-duped (comments removed — G26.1)" do
-      raw = "list vids with channel, status, game, length, views, likes, category"
+    it "all video columns in one with clause → all 8 canonicals de-duped (comments removed — G26.1)" do
+      raw = "list vids with channel, status, game, length, views, likes, category, publish"
       expect(parse_video_columns(raw)).to eq(
-        [ :channel, :visibility, :game, :duration, :views, :likes, :category ]
+        [ :channel, :visibility, :game, :duration, :views, :likes, :category, :publish_at ]
       )
     end
 
@@ -935,9 +935,9 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       )
     end
 
-    it "video user-facing (PUBLIC) COLUMNS canonical order is [:channel, :visibility, :game, :duration, :views, :likes, :category] (comments removed — G26.1; :scheduled is internal, slate-only)" do
+    it "video user-facing (PUBLIC) COLUMNS canonical order is [:channel, :visibility, :game, :duration, :views, :likes, :category, :publish_at] (comments removed — G26.1; publish_at added — U6; :scheduled is internal, slate-only)" do
       expect(Pito::MessageBuilder::Video::ListColumns::PUBLIC_COLUMNS.keys).to eq(
-        [ :channel, :visibility, :game, :duration, :views, :likes, :category ]
+        [ :channel, :visibility, :game, :duration, :views, :likes, :category, :publish_at ]
       )
     end
 

@@ -11,16 +11,21 @@ module Pito
       # `html: true` body inside a `.pito-help-block` (white-space: pre-wrap) so
       # the monospace alignment is preserved.
       #
-      # Column tokens (aliases) are derived from ListColumns::COLUMNS so they
-      # never drift from the parser vocabulary; all user-facing strings come from
-      # Pito::Copy.
+      # Column and filter tokens + descriptions are DERIVED from the config
+      # capability vocabulary (`Pito::Grammar::Capability`) — the single grammar
+      # `--help`, MCP, and autocomplete all read — so they can never drift from the
+      # parser vocabulary. Add a column/filter to verbs.yml `capabilities:` and it
+      # appears here automatically; the usage/options wording stays in Pito::Copy.
       module ListHelp
+        NOUN = "games"
+
         class << self
           # @return [Hash] system payload ({ html: true, body: <pre block> })
           def call
             groups = [
               [ c("options_title"), option_rows ],
-              [ c("columns_title"), column_rows ]
+              [ c("columns_title"), column_rows ],
+              [ c("filters_title"), filter_rows ]
             ]
             body = Pito::MessageBuilder::ManPage.render(usage: c("usage"), groups:)
             { "html" => true, "body" => body }
@@ -37,11 +42,21 @@ module Pito
             ]
           end
 
-          # [token, description] pairs for the Columns group — tokens are the
-          # real parser aliases, descriptions come from copy keyed by canonical.
+          # [token, description] rows from the config capability set — tokens are the
+          # real parser aliases (canonical first), descriptions resolve the config
+          # `desc` copy key, so the list never drifts from the actual grammar.
           def column_rows
-            ListColumns::COLUMNS.map do |canonical, cfg|
-              [ cfg[:aliases].join(", "), c("col_#{canonical}_desc") ]
+            Pito::Grammar::Capability.public_columns(:list, NOUN).map do |col|
+              [ col.tokens.join(", "), Pito::Copy.render(col.desc) ]
+            end
+          end
+
+          def filter_rows
+            Pito::Grammar::Capability.filters(:list, NOUN).map do |filter|
+              # A vocabulary-backed filter has no literal tokens — show its name
+              # (the desc copy carries example values) rather than a blank cell.
+              tokens = filter.tokens.any? ? filter.tokens : [ filter.name ]
+              [ tokens.join(", "), Pito::Copy.render(filter.desc) ]
             end
           end
 

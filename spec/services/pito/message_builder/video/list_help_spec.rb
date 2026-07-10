@@ -79,5 +79,24 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
       expect(result["body"]).to include("View count")
       expect(result["body"]).to include("Like count")
     end
+
+    # U6 + U3 — the config-derived columns section auto-surfaces the new publish_at
+    # column (no per-column copy in the help builder) with its capability desc.
+    it "auto-surfaces the publish_at column from the capability config" do
+      expect(result["body"]).to include("publish_at")
+      expect(result["body"]).to include("Scheduled go-live timestamp")
+    end
+
+    # U4 — filters are a first-class --help section, derived from the same config.
+    it "body includes a Filters section with the config filters" do
+      expect(result["body"]).to include("Filters:")
+      expect(result["body"]).to include("published")
+      expect(result["body"]).to include("unlisted")
+      expect(result["body"]).to include("scheduled")
+    end
+
+    it "renders the config filter descriptions (single grammar)" do
+      expect(result["body"]).to include("Only vids scheduled to go live")
+    end
   end
 end

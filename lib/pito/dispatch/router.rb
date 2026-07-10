@@ -124,6 +124,10 @@ module Pito
 
         noun    = extract_noun(message)
         payload = Pito::MessageBuilder::CommandHelp.call(message.verb, noun:)
+        # A token that isn't a real noun page (`link #3 to game #5 --help` extracts
+        # :to) must not send a --help message into handler execution — fall back to
+        # the verb-level page rather than dispatching.
+        payload ||= Pito::MessageBuilder::CommandHelp.call(message.verb, noun: nil) if noun
         payload ? Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) : nil
       end
 
@@ -161,6 +165,8 @@ module Pito
       #   "delete game --help"   → :game
       #   "delete --help"        → nil
       #   "import videos --help" → :videos
+      #   "show #3 --help"       → nil (an id ref is not a noun → verb-level page)
+      #   "show @handle --help"  → nil (a handle ref is not a noun)
       def extract_noun(message)
         raw_after_verb = message.raw.to_s.sub(/\A\s*\S+\s*/, "")
 
@@ -168,6 +174,10 @@ module Pito
           next if token.start_with?("-")
           next if token.match?(/\A\d+\z/)
           next if token.start_with?('"')
+          # Entity references (numeric `#id` / `@handle`) are targets, not nouns:
+          # skip them so `show #3 --help` / `show @foo --help` render the verb page
+          # instead of mis-parsing the ref as an unknown noun and falling through.
+          next if token.start_with?("#", "@")
 
           return token.downcase.to_sym
         end

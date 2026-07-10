@@ -75,6 +75,17 @@
             )) %>
       <% end %>
 
+      <%# Publish at — the scheduled go-live timestamp, its own named field
+          directly after Visibility (only present for scheduled vids). %>
+      <% if publish_at_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.video.detail.publish_at"),
+              value_text:  publish_at_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+
       <%# Last sync at — directly after visibility (privacy); tags are no longer a
           kv-row, they live in their own section below the description. %>
       <%= render(Pito::Table::KeyValueRowComponent.new(

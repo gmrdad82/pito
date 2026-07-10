@@ -85,6 +85,85 @@ RSpec.describe Pito::Mcp::Registry do
       expect(schema_for("pito_conversations"))
         .to eq("type" => "object", "properties" => {}, "additionalProperties" => false)
     end
+
+    # U5 — a `capability:` param's description is enriched with the per-noun valid
+    # tokens read live from Pito::Grammar::Capability (so the client can list-with-
+    # columns instead of N pito_show calls, and never drifts from the grammar).
+    describe "capability-derived param descriptions" do
+      subject(:columns_desc) { schema_for("pito_list")["properties"]["columns"]["description"] }
+
+      it "enumerates the valid columns per noun" do
+        expect(columns_desc).to match(/games: platform, genre/)
+        expect(columns_desc).to match(/vids: channel, visibility.*publish_at/)
+        expect(columns_desc).to match(/channels: subs, views, vids, likes/)
+      end
+
+      it "enumerates the toggle filters per noun on the filter param" do
+        filter_desc = schema_for("pito_list")["properties"]["filter"]["description"]
+        expect(filter_desc).to match(/games: upcoming/)
+        expect(filter_desc).to match(/vids: published, unlisted, scheduled/)
+        # vids filters carry no `vocabulary:` — their tokens are already literal,
+        # so nothing to expand; pin the noun's list is exactly this and no more.
+        expect(filter_desc).to end_with("vids: published, unlisted, scheduled.")
+      end
+
+      # capability_tokens' `filters` branch now expands each filter through
+      # Pito::Grammar::Capability.filter_tokens — a vocabulary-backed filter
+      # (games genre/platform) enumerates the REAL values a client can pass
+      # (vocabulary members + synonyms, downcased), not the bare category name,
+      # which the chat grammar never accepts as a filter value on its own.
+      it "expands vocabulary-backed games filters to real passable tokens, not bare category names" do
+        filter_desc = schema_for("pito_list")["properties"]["filter"]["description"]
+        games_desc  = filter_desc[/games: (.*?); vids:/m, 1]
+
+        expect(games_desc).to start_with("upcoming, ")
+        expect(games_desc).to match(/\brpg\b/)   # genre vocabulary member
+        expect(games_desc).to match(/\bfps\b/)   # genre vocabulary synonym
+        expect(games_desc).to match(/\bps5\b/)   # platform vocabulary synonym
+        expect(games_desc).to match(/\bxsx\b/)   # platform vocabulary synonym
+
+        # `genre` the bare category label is gone entirely — anchored with \b so
+        # it can't false-positive against a token that merely contains it.
+        expect(games_desc).not_to match(/\bgenre\b/)
+
+        # Before this change, filters were listed by NAME, so games advertised
+        # exactly "upcoming, genre, platform" — none of which (bar `upcoming`)
+        # a client could actually pass. That exact bare triple is gone. Note:
+        # the STRING "platform" does still legitimately reappear further down
+        # the (now much longer) list — it's also a `genres` vocabulary synonym
+        # for the "Platformer" genre (config/pito/verbs.yml
+        # vocabularies.genres.synonyms), a real, independently passable token —
+        # so we pin absence of the old bare triple rather than a blanket
+        # "platform" match, which would false-positive against that token.
+        expect(games_desc).not_to include("upcoming, genre, platform")
+      end
+
+      it "reflects a newly added capability column automatically (publish_at → sort)" do
+        expect(schema_for("pito_list")["properties"]["sort"]["description"]).to match(/vids:.*publish_at/)
+      end
+    end
+  end
+
+  # U5 — readOnlyHint mirrors each tool's REQUIRED config `read_only:` flag
+  # (owner 2026-07-10: strict over flexible). The four analytics tools warm a
+  # persistent cache / may call the YouTube Analytics API on a cold read, so
+  # they declare false; every other tool is a pure read and declares true.
+  describe "tool annotations" do
+    NOT_READ_ONLY = %w[pito_analyze pito_glance pito_breakdowns pito_channels_of_game].freeze
+
+    it "annotates readOnlyHint per tool from the config read_only flag" do
+      described_class.tools.each do |tool|
+        expected = !NOT_READ_ONLY.include?(tool[:name])
+        expect(tool[:annotations]).to eq("readOnlyHint" => expected),
+                                      "#{tool[:name]} expected readOnlyHint #{expected}"
+      end
+    end
+
+    it "declares the analytics four read_only: false explicitly (not defaulted)" do
+      NOT_READ_ONLY.each do |name|
+        expect(described_class.tool(name)[:read_only]).to be(false)
+      end
+    end
   end
 
   describe ".tool" do

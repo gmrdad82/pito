@@ -38,6 +38,14 @@ module Pito
           # reached and every toggle/enum provider fell back to generic help.
           return config_help(invocation, provider) if verb == "config"
 
+          # Any handler that overrides #show_help renders its OWN rich man page —
+          # the same delegation /config uses, generalised (checked dynamically, no
+          # hardcoded list) so no authored slash `--help` page is dead. This is how
+          # /jobs (subcommands), /games (import), and /rename (arguments) get their
+          # full pages instead of the bare generic usage+description.
+          handler_class = Pito::Slash::Registry.lookup(invocation.verb)
+          return handler_help(invocation, handler_class) if overrides_show_help?(handler_class)
+
           generic_command_help(verb)
         end
 
@@ -80,6 +88,28 @@ module Pito
             conversation:  nil,
             authenticated: true
           ).show_help
+        end
+
+        # ── Handler-delegated help (handlers overriding #show_help) ─────────────
+
+        # True when the handler class defines its own #show_help (not the inherited
+        # base default) — i.e. it authored a real man page worth rendering.
+        def overrides_show_help?(handler_class)
+          return false if handler_class.nil?
+
+          handler_class.instance_method(:show_help).owner != Pito::Slash::Handler
+        end
+
+        # Render a handler's own #show_help man page. No conversation is needed —
+        # these renderers read only i18n copy (mirrors the /config delegation).
+        # `#show_help` is public on some handlers and private on others, so call it
+        # via send (the override check already proved it is defined).
+        def handler_help(invocation, handler_class)
+          handler_class.new(
+            invocation:    invocation,
+            conversation:  nil,
+            authenticated: true
+          ).send(:show_help)
         end
 
         # ── Generic per-command help ───────────────────────────────────────────

@@ -32,18 +32,27 @@ module Pito
         @video.category_name.presence
       end
 
+      # Visibility SCOPE only: Public / Unlisted / Scheduled / Private. A future
+      # publish_at reads as the "Scheduled" scope; the go-live time itself is the
+      # separate `publish_at_label` field below (owner U6 — the time is split out
+      # of the scope so both show the same clean values the list column shows).
       def privacy_label
         if @video.publish_at.present? && @video.publish_at > Time.current
-          return I18n.t(
-            "pito.video.detail.scheduled_for",
-            when: Pito::Formatter::SyncStamp.call(@video.publish_at),
-            default: "Scheduled for %{when}"
-          )
+          return I18n.t("pito.video.detail.privacy_status.scheduled", default: "Scheduled")
         end
 
         return nil if @video.privacy_status.blank?
 
         I18n.t("pito.video.detail.privacy_status.#{@video.privacy_status}", default: @video.privacy_status.to_s.capitalize)
+      end
+
+      # Scheduled go-live as a bare "DD-MM-YYYY HH:MM" timestamp — the show-detail
+      # counterpart to the `publish_at` list column (same field name list accepts).
+      # nil (row hidden) for already-live / never-scheduled vids.
+      def publish_at_label
+        return nil unless @video.publish_at.present? && @video.publish_at > Time.current
+
+        Pito::Formatter::SyncStamp.call(@video.publish_at)
       end
 
       # Format duration via the shared Pito::Formatter::Duration (DD:HH:MM:SS,

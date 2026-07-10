@@ -27,8 +27,12 @@ RSpec.describe Game::Igdb::GameMapper, ".map_game release-date handling" do
     }
   end
 
-  def release_dates_row(category:, y: nil, m: nil, d: nil, date: nil)
-    { "category" => category, "y" => y, "m" => m, "d" => d, "date" => date }
+  # Real IGDB release_dates rows carry `category`, `y`, `m`, and a `date` (unix
+  # seconds) — there is NO `d` (day) field. The day is derived from `date`, so the
+  # fixtures deliberately omit `d` (a `d` here masked the bug where the mapper read
+  # a nonexistent `row["d"]`).
+  def release_dates_row(category:, y: nil, m: nil, date: nil)
+    { "category" => category, "y" => y, "m" => m, "date" => date }
   end
 
   def unix(date)
@@ -40,7 +44,7 @@ RSpec.describe Game::Igdb::GameMapper, ".map_game release-date handling" do
       payload = igdb_payload(
         first_release_date: unix(Date.new(2026, 10, 15)),
         release_dates: [
-          release_dates_row(category: 0, y: 2026, m: 10, d: 15, date: unix(Date.new(2026, 10, 15)))
+          release_dates_row(category: 0, y: 2026, m: 10, date: unix(Date.new(2026, 10, 15)))
         ]
       )
 
@@ -51,6 +55,38 @@ RSpec.describe Game::Igdb::GameMapper, ".map_game release-date handling" do
       expect(attrs[:release_day]).to eq(15)
       expect(attrs[:release_quarter]).to be_nil
       expect(attrs[:release_date]).to eq(Date.new(2026, 10, 15))
+    end
+
+    it "degrades to month precision when date is nil (does not fabricate day 1)" do
+      payload = igdb_payload(
+        first_release_date: nil,
+        release_dates: [
+          release_dates_row(category: 0, y: 2026, m: 10, date: nil)
+        ]
+      )
+
+      attrs = described_class.map_game(payload)
+
+      expect(attrs[:release_year]).to eq(2026)
+      expect(attrs[:release_month]).to eq(10)
+      expect(attrs[:release_day]).to be_nil
+      expect(attrs[:release_date]).to eq(Date.new(2026, 10, 1))
+    end
+
+    it "degrades to month precision when date is the IGDB epoch-0 sentinel (does not fabricate day 1)" do
+      payload = igdb_payload(
+        first_release_date: nil,
+        release_dates: [
+          release_dates_row(category: 0, y: 2026, m: 10, date: 0)
+        ]
+      )
+
+      attrs = described_class.map_game(payload)
+
+      expect(attrs[:release_year]).to eq(2026)
+      expect(attrs[:release_month]).to eq(10)
+      expect(attrs[:release_day]).to be_nil
+      expect(attrs[:release_date]).to eq(Date.new(2026, 10, 1))
     end
   end
 
@@ -162,9 +198,9 @@ RSpec.describe Game::Igdb::GameMapper, ".map_game release-date handling" do
           # Decoy row: Q3 placeholder before the canonical day-precision row
           release_dates_row(category: 5, y: 2026, date: unix(Date.new(2026, 7, 1))),
           # Canonical row
-          release_dates_row(category: 0, y: 2026, m: 10, d: 15, date: target),
+          release_dates_row(category: 0, y: 2026, m: 10, date: target),
           # Decoy row: a later regional release
-          release_dates_row(category: 0, y: 2027, m: 1, d: 1, date: unix(Date.new(2027, 1, 1)))
+          release_dates_row(category: 0, y: 2027, m: 1, date: unix(Date.new(2027, 1, 1)))
         ]
       )
 
@@ -221,7 +257,7 @@ RSpec.describe Game::Igdb::GameMapper, ".map_game release-date handling" do
       payload = igdb_payload(
         first_release_date: unix(Date.new(2026, 10, 15)),
         release_dates: [
-          release_dates_row(category: 0, y: 2026, m: 10, d: 15, date: unix(Date.new(2026, 10, 15)))
+          release_dates_row(category: 0, y: 2026, m: 10, date: unix(Date.new(2026, 10, 15)))
         ]
       )
 

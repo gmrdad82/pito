@@ -3,8 +3,12 @@
 require "rails_helper"
 
 RSpec.describe Game::Igdb::PlatformReleaseMapper do
+  # Real IGDB release_dates rows carry NO `d` — the day lives in the `date` unix
+  # timestamp. `d:` here is a test-authoring convenience that builds that `date`;
+  # the produced row matches the real API (day derived from `date`, never `d`).
   def row(platform, category:, y: nil, m: nil, d: nil)
-    { "platform" => { "name" => platform }, "category" => category, "y" => y, "m" => m, "d" => d }
+    date = (y && m && d) ? Time.utc(y, m, d).to_i : nil
+    { "platform" => { "name" => platform }, "category" => category, "y" => y, "m" => m, "date" => date }
   end
 
   it "maps each platform to its token + component hash" do
@@ -44,7 +48,7 @@ RSpec.describe Game::Igdb::PlatformReleaseMapper do
   end
 
   it "ignores rows with a blank platform name" do
-    json = { "release_dates" => [ { "platform" => nil, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 } ] }
+    json = { "release_dates" => [ { "platform" => nil, "category" => 0, "y" => 2026, "m" => 7, "date" => Time.utc(2026, 7, 31).to_i } ] }
     expect(described_class.call(json)).to eq({})
   end
 

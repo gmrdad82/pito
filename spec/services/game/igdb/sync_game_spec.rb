@@ -106,7 +106,7 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
       # Seed with real release dates first (the base fixture carries none).
       seeded = game_json.merge(
         "release_dates" => [
-          { "platform" => { "name" => "PlayStation 5" }, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 }
+          { "platform" => { "name" => "PlayStation 5" }, "category" => 0, "y" => 2026, "m" => 7, "date" => Time.utc(2026, 7, 31).to_i }
         ]
       )
       allow(client).to receive(:fetch_game).with(1020).and_return([ seeded ])
@@ -129,10 +129,10 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     let(:releases_json) do
       game_json.merge(
         "release_dates" => [
-          { "platform" => { "name" => "PlayStation 5" },          "category" => 0, "y" => 2026, "m" => 7, "d" => 31 },
-          { "platform" => { "name" => "PC (Microsoft Windows)" }, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 },
+          { "platform" => { "name" => "PlayStation 5" },          "category" => 0, "y" => 2026, "m" => 7, "date" => Time.utc(2026, 7, 31).to_i },
+          { "platform" => { "name" => "PC (Microsoft Windows)" }, "category" => 0, "y" => 2026, "m" => 7, "date" => Time.utc(2026, 7, 31).to_i },
           { "platform" => { "name" => "Nintendo Switch" },        "category" => 5, "y" => 2026 },                       # Q3
-          { "platform" => { "name" => "Google Stadia" },          "category" => 0, "y" => 2026, "m" => 1, "d" => 1 }    # dropped
+          { "platform" => { "name" => "Google Stadia" },          "category" => 0, "y" => 2026, "m" => 1, "date" => Time.utc(2026, 1, 1).to_i }    # dropped
         ]
       )
     end
@@ -163,7 +163,7 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
 
       allow(client).to receive(:fetch_game).with(1020).and_return([
         game_json.merge("release_dates" => [
-          { "platform" => { "name" => "PlayStation 5" }, "category" => 0, "y" => 2026, "m" => 7, "d" => 31 }
+          { "platform" => { "name" => "PlayStation 5" }, "category" => 0, "y" => 2026, "m" => 7, "date" => Time.utc(2026, 7, 31).to_i }
         ])
       ])
       described_class.new(client: client).call(game)

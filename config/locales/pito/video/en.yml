@@ -11,9 +11,9 @@ en:
         tags: "Tags"
         description: "Description"
         last_sync_at: "Last sync at"
+        publish_at: "Publish at"
         privacy_status:
           private: "Private"
           public: "Public"
           unlisted: "Unlisted"
           scheduled: "Scheduled"
-        scheduled_for: "Scheduled for %{when}"

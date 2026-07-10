@@ -63,6 +63,7 @@ RSpec.describe "the add-a-tool proof (G130)", type: :dispatch do
       mcp:
         tool: pito_almanac
         description: "Read the almanac for a topic (proof tool)."
+        read_only: true
         params:
           topic:  { type: string, enum: [weather, tides], required: true }
           detail: { type: array,  items: string, required: false, hint: "extra sections" }
@@ -81,6 +82,7 @@ RSpec.describe "the add-a-tool proof (G130)", type: :dispatch do
     pito_almanac_log:
       tool: pito_almanac_log
       description: "Read the almanac request log (proof reader)."
+      read_only: true
       params:
         limit: { type: integer, required: false, hint: "how many entries" }
   YAML

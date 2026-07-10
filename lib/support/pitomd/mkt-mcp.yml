@@ -1,0 +1,20 @@
+# MCP slide — the /oauth consent page ("Authorize Claude", read-only, approve
+# with a TOTP code), the pito-side touchpoint of the MCP connector. Renders the
+# GET /oauth/authorize consent form for the fixed demo client seeded by
+# db/seeds.rb (dev only). The capture Browser hides the dev banner automatically.
+#
+# PREREQS (owner, dev env): the pito dev server up behind dev.pitomd.com AND
+# `bin/rails db:seed` run once (creates the "mkt-capture-demo" client). Then:
+#   rake "pitomd:capture[mkt-mcp]"
+# Promote the shot: cp tmp/captures/pitomd/mkt-mcp/mkt-mcp.png ~/Dev/pitomd/public/media/
+#
+# The query is a valid PKCE S256 authorize request; the code_challenge is the
+# SHA-256 of a throwaway fixed verifier (never exchanged — we only render consent).
+name: mkt-mcp
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - visit: "/oauth/authorize?client_id=mkt-capture-demo&redirect_uri=https://claude.ai/api/mcp/auth_callback&response_type=code&code_challenge=ACuhasXns8uQf2ZQ14CUAHbCLcA2UmzbHInKoMS7AuE&code_challenge_method=S256&state=demo"
+  - wait_for: { text: "read-only", timeout: 10 }
+  - sleep: 0.6
+  - shot: mkt-mcp.png
