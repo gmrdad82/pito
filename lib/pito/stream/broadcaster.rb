@@ -65,7 +65,16 @@ module Pito
       # happen together in the same controller action.
       def emit(turn:, kind:, payload:)
         Pito::Stream::EventPayload.validate!(kind:, payload:)
-        Pito::FollowUp.ensure_handle!(payload, conversation: @conversation) if HANDLE_STAMPING_KINDS.include?(kind.to_s)
+        if HANDLE_STAMPING_KINDS.include?(kind.to_s)
+          # Honor a per-verb `universal_reply: false` opt-out (verbs.yml): stamp
+          # the origin verb so later gates agree, and withhold the universal-only
+          # handle for opted-out verbs (see Pito::Dispatch::UniversalReply).
+          origin_verb = Pito::Dispatch::UniversalReply.origin_verb(turn)
+          payload["origin_verb"] = origin_verb if origin_verb && !payload.frozen?
+          unless Pito::Dispatch::UniversalReply.opted_out?(origin_verb)
+            Pito::FollowUp.ensure_handle!(payload, conversation: @conversation)
+          end
+        end
         event = ::Event.create_with_position!(conversation: @conversation, turn:, kind:, payload:)
         broadcast_event(event)
         event
@@ -85,7 +94,7 @@ module Pito
       # their container live instead of silently no-op-ing into a missing target.
       def broadcast_event(event)
         # Anything reaching the scrollback invalidates the L2 snapshot — the
-        # next page load reassembles from L1 fragments (0.9.0 Phase 6).
+        # next page load reassembles from L1 fragments.
         Pito::Stream::ScrollbackCache.bust(@conversation)
 
         html   = Pito::Stream::EventRenderer.render(event)
@@ -146,10 +155,29 @@ module Pito
         event
       end
 
+      # Narrate the AI orchestrator's live tool activity inside a pending :ai
+      # event — replaces the message's `event_<id>__ai_status` slot (rendered by
+      # Pito::Event::AiComponent while status is "pending"). EPHEMERAL chrome:
+      # not JSON-mirrored, never persisted — the final replace_event carries the
+      # real payload (mirrors the replace_metric_fragment pattern).
+      def broadcast_ai_status(event:, text:)
+        helper  = ApplicationController.helpers
+        slot    = "event_#{event.id}__ai_status"
+        content = helper.turbo_stream.replace(
+          slot,
+          %(<div id="#{slot}" class="text-fg-faded">#{ERB::Util.html_escape(text)}</div>).html_safe
+        )
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+        nil
+      end
+
       # Replace a SINGLE metric's cell inside a live glance message — targets the
       # message's `<token>__metric_<key>` dom-id (set by MetricCellComponent) so each
-      # metric swaps in independently as its dedicated per-metric job lands (item 5
-      # progressive at-a-glance), without re-rendering the whole message. `html` is
+      # metric swaps in independently as its dedicated per-metric job lands
+      # (progressive at-a-glance), without re-rendering the whole message. `html` is
       # the rendered MetricCellComponent for that key (same id, so the swap lands).
       def replace_metric_fragment(token:, key:, html:)
         helper  = ApplicationController.helpers
@@ -419,7 +447,7 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_global_settings_update failed: #{e.class}: #{e.message}")
       end
 
-      # The version HEARTBEAT (G80): replace the hidden #pito-server-version
+      # The version HEARTBEAT: replace the hidden #pito-server-version
       # node on pito:global with the running build's identity. Broadcast every
       # 5 minutes by VersionHeartbeatJob — a RECURRING push is race-proof where
       # a boot-time broadcast is not (clients reconnect on their own schedule
@@ -514,7 +542,7 @@ module Pito
       #
       # Carries the conversation NAME too — this replaces the WHOLE meter, and
       # rendering it nameless wiped a just-renamed title on the next counter
-      # tick (G44b: "saw it for a bit, then it disappeared").
+      # tick ("saw it for a bit, then it disappeared").
       def broadcast_context_meter
         event_count = @conversation.context_event_count
         html = ApplicationController.renderer.render(
@@ -530,7 +558,7 @@ module Pito
           content:
         )
 
-        # G125: the JSON pane of the same tick — non-browser clients get a
+        # The JSON pane of the same tick — non-browser clients get a
         # conversation.update whenever the web meter refreshes (identical
         # trigger, identical numbers). Unread rides along so the TUI's mini
         # status stays current without polling. Unknown types/fields are

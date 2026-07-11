@@ -61,7 +61,7 @@ module Pito
         # target/1.0 ≈ a few %, painting an empty chart green from the baseline up.
         # Anchoring against max(peak, target) instead keeps the target at the top of
         # the range when there's no data → a RED baseline, consistent with views /
-        # avg_view_duration / avg_viewed_pct (owner 2026-07-01).
+        # avg_view_duration / avg_viewed_pct.
         def anchor_ceiling
           [ @series.max.to_f, @target_daily ].max
         end
@@ -146,8 +146,7 @@ module Pito
           if date.year == Date.current.year
             date.strftime("%-d %b")
           else
-            # G107: the short form the owner had before — "Jan'25", never the
-            # axis-flooding "January 2025".
+            # The short form — "Jan'25", never the axis-flooding "January 2025".
             date.strftime("%b'%y")
           end
         end

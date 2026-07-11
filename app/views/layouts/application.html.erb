@@ -16,7 +16,7 @@
       fresh page loads. Auth state (●/■ auth, auth-gate) must always reflect the
       current server-side session — never a cached pre-login DOM. %>
   <meta name="turbo-cache-control" content="no-preview">
-  <%# The build this page was rendered by (G71): pito--cable-health compares it
+  <%# The build this page was rendered by: pito--cable-health compares it
       with GET /version after a cable reconnect — a mismatch means the server
       updated under this tab and the refresh nudge appears. %>
   <meta name="pito-version" content="<%= Pito::Version.suffix %>">
@@ -26,7 +26,7 @@
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
-  <%# The version heartbeat's landing pad (G80): VersionHeartbeatJob replaces
+  <%# The version heartbeat's landing pad: VersionHeartbeatJob replaces
       this node on pito:global every 5 min; pito--version-watch compares its
       value against the pito-version meta and raises the refresh nudge when
       the server has moved on under this page. Rendered with the CURRENT
@@ -51,6 +51,10 @@
       Clicking it dismisses the sidebar (pito--resume backdrop listener). %>
   <div id="pito-sidebar-backdrop" class="pito-sidebar-backdrop"></div>
 
+  <%# The /config ai picker's landing pad: the fast-path turbo stream mounts
+      the overlay here; pito--ai-picker removes it on close. %>
+  <div id="pito-ai-picker-slot"></div>
+
   <%# Global Ctrl+K command palette — always in DOM, toggled by pito--command-palette controller %>
   <div id="pito-command-palette"
        data-controller="pito--command-palette"
@@ -70,13 +74,13 @@
       shell; a localStorage dismissal keeps it hidden client-side). %>
   <%= render(Pito::GetAppBannerComponent.new(user_agent: request.user_agent)) %>
 
-  <%# The refresh nudge template (G71) — inert until pito--cable-health clones
+  <%# The refresh nudge template — inert until pito--cable-health clones
       it into the scrollback after a reconnect onto a NEWER server build.
       Layout-level so it survives the start→conversation morph. %>
   <%= render(Pito::Shell::RefreshNudgeComponent.new) %>
 
-  <%# The pull-to-refresh indicator template (G81) — revealed by
-      pito--pull-refresh during the Android shell's bottom drag. %>
-  <%= render(Pito::Shell::PullRefreshHintComponent.new) %>
+  <%# The pull-to-refresh spinner template — floated in from the bottom edge by
+      pito--pull-refresh during a bottom drag (native shell + mobile web). %>
+  <%= render(Pito::Shell::PullRefreshSpinnerComponent.new) %>
 </body>
 </html>

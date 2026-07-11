@@ -1,6 +1,6 @@
 // pito--version-watch
 //
-// The receiving end of the version heartbeat (G80). VersionHeartbeatJob
+// The receiving end of the version heartbeat. VersionHeartbeatJob
 // replaces #pito-server-version on pito:global every 5 minutes; each replace
 // mounts a fresh copy of this controller, whose value carries the RUNNING
 // server build. Compare it against the build this PAGE was rendered by (the
@@ -39,7 +39,7 @@ export default class extends Controller {
     this.#compare()
   }
 
-  // G87: the mini status' dedicated app-version listener — every heartbeat
+  // The mini status' dedicated app-version listener — every heartbeat
   // writes the SERVER's current version into the bar's @suffix slot, so the
   // bar tracks the running app live (the page build stays in the meta; the
   // nudge still announces the skew and owns the reload).

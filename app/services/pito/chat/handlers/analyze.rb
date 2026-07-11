@@ -38,7 +38,7 @@ module Pito
           end
         end
 
-        # Public seam for Pito::Chat::Handlers::SegmentVerb (plan-0.9.5 D20). Runs
+        # Public seam for Pito::Chat::Handlers::SegmentVerb. Runs
         # `analyze` forcing an `only <segment>` selection and returns the same
         # Result the typed `analyze <noun> <ref> only <segment>` form produces —
         # scope resolution, emission, and error copy all flow through the unchanged
@@ -71,7 +71,7 @@ module Pito
             roles:        Pito::MessageBuilder::Analyze::Message.roles_for(selection.names)
           )
 
-          # Append segments footer to the first emitted message (D18).
+          # Append segments footer to the first emitted message.
           if events.any?
             all_names = Pito::Chat::Segments.names(verb: :analyze, entity: entity_kind)
             addable   = all_names - selection.names

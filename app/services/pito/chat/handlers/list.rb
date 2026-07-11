@@ -176,7 +176,7 @@ module Pito
           game_suggestions = Pito::Chat::GameListFilter.suggestions(head)
           return did_you_mean(game_suggestions) if game_suggestions.any?
 
-          # No-guess (owner 2026-06-29): a head token that is neither the verb, an
+          # No-guess: a head token that is neither the verb, an
           # entity noun, nor a recognised game filter (genre / platform / `upcoming`)
           # is genuinely unknown. Near-miss typos were already caught by
           # `suggestions`/did_you_mean above, so anything left is gibberish → the
@@ -235,7 +235,7 @@ module Pito
           page = page_size
           # Sorted path already materialized (in-memory sort) — size is free.
           # Unsorted path: ONE COUNT on the scoped relation + a LIMITed fetch,
-          # never a full load just to render 50 rows (T6.2 design, kept).
+          # never a full load just to render 50 rows.
           if games.is_a?(Array)
             total = games.size
             rows  = games.first(page)
@@ -519,7 +519,7 @@ module Pito
 
           channels = channels.to_a
 
-          # Selected columns (G82): the defaults (subs/views/vids) plus any
+          # Selected columns: the defaults (subs/views/vids) plus any
           # `with <col>` additions — stamped into the payload so the reply
           # levers (`#h without views`) can slim the DEFAULT set too.
           columns = Pito::MessageBuilder::Channel::ListColumns::DEFAULT_COLUMNS |
@@ -653,7 +653,7 @@ module Pito
           end
         end
 
-        # Free-chat with a genuinely unknown word — no guessing (owner 2026-06-29).
+        # Free-chat with a genuinely unknown word — no guessing.
         # Render the generic "I don't get it" dictionary (`pito.copy.huh`, reused per
         # owner). Pre-rendered so the finalizer routes it to `text:` (keeps :error chrome).
         def unknown_entity
@@ -670,7 +670,7 @@ module Pito
         end
 
         # Continuation cursor for a video list page. Stores everything the `next`
-        # follow-up handler (T6.3) needs to re-run the same query from +offset+:
+        # follow-up handler needs to re-run the same query from +offset+:
         # channel scope, visibility filter, sort clause, and column selection.
         # `nil` filter means no visibility filter (all statuses); `nil` channel
         # means @all (no channel scope).

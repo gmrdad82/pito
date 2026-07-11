@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Fills the show-game channel-matches message's DISTRIBUTION column (item 16).
+# Fills the show-game channel-matches message's DISTRIBUTION column.
 # `show game` emits that message INSTANTLY with col 1 as a NoData canvas + a
 # `channel_distribution` pending marker; the Finalizer enqueues this job and
 # defers resolving the message's thinking indicator + completing the turn.

@@ -10,7 +10,7 @@ require "bigdecimal"
 # keep one decimal ("12.5h").
 #
 # Footage ALWAYS has 0 as its fallback (games.footage_hours is `default 0, NOT
-# NULL`), so nil / zero / negative render as "0h" — never a dash (owner 2026-06-30).
+# NULL`), so nil / zero / negative render as "0h" — never a dash.
 # BigDecimal-based so there is no float drift.
 #
 # Examples:

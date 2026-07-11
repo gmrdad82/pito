@@ -28,19 +28,21 @@ module Pito
         # metadata and belong alongside the other game commands.  shinies shows
         # the thumbnail breakdown and is applicable to game, vid, and channel.
         # All three were dispatched with chat_help copy but missing from this
-        # listing (found during the 0.9.5 help-sync guard audit).
-        # Segment verbs (D20/D21) are grouped by the entity their card is ABOUT:
+        # listing (found during a help-sync guard audit).
+        # Segment verbs are grouped by the entity their card is ABOUT:
         # similar/game → games, videos → videos, games/channels → channels,
-        # at-a-glance/breakdowns → analytics. `linked` (E14) is the
+        # at-a-glance/breakdowns → analytics. `linked` is the
         # relationship verb — grouped with link/unlink beside the game
-        # commands. (G120-G122: linked-game → game, linked-videos folded into
+        # commands. (linked-game → game, linked-videos folded into
         # videos, games = the channel games grid.)
-        "pito.copy.help.games_group_title"     => %w[list search show import delete reindex link unlink linked footage price platform shinies similar game],
+        "pito.copy.help.games_group_title"     => %w[list search show import update delete reindex link unlink linked footage price platform shinies similar game],
         "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos],
         "pito.copy.help.channels_group_title"  => %w[sync channels games],
         # analyze spans channel/vid/game — its own group (was missing from the
-        # main help entirely; found during the 0.9.5 help audit).
-        "pito.copy.help.analytics_group_title" => %w[analyze at-a-glance breakdowns]
+        # main help entirely; found during a help audit).
+        "pito.copy.help.analytics_group_title" => %w[analyze at-a-glance breakdowns],
+        # The AI assistant spans the whole library — its own group.
+        "pito.copy.help.ai_group_title"        => %w[ai]
       }.freeze
 
       module Commands
@@ -67,7 +69,7 @@ module Pito
               margin = index.zero? ? "" : " mt-3"
               title_div = %(<div class="text-purple font-bold#{margin}">#{title}</div>)
 
-              # Alphabetical within the group (owner 1.0.0 G13) — the arrays
+              # Alphabetical within the group — the arrays
               # above stay membership-only; display order is derived.
               rows = verbs.sort.map do |verb|
                 verb_escaped = ERB::Util.html_escape(verb)

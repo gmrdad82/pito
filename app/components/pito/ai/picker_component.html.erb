@@ -1,0 +1,74 @@
+<%# The /config ai overlay. Mounted on demand (turbo stream) and removed on
+    close by pito--ai-picker; both sections render so the JS can flip states
+    after a key save/clear without a round-trip re-render. %>
+<div id="pito-ai-picker"
+     class="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]"
+     data-controller="pito--ai-picker"
+     data-pito--ai-picker-endpoint-value="/settings/ai"
+     data-pito--ai-picker-provider-value="<%= provider %>"
+     data-pito--ai-picker-key-present-value="<%= key_present? %>">
+  <%# Click-away backdrop — dims the app without blurring the terminal grid. %>
+  <div class="fixed inset-0 bg-root opacity-60" data-action="click->pito--ai-picker#close"></div>
+
+  <div class="relative w-[600px] bg-surface border border-line-default p-2.5">
+    <%# Header: brand chip / provider label / key state. %>
+    <div class="flex items-center gap-2">
+      <span class="text-pito">ai</span>
+      <span class="text-fg-faded">///</span>
+      <span class="text-fg-default"><%= label %></span>
+      <span class="ml-auto" data-pito--ai-picker-target="keyChip">
+        <% if key_present? %>
+          <span class="text-fg-dim">key</span> <span class="text-pito">●●●●</span>
+        <% else %>
+          <span class="text-fg-faded">no key</span>
+        <% end %>
+      </span>
+    </div>
+
+    <div class="h-3"></div>
+
+    <%# ── State 1: no key — masked entry, enter saves. ── %>
+    <div data-pito--ai-picker-target="keySection" <%= "hidden" if key_present? %>>
+      <div class="text-fg-dim">paste your <%= label %> API key — it is stored encrypted in this install's settings and never shown again</div>
+      <div class="h-2"></div>
+      <input type="password"
+             class="w-full bg-root border border-line-default px-1.5 py-1 text-fg-default outline-none"
+             autocomplete="off" spellcheck="false"
+             data-pito--ai-picker-target="keyInput"
+             data-action="keydown.enter->pito--ai-picker#saveKey">
+      <div class="h-2"></div>
+      <div class="text-fg-faded">enter save &middot; esc close</div>
+    </div>
+
+    <%# ── State 2: key present — searchable model list. ── %>
+    <div data-pito--ai-picker-target="modelsSection" <%= "hidden" unless key_present? %>>
+      <input type="text"
+             class="w-full bg-root border border-line-default px-1.5 py-1 text-fg-default outline-none"
+             placeholder="search models"
+             autocomplete="off" spellcheck="false"
+             data-pito--ai-picker-target="search"
+             data-action="input->pito--ai-picker#filter">
+      <div class="h-2"></div>
+      <div class="pito-hide-scrollbar overflow-y-auto" style="max-height: min(60vh, 420px);"
+           data-pito--ai-picker-target="list">
+        <% models.each do |m| %>
+          <button type="button"
+                  class="flex w-full items-center gap-2 px-1.5 py-0.5 text-left"
+                  data-pito--ai-picker-target="row"
+                  data-value="<%= m[:id] %>"
+                  data-action="click->pito--ai-picker#pick">
+            <span class="w-2 text-pito"><%= "●" if active?(m[:id]) %></span>
+            <span class="text-fg-default"><%= m[:id] %></span>
+            <% if m[:pinned] %><span class="ml-auto text-fg-faded">pinned</span><% end %>
+          </button>
+        <% end %>
+      </div>
+      <div class="h-2"></div>
+      <div class="text-fg-faded">&uarr;/&darr; choose &middot; enter select &middot; ctrl+x clear key &middot; esc close</div>
+    </div>
+
+    <div class="h-2"></div>
+    <%# Transient feedback line — "model saved", "key cleared", errors. %>
+    <div class="text-fg-dim" aria-live="polite" data-pito--ai-picker-target="status"></div>
+  </div>
+</div>

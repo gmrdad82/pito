@@ -212,7 +212,7 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "footage (multi-noun: update + snippet)" do
+      context "footage (multi-noun: game + snippet)" do
         subject(:result) { described_class.call(:footage) }
 
         it "returns a valid html payload" do
@@ -220,8 +220,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "body lists both update and snippet forms" do
-          expect(result["body"]).to include("footage update")
+        it "body lists both game and snippet forms" do
+          expect(result["body"]).to include("footage game")
           expect(result["body"]).to include("footage snippet")
         end
       end
@@ -380,17 +380,17 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "footage update --help (subcommand)" do
-        subject(:result) { described_class.call(:footage, noun: :update) }
+      context "footage game --help (subcommand)" do
+        subject(:result) { described_class.call(:footage, noun: :game) }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
           expect(result["html"]).to be(true)
         end
 
-        it "usage line includes the footage update shape" do
-          expect(result["body"]).to include("footage update")
-          expect(result["body"]).to include("hours")
+        it "usage line includes the footage game shape" do
+          expect(result["body"]).to include("footage game")
+          expect(result["body"]).to include("#id")
         end
       end
 

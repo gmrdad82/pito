@@ -2,7 +2,7 @@
 
 module Pito
   module Shell
-    # The refresh nudge (G71) — ephemeral chrome cloned into the scrollback by
+    # The refresh nudge — ephemeral chrome cloned into the scrollback by
     # pito--cable-health when a cable RECONNECT reveals the server now runs a
     # NEWER version than this page (fresh CSS/JS the open tab won't get until
     # a real reload). Ships as a <template> in the layout: the copy is resolved
@@ -26,7 +26,7 @@ module Pito
         Pito::Copy.render("pito.copy.refresh_nudge.lines", combo: combo)
       end
 
-      # The reload affordance, by platform (G73): touch devices (the Android
+      # The reload affordance, by platform: touch devices (the Android
       # shell has no keyboard and no refresh button — pull-to-refresh is
       # deliberately OFF) get "Tap here" (the nudge itself is tappable);
       # Macs get ⌘R; everyone else Ctrl+R (F5 lives too). Sniffed server-side

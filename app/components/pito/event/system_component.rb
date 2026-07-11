@@ -51,7 +51,7 @@ module Pito
 
       # Always transparent (left bar only). Replies/follow-ups no longer elevate a
       # message onto the surface background — the payload[:surface] "just changed by
-      # your reply" lift was removed (owner 2026-07-01). Messages that come surfaced
+      # your reply" lift was removed. Messages that come surfaced
       # do so via their own component (e.g. *_follow_up), not via this flag.
       def background = nil
 
@@ -132,11 +132,11 @@ module Pito
       # #/Title columns — predating the shimmer-heading feature. It is stripped
       # here so EVERY sortable heading (fixed AND added) shares ONE appearance:
       # the cyan shimmer is the sole live affordance, and a consumed list drops
-      # cleanly to plain muted (no leftover cyan). See J7/J8/J15.
+      # cleanly to plain muted (no leftover cyan).
       HEADING_AFFORDANCE_CLASS = "pito-table-heading--added"
 
-      # Composes a heading-cell class. Table headings are ALWAYS PLAIN muted text
-      # (owner 17.4): no shimmer, no bold, no cyan — in BOTH the live and the
+      # Composes a heading-cell class. Table headings are ALWAYS PLAIN muted text:
+      # no shimmer, no bold, no cyan — in BOTH the live and the
       # reply_consumed states. The rule is "only action / thinking / network /
       # subject / reference shimmer; everything else is plain", and a column
       # heading is none of those. Only layout-affecting extras (e.g. `text-right`)

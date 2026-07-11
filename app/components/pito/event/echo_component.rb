@@ -15,7 +15,7 @@ module Pito
     # Rendered inside a `Pito::Segment` with a purple accent bar and an
     # elevated background.  The meta line shows the formatted timestamp.
     #
-    # The echoed text renders instantly (item 18 removed the typewriter). The
+    # The echoed text renders instantly (the typewriter was removed). The
     # post-command comet (pito--dots) clears on `pito:result-appended` /
     # `pito:comet-clear` instead.
     class EchoComponent < ViewComponent::Base
@@ -26,9 +26,15 @@ module Pito
         @timestamp        = event&.created_at
         @authenticated    = payload.fetch(:authenticated, true)
         @triggers_logout  = payload[:triggers_logout] == true || payload[:triggers_logout] == "true"
+        @ai               = payload[:ai] == true || payload[:ai] == "true"
       end
 
       def triggers_logout? = @triggers_logout
+
+      # An `ai …` turn's echo joins the AI visual thread (gradient accent).
+      def accent
+        @ai ? :ai : :purple
+      end
     end
   end
 end

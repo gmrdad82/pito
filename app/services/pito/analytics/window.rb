@@ -69,11 +69,10 @@ module Pito
 
       # Days a window's end_date must be in the past before its data is treated as
       # finalized. YouTube finalizes estimated metrics in ~2–3 days; the 7-day
-      # buffer absorbs late revisions / timezone edges (docs/claude/0.8.0.md;
-      # re-confirmed by owner 2026-07-02 for 0.9.0: frozen = ended ≥ 1 week ago).
+      # buffer absorbs late revisions / timezone edges (frozen = ended ≥ 1 week ago).
       FINALIZED_AFTER = 7
 
-      # TTL tiers for NON-finalized windows (0.9.0 Phase 2, owner-locked).
+      # TTL tiers for NON-finalized windows (owner-locked).
       # Lifetime-scale data barely moves in a day — and YouTube's own reports lag
       # ~24–48h — so lifetime windows hold for a day and live windows for 4h.
       # This method + finalized? are the ONLY expiry policy in the app: every
@@ -181,7 +180,7 @@ module Pito
       end
 
       def lifetime!(ref, channel_created_on)
-        # G107: the fallback was a hardcoded Date.new(2005,1,1) (YouTube's
+        # The fallback was a hardcoded Date.new(2005,1,1) (YouTube's
         # founding year) — and since no caller threads channel_created_on,
         # EVERY lifetime chart started with twenty years of empty paper and
         # "January 2005" ticks. The honest lifetime floor is the account's

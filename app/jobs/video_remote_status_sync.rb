@@ -1,23 +1,25 @@
-# Focused, status-only write-back job. Pulls a Video, reads
-# the YouTube-side state via VideosReader (1 unit), then PUTs the local
-# state via VideosClient (50 units) BUT restricted to the privacy/schedule
-# fields only — `fields: [:privacy_status, :publish_at]`. YouTube's own
-# title/description round-trip untouched: pito never writes those back.
+# Focused, field-restricted write-back job. Pulls a Video, reads the
+# YouTube-side state via VideosReader (1 unit), then PUTs the local state via
+# VideosClient (50 units) restricted to `fields:` — by DEFAULT the
+# privacy/schedule pair (`[:privacy_status, :publish_at]`), exactly as before.
+# The `update vid description/tags` confirmation passes its OWN single field
+# instead, so a metadata push never touches the publish state and vice versa
+# (each PUT sends only the parts its fields need — a destructive-PUT guard).
 #
-# This replaces the dead full-subset write-back job, which pushed
-# title/description + status. The user does NOT want title/description
-# synced to YouTube, only the publish state.
+# Title stays owner-untouchable: nothing enqueues this job with :title.
 #
 # On success, stamps `last_synced_at`. On failure, logs the error and
 # (depending on the failure class) re-raises so the job retries with
 # backoff.
 #
-# Failure is OPTIMISTIC: the local `privacy_status` is NOT rolled back on
-# write-back failure.
+# Failure is OPTIMISTIC: the local write is NOT rolled back on write-back
+# failure.
 class VideoRemoteStatusSync < ApplicationJob
   queue_as :default
 
-  def perform(video_id)
+  DEFAULT_FIELDS = %i[privacy_status publish_at].freeze
+
+  def perform(video_id, fields: nil)
     video = Video.find_by(id: video_id)
     return unless video
 
@@ -35,7 +37,7 @@ class VideoRemoteStatusSync < ApplicationJob
 
     fresh = Channel::Youtube::VideosReader.new(connection).read_video(video)
     Channel::Youtube::VideosClient.new(connection).update_video(
-      video, fresh: fresh, fields: [ :privacy_status, :publish_at ]
+      video, fresh: fresh, fields: (fields || DEFAULT_FIELDS).map(&:to_sym)
     )
 
     video.update_columns(last_synced_at: Time.current)

@@ -54,7 +54,7 @@ module Pito
 
         # Bars keep the EXACT COLS-wide paper (no Base overdraw): the dotted
         # grid IS the 0–100% axis here, so paper past the last cell reads as
-        # "the bars don't sum to 100" (owner, 2026-07-06).
+        # "the bars don't sum to 100".
         def bg_cols = cols
 
         # Staggered shimmer-delay bucket — seeded per bar-set so adjacent charts
@@ -82,14 +82,14 @@ module Pito
         # How many filled cells for a given percentage.
         # Tiny positive pct shows ≥1 cell (min-1 floor); 0% shows nothing.
         # A 100% bar fills the WHOLE canvas — the old COLS-1 cap kept a dim
-        # terminator cell, which read as a missing segment on a full bar
-        # (owner G35). Overflow stays impossible: at COLS the remainder is 0.
+        # terminator cell, which read as a missing segment on a full bar.
+        # Overflow stays impossible: at COLS the remainder is 0.
         def filled_cells(pct)
           return 0 unless pct.positive?
           [ (pct / 100.0 * COLS).round, 1 ].max.clamp(0, COLS)
         end
 
-        # Owner's cell normalization (2026-07-06, "SIMPLE MATH", verbatim):
+        # Owner's cell normalization ("SIMPLE MATH"):
         #   1. every positive bar is min 1 cell;
         #   2. if the cells sum over the target, cut 1 from the biggest until equal;
         #   3. if under, add 1 to the biggest until equal.

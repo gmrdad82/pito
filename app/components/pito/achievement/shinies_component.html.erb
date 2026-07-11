@@ -1,7 +1,7 @@
 <%# Pito::Achievement::ShiniesComponent
     Intro line (with timestamp slot) + one full-width MetricRowComponent lane
     per metric, stacked — badges flow fluid left->right within each lane
-    (owner G127; the 3-col grid stays ONLY on detail-card compact strips). %>
+    (the 3-col grid stays ONLY on detail-card compact strips). %>
 <div class="pito-achievement-shinies flex flex-col gap-5">
   <% if @intro.present? %>
     <div class="pito-achievement-shinies__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>

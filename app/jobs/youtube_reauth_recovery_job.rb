@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Auto-retry after a successful REAUTH (0.9.0 Phase RQ, owner 2026-07-02).
+# Auto-retry after a successful REAUTH.
 #
 # While a connection is flagged `needs_reauth`, almost nothing FAILS — the
 # scheduled passes (NightlySyncJob / VideoStatsSnapshotJob /

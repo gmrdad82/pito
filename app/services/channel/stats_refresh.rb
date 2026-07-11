@@ -5,7 +5,7 @@
 # YouTube exposes no channel-level like counter — subscribers and views come
 # straight from the channels API (ChannelSync), but likes only exist per
 # video. This sums the `likes` stat across the channel's videos and upserts
-# the result via `Pito::Stats.set` (G28 — the channels list reads
+# the result via `Pito::Stats.set` (the channels list reads
 # `Pito::Stats.get(channel, :likes)`, never live-sums at render).
 #
 # Channels with no videos (or no like stats yet) materialize 0 — "computed,

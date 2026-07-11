@@ -139,7 +139,6 @@ class AppSetting < ApplicationRecord
   #
   # Stored as a plain key/value row ("sound_enabled"). Default is true — the
   # flag is only false when the stored value is explicitly "false".
-  # (The fx/motion toggle + reveal-effect settings were removed in item 18.)
 
   SOUND_ENABLED_KEY = "sound_enabled"
 

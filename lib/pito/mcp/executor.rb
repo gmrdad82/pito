@@ -11,12 +11,12 @@ module Pito
     # READ-ONLY, NON-PERSISTING by construction: Router.call returns handler Results
     # and writes nothing; persistence lives in the dispatch JOBS, which MCP never
     # invokes. This class must never create/update/enqueue (the one allowed write —
-    # the anchor Conversation — is minted by #mcp_conversation, see T2.5). The spec
+    # the anchor Conversation — is minted by #mcp_conversation). The spec
     # proves Event.count is unchanged across a call.
     #
     # Pending analytics (analyze / breakdowns / glance / channels) normally fill via
-    # jobs + Turbo; MCP is pull-only, so the Executor computes them INLINE — that is
-    # T2.3, wired into #fill_pending. Errors (Result::Error) render through EventText
+    # jobs + Turbo; MCP is pull-only, so the Executor computes them INLINE, wired
+    # into #fill_pending. Errors (Result::Error) render through EventText
     # like any error event.
     module Executor
       module_function
@@ -137,7 +137,7 @@ module Pito
         "Missing required argument#{missing.size > 1 ? 's' : ''}: #{missing.join(', ')}."
       end
 
-      # Reject unknown values at the MCP boundary (U5 rec 3) rather than letting the
+      # Reject unknown values at the MCP boundary rather than letting the
       # chatbox grammar silently drop them: `enum` params (e.g. noun) are checked
       # against their allowlist, and a `capability: columns` param against the ACTUAL
       # noun's real column set from Pito::Grammar::Capability. `filter`/`sort` stay

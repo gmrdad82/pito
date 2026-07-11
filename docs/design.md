@@ -79,8 +79,10 @@ Components signal color through a **`data-accent` attribute** matched by static,
 compiled CSS rules — never an inline `style=` and never a runtime-built Tailwind
 arbitrary class. Examples in `application.css`:
 
-- `.pito-segment__bar[data-accent="orange|red|yellow|purple|blue|surface|pito"]`
-  — the 4px message segment bar color.
+- `.pito-segment__bar[data-accent="orange|red|yellow|purple|blue|surface|pito|ai"]`
+  — the 4px message segment bar color. `ai` is the one gradient accent
+  (purple→pito-blue, top to bottom): the AI thread — chatbox while typing
+  `ai …`, the turn's echo, and the `:ai` answer.
 - `[data-accent="main|extras|completionist|footage"]` — TimeToBeat tick / legend
   colors.
 

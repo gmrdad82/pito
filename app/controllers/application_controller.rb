@@ -23,7 +23,7 @@ class ApplicationController < ActionController::Base
 
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
 
-  # HTML documents are NEVER cached (G84): the Android WebView re-served a
+  # HTML documents are NEVER cached: the Android WebView re-served a
   # cached page on pull-to-refresh — content looked fresh (the scrollback
   # streams from the cable/DB) but the document still referenced the OLD
   # fingerprinted CSS, so a server update never restyled. Rails' default

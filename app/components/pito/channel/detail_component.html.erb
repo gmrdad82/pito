@@ -13,7 +13,7 @@
   <% card.with_image do %>
     <%# Banner (our cached 450×253 16:9 copy) in the top-left spot. When the
         channel has NO banner, the shared click-to-sync placeholder (rect) fills
-        the spot (item 22 — supersedes the earlier empty-spot behaviour). The
+        the spot (supersedes the earlier empty-spot behaviour). The
         avatar still lives in the kv-table on the right. %>
     <div class="pito-channel-detail__banner">
       <%= render Pito::ImageRender.call(

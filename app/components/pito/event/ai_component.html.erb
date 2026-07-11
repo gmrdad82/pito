@@ -1,0 +1,20 @@
+<%= render(Pito::Segment::Component.new(accent: :ai, background: "var(--bg-surface)", id: dom_id, scrollback_message: true)) do %>
+  <% if pending? %>
+    <%# The loop is running: the thinking indicator carries the spinner; this
+        slot narrates which pito tool the model is reading right now. %>
+    <div id="<%= status_slot_id %>" class="text-fg-faded"></div>
+  <% else %>
+    <div class="flex flex-col gap-2">
+      <% blocks.each_with_index do |block, idx| %>
+        <% if idx.zero? %>
+          <div class="flex gap-0"><%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: timestamp)) %><div class="min-w-0 flex-1"><%= render(component_for(block)) %></div></div>
+        <% else %>
+          <%= render(component_for(block)) %>
+        <% end %>
+      <% end %>
+      <% if reply_handle %>
+        <div><%= render(Pito::Event::HandleComponent.new(reply_handle)) %></div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

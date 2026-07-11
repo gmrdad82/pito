@@ -55,6 +55,8 @@ Rails.application.routes.draw do
 
   # Settings toggle endpoints — require authentication (no allow_anonymous).
   patch  "/settings/theme",      to: "settings#theme",             as: :settings_theme
+  # The /config ai picker dialog's persistence endpoint (key set/clear, model pick).
+  patch  "/settings/ai",         to: "settings#ai",                as: :settings_ai
 
   # JSON login for non-browser clients (pito-tui): POST /session {otp} mints
   # the same encrypted session cookie the chatbox /authenticate flow does.

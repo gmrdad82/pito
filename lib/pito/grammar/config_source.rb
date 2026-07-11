@@ -5,8 +5,7 @@ module Pito
     # Builds Grammar Spec and Vocabulary objects from Pito::Dispatch::Config.data
     # (config/pito/verbs.yml). This is the config-driven source of truth for the
     # chat namespace and all vocabulary objects — replaces the hand-authored Ruby
-    # tables in specs.rb (chat entries) and vocabularies.rb (static constants)
-    # (T8.8, plan-0.9.5 P3).
+    # tables in specs.rb (chat entries) and vocabularies.rb (static constants).
     #
     # CHAT SPEC MAPPING
     #   Every verb entry in verbs.yml that declares a `chat:` branch produces one
@@ -21,7 +20,7 @@ module Pito
     #
     # SLASH SPEC MAPPING
     #   Every verb entry that declares a `slash:` branch produces one Spec with
-    #   namespace :slash (T8.9 migration — replaces lib/pito/grammar/specs.rb and the
+    #   namespace :slash (replaces lib/pito/grammar/specs.rb and the
     #   per-handler `grammar do…end` blocks). Field mapping:
     #     name            → verb key (Symbol)
     #     aliases         → verb[:aliases] as Array<Symbol> (verb-level; the only

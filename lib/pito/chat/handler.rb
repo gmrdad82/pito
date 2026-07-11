@@ -63,7 +63,7 @@ module Pito
       end
 
       class << self
-        # The uniform dispatch contract (plan-0.9.5 T8.10). Pito::Dispatch::Router
+        # The uniform dispatch contract. Pito::Dispatch::Router
         # invokes EVERY chat verb through this single class-level entry:
         #
         #   * +context+ (Pito::Dispatch::Context) carries what handlers read today —

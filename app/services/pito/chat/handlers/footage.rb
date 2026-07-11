@@ -26,17 +26,31 @@ module Pito
         SUBCOMMAND         = "update"
         SNIPPET_SUBCOMMAND = "snippet"
 
+        # `footage game <id>` — the per-game snippet entry (same one-liner; the
+        # id names which game you're tallying for).
+        GAME_SUBCOMMAND = "game"
+
         def call
           subcommand, ref, raw_hours = parse_args
 
           case subcommand
-          when SUBCOMMAND         then update(ref, raw_hours)
+          when SUBCOMMAND         then follow_up? ? update(ref, raw_hours) : moved
           when SNIPPET_SUBCOMMAND then snippet
+          when GAME_SUBCOMMAND    then snippet
           else needs_ref
           end
         end
 
         private
+
+        # The typed setter moved to the consolidated `update` verb; the reply
+        # form (`#g3 footage 2.5`) is unchanged.
+        def moved
+          Pito::Chat::Result::Error.new(
+            message_key:  "pito.chat.update.moved",
+            message_args: { example: "update game footage 12 8.5" }
+          )
+        end
 
         # `footage update <id> <hours>` — resolve the game, ceil the hours, save.
         def update(ref, raw_hours)

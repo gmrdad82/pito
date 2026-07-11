@@ -42,7 +42,7 @@ module Pito
         #   unauthenticated (authenticated: false) → keep ONLY :unauthenticated_only specs
         #   authenticated   (authenticated: true)  → keep all EXCEPT :unauthenticated_only specs
         def slash_entries(authenticated:)
-          # plan-0.9.5 D5: slash commands list alphabetically
+          # Slash commands list alphabetically
           Pito::Grammar::Registry.specs(namespace: :slash)
                   .select  { |spec| include_slash_spec?(spec, authenticated:) }
                   .sort_by { |spec| spec.name.to_s }
@@ -79,7 +79,7 @@ module Pito
         def spec_to_entry(spec)
           {
             name:        spec.name.to_s,
-            # G75: the client's exact-complete Enter rule must honor every
+            # The client's exact-complete Enter rule must honor every
             # alias ("ls" + Enter sends), so entries carry the full set.
             aliases:     spec.aliases.map(&:to_s),
             insert:      "#{spec.name} ",

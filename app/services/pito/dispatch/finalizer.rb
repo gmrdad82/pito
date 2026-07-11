@@ -78,11 +78,21 @@ module Pito
         placeholder = unresolved_unlinked_indicator(turn)
         dictionary  = placeholder&.payload&.[]("dictionary").presence || "chat"
 
+        # The verb that produced this turn's messages, stamped on each payload so
+        # the palette and the follow-up dispatch can honor a per-verb
+        # `universal_reply: false` opt-out (verbs.yml) long after emission. An
+        # opted-out verb's messages get NO universal-only handle at all.
+        origin_verb  = Pito::Dispatch::UniversalReply.origin_verb(turn)
+        universal_ok = !Pito::Dispatch::UniversalReply.opted_out?(origin_verb)
+
         persisted = canonical_kinds(events).map do |attrs|
           indicator   = placeholder || @broadcaster.emit_thinking(turn:, dictionary:)
           placeholder = nil # only the first message reuses the pre-dispatch placeholder
 
-          Pito::FollowUp.ensure_handle!(attrs[:payload], conversation: @conversation) if HANDLE_STAMP_KINDS.include?(attrs[:kind].to_s)
+          attrs[:payload]["origin_verb"] = origin_verb if origin_verb && !attrs[:payload].frozen?
+          if universal_ok && HANDLE_STAMP_KINDS.include?(attrs[:kind].to_s)
+            Pito::FollowUp.ensure_handle!(attrs[:payload], conversation: @conversation)
+          end
           event = ::Event.create_with_position!(
             conversation: @conversation, turn:, kind: attrs[:kind], payload: attrs[:payload]
           )
@@ -112,7 +122,8 @@ module Pito
         analytics    = events.select { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
         analyze      = events.select { |e| Pito::MessageBuilder::Analyze::Message.pending?(e) }
         distribution = events.select { |e| Pito::MessageBuilder::Game::Channels.pending?(e) }
-        deferred     = analytics + analyze + distribution
+        ai           = events.select { |e| AiOrchestratorJob.pending?(e) }
+        deferred     = analytics + analyze + distribution + ai
 
         if deferred.any?
           # Resolve the ready messages' indicators now; leave the pending ones
@@ -123,6 +134,7 @@ module Pito
           AnalyticsFillJob.perform_later(turn.id)           if analytics.any?
           AnalyzePrepareJob.perform_later(turn.id)          if analyze.any?
           ChannelDistributionFillJob.perform_later(turn.id) if distribution.any?
+          AiOrchestratorJob.perform_later(turn.id)          if ai.any?
         else
           # Resolve every indicator (per-message + any orphan placeholder on a
           # zero-result turn), then complete.

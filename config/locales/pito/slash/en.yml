@@ -30,11 +30,12 @@ en:
           description: "Initiate Google OAuth to connect a YouTube channel."
       config:
         descriptions:
-          config: "Read or write install-wide credentials, toggle sound, set the display time zone, or configure your nickname (/config google|voyage|igdb|webhook|me|sound|timezone)"
+          config: "Read or write install-wide credentials, toggle sound, set the display time zone, or configure your nickname (/config ai|google|voyage|igdb|webhook|me|sound|timezone)"
         help:
           general:
             body: "/config <provider> [on|off | key=value …]"
             providers:
+              ai: "AI provider & model (bare `/config ai` opens the picker)"
               google: "OAuth + YouTube API credentials"
               voyage: "Voyage AI embedding key"
               igdb: "IGDB game database client credentials"
@@ -44,6 +45,11 @@ en:
               timezone: "Set the display time zone (timestamps + schedule input)"
             info_line: "`/config <provider> --help` for provider-level key reference."
           providers:
+            ai:
+              keys:
+                api_key: "OpenCode Zen API key (from opencode.ai/auth)"
+                model: "Active model id (e.g. claude-sonnet-5 — `/config ai` lists them)"
+              omit_hint: "Omit all keys to open the model/key picker."
             google:
               keys:
                 client_id: "Google OAuth client ID (Google Cloud Console)"
@@ -79,6 +85,7 @@ en:
           ok: "OK"
           missing: "MISSING"
           section:
+            ai: "AI provider (OpenCode Zen)"
             google: "Google credentials"
             voyage: "Voyage credentials"
             igdb: "IGDB credentials"

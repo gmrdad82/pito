@@ -16,17 +16,17 @@ module Pito
     # one channel-wide primitive, client call with no video filter, keyed by the
     # channel's youtube_channel_id). Channel-level is NOT the sum of a channel's
     # vids — subs aren't all video-attributable and channel-wide covers unsynced/
-    # deleted videos — so it's fetched directly (FORK-B / B1). The
+    # deleted videos — so it's fetched directly. The
     # `video_youtube_id` column therefore holds a "subject id" (a video id, or a
     # channel id for channel-level rows).
     #
     # Metrics are returned with STRING keys (matching the jsonb round-trip) so warm
     # and cold reads are interchangeable. Per-subject YouTube errors propagate to the
-    # caller — the fan-out job (Phase 3) owns retry / failure surfacing.
+    # caller — the fan-out job owns retry / failure surfacing.
     module Primitives
       # report → AnalyticsClient method (videos:-filtered, per single video).
       # NOTE: `retention` is single-video via `video:` (not `videos:`) and is
-      # handled by a dedicated path in Phase 3 — not listed here.
+      # handled by a dedicated path — not listed here.
       REPORT_METHODS = {
         "scalars"           => :scalars,
         "daily"             => :daily,
@@ -62,15 +62,15 @@ module Pito
               primitive_for(channel:, subject_id: sid, videos: nil, report:, method:, window:, now:, require_keys:)
             end
           elsif report == "scalars" && Array(subjects).many?
-            # Batched cold path (0.9.0 Phase 3): all of a group's cold videos in
+            # Batched cold path: all of a group's cold videos in
             # one dimensions=video request per ≤200-slice instead of one request
             # each. Only `scalars` batches — the API has no video-dimensioned
-            # daily/breakdown reports (see 0.9.0.md T3.1 findings).
+            # daily/breakdown reports.
             acc.merge!(batched_scalars(channel:, ids: Array(subjects), window:, now:, require_keys:))
           else
             # Un-batchable reports (daily/breakdowns — per-video by API design):
             # cold subjects fetch CONCURRENTLY under a bounded pool instead of
-            # serially (0.9.0 Phase 3). Warm subjects never spawn a thread.
+            # serially. Warm subjects never spawn a thread.
             acc.merge!(parallel_primitives(channel:, ids: Array(subjects), report:, method:, window:, now:, require_keys:))
           end
         end
@@ -96,7 +96,7 @@ module Pito
               videos:     slice
             )
           rescue ::Channel::Youtube::Error => e
-            # G131: a failed slice contributes zeros IN MEMORY only — the videos
+            # A failed slice contributes zeros IN MEMORY only — the videos
             # are NOT stored, so they stay cold and refetch next time (never a
             # persisted zero that would mask recovery). Distinct from the
             # per-video isolate: a whole batched request fails as a unit.
@@ -165,7 +165,7 @@ module Pito
                 begin
                   # isolate swallows the Channel::Youtube family per-subject (returns
                   # the report-shaped empty); a genuine (non-YouTube) bug still raises
-                  # here and trips the abort-and-raise below (G131).
+                  # here and trips the abort-and-raise below.
                   metrics = isolate(subject_id: vid, report:) do
                     fetch_and_store_one(channel:, subject_id: vid, videos: [ vid ], report:, method:, window:, now:)
                   end
@@ -197,7 +197,7 @@ module Pito
         fetch_and_store_one(channel:, subject_id:, videos:, report:, method:, window:, now:)
       end
 
-      # Per-subject fault isolation (G131): a subject whose YouTube fetch fails
+      # Per-subject fault isolation: a subject whose YouTube fetch fails
       # contributes NOTHING (a report-shaped empty) instead of aborting the whole
       # multi-subject fetch — the rest aggregate and render. The failing subject
       # is NOT cached (the client call raises BEFORE `store`), so it refetches and

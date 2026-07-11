@@ -11,7 +11,7 @@ module Pito
       #
       # Scenarios: `show` glance + `analyze` (:system and :enhanced roles) for
       # a vid, the most-linked game (the worst realistic fan-out), and a
-      # channel. This is the number Phases 1–3 must collapse.
+      # channel. This is the number the caching work must collapse.
       module ColdPaths
         module_function
 

@@ -12,7 +12,7 @@ module Pito
       # To visit a channel's YouTube page or Studio, first `show channel @<handle>`
       # then reply `#<card_handle> visit channel` or `#<card_handle> visit studio`.
       #
-      # Column mutations (no consume, :mutate — vids/games parity, G26.2):
+      # Column mutations (no consume, :mutate — vids/games parity):
       #
       #   #<handle> with <columns>    → rebuild list with extra column(s)
       #   #<handle> without <columns> → rebuild list without the named column(s)
@@ -82,7 +82,7 @@ module Pito
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
           # Carry the cursor forward with the NEW column set so `next`/`more` keeps the
-          # customized columns on later pages (#12).
+          # customized columns on later pages.
           if payload.key?("list_cursor") && (cursor = payload["list_cursor"])
             new_payload["list_cursor"] = cursor.merge("columns" => new_cols.map(&:to_s))
           end
@@ -112,9 +112,9 @@ module Pito
           channels = ::Channel.where(id: ids).includes(:youtube_connection)
                               .sort_by { |c| ids.index(c.id) || ids.size }
 
-          # G82 made counter sorting VISIBILITY-gated — without the stamped
+          # Counter sorting is VISIBILITY-gated — without the stamped
           # selection every subs/views/vids sort resolved nil and the reply
-          # silently no-opped (owner 2026-07-05). The stamped columns also ride
+          # silently no-opped. The stamped columns also ride
           # into the rebuild so a `with likes` selection survives the sort.
           selected = Array(payload["list_columns"]).map(&:to_sym)
           key = Pito::MessageBuilder::Channel::ListColumns.sort_key_for(
@@ -131,7 +131,7 @@ module Pito
           new_payload["reply_handle"] = payload["reply_handle"]
           new_payload["reply_target"] = payload["reply_target"]
           # Carry the cursor forward AND fold in the just-applied sort so `next`/`more`
-          # keeps paging in this order (#12). Only when the sort resolved (key present).
+          # keeps paging in this order. Only when the sort resolved (key present).
           if payload.key?("list_cursor") && (cursor = payload["list_cursor"])
             cursor = cursor.merge("sort_token" => tokens.join(" ").presence, "sort_direction" => direction.to_s) if key
             new_payload["list_cursor"] = cursor
@@ -175,7 +175,7 @@ module Pito
           # produced page 1, so this page can never drift from it.
           all_channels = Pito::Chat::Handlers::List.channels_relation.to_a
 
-          # G125.4 (TUI contract catch): the stamped column selection must ride
+          # TUI contract catch: the stamped column selection must ride
           # into `next` exactly like it rides into `sort` — without it, counter
           # sorts silently no-op past page 1 (sort_key_for is visibility-gated)
           # and a `with`-customized table resets to defaults on the next page.

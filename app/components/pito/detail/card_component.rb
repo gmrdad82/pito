@@ -3,12 +3,12 @@
 module Pito
   module Detail
     # The shared two-column detail-card SHELL used by the channel / video / game
-    # detail cards (item 27 D1 — was copy-pasted in all three templates).
+    # detail cards (was copy-pasted in all three templates).
     #
     # Owns the invariant structure:
     #   LEFT  — intro (with the data-pito-ts-slot timestamp anchor), the image
     #           slot, a hairline, then the Stats/Shinies kv-grid
-    #           (.pito-detail-stats — items 48/49);
+    #           (.pito-detail-stats);
     #   then the mobile-only column divider;
     #   RIGHT — the body slot inside the flexed right column.
     #

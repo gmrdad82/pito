@@ -7,7 +7,7 @@ module Pito
     # entity-argument rules. The shift+space PERIOD is NOT resolved here — it is
     # threaded separately to the fetch/aggregation layer.
     #
-    # Rules (docs/claude/0.8.0.md §D):
+    # Rules:
     #   bare `analyze`              → :suggest (show options; do nothing)
     #   analyze channel            → shift+tab (@all → all channels; else that one)
     #   analyze channel @h         → that channel (ignore shift+tab)
@@ -65,7 +65,7 @@ module Pito
 
       def resolve_vids
         ids = explicit_ids
-        return scope_channels if ids.empty? # bare `vids` == `analyze channel` (6d)
+        return scope_channels if ids.empty? # bare `vids` == `analyze channel`
 
         vids, missing = lookup_by_id(::Video, ids)
         return error(:vids_not_found, ids: join_ids(missing)) if missing.any?
@@ -82,7 +82,7 @@ module Pito
           return ok(:game, games)
         end
 
-        # bare `games` → shift+tab channels → their videos → linked games (6f-bis)
+        # bare `games` → shift+tab channels → their videos → linked games
         channels, error_result = scope_channel_records
         return error_result if error_result
 

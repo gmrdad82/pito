@@ -1,40 +1,32 @@
 // pito--pull-refresh
 //
-// Bottom pull-to-refresh — Android shell ONLY (G74). pito's conversation
-// lives at the BOTTOM of the scrollback, so the refresh gesture mirrors
-// Slack's: overscroll past the bottom edge and release. Top pull-to-refresh
-// stays deliberately OFF in the shell's path configuration (the gesture
-// fights scrolling the history); this is its bottom-anchored replacement —
-// and the shell's only manual refresh affordance besides tapping the nudge.
+// Bottom pull-to-refresh — Brave's top pull, inverted for pito's bottom-anchored
+// conversation. ONLY a touch that starts with the scrollback scrolled fully to
+// the bottom arms the tracker, and ONLY an upward drag engages: a fixed-position
+// spinner tile (Lucide refresh arrow, cloned from the layout's <template>)
+// floats in from the bottom edge, tracks the finger 1:1, and its arrow rotates
+// with the pulled distance. The moment the tile climbs past THRESHOLD_RATIO of
+// the viewport height the reload FIRES (no release needed); letting go earlier
+// drops the tile back out. The scrollback content itself never moves.
 //
-// Gated on the Hotwire Native UA at connect: browsers (desktop AND mobile)
-// never get listeners — they have reload buttons and key combos.
-//
-// Mechanics: a touch that starts with the scrollback already at the bottom
-// arms the tracker; dragging UP from there is an overscroll (the pane can't
-// scroll further), fed back as a small translateY lift; releasing past
-// THRESHOLD_PX hard-reloads (location.reload — a Turbo visit would not
-// refetch updated CSS/JS, and this gesture's other job is post-update
-// recovery). Releasing short of it springs back.
+// Gated at connect: enabled in the Hotwire Native shell AND on mobile-web touch
+// browsers. Desktop never gets listeners — it has reload buttons and key combos,
+// and a bottom-overscroll gesture would fight a trackpad.
 //
 //   <div id="pito-scrollback" data-controller="… pito--pull-refresh">
 //
 // Mounted on the scrollback in conversations/show.html.erb AND in the
-// home-transition morph (the two must stay in sync — G12/G66).
+// home-transition morph (the two must stay in sync).
 
 import { Controller } from "@hotwired/stimulus"
 
 const NATIVE_MARKER = "Hotwire Native"
-// The pane tracks the finger 1:1 and is capped at the gauge block's OWN measured
-// height, so pulling slides the conversation UP to uncover EXACTLY the gauge
-// (arrows first, ● last) and never over-runs into a blank gap. As it uncovers, a
-// continuous `--pull-progress` (0→1) drives the muted→pito-blue fill of the glyphs
-// (CSS, background-clip:text) — no per-row stepping, no opacity fade. The reload
-// ARMS once the ● disc is fully filled (progress 1) and FIRES on release; a short
-// release springs back. The block is intentionally COMPACT so the disc is reachable
-// well before mid-screen. FALLBACK_LIFT is used only when offsetHeight is
-// unavailable (jsdom under test).
-const FALLBACK_LIFT = 160
+// The reload fires once the tile has risen this fraction of the viewport height
+// above the bottom edge.
+const THRESHOLD_RATIO = 0.3
+// Arrow rotation per pulled pixel (degrees) — roughly a full turn by the
+// threshold on a phone-height viewport, so the arrow visibly "winds up".
+const ROTATE_PER_PX = 1.6
 
 export default class extends Controller {
   connect() {
@@ -42,6 +34,7 @@ export default class extends Controller {
 
     this.startY = null
     this.pull   = 0
+    this.fired  = false
     this.abort  = new AbortController()
     const opts  = { signal: this.abort.signal, passive: true }
 
@@ -52,12 +45,11 @@ export default class extends Controller {
 
   disconnect() {
     this.abort?.abort()
+    this.#spinnerEl()?.remove()
   }
 
   // Overridable in tests; this gate is the whole feature flag. Enabled in the
-  // Hotwire Native shell AND on mobile-web touch browsers (owner: mobile too, not
-  // only the APK). Desktop stays OFF — it has reload buttons and key combos, and
-  // the bottom-overscroll gesture would fight a trackpad.
+  // Hotwire Native shell AND on mobile-web touch browsers. Desktop stays OFF.
   static enabled() {
     const ua = navigator.userAgent
     if (ua.includes(NATIVE_MARKER)) return true
@@ -73,68 +65,77 @@ export default class extends Controller {
   #start(event) {
     this.startY = this.#atBottom() ? event.touches[0].clientY : null
     this.pull   = 0
-    this.armed  = false
   }
 
   #move(event) {
-    if (this.startY === null) return
-    const delta = this.startY - event.touches[0].clientY
-    // Only an UPWARD pull (delta > 0) engages. A DOWNWARD gesture is inert — no
-    // lift, no fill, no arm, no parked gap (B1): pull clamps to 0.
-    this.pull = Math.max(delta, 0)
+    if (this.startY === null || this.fired) return
+    // Only an UPWARD pull (delta > 0) engages. A DOWNWARD gesture is inert.
+    this.pull = Math.max(this.startY - event.touches[0].clientY, 0)
+    if (this.pull === 0) return this.#park()
 
-    // 1:1 with the finger, capped at the gauge block's own (compact) height —
-    // slides the conversation up to uncover exactly the block. Armed once fully
-    // uncovered (● disc reached). `progress` (0→1) drives the CSS blue fill.
-    const hint     = this.#hint()
-    const maxLift  = (hint && hint.offsetHeight) || FALLBACK_LIFT
-    const lift     = Math.min(this.pull, maxLift)
-    const progress = maxLift > 0 ? lift / maxLift : 0
-    this.armed     = this.pull >= maxLift
+    const spinner = this.#spinner()
+    if (!spinner) return
 
-    this.element.style.transition = "none"
-    this.element.style.transform  = this.pull > 0 ? `translateY(-${lift}px)` : ""
-    // Cascades to the cloned gauge (a descendant) via CSS custom-property
-    // inheritance; the gauge's gradient fills muted→pito-blue by this fraction.
-    this.element.style.setProperty("--pull-progress", progress.toFixed(3))
+    // The tile parks at translate(-50%, 100%) (fully below the edge, CSS) and
+    // rises 1:1 with the finger; the arrow winds up with the pulled distance.
+    spinner.style.transition = "none"
+    spinner.style.transform  = `translate(-50%, calc(100% - ${this.pull}px))`
+    const arrow = spinner.querySelector("svg")
+    if (arrow) arrow.style.transform = `rotate(${(this.pull * ROTATE_PER_PX).toFixed(1)}deg)`
 
-    if (hint) hint.classList.toggle("is-armed", this.armed)
+    if (this.pull >= this.#threshold()) this.#fire(spinner)
   }
 
   #end() {
     if (this.startY === null) return
-    const armed = this.armed
     this.startY = null
     this.pull   = 0
-
-    if (armed) {
-      this._reload()
-      return
-    }
-    // Spring back, and REMOVE the hint from the DOM. It is `display:flex` so an
-    // idle opacity:0 block still occupies layout height — leaving it appended left
-    // a permanent dead gap at the bottom of the scrollback after any pull (and a
-    // bare tap that reached #end used to clone one in). It is re-cloned lazily on
-    // the next pull, so the reveal is unaffected. (Do NOT call #hint() here — that
-    // clones.)
-    this.element.style.transition = "transform 150ms ease-out"
-    this.element.style.transform  = ""
-    this.element.style.removeProperty("--pull-progress")
-    this.element.querySelector("[data-pull-refresh-hint]")?.remove()
+    if (!this.fired) this.#park()
   }
 
-  // The shrug indicator, cloned lazily from the layout's server-rendered
-  // template into the scrollback's tail on the first pull (copy comes
-  // server-resolved from the 50-variant dictionary).
-  #hint() {
-    let hint = this.element.querySelector("[data-pull-refresh-hint]")
-    if (hint) return hint
+  // Reload distance: 30% of the viewport height above the bottom edge.
+  #threshold() {
+    return (window.innerHeight || 0) * THRESHOLD_RATIO
+  }
 
-    const template = document.getElementById("pito-pull-refresh-hint")
+  // Crossing the threshold fires immediately — no release needed. The arrow
+  // switches to a continuous spin (CSS .is-firing) while the reload lands.
+  #fire(spinner) {
+    this.fired = true
+    spinner.querySelector("svg")?.style.removeProperty("transform")
+    spinner.classList.add("is-firing")
+    this._reload()
+  }
+
+  // Drop the tile back below the edge and remove it once the slide finishes
+  // (timer fallback for environments without transitions, e.g. jsdom).
+  #park() {
+    const spinner = this.#spinnerEl()
+    if (!spinner) return
+
+    spinner.style.transition = "transform 150ms ease-out"
+    spinner.style.transform  = "translate(-50%, 100%)"
+    spinner.addEventListener("transitionend", () => spinner.remove(), { once: true })
+    setTimeout(() => spinner.remove(), 250)
+  }
+
+  // The live tile, if present. Does NOT clone.
+  #spinnerEl() {
+    return document.querySelector("[data-pull-refresh-spinner]")
+  }
+
+  // The tile, cloned lazily from the layout's server-rendered template onto
+  // <body> on the first upward pull. Fixed positioning must not sit inside the
+  // scrollback (a transformed ancestor would re-anchor it).
+  #spinner() {
+    const existing = this.#spinnerEl()
+    if (existing) return existing
+
+    const template = document.getElementById("pito-pull-refresh-spinner")
     if (!template) return null
 
-    this.element.appendChild(template.content.cloneNode(true))
-    return this.element.querySelector("[data-pull-refresh-hint]")
+    document.body.appendChild(template.content.cloneNode(true))
+    return this.#spinnerEl()
   }
 
   // Seam for tests (location.reload is unstubbable in jsdom).

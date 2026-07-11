@@ -3,7 +3,7 @@
 module Pito
   module Analytics
     # Fills ONE analyze metric by folding from the shared primitives layer
-    # (0.9.0 — every path goes through Pito::Analytics::Primitives, so metrics
+    # (every path goes through Pito::Analytics::Primitives, so metrics
     # reuse each other's warm rows and repeat analyzes are request-free).
     # Returns a Filled: `cell` in the shape Message#cells_for produces (or
     # { no_data: true, caption: } when there is nothing to show / an error
@@ -24,7 +24,7 @@ module Pito
     # Fault isolation: any StandardError per call → returns the no_data cell and
     # logs a warning. Never raises.
     module AnalyzeMetricFill
-      # Cell + its RAW ingredient (0.9.0 Phase 4): `cell` renders the live swap;
+      # Cell + its RAW ingredient: `cell` renders the live swap;
       # `raw` — { "slot" => "charts"|"bars"|"likes", "data" => … } — is stashed
       # on the message marker so the LAST metric job composes the persisted
       # ready state from stashes (Message.ready_payload) with NO re-aggregate,
@@ -43,7 +43,7 @@ module Pito
       }.freeze
 
       # Metrics whose components are not yet built — always return no_data.
-      # (None currently — the day-of-week heatmap shipped 2026-07-01.)
+      # (None currently — the day-of-week heatmap has already shipped.)
       STUB_METRICS = %i[].freeze
 
       module_function
@@ -60,7 +60,7 @@ module Pito
         groups = groups_for(level, entity_ids)
         return no_data(metric) if groups.empty?
 
-        # L0.5 per-metric cell cache (0.9.0 Phase 4): the computed raw ingredient,
+        # L0.5 per-metric cell cache: the computed raw ingredient,
         # keyed SELECTION-FREE by (metric, level, ids, effective window) — any
         # with/without combination composes from the same cached cells. Expiry
         # inherits the ONE Window policy (frozen ≥1wk / lifetime 24h / live 4h).

@@ -1,6 +1,6 @@
 <%# Pito::Achievement::MetricRowComponent
     Material rail + obtained badges for one metric lane — full width, badges
-    flowing FLUID left->right (owner G127; the centered towers are gone). %>
+    flowing FLUID left->right (the centered towers are gone). %>
 <div class="pito-achievement-metric-row flex flex-col gap-2">
   <%= render(Pito::Achievement::TrackComponent.new(label: label, current_value: current_value,
                                                    scope: @entity.class.polymorphic_name, metric: @metric)) %>

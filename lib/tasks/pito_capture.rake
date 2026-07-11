@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# Scripted screenshot / GIF capture (0.9.0 Phase CAP) — the committed successor
-# to the throwaway heredocs that shot the mkt images. Scenarios are YAML
+# Scripted screenshot / GIF capture — the committed successor to the
+# throwaway heredocs that shot the mkt images. Scenarios are YAML
 # instruction files under config/captures/; artifacts land ONLY under
 # tmp/captures/<scenario>/ (shipped images are never overwritten — promoting a
 # capture into docs/media or a site is a deliberate manual copy).
@@ -45,8 +45,8 @@ namespace :pito do
 end
 
 # The pitomd-destined set — scenario YAMLs git-tracked in lib/support/pitomd,
-# output scoped to tmp/captures/pitomd/ so the sets never collide (owner
-# 2026-07-03). Promotion into ~/Dev/pitomd/public/media stays a manual copy.
+# output scoped to tmp/captures/pitomd/ so the sets never collide. Promotion
+# into ~/Dev/pitomd/public/media stays a manual copy.
 namespace :pitomd do
   desc "Run one pitomd capture scenario from lib/support/pitomd (NAME or [name] arg)"
   task :capture, [ :name ] => :environment do |_t, args|

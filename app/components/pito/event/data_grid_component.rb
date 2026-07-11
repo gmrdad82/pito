@@ -30,7 +30,7 @@ module Pito
 
       # Renders one data-grid cell <span>. Carries any per-cell `data:` (the
       # chat-prefill seam for clickable `#id` cells). HTML cells render their
-      # text raw; plain cells are escaped. (Renders instantly — item 18.)
+      # text raw; plain cells are escaped. (Renders instantly.)
       def render_cell_span(cell)
         data    = cell[:data].present? ? cell[:data].to_h.dup : {}
         content = cell[:html] ? raw(cell[:text].to_s) : cell[:text].to_s

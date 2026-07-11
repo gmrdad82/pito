@@ -8,7 +8,7 @@ module Pito
       # coverless-rejected, denoised) in the standard result envelope, turning
       # IGDB upstream failures into a non-raising `error:` hash.
       #
-      # Successful results cache for a day (0.9.0 Phase 7) — repeat searches
+      # Successful results cache for a day — repeat searches
       # (typo-retype, re-opened sidebar) answer instantly and spare the 4 req/s
       # IGDB budget; a day-stale catalogue is fine for an import sidebar. Error
       # envelopes are NEVER cached (upstream blips must stay retryable).

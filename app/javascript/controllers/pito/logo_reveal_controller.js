@@ -6,7 +6,7 @@
 // faulty neon sign warming up. The flicker visuals live in CSS
 // (`.pito-logo.is-revealing`); this controller only schedules the random timing.
 //
-// Always plays (item 18: no fx toggle / reduced-motion respect).
+// Always plays (no fx toggle / reduced-motion respect).
 //
 // Auto-registered via eagerLoadControllersFrom.
 

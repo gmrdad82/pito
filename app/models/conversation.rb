@@ -11,7 +11,7 @@ class Conversation < ApplicationRecord
 
   validates :uuid, uniqueness: { case_sensitive: true }
 
-  # ── Source (G130): app scrollback vs the read-only MCP anchor ────────────────
+  # ── Source: app scrollback vs the read-only MCP anchor ────────────────
   # "app" — the owner's real conversations (sidebar, resume, auto-purge, singleton).
   # "mcp" — the ONE anchor the read-only MCP Executor dispatches against; context
   # only, it never gains events and never appears in any app-facing listing.
@@ -40,7 +40,7 @@ class Conversation < ApplicationRecord
   # ("Unnamed <N>") or no title at all — i.e. the user never named it. STRICTER
   # than `!named?`: a user-chosen title that merely starts with "Unnamed" (e.g.
   # "Unnamed thoughts") is NOT the default and returns false, so it is protected.
-  # Drives the nightly auto-purge (item 15): only the literal default is purgeable.
+  # Drives the nightly auto-purge: only the literal default is purgeable.
   def default_title?
     title.blank? || title.match?(/\AUnnamed \d+\z/)
   end
@@ -54,7 +54,7 @@ class Conversation < ApplicationRecord
   # Conversations with an in-flight async delete.
   def self.deleting = where.not(deleting_at: nil)
 
-  # Event kinds that count toward the CONTEXT meter (item 7): only distinct
+  # Event kinds that count toward the CONTEXT meter: only distinct
   # backend MESSAGES — :system, :enhanced, :confirmation. Excludes thinking/echo/
   # error, AND the *_follow_up / mutate re-renders ("appends don't count").
   CONTEXT_KINDS = %w[system enhanced confirmation].freeze
@@ -115,7 +115,7 @@ class Conversation < ApplicationRecord
     { recent: recent, older: older }
   end
 
-  # Conversations eligible for the nightly auto-purge (item 15): still carrying
+  # Conversations eligible for the nightly auto-purge: still carrying
   # the AUTO-DEFAULT title ("Unnamed <N>"/blank) AND no activity in `older_than`
   # (default 30 days). "Activity" = last_activity_at (COALESCE(MAX(events.created_at),
   # created_at)), the same recency the sidebar shows. SQL filters the date via

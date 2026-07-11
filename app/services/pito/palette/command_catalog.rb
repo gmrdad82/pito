@@ -61,6 +61,8 @@ module Pito
 
       def config_items
         [
+          { label_key: "pito.palette.ctrl_k.commands.config_ai",
+            insert:    "/config ai" },
           { label_key: "pito.palette.ctrl_k.commands.config_google",
             insert:    "/config google" },
           { label_key: "pito.palette.ctrl_k.commands.config_voyage",

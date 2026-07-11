@@ -60,7 +60,7 @@ class Channel
       #
       # The `channel` argument is currently unused (the call is keyed by
       # the connection's `mine: true`), but the signature accepts it so
-      # 11i's daily diff-check can call `fetch_channel(channel)` once per
+      # a future daily diff-check can call `fetch_channel(channel)` once per
       # connected channel without surface churn.
       FETCH_CHANNEL_PARTS = %i[snippet statistics brandingSettings contentDetails status].freeze
 
@@ -142,7 +142,7 @@ class Channel
       #
       # YouTube exposes a dedicated handle-management endpoint that is
       # NOT part of `channels.update#brandingSettings`. The full API
-      # surface lands with 11c follow-up research; until that ships the
+      # surface has not been wired up yet; until it ships the
       # stub raises `NotImplementedError` so an `accept pito` decision on
       # `handle` in the diff resolution flow surfaces a clear "this push
       # path isn't wired yet" error rather than a silent no-op.
@@ -206,7 +206,7 @@ class Channel
           # `watermarks.set` returns no body on success. The cached
           # watermark URL is opaque to us until the next channel sync
           # surfaces it, so the caller persists `timing` / `offset_ms`
-          # locally and leaves `watermark_url` for the diff job (11i) to
+          # locally and leaves `watermark_url` for the diff job to
           # backfill.
           { ok: true }
         end
@@ -630,9 +630,9 @@ class Channel
           watermark_url: nil,
           watermark_timing: nil,
           watermark_offset_ms: nil,
-          # 11c populates fully via the edit form. The API stores the
+          # The channel-links edit form populates this fully. The API stores the
           # links array under a different shape (varies by branding
-          # version); 11a returns an empty array to keep `Channel#links`
+          # version); this sync returns an empty array to keep `Channel#links`
           # validity intact post-sync.
           links: [],
           subscriber_count: stats[:subscriber_count]&.to_i,

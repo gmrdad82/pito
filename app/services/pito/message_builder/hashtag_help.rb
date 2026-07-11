@@ -31,7 +31,8 @@ module Pito
         "channel_list"  => "list-channels",
         "channel_detail" => "show-channel",
         "channel_games" => "channel-games",
-        "confirmation"  => "confirm"
+        "confirmation"  => "confirm",
+        "ai_message"    => "ai-answer"
       }.freeze
 
       # @param target [String]       the reply_target string (e.g. "game_detail")

@@ -6,7 +6,7 @@ module Pito
       # Builds the payload for the `list channels` kv-table message (the card
       # strip retired 2026-07-02 — channels list like every other list verb).
       #
-      # Columns (G82): Avatar · Handle · Title are the fixed IDENTITY; every
+      # Columns: Avatar · Handle · Title are the fixed IDENTITY; every
       # counter (subs/views/vids/likes) is a with/without-able column —
       # DEFAULT_COLUMNS renders the classic table, `without <col>` slims it,
       # `with likes` widens it. `sort` works on handle/title always and on a

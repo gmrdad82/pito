@@ -13,7 +13,7 @@ class Game < ApplicationRecord
   has_many :video_game_links, dependent: :destroy
   has_many :linked_videos, through: :video_game_links, source: :video
 
-  # Per-platform release dates (Item 24) — one row per platform group.
+  # Per-platform release dates — one row per platform group.
   has_many :platform_releases, class_name: "GamePlatformRelease", dependent: :destroy
 
   has_many :stats, as: :entity, dependent: :destroy
@@ -35,8 +35,8 @@ class Game < ApplicationRecord
 
   has_neighbors :summary_embedding
 
-  # Resolve a free-text title to a Game for the `search games like <title>` seed
-  # (#8): exact case-insensitive match first, then a pg_trgm fuzzy fallback
+  # Resolve a free-text title to a Game for the `search games like <title>` seed:
+  # exact case-insensitive match first, then a pg_trgm fuzzy fallback
   # (best match above the trigram threshold), backed by index_games_on_title_trigram.
   # Returns nil when nothing matches.
   def self.resolve_by_title(query)
@@ -69,9 +69,9 @@ class Game < ApplicationRecord
 
   # Nightly-refresh scopes — used by GameIgdbNightlyRefresh.
   # `synced`           → has been synced at least once from IGDB.
-  # `awaiting_release` → still awaited SOMEWHERE (Item 51). A game (or one of
+  # `awaiting_release` → still awaited SOMEWHERE. A game (or one of
   #   its platform rows) is SETTLED only by a DAY-precision date in the past —
-  #   "sync until a fixed clear date" (owner 2026-07-02): TBA, a future date,
+  #   "sync until a fixed clear date": TBA, a future date,
   #   or a bare year/quarter/month (release_day NULL — the derived
   #   release_date is just the window's lower bound, so "past" proves nothing)
   #   all keep the game refreshing until IGDB supplies the concrete day.
@@ -110,8 +110,8 @@ class Game < ApplicationRecord
 
   # A game has no native audience counters — its views/likes are MATERIALIZED
   # into its own Pito::Stats rows by Game::StatsRefresh (sum of linked vids;
-  # recomputed on link edits + every stats pass, G28). Reads never live-sum.
-  # `.to_i` → 0 before the first rollup (owner G26.2: 0 when unlinked).
+  # recomputed on link edits + every stats pass). Reads never live-sum.
+  # `.to_i` → 0 before the first rollup (0 when unlinked).
   def view_count
     Pito::Stats.get(self, :views).to_i
   end
@@ -154,7 +154,7 @@ class Game < ApplicationRecord
   def score_drift_too_large?(new_score)
     # A never-scored game can't "drift": its FIRST real score may jump from 0 (or
     # nil) to anything — it's a new game finally getting IGDB ratings, not a
-    # glitched swing (owner 2026-07-09). The guard only protects an ALREADY-
+    # glitched swing. The guard only protects an ALREADY-
     # established score from a single bad sync.
     return false if score.nil? || score.zero?
 

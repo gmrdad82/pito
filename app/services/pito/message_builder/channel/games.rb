@@ -3,7 +3,7 @@
 module Pito
   module MessageBuilder
     module Channel
-      # Builds the `:enhanced` GAMES GRID shown for a channel (G120) — the
+      # Builds the `:enhanced` GAMES GRID shown for a channel — the
       # channel's linked games as similar-games-style cover cards (strip
       # cover, #id + per-channel vid count, no title/score), alphabetical.
       #
@@ -29,7 +29,7 @@ module Pito
           component = Pito::Channel::GamesComponent.new(channel: channel)
           body      = render_component(component)
           payload   = html_payload(body: body, channel_id: channel.id)
-          # G126: structured rows beside the html — text clients (pito-tui)
+          # Structured rows beside the html — text clients (pito-tui)
           # can't render cover art, so they draw from id/title/vids instead
           # of the body. Same records, same alphabetical order as the grid.
           payload["games"] = component.games.map do |g|

@@ -32,6 +32,11 @@ module Pito
         SUBCOMMANDS  = %w[set unset].freeze
 
         def call
+          # The typed setter moved to the consolidated `update` verb; reply
+          # forms (`#g3 platform ps5`, list-scoped) still delegate here through
+          # the follow-up pipeline and are unchanged.
+          return moved unless follow_up?
+
           game, name = resolve_game_and_name
           return needs_ref if game == :needs_ref
           return game_not_found if game.nil?
@@ -41,6 +46,13 @@ module Pito
         end
 
         private
+
+        def moved
+          Pito::Chat::Result::Error.new(
+            message_key:  "pito.chat.update.moved",
+            message_args: { example: "update game platform 12 ps5" }
+          )
+        end
 
         # ── Mutation ────────────────────────────────────────────────────────────
 

@@ -6,10 +6,10 @@ module Pito
     # the LIFETIME window (the likes score is a lifetime verdict, independent of the
     # message's shift+space period). Mirrors the job's `groups` model
     # ([[channel, video_ids|:channel], …]) and folds likes/dislikes from the shared
-    # `scalars` primitive (Pito::Analytics::Primitives — 0.9.0 Phase 1), so the
+    # `scalars` primitive (Pito::Analytics::Primitives), so the
     # hearts reuse whatever a glance or analyze already fetched for the scope.
     #
-    # Layout (owner 2026-07-01) — ONE heart per level, except vid:
+    # Layout — ONE heart per level, except vid:
     #   vid     → SUBJECT (the vid's own ratio, red) + CHANNEL heart (purple)
     #   game    → SUBJECT heart only (the linked vids' combined ratio, red) — NO
     #             channel heart (a game spans channels, so it's meaningless here)
@@ -51,7 +51,7 @@ module Pito
 
       # Sum likes/dislikes across the groups over `window` → { likes:, dislikes:,
       # score: } or nil when there are no ratings (or every group errors).
-      # Folds from the shared `scalars` primitive (0.9.0 Phase 1) — string-keyed
+      # Folds from the shared `scalars` primitive — string-keyed
       # per-subject rows, warm after any glance/analyze touched the scope.
       def ratio(groups, window)
         rows     = Pito::Analytics::Primitives.fetch(groups:, window:, report: "scalars").values

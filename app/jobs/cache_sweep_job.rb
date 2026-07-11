@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# Daily cache hygiene (0.9.0 Phase 2) — the ONE recurring touch the derived
+# Daily cache hygiene — the ONE recurring touch the derived
 # caches get. Lazy expiry handles correctness on read; this sweep just stops
-# expired rows from accumulating (Phase-0 inventory found 399 of 435 primitive
+# expired rows from accumulating (an inventory found 399 of 435 primitive
 # rows sitting expired, and api_requests grows unbounded).
 #
 #   1. `Pito::Analytics::Cache.sweep`      — expired analytics_cache rows.

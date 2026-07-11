@@ -2,7 +2,7 @@
 
 module Pito
   module Share
-    # The public share-page chatbox hint affordance (owner 2026-07-01): swaps
+    # The public share-page chatbox hint affordance: swaps
     # between "c to chat" (unfocused) and "Enter to unfold" (focused), driven by
     # the pito--share-unfold controller. The "Enter" is an ACTION-shimmer LINK
     # (pito-blue↔purple) carrying the conversation URL, so unfold works even

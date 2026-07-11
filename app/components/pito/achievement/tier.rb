@@ -2,7 +2,7 @@
 
 module Pito
   module Achievement
-    # Shared tier data for the achievement subsystem (G127 rework).
+    # Shared tier data for the achievement subsystem.
     #
     # Ladders are PER SCOPE x METRIC (vid << game << channel - a game pools vids
     # across channels; the channel holds the whole library), each a 1-2-5 series

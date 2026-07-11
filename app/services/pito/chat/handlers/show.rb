@@ -7,7 +7,7 @@
 # Unknown reference → witty not-found via `Pito::Copy`. No reference → a usage
 # hint (the no-arg picker fast-path is wired in `ChatController`).
 #
-# == Ordinal selectors (Phase FL)
+# == Ordinal selectors
 #
 # In addition to ID resolution, the handler recognises ordinal forms:
 #
@@ -21,7 +21,7 @@
 # Resolution is delegated to Pito::Chat::OrdinalResolver. Not-found (no entity
 # matches the ordinal + filters + channel scope) → existing show not-found path.
 #
-# == Segment-driven emission (plan-0.9.5 D3)
+# == Segment-driven emission
 #
 # After resolving the entity the handler parses a SegmentSelection from the raw
 # input (SegmentSelection.parse), then walks the Segments table in declaration
@@ -54,7 +54,7 @@ module Pito
         CHANNEL_NOUN_FILLERS = %w[channel channels].freeze
 
         # Union of every noun filler — used ONLY on the forced-entity path (the
-        # `linked` keyed verb, plan-0.9.5 E14), where the typed noun names the
+        # `linked` keyed verb), where the typed noun names the
         # OTHER entity than the one resolved (`linked game #7` resolves vid #7), so
         # the ref extraction must strip whichever noun the user typed.
         ALL_NOUN_FILLERS = (CHANNEL_NOUN_FILLERS + VIDEO_NOUN_FILLERS + GAME_NOUN_FILLERS).freeze
@@ -101,7 +101,7 @@ module Pito
           end
         end
 
-        # The keyed `linked` verb (plan-0.9.5 E14) FORCES the entity: `linked game
+        # The keyed `linked` verb FORCES the entity: `linked game
         # #7` names the linked-game segment but resolves VID #7. Route straight to
         # the forced branch, bypassing the typed-noun routing above (the typed noun
         # names the OTHER entity). Ref extraction widens to ALL_NOUN_FILLERS.
@@ -113,15 +113,15 @@ module Pito
           end
         end
 
-        # Public seam for Pito::Chat::Handlers::SegmentVerb (plan-0.9.5 D20). Runs
+        # Public seam for Pito::Chat::Handlers::SegmentVerb. Runs
         # this verb forcing an `only <segment>` selection and returns the same
         # Result the typed `show <noun> <ref> only <segment>` form produces —
         # resolution, emission, and the not-a-segment-for-this-entity rejection all
         # flow through the unchanged branch logic. Off (@forced_segment nil) in the
         # normal typed/reply path, so byte-for-byte behaviour is preserved there.
-        # +entity+ (plan-0.9.5 E14) additionally FORCES the resolved entity branch,
+        # +entity+ additionally FORCES the resolved entity branch,
         # for the `linked` keyed verb whose noun names the segment while the id
-        # belongs to the OTHER entity. nil (the W7 flat segment verbs) leaves the
+        # belongs to the OTHER entity. nil leaves the
         # typed-noun routing untouched, so behaviour there stays byte-identical.
         def drive_segment(segment, entity: nil)
           @forced_segment = segment
@@ -171,10 +171,10 @@ module Pito
         end
 
         # Free-chat: an EXPLICIT game noun token present? In free chat the 2nd token
-        # IS the entity (owner 2026-06-29) — a bare id (`show 123`) or unknown word
+        # IS the entity — a bare id (`show 123`) or unknown word
         # (`show foo`) is NEVER silently treated as a game; only `game`/`games`
         # routes here. (Follow-up replies bypass this via `follow_up?` in `call`.)
-        # PRE-CLAUSE scoped like channel_noun?: since G120/G122 `games`/`game` are
+        # PRE-CLAUSE scoped like channel_noun?: `games`/`game` are
         # segment names too, and `show vid #3 with game` / `show channel @h with
         # games` must not ghost-trigger the game branch.
         def game_noun?
@@ -198,7 +198,7 @@ module Pito
         # A follow-up reply sourced from a CHANNEL message (channel_detail,
         # channel_games, …) fixes the entity — a bare segment reply like
         # `#<handle> games` carries no noun, so routing must come from the
-        # source's reply_target (G123; mirrors video_target?'s follow-up arm).
+        # source's reply_target (mirrors video_target?'s follow-up arm).
         def channel_follow_up?
           follow_up? && reply_target.to_s.start_with?("channel")
         end
@@ -209,7 +209,7 @@ module Pito
         # truly ambiguous (no handle + @all/blank scope) → :needs_ref.
         # In a channel-sourced follow-up with no typed handle (a bare `games` /
         # `videos` / `at-a-glance` reply), the source card's channel_id IS the
-        # channel (G123 — same source-entity contract as the game/vid replies).
+        # channel (same source-entity contract as the game/vid replies).
         def resolve_channel
           handle = channel_ref.presence || scoped_channel_handle
           if handle.blank? && channel_follow_up?
@@ -218,7 +218,7 @@ module Pito
           end
           return :needs_ref if handle.blank?
 
-          # Exact @-agnostic match, then a pg_trgm fuzzy fallback (#7).
+          # Exact @-agnostic match, then a pg_trgm fuzzy fallback.
           ::Channel.resolve_handle(handle)
         end
 
@@ -231,8 +231,8 @@ module Pito
           h
         end
 
-        # Channel-specific needs-ref (NOT the game-oriented `needs_ref`) — owner
-        # 2026-06-29: a bare `show channel` must read as a channel, never a game.
+        # Channel-specific needs-ref (NOT the game-oriented `needs_ref`) — a bare
+        # `show channel` must read as a channel, never a game.
         def channel_needs_ref
           Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.chat.show.channel_needs_ref") }
@@ -245,7 +245,7 @@ module Pito
           extract_ref_from(resolution_raw, CHANNEL_NOUN_FILLERS)
         end
 
-        # plan-0.9.5 D3: show's grammar appends selection clauses AFTER the
+        # Show's grammar appends selection clauses AFTER the
         # reference (`show game 5 full`, `show vid #3 only at-a-glance`). Strip
         # them before reference extraction so `find_by_ref` sees only the ref —
         # in free chat AND in `#<handle> show 5 full` list replies.
@@ -405,7 +405,7 @@ module Pito
         end
 
         # Free-chat with no recognised entity (bare `show`, bare id, or unknown
-        # word) — no guessing (owner 2026-06-29). Render the generic "I don't get
+        # word) — no guessing. Render the generic "I don't get
         # it" dictionary (`pito.copy.huh`, reused per owner). Pre-rendered so the
         # finalizer routes it to `text:` while keeping the :error chrome.
         def unknown_entity
@@ -451,7 +451,7 @@ module Pito
             events << send(SEGMENT_EMITTERS.fetch(entity_kind).fetch(seg.name), entity)
           end
 
-          # Append segments footer to the first emitted message (D18).
+          # Append segments footer to the first emitted message.
           if events.any?
             all_names = Pito::Chat::Segments.names(verb: :show, entity: entity_kind)
             addable   = all_names - selection.names

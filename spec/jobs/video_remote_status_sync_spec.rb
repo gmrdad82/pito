@@ -25,6 +25,27 @@ RSpec.describe VideoRemoteStatusSync, type: :job do
     )
   end
 
+  it "forwards the default fields when no fields: is given" do
+    described_class.perform_now(video.id)
+    expect(client).to have_received(:update_video).with(
+      video, fresh: fresh, fields: [ :privacy_status, :publish_at ]
+    )
+  end
+
+  it "symbolizes and forwards a caller-passed string fields: list" do
+    described_class.perform_now(video.id, fields: [ "description" ])
+    expect(client).to have_received(:update_video).with(
+      video, fresh: fresh, fields: [ :description ]
+    )
+  end
+
+  it "forwards a caller-passed symbol fields: list unchanged" do
+    described_class.perform_now(video.id, fields: [ :tags ])
+    expect(client).to have_received(:update_video).with(
+      video, fresh: fresh, fields: [ :tags ]
+    )
+  end
+
   it "stamps last_synced_at on success" do
     described_class.perform_now(video.id)
     expect(video.reload.last_synced_at).to be_within(5.seconds).of(Time.current)

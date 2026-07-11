@@ -4,6 +4,65 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **The `ai` verb — ask PITO's assistant anything** — `ai what should I play
+  next?` runs an agentic loop against your configured provider: the model reads
+  your library through PITO's own read-only tools, then either answers by
+  running ONE real pito command (its native card appears, exactly as if you
+  typed it) or composes its own reply. The pending message narrates which tool
+  it is reading; provider switches via `/config ai` apply on the very next
+  question; loop/token caps and provider failures land as clean messages, never
+  a stuck spinner. (Typed content blocks — tables, charts, suggestions — render
+  as plain text for now; the full block renderer is next.)
+- **`/config ai` — AI provider foundation** — the first piece of the AI chat
+  groundwork: an AI provider registry (`config/pito/ai_providers.yml`, starting
+  with OpenCode Zen), a live model catalog (fetched from the provider, cached a
+  day, pinned fallbacks when offline), and a picker overlay opened by
+  `/config ai` — paste your API key once (stored encrypted in the install's
+  settings, never shown again), then search and pick the active model with
+  ↑/↓ + enter; `ctrl+x` clears the stored key, and the dialog always shows
+  whether a key is on file. Also reachable from the Ctrl+K palette, and
+  scriptable as `/config ai api_key=… model=…` (key masked in the echo like
+  every credential).
+- **The `update` verb — one typed surface for metadata writes** —
+  `update game footage|price|platform <id> <value>` writes locally at once;
+  `update vid description|tags <id> <value>` stages a confirmation whose *yes*
+  pushes exactly that one field to YouTube (nothing else in the snippet is
+  touched, publish state untouched). These are the commands the AI suggests —
+  and only you can run. The old typed `footage update` / `price set` /
+  `platform set` forms now point you at their `update` equivalent; replying on
+  cards (`#g3 price 20`) works exactly as before. The footage tally snippet
+  gained a per-game entry: `footage game <id>`.
+- **Share opt-out per verb** — a verb can now declare `universal_reply: false`
+  in verbs.yml and every message it emits stops offering share/unshare|revoke
+  (no handle, no palette entries; a typed `#handle share` is politely refused).
+  `sync`'s status messages are the first to use it. A HOW-TO comment block in
+  verbs.yml documents the switch.
+
+### Changed
+
+- **`search games like <title>` returns relevance, not the library** — the
+  seed game itself now heads the results (its title being the closest match),
+  followed only by games that actually share a genre with it, ranked by the
+  recommendation blend — three results instead of fifty-one on a 66-game
+  library. A seed with no genres on record falls back to a similarity floor.
+- **Bottom pull-to-refresh, redone** — the ASCII gauge is gone. Pulling up from
+  the very bottom of the conversation now floats in a square spinner tile
+  (Lucide refresh arrow) that tracks the finger 1:1, its arrow winding up with
+  the drag; crossing ~30% of the screen height fires the reload on the spot,
+  and letting go earlier just drops it back out. The conversation itself no
+  longer moves during the pull.
+- **Universal reply actions no longer override verbs** — a reply token a
+  message's verb declares itself always routes to the verb; share/revoke only
+  apply where nothing else claims the token.
+- **Code comments no longer cite internal plan documents** — references to
+  untracked working docs (task numbers, phase codes, decision datestamps) are
+  gone from the tracked sources; the constraints they explained remain, written
+  to stand alone.
+
 ## [1.6.0] — 2026-07-10
 
 ### Added

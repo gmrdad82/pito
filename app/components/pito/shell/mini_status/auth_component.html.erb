@@ -1,7 +1,7 @@
 <%# Nickname (green) + a muted @suffix (image tag in prod, host in dev). The two
     spans are concatenated with NO inter-element whitespace — the monospace body
     renders stray whitespace as a visible gap. The suffix span carries a stable
-    id (G87): it is the mini status' DEDICATED app-version slot — every cable
+    id: it is the mini status' DEDICATED app-version slot — every cable
     version heartbeat writes the SERVER's current version into it via
     pito--version-watch, so the bar tracks the running app live. %>
 <span class="<%= css_class %>"><%= label %></span><% if version_suffix.present? %><span id="<%= Pito::Shell::MiniStatus::AuthComponent::VERSION_SLOT_ID %>" class="text-fg-dim">@<%= version_suffix %></span><% end %>

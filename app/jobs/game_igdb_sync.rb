@@ -6,7 +6,7 @@
 # `last_sync_error` inside `Game::Igdb::SyncGame` and the job swallows
 # the raise, not retrying.
 #
-# Polish (2026-05-10) — `games.resyncing` mutex flag.
+# `games.resyncing` mutex flag.
 # The job flips `resyncing` true at start (skips when already in
 # flight, so duplicate enqueues are no-ops) and back to false in
 # an `ensure` block so a crash inside `SyncGame` still releases
@@ -23,12 +23,12 @@
 # `/games/:id` by the page-level `auto-refresh` controller (reloads
 # every ~5 s while `@game.resyncing?` is true). The dedicated sync
 # pane / banner and the `_sync_status` partial were removed —
-# breadcrumb [sync] (muted-while-syncing per Wave C8) is the only
+# breadcrumb [sync] (muted-while-syncing) is the only
 # control surface.
 #
-# R1 (2026-05-25) — bundle cover-art fan-out removed with bundles.
+# Bundle cover-art fan-out removed with bundles.
 #
-# BUG B fix (2026-06-07) — optional `conversation_id:` keyword.
+# Optional `conversation_id:` keyword.
 # When set (chat-initiated resync via Pito::Confirmation::Executor),
 # after a successful sync + Voyage reindex the job broadcasts the
 # updated standard detail + enhanced messages to that conversation
@@ -40,14 +40,14 @@ class GameIgdbSync < ApplicationJob
 
   queue_as :default
 
-  # `prefetched:` (0.9.0 Phase 3) — bulk-fetched `{ game_json:, ttb_json: }`
+  # `prefetched:` — bulk-fetched `{ game_json:, ttb_json: }`
   # passed through to SyncGame so batch callers (the nightly refresh) skip the
   # two per-game IGDB requests. perform_now callers only (in-memory payloads).
   def perform(game_id, conversation_id: nil, prefetched: nil)
     game = Game.find_by(id: game_id)
     return unless game
 
-    # 2026-05-18 — controller-owned mutex flip. `GamesController#resync`
+    # Controller-owned mutex flip. `GamesController#resync`
     # stamps `resyncing = true` SYNCHRONOUSLY before enqueuing the job
     # so the post-POST redirect renders the muted breadcrumb + auto-
     # refresh polling immediately (no race condition).

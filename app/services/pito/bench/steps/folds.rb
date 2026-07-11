@@ -6,7 +6,7 @@ module Pito
       # Warm-fold bench — times the analytics fold services over WARM
       # `analytics_primitives` rows only (the network guard turns any cold
       # fetch into an error, reported as "n/a (cold/error)"). This is the pure
-      # compute the L0.5 per-metric cell cache (Phase 4) will amortize.
+      # compute the L0.5 per-metric cell cache will amortize.
       #
       # The scope is derived from the freshest warm `daily` row: its subject
       # (a video id, or a channel id for channel-level rows) becomes a

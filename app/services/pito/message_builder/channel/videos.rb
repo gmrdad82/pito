@@ -20,7 +20,7 @@ module Pito
         module_function
 
         # Per-video columns for a channel's vids (no channel column — all one
-        # channel; :comments left with the vids-list comms column, G26.1).
+        # channel; :comments left with the vids-list comms column).
         COLUMNS = %i[duration views likes].freeze
 
         # @param channel      [::Channel]    the channel whose videos to list.

@@ -2,7 +2,7 @@
 //
 // Shows the PostCommandDots comet when a command is submitted and hides it the
 // instant the response lands — when the first result segment appears (messages
-// render instantly now; there is no echo-typing phase — item 18).
+// render instantly now; there is no echo-typing phase).
 //
 // Lifecycle:
 //   submit               → dots appear fast (command sent — backend is working)

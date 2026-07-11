@@ -35,7 +35,7 @@ export default class extends Controller {
     this.reconnectObserver?.disconnect()
   }
 
-  // ── The refresh nudge (G71) ────────────────────────────────────────────────
+  // ── The refresh nudge ──────────────────────────────────────────────────────
   //
   // When the server is updated (pito update / autoupdate), the old container
   // dies with every WebSocket in it; ActionCable silently reconnects this tab
@@ -86,7 +86,7 @@ export default class extends Controller {
 
   #showNudge() {
     if (this.nudged) return
-    // Shared with pito--version-watch (the G80 heartbeat) — consuming the
+    // Shared with pito--version-watch (the version heartbeat) — consuming the
     // template doubles as the cross-controller once-per-page guard.
     this.nudged = showRefreshNudge()
   }

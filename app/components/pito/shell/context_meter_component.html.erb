@@ -1,11 +1,11 @@
 <div id="pito-context-meter" class="pito-context-meter" aria-label="Conversation context: <%= counter_text %>"
      data-controller="pito--context-comet" data-pito--context-comet-pct-value="<%= fill_pct %>">
   <%# Header row above the track: conversation NAME on the left (only when named),
-      the "xx%" counter on the right (13.39 / Q3). %>
+      the "xx%" counter on the right. %>
   <div class="pito-context-meter__header">
     <%# The name renders through NameComponent so its stable slot id is ALWAYS
         in the DOM — broadcast_conversation_name replaces it live on /rename
-        (G44: a bare span here made the broadcast a silent no-op). %>
+        (a bare span here made the broadcast a silent no-op). %>
     <%= render(Pito::Shell::Chatbox::NameComponent.new(title: conversation_name)) %>
     <span class="pito-context-meter__counter text-fg-dim"><%= counter_text %></span>
   </div>

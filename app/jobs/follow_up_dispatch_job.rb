@@ -37,14 +37,15 @@ class FollowUpDispatchJob < ApplicationJob
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     finalizer    = Pito::Dispatch::Finalizer.new(conversation:, broadcaster:)
 
-    # Universal verbs (share/revoke/unshare) work on ANY event that carries a
-    # reply_handle — short-circuit before the per-target handler dispatch so they
-    # are never blocked by the target's actions_for gate. `origin` (request
-    # scheme+host+port) is threaded so `share` mints a URL on the host the owner
-    # is actually using.
+    # Universal verbs (share/revoke/unshare) short-circuit before the per-target
+    # handler dispatch — but only when the event's verb hasn't opted out
+    # (`universal_reply: false` in verbs.yml) and the target doesn't declare the
+    # token itself (verb config always wins — see UniversalActions.intercept?).
+    # `origin` (request scheme+host+port) is threaded so `share` mints a URL on
+    # the host the owner is actually using.
     action = rest.to_s.split(/\s+/).first&.downcase
     result =
-      if Pito::Share::UniversalActions.verbs.include?(action)
+      if Pito::Share::UniversalActions.intercept?(action, event:)
         Pito::Share::UniversalActions.new.call(source_event: event, rest:, conversation:, origin:)
       else
         target        = event.payload["reply_target"].to_s

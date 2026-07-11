@@ -122,6 +122,53 @@ Schema` validates the blocks (read-only allowlist, unique tool names, template
   the host routes `^/(mcp|oauth|\.well-known)` there and everything else to `web`,
   so a stuck tool call cannot starve the app/APK/TUI workers.
 
+## AI assistant (2.0.0)
+
+The `ai` chat verb runs an agentic loop against a configurable LLM provider.
+The AI reads pito through its own tools and NEVER writes — it suggests commands
+the owner runs himself.
+
+- **Providers are config.** `config/pito/ai_providers.yml` declares HOW to reach
+  each provider (base_url, wire format, auth style, models endpoint, capability
+  flags); `Ai::ProviderRegistry` validates + freezes it. WHICH provider/model is
+  active lives in AppSetting (encrypted key/value store), set via `/config ai` —
+  either the picker overlay (`Pito::Ai::PickerComponent` + `pito--ai-picker`,
+  mounted by a ChatController fast-path; persistence via `PATCH /settings/ai`)
+  or masked text kwargs (`/config ai api_key=… model=…`). `Ai::ModelCatalog`
+  live-fetches the provider's model list (1-day cache, pinned fallbacks).
+- **Two wire adapters, N providers.** `Ai::Wire::OpenAiChat` (OpenAI-compatible
+  chat completions — OpenCode Zen, OpenAI, OpenRouter, DeepSeek, Qwen, HF) and
+  `Ai::Wire::AnthropicMessages`. Both normalize to `Ai::Wire::Response`
+  (text / ToolCall rows / Usage / stop_reason) and raise `Ai::Wire::Error` on
+  any failure. Tool traffic is wire-native: each adapter builds its own
+  assistant-tool / tool-result history messages. `Ai::Client.current` resolves
+  the ACTIVE provider per call, so a mid-conversation switch applies next turn.
+- **The loop.** `Chat::Handlers::Ai` emits one pending `:ai` event; the
+  Finalizer's ai-pending gate enqueues `AiOrchestratorJob` (the analytics-fill
+  pattern — the message's own thinking indicator spins until the answer lands,
+  while `Broadcaster#broadcast_ai_status` narrates the current tool in an
+  ephemeral slot). Messages = `Ai::History` (last 10 turns, mixed grammar/AI,
+  role-coalesced) + the prompt; tools = `Ai::Toolset` (every MCP tool + two
+  terminals). Mid-loop reads execute via `Ai::ToolExecutor` →
+  `Pito::Mcp::Executor` (markdown back to the model; never persists). The model
+  ENDS with `pito_render_command` (Flow A: the command runs through the
+  unmodified Router and the pending event CONVERTS into its first native
+  message — indistinguishable from typing it) or `pito_respond` (Flow B: typed
+  blocks). Caps (8 iterations / 150k tokens) and failures finalize with copy.
+- **Blocks, never markup.** `Ai::Blocks` validates/clamps the model's typed
+  blocks (text / kv_table / table / media / sparkline / chart / score / ttb /
+  suggestion); failures degrade to text. `Event::Ai::BlockRenderer` is the ONE
+  place blocks meet ViewComponents — entity media resolves server-side by id
+  (the model never supplies URLs), charts render through the kwargs-pure braille
+  visualizers.
+- **Suggestions + apply.** An answer carrying suggestion blocks gets a reply
+  handle; `#<handle> apply [n]` (reply verb `apply`, target `ai_message`) runs
+  suggestion n through the normal pipeline — its own confirmations still fire.
+  The source message stays live for further applies.
+- **The AI thread accent.** `data-accent="ai"` (purple→pito-blue gradient) on
+  the chatbox bar while typing `ai …` (`pito--ai-accent`), the turn's echo, and
+  the `:ai` answer.
+
 ## UI stack
 
 - **CSS**: Tailwind v4 via `tailwindcss-rails`. Theme tokens as CSS custom
@@ -262,6 +309,7 @@ RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
 | `confirmation_follow_up` | `outcome:, outcome_text:`                                                                                                       |
 | `error`                  | `message_key:, message_args:` (or already-resolved `text:`)                                                                     |
 | `theme_diff`             | `phase:, granularity:, from_text:, previewed_slug:, sections:, body:, reply_handle:`                                            |
+| `ai`                     | `status:, blocks:, prompt:, reply_handle:` — typed blocks (see "AI assistant")                                                  |
 
 `Pito::Stream::EventRenderer.component_for(event)` is the single source of truth
 for kind → component lookup (`COMPONENT_CLASSES`).

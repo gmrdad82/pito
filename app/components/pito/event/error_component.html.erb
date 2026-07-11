@@ -1,5 +1,5 @@
 <%= render(Pito::Segment::Component.new(accent: :red, scrollback_message: true)) do %>
-  <%# The whole error card renders instantly (item 18). %>
+  <%# The whole error card renders instantly. %>
   <div>
     <%# Main text renders as HTML (copy-built, may carry <span>/<br>). The raw
         machine `detail` below stays escaped. Builders must escape any

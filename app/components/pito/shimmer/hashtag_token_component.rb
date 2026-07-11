@@ -2,7 +2,7 @@
 
 module Pito
   module Shimmer
-    # Renders a #hashtag reply token (e.g. #chi-4450) as MUTED text (item 7): the
+    # Renders a #hashtag reply token (e.g. #chi-4450) as MUTED text: the
     # handle is a decorative label, not an action — the clickable reply affordance
     # lives on shift+r. No shimmer (same muted treatment as the notification count).
     #

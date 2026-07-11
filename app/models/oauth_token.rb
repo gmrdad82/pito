@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# An MCP OAuth token pair (G130). The owner authenticates (one TOTP) exactly once
+# An MCP OAuth token pair. The owner authenticates (one TOTP) exactly once
 # per client at consent; thereafter the client refreshes silently. So:
 #   * the ACCESS token is short-lived (24h) and ROTATES on refresh;
 #   * the REFRESH token NEVER expires — only explicit revocation (revoked_at) kills

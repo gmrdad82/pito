@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# A single-use, PKCE-bound authorization code (G130). Minted at consent (POST
+# A single-use, PKCE-bound authorization code. Minted at consent (POST
 # /oauth/authorize) after TOTP approval; exchanged once at POST /oauth/token for
 # an access+refresh token pair. Only the code's DIGEST is stored; it expires in
 # 5 minutes and can be claimed exactly once.

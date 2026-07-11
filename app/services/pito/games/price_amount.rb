@@ -5,7 +5,7 @@ require "bigdecimal"
 # Pure function. Parses the `price [set] <amount>` euro value for the nullable
 # `games.price` column — the single canonical parser the `price` chat verb, its
 # game-detail follow-up reply, and the `:price_amount` dispatch resolver all
-# share (plan-0.9.5 T8.15 — "wrap, don't fork").
+# share — "wrap, don't fork".
 #
 # Contract:
 #   * BigDecimal keeps the value exact, rounded to 2 decimals.

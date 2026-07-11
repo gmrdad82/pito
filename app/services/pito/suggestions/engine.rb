@@ -13,29 +13,25 @@ module Pito
     #   }
     #
     # Suggestions are PALETTE-only. The inline free-chat "ghost"/typeahead and the
-    # `tab` accept shortcut were removed (owner 2026-06-29): the `/slash` and
+    # `tab` accept shortcut were removed: the `/slash` and
     # `#hashtag` selectable palettes are the only suggestion surfaces. `stage:
     # :verb` → the client renders menu_items as a browsable palette (slash verb
     # choice, the `/config` provider/key set, the follow-up reply verbs, and the
-    # reply verbs' argument tokens — plan-0.9.5 E13). FREE input and non-palette
+    # reply verbs' argument tokens). FREE input and non-palette
     # arg stages return empty. The `ghost` key is retained as EMPTY_GHOST only to
     # keep the response shape stable for clients.
-    #
-    # Tasks w + x:
-    #   w — slash/hashtag/free mode detection + static slot resolution
-    #   x — dynamic vocab resolution with auth-gating
     module Engine
       # Maximum number of dynamic VOCABULARY suggestions per query (game titles,
       # channels, conversations — sources that can grow large). The reply-handle
-      # palette is deliberately uncapped (D11); this limit is not.
+      # palette is deliberately uncapped; this limit is not.
       DYNAMIC_LIMIT = 20
 
       # Auth-gated dynamic vocabulary names — never resolved for unauthenticated users.
       AUTH_GATED_VOCABS = %i[channels conversations].freeze
 
       # Reply-branch REF resolvers whose argument position is a list row id —
-      # the arg-stage palette suggests the source list's "#N" tokens for these
-      # (plan-0.9.5 E13). All three accept a "#N"-or-"N" ref (Dispatch::Resolvers).
+      # the arg-stage palette suggests the source list's "#N" tokens for these.
+      # All three accept a "#N"-or-"N" ref (Dispatch::Resolvers).
       ROW_ID_REF_RESOLVERS = %w[id_among_rows video_by_id game_by_id].freeze
 
       # Per-entity ListColumns surface module — the same TARGET_META entity
@@ -114,7 +110,7 @@ module Pito
           # Only `/config` offers arg suggestions — a small, browsable provider /
           # per-provider-key set surfaced as a selectable PALETTE (stage: :verb).
           # Every OTHER slash arg gets nothing: inline arg ghosts were removed
-          # (owner 2026-06-29; the palette is the only slash suggestion surface).
+          # (the palette is the only slash suggestion surface).
           return { menu_items: [], ghost: EMPTY_GHOST, stage: :arg } unless spec.name == :config
 
           # The partial is everything after the last space ("" when text ends in " ").
@@ -148,7 +144,7 @@ module Pito
 
           filtered = all_slash_specs.select { |spec| include_slash_spec?(spec, authenticated:) }
 
-          # plan-0.9.5 D5: slash commands list alphabetically
+          # Slash commands list alphabetically
           items = filtered
             .select { |spec| spec.name.to_s.start_with?(partial.downcase) }
             .sort_by { |spec| spec.name.to_s }
@@ -302,7 +298,7 @@ module Pito
             suggest_dynamic(vocab, vocab_name, partial, authenticated:)
           else
             # Static vocab — filter canonical members by prefix.
-            # plan-0.9.5 D5: enum/literal argument members list alphabetically
+            # Enum/literal argument members list alphabetically
             prefix_filter(vocab.canonical, partial)
               .sort_by { |m| m.to_s.downcase }
               .map { |member| { label: member, insert: "#{member} ", description: "", masked: false } }
@@ -337,7 +333,7 @@ module Pito
             candidate_keys = candidate_keys.select { |k| k.to_s.downcase.start_with?(partial.downcase) }
           end
 
-          # plan-0.9.5 D5: provider config keys list alphabetically (D5 overrides prior credentials-first semantic order)
+          # Provider config keys list alphabetically (overrides prior credentials-first semantic order)
           candidate_keys = candidate_keys.sort
 
           candidate_keys.map do |key|
@@ -387,7 +383,7 @@ module Pito
           # hyphen (e.g. follow-up handles `alpha-1266`), which the lexer would
           # split — so extract the full `#<handle>` directly from the raw text.
 
-          # plan-0.9.5 D5: bare `#` or `#partial` (no space typed yet) → show the
+          # Bare `#` or `#partial` (no space typed yet) → show the
           # HANDLE palette: all live unconsumed reply handles, ordered by the source
           # event's created_at ASC (scrollback / conversation order).
           stripped = text.lstrip
@@ -419,7 +415,7 @@ module Pito
           actions, target, event = follow_up_actions_with_target(handle, conversation)
           if actions
             # Verb stage → the reply-verb PALETTE. Arg stage → the verb's possible
-            # ARGUMENT tokens for this target (plan-0.9.5 E13).
+            # ARGUMENT tokens for this target.
             return follow_up_action_completions(actions, partial) if at_verb_stage
 
             committed = ends_with_space ? after_words.drop(1) : after_words[1..-2].to_a
@@ -481,9 +477,9 @@ module Pito
         # Build the reply-verb PALETTE for a follow-up handle's actions: all
         # actions, filtered by the typed verb prefix (so `wi` narrows to
         # with/without). stage: :verb → the client surfaces the whole list as a
-        # selectable palette. (Inline ghost removed — owner 2026-06-29.)
+        # selectable palette. (Inline ghost removed.)
         def follow_up_action_completions(actions, partial)
-          # plan-0.9.5 D5: follow-up reply verbs list alphabetically
+          # Follow-up reply verbs list alphabetically
           matches    = partial.empty? ? actions : actions.select { |a| a.to_s.start_with?(partial.downcase) }
           matches    = matches.sort_by { |a| a.to_s }
           menu_items = matches.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
@@ -491,7 +487,7 @@ module Pito
           { menu_items: menu_items, ghost: EMPTY_GHOST, stage: :verb }
         end
 
-        # ── Follow-up ARG stage (plan-0.9.5 E13) ─────────────────────────────
+        # ── Follow-up ARG stage ─────────────────────────────
 
         # After `#handle <verb> ` (and mid-arg-token) the palette suggests the
         # verb's possible ARGUMENT tokens for the source message's reply_target.
@@ -544,7 +540,7 @@ module Pito
             else []
             end
 
-          # plan-0.9.5 D5: argument vocabularies list alphabetically.
+          # Argument vocabularies list alphabetically.
           prefix_filter(candidates, partial).sort_by { |c| c.to_s.downcase }
         end
 
@@ -605,7 +601,7 @@ module Pito
           return [] if list_columns.nil?
 
           current = Array(event.payload["list_columns"]).map(&:to_sym)
-          # Channels expose the derivation directly — G82 made its sortable set
+          # Channels expose the derivation directly — its sortable set is
           # selection-dependent (counters sort only while visible), so the
           # STAMPED selection must ride along.
           if list_columns.respond_to?(:sortable_tokens)
@@ -628,7 +624,7 @@ module Pito
 
         # Leading tokens for a `price` reply (`price [set] <amount>` /
         # `price unset`) — the amount itself is free-form, but `set`/`unset`
-        # are its enumerable openers (owner G31). First position only.
+        # are its enumerable openers. First position only.
         def price_amount_candidates(committed)
           return [] unless committed.empty?
 
@@ -654,7 +650,7 @@ module Pito
 
         def hashtag_verb_completions(partial)
           specs  = Pito::Grammar::Registry.specs(namespace: :hashtag)
-          # plan-0.9.5 D5: hashtag (chat-namespace) verb completions list alphabetically
+          # Hashtag (chat-namespace) verb completions list alphabetically
           items  = specs
             .select  { |s| s.name.to_s.start_with?(partial.downcase) }
             .sort_by { |s| s.name.to_s }
@@ -673,7 +669,7 @@ module Pito
           vocab = Pito::Grammar::Registry.vocabulary(:metrics)
           return { menu_items: [], ghost: EMPTY_GHOST } unless vocab
 
-          # plan-0.9.5 D5: metric argument members list alphabetically
+          # Metric argument members list alphabetically
           items = prefix_filter(vocab.canonical, partial)
             .sort_by { |m| m.to_s.downcase }
             .map { |member| { label: member, insert: "#{member} ", description: "", masked: false } }
@@ -685,10 +681,10 @@ module Pito
         # Free (natural-language) input: produces PALETTE suggestions for chat
         # verb enum slots once the verb token is committed (a space has been typed).
         #
-        # Ghost text was removed (owner 2026-06-29); only menu_items are populated.
+        # Ghost text was removed; only menu_items are populated.
         # Slash/hashtag palettes are unchanged.
         #
-        # Stage logic (plan-0.9.5 E8/D5):
+        # Stage logic:
         #   - Verb not yet committed (no space) → empty.
         #   - Verb not in :chat namespace → empty.
         #   - Introducer word typed (e.g. "with", "only", "for") → suggest the
@@ -699,10 +695,10 @@ module Pito
         def free_completions(text, authenticated: false)
           stripped  = text.lstrip
           space_idx = stripped.index(" ")
-          # VERB STAGE (G75): no space yet — the first word is a chat verb in
-          # progress. Prefix-filter the chat catalog, alias-aware (G75b),
+          # VERB STAGE: no space yet — the first word is a chat verb in
+          # progress. Prefix-filter the chat catalog, alias-aware,
           # mirroring the slash path. Before 1.1.0 this position returned
-          # nothing (arg-stage-only since G33).
+          # nothing (arg-stage-only).
           return free_verb_stage_completions(stripped, authenticated:) unless space_idx
 
           verb_token = stripped[0...space_idx].downcase.to_sym
@@ -720,9 +716,9 @@ module Pito
           { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
         end
 
-        # VERB-position palette for free chat (G75): every chat verb whose
+        # VERB-position palette for free chat: every chat verb whose
         # name OR any alias starts with the typed prefix, one row per verb
-        # (G75b — never both `list` and `ls` for the same spec). The row is
+        # (never both `list` and `ls` for the same spec). The row is
         # labeled by the matched token, canonical preferred when both match;
         # inserting keeps what the user typed ("ls" inserts "ls ", never
         # rewritten to "list"). Auth-gated verbs are hidden from anonymous
@@ -781,7 +777,7 @@ module Pito
           end
           return [] if suggestable_slots.empty?
 
-          # G37 — a :free slot (the `#id` position on `show`) is a POSITIONAL
+          # A :free slot (the `#id` position on `show`) is a POSITIONAL
           # GATE: slots declared after it stay unsuggested until an id-looking
           # token fills it, so following the palette can never compose
           # "show game full" with the id silently skipped. Noun tokens don't
@@ -789,7 +785,7 @@ module Pito
           # silence at the gap IS the reserved place.
           gate_idx = free_gate_index(spec, typed_tokens)
 
-          # Walk the committed tokens, FILLING slots as they match (G32 — the
+          # Walk the committed tokens, FILLING slots as they match (the
           # old walk only tracked introducers, so `ls games ` re-offered the
           # noun vocabulary forever instead of advancing). An introducer
           # keyword opens its slot; any other token resolves against the open
@@ -824,7 +820,7 @@ module Pito
 
           # General position: open plain slots' remaining members, plus the
           # introducer keywords of slots that can still take (more) values —
-          # but nothing declared BEYOND an unfilled :free gate (G37).
+          # but nothing declared BEYOND an unfilled :free gate.
           items = []
           suggestable_slots.each do |slot|
             next if gate_idx && spec.slots.index(slot) > gate_idx
@@ -848,15 +844,15 @@ module Pito
 
           # The `list` verb's kwargs (with-columns, sort clause, filters) are
           # RAW-parsed by its handler, not verbs.yml slots — the slot walk
-          # can't see them, so a filled noun went silent (owner G33: "full
-          # kwargs support"). Suggest the clause the cursor is inside.
+          # can't see them, so a filled noun went silent without full
+          # kwargs support. Suggest the clause the cursor is inside.
           items.concat(list_kwarg_completions(typed_tokens, partial)) if spec.name == :list
 
-          # plan-0.9.5 D5: list alphabetically; deduplicate by label.
+          # List alphabetically; deduplicate by label.
           items.sort_by { |i| i[:label].to_s.downcase }.uniq { |i| i[:label] }
         end
 
-        # ── free-mode `list` kwargs (G33) ─────────────────────────────────────
+        # ── free-mode `list` kwargs ─────────────────────────────────────
 
         # The list surfaces' column modules, keyed by canonical noun — the
         # same single-source vocabularies the tables and footers render from.
@@ -917,7 +913,7 @@ module Pito
             .map { |c| column_display_token(surface, c) }
         end
 
-        # Columns a surface shows without any `with` clause (G82 — channels'
+        # Columns a surface shows without any `with` clause (channels'
         # subs/views/vids): already visible, so the typed `with ` palette never
         # offers them, and the typed `sorted by ` set includes them.
         def default_columns_for(surface)
@@ -957,7 +953,7 @@ module Pito
           surface::COLUMNS.fetch(canonical)[:aliases].first
         end
 
-        # The index of the first UNFILLED :free slot (the G37 gate), or nil
+        # The index of the first UNFILLED :free slot (the gate), or nil
         # when there is none / it's already filled. A token fills the gate when
         # no vocabulary resolves it AND it isn't a noun — ids ("5", "#1"),
         # @handles, and titles qualify; "game"/"vids" don't.
@@ -995,12 +991,11 @@ module Pito
 
         # ── Helpers ───────────────────────────────────────────────────────────
 
-        # plan-0.9.5 D5/D11: reply-HANDLE palette — fires while the user is still
+        # Reply-HANDLE palette — fires while the user is still
         # typing the handle token (bare `#` or `#partial`, no space yet).
         # Lists ALL live (unconsumed) reply handles ordered by their source event's
         # created_at ASC (scrollback reading order). No cap: every new message
-        # consumes/clears prior handles so the live set cannot grow unbounded
-        # (owner ruling, plan-0.9.5 D11).
+        # consumes/clears prior handles so the live set cannot grow unbounded.
         def reply_handle_completions(partial, conversation: nil)
           return { menu_items: [], ghost: EMPTY_GHOST, stage: :verb } if conversation.nil?
 

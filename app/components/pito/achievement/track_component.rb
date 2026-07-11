@@ -2,7 +2,7 @@
 
 module Pito
   module Achievement
-    # The MATERIAL RAIL (G127) — one tick per ladder step, each tick wearing
+    # The MATERIAL RAIL — one tick per ladder step, each tick wearing
     # the EXACT stone (or award metal) that step unlocks, so the next material
     # is always visible:
     #

@@ -6,7 +6,7 @@ module Pito
       # Column metadata for the `list channels` kv-table — the channels sibling
       # of Video::ListColumns / Game::ListColumns.
       #
-      # G82: only IDENTITY stays fixed (Avatar · Handle · Title). Every counter
+      # Only IDENTITY stays fixed (Avatar · Handle · Title). Every counter
       # — subs, views, vids, likes — is a `with`/`without`-able column;
       # DEFAULT_COLUMNS ships subs/views/vids visible so a bare `list channels`
       # looks exactly like it always did, but `without views` finally works

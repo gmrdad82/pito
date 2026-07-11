@@ -1,6 +1,6 @@
 // pito--context-comet
 //
-// Context-bar "lit fuse" (item 7). On each new distinct message the fill GROWS
+// Context-bar "lit fuse". On each new distinct message the fill GROWS
 // from the previous % to the new %; an orange glowing head rides the leading
 // edge from the old position to the new one — like a lit dynamite fuse — then
 // fades (no trail, settles flat). The previous % is remembered per-conversation

@@ -1,5 +1,5 @@
-<%# U7 — Start screen. Full-viewport centered layout, no auth required. %>
-<%# ASCII logo per ui-p2.md, chatbox at 50vh, tip line + bottom corners below. %>
+<%# Start screen. Full-viewport centered layout, no auth required. %>
+<%# ASCII logo, chatbox at 50vh, tip line + bottom corners below. %>
 <%# pito--home-transition wired on the outer wrapper so it can reach all targets. %>
 
 <div class="flex flex-col min-h-screen" data-controller="pito--home-transition">
@@ -13,7 +13,7 @@
     <%# ASCII logo — each row is its own logo-row target so the controller can
         stagger them independently, creating an unstable / glitchy dissolve.
         Wrapped in pito--ascii-fit so the fixed-width art scales DOWN to fit a
-        narrow (mobile) viewport without touching desktop — see SB10. %>
+        narrow (mobile) viewport without touching desktop. %>
     <div class="pito-ascii-fit pito-ascii-fit--center w-full"
          data-controller="pito--ascii-fit"
          data-pito--ascii-fit-origin-value="center">
@@ -75,9 +75,9 @@
         <% end %>
       </div>
 
-      <%# The old filter-chip <template> is GONE (G66): the morph no longer
+      <%# The old filter-chip <template> is gone: the morph no longer
           injects a filter line — no page renders #pito-chatbox-filter since the
-          channel/period meta moved into the hint slot (13.39); the leftover
+          channel/period meta moved into the hint slot; the leftover
           injection added a 10px ghost to the transition-built chatbox. %>
 
       <%# Mini-status: glued to chatbox bottom-right, rides with the animation %>

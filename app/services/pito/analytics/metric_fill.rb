@@ -3,7 +3,7 @@
 module Pito
   module Analytics
     # Fills ONE glance metric — scalar + day-series — by FOLDING from the shared
-    # primitives cache (0.9.0 Phase 1) instead of firing dedicated requests.
+    # primitives cache instead of firing dedicated requests.
     #
     # One warm (scalars, daily) primitive pair per subject serves ALL five
     # glance metrics: the first metric to run fetches any cold subjects (one

@@ -32,7 +32,7 @@ module Pito
         module_function
 
         # Canonical extra columns shown for a game's linked videos.
-        # (:comments left with the vids-list comms column — G26.1 removed it
+        # (:comments left with the vids-list comms column — it was removed
         # from Video::ListColumns, and this card is the same surface family.)
         COLUMNS = %i[channel duration views likes].freeze
 

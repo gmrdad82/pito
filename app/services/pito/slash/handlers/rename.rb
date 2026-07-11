@@ -19,7 +19,7 @@ module Pito
         self.verb            = :rename
         self.description_key = "pito.slash.rename.descriptions.rename"
 
-        # Grammar (title slot, auth): config/pito/verbs.yml (T8.9).
+        # Grammar (title slot, auth): config/pito/verbs.yml.
 
         def call
           return show_help if help?

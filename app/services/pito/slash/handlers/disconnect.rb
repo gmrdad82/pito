@@ -24,7 +24,7 @@ module Pito
         self.verb = :disconnect
         self.description_key = "pito.slash.disconnect.descriptions.disconnect"
 
-        # Grammar (channel slot, auth): config/pito/verbs.yml (T8.9).
+        # Grammar (channel slot, auth): config/pito/verbs.yml.
 
         def call
           target = parse_target

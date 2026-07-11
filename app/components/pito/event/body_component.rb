@@ -5,7 +5,7 @@ module Pito
     # Renders a message body: an inline "HH:MM " timestamp prefix (or a filled
     # `data-pito-ts-slot` placeholder inside the body), the body span, and an
     # always-visible `detail` block. Messages render in full, INSTANTLY (the
-    # typewriter/text-reveal was removed in item 18).
+    # typewriter/text-reveal was removed).
     #
     # Params:
     #   body      — the primary text (String|nil)

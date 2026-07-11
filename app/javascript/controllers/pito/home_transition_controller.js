@@ -113,11 +113,11 @@ export default class extends Controller {
     // Land at the EXACT width the form will have inside the conversation's
     // .pito-conversation-col so the replaceWith morph causes zero snap:
     // desktop (md+, ≥768px) = the full 964px border box — the col's 5px
-    // insets are REMOVED there (application.css 17.11), so subtracting them
-    // left the chatbox 10px narrower than the turns (owner G26.9);
+    // insets are REMOVED there, so subtracting them
+    // left the chatbox 10px narrower than the turns;
     // mobile = full width minus the col's 5px inset each side.
     // (The original full-viewport innerWidth − 100 target predates the
-    // centered column entirely — owner G12.)
+    // centered column entirely.)
     const COL_MAX = 964  // .pito-conversation-col max-width (border box)
     const desktop = window.innerWidth >= 768
     const targetWidth = desktop
@@ -219,7 +219,7 @@ export default class extends Controller {
     // app/views/conversations/show.html.erb so a transition-built page is
     // byte-equivalent to a reloaded one (same classes, paddings, and
     // controllers; the old 50px-padded full-width panel was a legacy copy
-    // that drifted from the centered .pito-conversation-col — G12).
+    // that drifted from the centered .pito-conversation-col).
     const conversationEl = document.createElement("div")
     conversationEl.className = "flex flex-col"
     conversationEl.style.cssText = "height: 100vh; overflow-x: hidden;"
@@ -249,9 +249,9 @@ export default class extends Controller {
 
     // Ensure hidden channel/period inputs exist so the chat_form controller can
     // cycle them (shift+tab / shift+space) and POSTs carry the scope params.
-    // NOTE (G66): the old filter-LINE injection that lived here is gone — no
+    // NOTE: the old filter-LINE injection that lived here is gone — no
     // server page renders `#pito-chatbox-filter` since the meta moved into the
-    // hint slot (13.39), so the morph was appending a dead element whose empty
+    // hint slot, so the morph was appending a dead element whose empty
     // shell still carried `.pito-chatbox__filter`'s 10px margin-top, leaving
     // the transition-built chatbox 10px taller than a reloaded one.
     const chatboxArea = this.chatboxAreaTarget

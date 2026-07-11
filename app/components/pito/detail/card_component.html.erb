@@ -12,7 +12,7 @@
     <%# Hairline separating the image from the stats %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
-    <%# Stats + Shinies as kv-table rows (owner 2026-07-01, items 48/49): the heading
+    <%# Stats + Shinies as kv-table rows: the heading
         is the KEY column, the value is the one-line counters / freely-wrapping badges. %>
     <div class="<%= bem %>__stats pito-detail-stats">
       <div class="<%= bem %>__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>

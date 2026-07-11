@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# OAuth discovery documents (G130) — public, unauthenticated JSON that MCP clients
+# OAuth discovery documents — public, unauthenticated JSON that MCP clients
 # fetch to bootstrap the flow. Endpoint URLs are derived from the request host, so
 # they are correct behind cloudflared regardless of the configured domain.
 class WellKnownController < ApplicationController

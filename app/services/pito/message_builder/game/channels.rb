@@ -3,7 +3,7 @@
 module Pito
   module MessageBuilder
     module Game
-      # Builds the CHANNEL-MATCHES recommendations message (item 16): two columns —
+      # Builds the CHANNEL-MATCHES recommendations message: two columns —
       # per-game channel DISTRIBUTION (col 1) + channel RECOMMENDATION (col 2),
       # rendered by Pito::Games::ChannelsComponent.
       #

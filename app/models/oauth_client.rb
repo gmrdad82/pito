@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# A registered MCP OAuth client (G130). PUBLIC client — no client_secret; PKCE is
+# A registered MCP OAuth client. PUBLIC client — no client_secret; PKCE is
 # the proof-of-possession. Created via RFC 7591 dynamic registration (claude.ai
 # self-registers). The `client_id` is the only credential and is not itself a
 # secret (PKCE binds the authorization to the requesting client).

@@ -26,7 +26,7 @@ module Pito
         self.description_key = "pito.slash.games.descriptions.games"
         self.validates_own_arity = true
 
-        # Grammar (subcommand + title slots, auth): config/pito/verbs.yml (T8.9).
+        # Grammar (subcommand + title slots, auth): config/pito/verbs.yml.
 
         SUBCOMMANDS = %w[import].freeze
 
