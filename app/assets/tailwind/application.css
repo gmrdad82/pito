@@ -456,15 +456,16 @@ html {
   bottom: 0;
   transform: translate(-50%, 100%);
   z-index: 40;
-  padding: 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  color: var(--brand-pito);
+  /* TRANSPARENT — just the gradient-stroked glyph, no tile, no border. */
   pointer-events: none;
 }
 
 .pito-pull-spinner svg {
   display: block;
+  /* A theme-root halo keeps the gradient strokes readable when the glyph
+     crosses an :ai message's purple-tinted gradient surface — the dark
+     double shadow separates it from ANY surface in every theme. */
+  filter: drop-shadow(0 0 3px var(--bg-root)) drop-shadow(0 0 8px var(--bg-root));
 }
 
 .pito-pull-spinner.is-firing svg {
@@ -912,11 +913,67 @@ html {
 .pito-segment__bar[data-accent="blue"]    { background: var(--accent-blue); }
 .pito-segment__bar[data-accent="surface"] { background: var(--bg-elevated); } /* blends into chatbox bg */
 .pito-segment__bar[data-accent="pito"]    { background: var(--brand-pito); }
-/* The AI thread accent — purple→pito-blue, top to bottom. Worn by :ai messages,
-   the echo of an `ai …` turn, and the chatbox bar LIVE while an `ai` input is
-   being typed (pito--ai-accent flips data-accent as you type). */
+/* The AI thread accent — the accent bar's exact purple→pito-blue, worn by
+   :ai messages, the echo of an AI turn, and the chatbox bar LIVE while an AI
+   input is being typed (pito--ai-accent flips data-accent as you type).
+   The gradient is a seamless P→B→P tile (400px ≈ 20 rows: purple reaches
+   pito-blue every ~10 rows) that DRIFTS vertically — a slow shimmer shared
+   by the bar and the message surface. */
 .pito-segment__bar[data-accent="ai"] {
-  background: linear-gradient(to bottom, var(--accent-purple), var(--brand-pito));
+  background-image: linear-gradient(
+    to bottom,
+    var(--accent-purple) 0%,
+    var(--brand-pito) 50%,
+    var(--accent-purple) 100%
+  );
+  /* PERCENTAGE tile: the gradient spans 3× the BAR's own height, and the
+     ping-pong below slides it by 2× that height per cycle — so the sweep's
+     speed scales with the element (a one-line chatbox bar flows briskly, a
+     tall message bar flows at its own statelier pace) and the full
+     purple→blue ramp is always visible inside the bar, whatever its size. */
+  background-size: 100% 300%;
+  animation: pito-ai-bar-flow 4s linear infinite alternate;
+}
+
+@keyframes pito-ai-bar-flow {
+  from { background-position-y: 0%; }
+  to   { background-position-y: 100%; }
+}
+
+/* The :ai message surface — STATIC pure purple at whisper volume (no motion;
+   the bar carries the movement). A class so it can also anchor the ✨ badge.
+   Lives on :root (where data-theme sits) so the mix follows the active theme;
+   chips keep an opaque --pito-msg-bg via Segment's msg_bg. */
+:root {
+  --pito-ai-surface: color-mix(in srgb, var(--accent-purple) 18%, var(--bg-surface));
+}
+
+.pito-ai-surface {
+  position: relative; /* the ✨ badge pins to this tile's corner */
+  background-color: var(--pito-ai-surface);
+}
+
+/* The ✨ model badge touching an :ai message's bottom-right corner — pure
+   chrome (which model answered), out of the block flow and out of hit-testing.
+   The translucent root-colored chip keeps the name readable on every theme's
+   surface without pretending to be content. */
+.pito-ai-model-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  background: color-mix(in srgb, var(--bg-root) 78%, transparent);
+  color: var(--fg-dim);
+  pointer-events: none;
+}
+
+/* The /config ai picker's scrolling body — viewport-capped like the Ctrl+K
+   palette list, as a class (no inline style). */
+.pito-ai-picker__list {
+  max-height: min(62vh, 460px);
 }
 
 .pito-segment__gap {

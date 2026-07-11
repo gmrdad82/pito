@@ -60,9 +60,20 @@ module Pito
         return Message.new(verb: :greet,    body_tokens: [], kind: :new_turn, raw: @raw) if GREETINGS.include?(phrase)
         return Message.new(verb: :farewell, body_tokens: [], kind: :new_turn, raw: @raw) if FAREWELLS.include?(phrase)
 
-        # Read the first word token as the candidate verb.
+        # Read the first word token as the candidate verb. An "@"-fused verb
+        # ("@ai" in any case — the lexer emits the bare "@" plus the word) is
+        # fused HERE, only when the word is adjacent (no space: "@ ai" stays
+        # two tokens) and the fused, downcased token is a registered verb —
+        # channel handles like @all keep their two-token shape for their own
+        # consumers.
         candidate_verb = first&.type == :word ? first.value.to_sym : nil
-        advance if candidate_verb
+        if candidate_verb
+          advance
+        elsif (fused = fused_at_verb(first))
+          candidate_verb = fused
+          advance
+          advance
+        end
 
         spec = candidate_verb && Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: candidate_verb)
         if spec
@@ -87,6 +98,16 @@ module Pito
 
       def current_token
         @tokens[@pos]
+      end
+
+      # ":@ai" from ["@", "ai"] — nil unless the shape matches AND the fused
+      # token is a registered chat verb (downcased, so @AI/@Ai/@aI all fuse).
+      def fused_at_verb(first)
+        follower = @tokens[@pos + 1]
+        return nil unless first&.type == :at && follower&.type == :word && !follower.preceded_by_space
+
+        fused = :"@#{follower.value.downcase}"
+        Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: fused) ? fused : nil
       end
 
       def advance

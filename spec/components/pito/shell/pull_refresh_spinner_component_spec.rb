@@ -22,10 +22,11 @@ RSpec.describe Pito::Shell::PullRefreshSpinnerComponent, type: :component do
     expect(inner).to include(%(aria-hidden="true"))
   end
 
-  it "inlines the Lucide refresh arrow as a currentColor-stroked SVG (no external fetch)" do
+  it "inlines the Lucide refresh arrow stroked with the theme-var gradient (no external fetch)" do
     inner = render_inline(described_class.new).css("template#pito-pull-refresh-spinner").first.inner_html
     expect(inner).to include("<svg")
-    expect(inner).to include(%(stroke="currentColor"))
+    expect(inner).to include(%(stroke="url(#pito-pull-grad)"))
+    expect(inner).to include("var(--accent-purple)", "var(--brand-pito)")
     expect(inner).not_to include("href", "src=")
   end
 end

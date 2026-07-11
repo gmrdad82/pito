@@ -11,7 +11,7 @@
 
 import { Controller } from "@hotwired/stimulus"
 
-const AI_PREFIX = /^\s*ai\b/i
+const AI_PREFIX = /^\s*@ai\b/i
 
 export default class extends Controller {
   connect() {

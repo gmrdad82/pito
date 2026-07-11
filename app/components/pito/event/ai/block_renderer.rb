@@ -10,12 +10,14 @@ module Pito
       module BlockRenderer
         module_function
 
-        def component_for(block)
+        # timestamp: rides only on text blocks — the message's first block gets
+        # it so the "HH:MM " prefix flows inline with the prose.
+        def component_for(block, timestamp: nil)
           block = block.stringify_keys if block.respond_to?(:stringify_keys)
 
           case block["type"].to_s
           when "text"
-            TextBlockComponent.new(text: block["text"])
+            TextBlockComponent.new(text: block["text"], timestamp:)
           when "kv_table"
             KvTableBlockComponent.new(rows: block["rows"])
           when "table"

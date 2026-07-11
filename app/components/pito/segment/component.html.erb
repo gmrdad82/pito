@@ -10,7 +10,7 @@
   <%# When surfaced, expose the content bg as --pito-msg-bg so descendants (e.g.
       chart Y-tick chips) can paint an opaque chip in the same colour; non-surfaced
       segments leave it unset so chips fall back to the page --bg-root. %>
-  <div class="pito-segment__content<%= " pito-segment__content--barred" if @accent %>"<% if @background %> style="background: <%= @background %>; --pito-msg-bg: <%= @background %>;"<% end %>>
+  <div class="pito-segment__content<%= " pito-segment__content--barred" if @accent %><%= " #{@content_class}" if @content_class %>"<% if content_style %> style="<%= content_style %>"<% end %>>
     <%= content %>
   </div>
 </div>

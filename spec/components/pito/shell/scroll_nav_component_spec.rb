@@ -54,14 +54,14 @@ RSpec.describe Pito::Shell::ScrollNavComponent do
 
   # ── Jump copy (1-variant, server-rendered) ───────────────────────────────────
 
-  it "includes the compact jump-to-start arrow copy in the top pill" do
+  it "includes the filled jump-to-start arrow copy in the top pill" do
     top_pill = node.css(".pito-scroll-nav__pill--top").first
-    expect(top_pill.text).to include("[<-")
+    expect(top_pill.text).to include("▲")
   end
 
-  it "includes the compact jump-to-end arrow copy in the bottom pill" do
+  it "includes the filled jump-to-end arrow copy in the bottom pill" do
     bottom_pill = node.css(".pito-scroll-nav__pill--bottom").first
-    expect(bottom_pill.text).to include("jump ->]")
+    expect(bottom_pill.text).to include("jump ▼")
   end
 
   # ── Count spans (JS-filled, empty on render) ─────────────────────────────────

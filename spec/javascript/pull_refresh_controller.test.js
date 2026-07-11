@@ -32,7 +32,8 @@ function appendSpinnerTemplate() {
   const template = document.createElement("template")
   template.id = "pito-pull-refresh-spinner"
   template.innerHTML =
-    '<div class="pito-pull-spinner" data-pull-refresh-spinner><svg></svg></div>'
+    '<div class="pito-pull-spinner" data-pull-refresh-spinner>' +
+    '<svg><defs><linearGradient id="pito-pull-grad"></linearGradient></defs><g></g></svg></div>'
   document.body.appendChild(template)
 }
 
@@ -88,6 +89,8 @@ describe("pito--pull-refresh controller", () => {
     expect(tile.style.transform).toBe("translate(-50%, calc(100% - 40px))")
     // 40px × 1.6°/px = 64° — the arrow winds up with the drag.
     expect(tile.querySelector("svg").style.transform).toBe("rotate(64.0deg)")
+    // The gradient counter-rotates against the arrows (color sweep turns inverse).
+    expect(tile.querySelector("#pito-pull-grad").getAttribute("gradientTransform")).toBe("rotate(-64.0 0.5 0.5)")
     // The scrollback content never moves (the old approach lifted the pane).
     expect(el.style.transform).toBe("")
   })

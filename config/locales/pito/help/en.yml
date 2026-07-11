@@ -8,8 +8,8 @@ en:
         usage: "list games  |  list vids  |  list channels"
       search:
         usage: "search games like <title>"
-      ai:
-        usage: "ai <question about your games, vids, or channels>"
+      "@ai":
+        usage: "@ai <question about your games, vids, or channels>"
       update:
         usage: "update game footage|price|platform <id> <value>  |  update vid description|tags <id> <value>"
       show:
@@ -487,13 +487,13 @@ en:
 
     hashtag_help:
       ai-answer:
-        target_usage: "#<ai-answer-hashtag> apply [n]"
+        target_usage: "#<ai-answer-hashtag> @ai <text>"
         actions:
-          apply:
-            usage: "#<ai-answer-hashtag> apply [n]"
+          "@ai":
+            usage: "#<ai-answer-hashtag> @ai <text>"
             sections:
               Description:
-                "apply": "Run this answer's nth suggested command (default: the first) — exactly as if you typed it; commands that need confirmation still ask"
+                "@ai": "Continue the thread anchored on this answer — your text plus this exchange go to the model, like replying in a conversation"
               Options:
                 "--help": "Print this help message"
       show-game:

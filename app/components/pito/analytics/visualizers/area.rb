@@ -36,14 +36,24 @@ module Pito
         # `dates` is an optional array of ISO-8601 strings (or Date objects) —
         # one per data point — used to label x-axis ticks with real dates.
         # Omitting it falls back to the old day-index labels ("1", "8", …).
-        def initialize(metric:, series:, target_daily:, caption:, trend: true, reference_token: nil, dates: nil)
+        #
+        # GENERIC data-source contract: the chart never derives behavior from a
+        # data structure — `value_format` (:count | :duration | :percent) styles
+        # the y-tick values and `x_axis` (:dates | :percent) picks the bottom
+        # axis. `metric:` is the ANALYTICS PRESET that fills both (and seeds the
+        # shimmer phase); callers outside analytics (the AI chart blocks, any
+        # future surface) pass the explicit kwargs and no metric at all.
+        def initialize(series:, target_daily:, caption:, metric: nil, trend: true,
+                       reference_token: nil, dates: nil, value_format: nil, x_axis: nil)
           super(caption:)
-          @metric          = metric.to_sym
+          @metric          = metric&.to_sym
           @series          = Array(series).map(&:to_f)
           @target_daily    = target_daily.to_f
           @trend           = trend
           @reference_token = reference_token
           @dates           = parse_dates(dates)
+          @value_format    = (value_format || preset_value_format).to_sym
+          @x_axis          = (x_axis || preset_x_axis).to_sym
         end
 
         attr_reader :trend, :reference_token
@@ -91,7 +101,7 @@ module Pito
         # "24 Feb"; prior year → "June 2025"). Falls back to day-index when no
         # dates are provided (backward-compat for persisted markers without dates).
         def x_ticks
-          return [ "0%", "25%", "50%", "75%", "100%" ] if @metric == :avg_viewed_pct
+          return [ "0%", "25%", "50%", "75%", "100%" ] if @x_axis == :percent
 
           if @dates.present?
             n = @dates.size
@@ -120,7 +130,7 @@ module Pito
         # `.pito-shimmer-dN` delay classes — applied to every row so the whole
         # chart shimmers as one diagonal at its own phase.
         def shimmer_offset_class
-          Pito::Shimmer.offset_class("#{@metric}-#{@series.join(',')}", seed: @target_daily)
+          Pito::Shimmer.offset_class("#{@metric || @value_format}-#{@series.join(',')}", seed: @target_daily)
         end
 
         private
@@ -151,19 +161,32 @@ module Pito
           end
         end
 
-        # Compact tick label, metric-aware:
-        #   :avg_view_duration → M:SS (e.g. "2:05")
-        #   :avg_viewed_pct    → "XX.X%" (e.g. "45.2%")
-        #   others             → compact count (12_300 → "12K")
+        # Compact tick label, per the value_format:
+        #   :duration → M:SS (e.g. "2:05")
+        #   :percent  → "XX.X%" (e.g. "45.2%")
+        #   :count    → compact count (12_300 → "12K")
         def fmt(value)
-          case @metric
-          when :avg_view_duration
+          case @value_format
+          when :duration
             Pito::Formatter::Duration.call(value.to_f) || "0:00"
-          when :avg_viewed_pct
+          when :percent
             format("%.2f%%", value.to_f)
           else
             compact_count(value)
           end
+        end
+
+        # The analytics presets `metric:` maps onto (explicit kwargs win).
+        def preset_value_format
+          case @metric
+          when :avg_view_duration then :duration
+          when :avg_viewed_pct    then :percent
+          else :count
+          end
+        end
+
+        def preset_x_axis
+          @metric == :avg_viewed_pct ? :percent : :dates
         end
 
         # Compact number for numeric metrics: 12_300 → "12K", 842_000 → "842K".

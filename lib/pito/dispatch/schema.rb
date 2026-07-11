@@ -95,7 +95,7 @@ module Pito
       EVENT_KINDS   = %w[
         echo system error enhanced thinking confirmation
         system_follow_up enhanced_follow_up confirmation_follow_up
-        theme_diff
+        theme_diff ai
       ].freeze
       # enum/literal/kv resolve against a `source:` vocabulary; free slurps free text.
       # (literal = exact-match sentinel — also gates `when:` conditional slots; kv =

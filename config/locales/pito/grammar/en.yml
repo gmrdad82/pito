@@ -29,7 +29,7 @@ en:
         schedule: "Schedule a vid for future publishing"
         find: "Search vids by title, genre, or platform"
         search: "Find games similar to another one (search games like <title>)"
-        ai: "Ask the AI assistant anything about your library (ai <question>)"
+        ai: "Ask the AI assistant anything about your library (@ai <question>)"
         update: "Update game footage/price/platform or vid description/tags (update game price <id> <amount>)"
         link: "Link a vid to a game"
         unlink: "Unlink a vid from a game"

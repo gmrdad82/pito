@@ -1,0 +1,40 @@
+<div class="flex flex-col" data-section="provider" data-provider="<%= name %>">
+  <div class="flex items-center gap-2">
+    <%= render(Pito::Section::SectionHeaderComponent.new(text: label, mb: "0")) %>
+    <span class="ml-auto" data-pito--ai-picker-target="keyChip" data-provider="<%= name %>">
+      <% if key_present? %>
+        <span class="text-fg-dim">key</span> <span class="text-pito">●●●●</span>
+      <% else %>
+        <span class="text-fg-faded">no key</span>
+      <% end %>
+    </span>
+  </div>
+
+  <button type="button"
+          class="flex w-full items-center gap-2 px-1.5 py-0.5 text-left"
+          data-pito--ai-picker-target="row"
+          data-row-type="connect"
+          data-provider="<%= name %>"
+          data-value=""
+          data-action="click->pito--ai-picker#activate"
+          <%= "hidden" if key_present? %>>
+    <span class="w-2 text-fg-faded">+</span>
+    <span class="text-fg-dim">paste <%= label %> API key</span>
+    <span class="ml-auto text-fg-faded">enter</span>
+  </button>
+  <input type="password"
+         class="w-full bg-root border border-line-default px-1.5 py-1 text-fg-default outline-none"
+         autocomplete="off" spellcheck="false" hidden
+         data-pito--ai-picker-target="keyInput"
+         data-provider="<%= name %>"
+         data-action="keydown.enter->pito--ai-picker#saveKey">
+
+  <% models.each do |m| %>
+    <%= render(Pito::Ai::Picker::ModelRowComponent.new(
+          provider: name, id: m[:id],
+          active:   active?(m[:id]),
+          favorite: favorite?(m[:id]),
+          pinned:   m[:pinned]
+        )) %>
+  <% end %>
+</div>

@@ -1,0 +1,12 @@
+<button type="button"
+        class="flex w-full items-center gap-2 px-1.5 py-0.5 text-left"
+        data-pito--ai-picker-target="row"
+        data-row-type="model"
+        data-provider="<%= provider %>"
+        data-value="<%= id %>"
+        data-action="click->pito--ai-picker#activate">
+  <span class="w-2 text-pito"><%= "●" if active? %></span>
+  <span class="text-fg-default"><%= id %></span>
+  <% if favorite? %><span class="text-fg-dim">★</span><% end %>
+  <% if pinned? %><span class="ml-auto text-fg-faded">pinned</span><% elsif trailing %><span class="ml-auto text-fg-faded"><%= trailing %></span><% end %>
+</button>

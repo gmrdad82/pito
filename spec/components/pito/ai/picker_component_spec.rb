@@ -3,129 +3,121 @@
 require "rails_helper"
 
 RSpec.describe Pito::Ai::PickerComponent, type: :component do
-  let(:models) do
+  let(:providers) do
     [
-      { id: "a-1", pinned: false },
-      { id: "b-2", pinned: true }
+      { provider: "opencode", label: "OpenCode Zen", key_present: true, reasoning: "none",
+        models: [ { id: "m-1", pinned: false }, { id: "m-2", pinned: false } ] },
+      { provider: "openrouter", label: "OpenRouter", key_present: false, reasoning: "passthrough",
+        models: [ { id: "or-1", pinned: true } ] }
     ]
   end
 
-  def build(key_present:, active_model: "a-1")
-    described_class.new(
-      provider: :opencode,
-      label: "OpenCode Zen",
-      models: models,
-      active_model: active_model,
-      key_present: key_present
-    )
+  def render_picker(**overrides)
+    render_inline(described_class.new(**{
+      providers:       providers,
+      active_provider: "opencode",
+      active_model:    "m-1",
+      effort:          nil,
+      favorites:       [],
+      recents:         []
+    }.merge(overrides)))
   end
 
-  describe "no key present" do
-    subject(:node) { render_inline(build(key_present: false)) }
+  it "leads with a Conversation section listing this conversation's used models, only when any exist" do
+    node = render_picker(conversation_models: [ "opencode/m-2" ])
+    section = node.css('[data-section="conversation"]')
+    expect(section).not_to be_empty
+    expect(section.text).to include("Conversation")
+    expect(section.text).to include("m-2")
 
-    it "shows the key entry section (not hidden)" do
-      key_section = node.css("[data-pito--ai-picker-target='keySection']").first
-      expect(key_section).to be_present
-      expect(key_section.key?("hidden")).to be false
-    end
-
-    it "hides the models section" do
-      models_section = node.css("[data-pito--ai-picker-target='modelsSection']").first
-      expect(models_section).to be_present
-      expect(models_section.key?("hidden")).to be true
-    end
-
-    it "shows the no-key chip" do
-      chip = node.css("[data-pito--ai-picker-target='keyChip']").first
-      expect(chip.text).to include("no key")
-    end
+    expect(render_picker.css('[data-section="conversation"]')).to be_empty
   end
 
-  describe "key present" do
-    subject(:node) { render_inline(build(key_present: true)) }
-
-    it "hides the key entry section" do
-      key_section = node.css("[data-pito--ai-picker-target='keySection']").first
-      expect(key_section).to be_present
-      expect(key_section.key?("hidden")).to be true
-    end
-
-    it "shows the models section (not hidden)" do
-      models_section = node.css("[data-pito--ai-picker-target='modelsSection']").first
-      expect(models_section).to be_present
-      expect(models_section.key?("hidden")).to be false
-    end
-
-    it "shows the masked key chip" do
-      chip = node.css("[data-pito--ai-picker-target='keyChip']").first
-      expect(chip.text).to include("●●●●")
-    end
+  it "renders one section per provider, in order, with labels" do
+    node = render_picker
+    sections = node.css('[data-section="provider"]')
+    expect(sections.map { |s| s["data-provider"] }).to eq(%w[opencode openrouter])
+    expect(node.text).to include("OpenCode Zen", "OpenRouter")
   end
 
-  describe "model rows" do
-    subject(:node) { render_inline(build(key_present: true)) }
-
-    it "renders one row per model entry" do
-      rows = node.css("[data-pito--ai-picker-target='row']")
-      expect(rows.length).to eq(2)
-    end
-
-    it "attaches data-value with the model id to each row" do
-      rows = node.css("[data-pito--ai-picker-target='row']")
-      expect(rows.map { |r| r["data-value"] }).to eq(%w[a-1 b-2])
-    end
-
-    it "marks only the active model's row with the bullet marker" do
-      rows = node.css("[data-pito--ai-picker-target='row']")
-      expect(rows[0].text).to include("●")
-      expect(rows[1].text).not_to include("●")
-    end
-
-    it "shows the pinned badge only on the pinned entry" do
-      rows = node.css("[data-pito--ai-picker-target='row']")
-      expect(rows[0].text).not_to include("pinned")
-      expect(rows[1].text).to include("pinned")
-    end
+  it "shows the masked chip for a keyed provider and 'no key' for a keyless one" do
+    node = render_picker
+    chips = node.css("[data-pito--ai-picker-target=keyChip]")
+    expect(chips.find { |c| c["data-provider"] == "opencode" }.text).to include("●●●●")
+    expect(chips.find { |c| c["data-provider"] == "openrouter" }.text).to include("no key")
   end
 
-  describe "root attributes" do
-    subject(:node) { render_inline(build(key_present: false)) }
-
-    it "gives the root node the id pito-ai-picker" do
-      expect(node.css("#pito-ai-picker")).not_to be_empty
-    end
-
-    it "passes the settings endpoint as a data value" do
-      root = node.css("#pito-ai-picker").first
-      expect(root["data-pito--ai-picker-endpoint-value"]).to eq("/settings/ai")
-    end
-
-    it "passes the provider as a data value" do
-      root = node.css("#pito-ai-picker").first
-      expect(root["data-pito--ai-picker-provider-value"]).to eq("opencode")
-    end
+  it "marks the active provider+model row with ● and no other" do
+    node    = render_picker
+    rows    = node.css('[data-row-type="model"]').to_a
+    active  = rows.find { |r| r["data-provider"] == "opencode" && r["data-value"] == "m-1" }
+    others  = rows - [ active ]
+    expect(active.css("span").first.text).to eq("●")
+    expect(others.map { |r| r.css("span").first.text }).to all(eq(""))
   end
 
-  describe "no raw API key ever appears in the markup" do
-    it "never emits a value attribute on the password input, for any key_present state" do
-      [ true, false ].each do |present|
-        node     = render_inline(build(key_present: present))
-        pw_input = node.css("input[type='password']").first
-        expect(pw_input["value"]).to be_nil
-      end
-    end
+  it "badges pinned models" do
+    node = render_picker
+    pinned = node.css('[data-row-type="model"]').find { |r| r["data-value"] == "or-1" }
+    expect(pinned.text).to include("pinned")
+  end
 
-    it "has no keyword for injecting a raw key value into the component" do
-      expect do
-        described_class.new(provider: :opencode, label: "OpenCode Zen", models: models, api_key: "sk-should-not-exist")
-      end.to raise_error(ArgumentError)
-    end
+  it "hides the connect row for keyed providers and shows it for keyless ones" do
+    node = render_picker
+    connects = node.css('[data-row-type="connect"]')
+    expect(connects.find { |r| r["data-provider"] == "opencode" }.has_attribute?("hidden")).to be(true)
+    expect(connects.find { |r| r["data-provider"] == "openrouter" }.has_attribute?("hidden")).to be(false)
+  end
 
-    it "shows only the masked glyph in the key chip, never a literal value attribute" do
-      node = render_inline(build(key_present: true))
-      chip = node.css("[data-pito--ai-picker-target='keyChip']").first
-      expect(chip.text).to include("●●●●")
-      expect(chip.to_html).not_to match(/value=/)
-    end
+  it "renders a hidden per-provider password input" do
+    node = render_picker
+    inputs = node.css("input[type=password]")
+    expect(inputs.map { |i| i["data-provider"] }).to match_array(%w[opencode openrouter])
+    expect(inputs.map { |i| i.has_attribute?("hidden") }).to all(be(true))
+  end
+
+  it "resolves favorites and recents into leading sections, skipping unknown providers" do
+    node = render_picker(favorites: [ "opencode/m-2", "ghost/x" ], recents: [ "openrouter/or-1" ])
+    fav = node.css('[data-section="favorites"]')
+    rec = node.css('[data-section="recents"]')
+    expect(fav.css('[data-row-type="model"]').map { |r| r["data-value"] }).to eq([ "m-2" ])
+    expect(rec.css('[data-row-type="model"]').map { |r| r["data-value"] }).to eq([ "or-1" ])
+  end
+
+  it "renders no favorites/recents sections when the lists are empty" do
+    node = render_picker
+    expect(node.css('[data-section="favorites"]')).to be_empty
+    expect(node.css('[data-section="recents"]')).to be_empty
+  end
+
+  it "shows the effort cycler only when the active provider declares reasoning" do
+    none = render_picker # opencode → reasoning none
+    expect(none.css('[data-row-type="effort"]')).to be_empty
+
+    with = render_picker(active_provider: "openrouter", active_model: "or-1", effort: "high")
+    row  = with.css('[data-row-type="effort"]').first
+    expect(row).to be_present
+    expect(row.text).to include("high")
+  end
+
+  it "shows 'model default' when effort is unset" do
+    node = render_picker(active_provider: "openrouter", active_model: "or-1")
+    expect(node.css('[data-row-type="effort"]').first.text).to include("model default")
+  end
+
+  it "headers the active pick, or 'no model selected'" do
+    expect(render_picker.text).to include("opencode/")
+    expect(render_picker(active_model: nil).text).to include("no model selected")
+  end
+
+  it "never emits a value attribute on any password input" do
+    node = render_picker
+    expect(node.css("input[type=password]").map { |i| i["value"] }).to all(be_nil)
+  end
+
+  it "accepts no raw-key kwarg at all" do
+    expect {
+      described_class.new(providers:, active_provider: "opencode", api_key: "sk-leak")
+    }.to raise_error(ArgumentError)
   end
 end

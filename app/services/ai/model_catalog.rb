@@ -25,9 +25,13 @@ module Ai
     READ_TIMEOUT = 15
 
     # @param provider [String, Symbol] provider key from ai_providers.yml.
+    # @param live [Boolean] when false, skip the HTTP fetch entirely and serve
+    #   the cached list or the pinned fallback — the multi-provider picker uses
+    #   this for keyless providers so opening the dialog never stacks up nine
+    #   doomed requests.
     # @return [Array<Hash>] `{ id:, pinned: }` rows, in source order.
-    def self.models(provider:)
-      new(provider: provider).models
+    def self.models(provider:, live: true)
+      new(provider: provider).models(live: live)
     end
 
     # Manual refresh — drops the cached live result so the next `models`
@@ -45,12 +49,17 @@ module Ai
       @config = Ai::ProviderRegistry.provider(provider)
     end
 
-    def models
-      live = Rails.cache.fetch(self.class.cache_key(@provider), expires_in: CACHE_TTL, skip_nil: true) do
-        fetch_live
-      end
+    def models(live: true)
+      cached =
+        if live
+          Rails.cache.fetch(self.class.cache_key(@provider), expires_in: CACHE_TTL, skip_nil: true) do
+            fetch_live
+          end
+        else
+          Rails.cache.read(self.class.cache_key(@provider))
+        end
 
-      return live if live.present?
+      return cached if cached.present?
 
       pinned_fallback
     end

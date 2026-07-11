@@ -28,7 +28,9 @@ module Ai
     def self.current
       provider = AppSetting.get("ai_provider").presence || DEFAULT_PROVIDER
       model    = AppSetting.get("ai_model").presence
-      effort   = AppSetting.get("ai_effort").presence
+      # Effort is PER MODEL ("provider/model" map) — switching models restores
+      # that model's own effort; models without one simply have no entry.
+      effort   = model && AppSetting.ai_effort_for("#{provider}/#{model}").presence
       key      = AppSetting.get("#{provider}_api_key").presence
 
       raise NotConfigured, "no model selected (run /config ai)" if model.nil?

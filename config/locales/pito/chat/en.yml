@@ -11,8 +11,8 @@ en:
         seed_not_found: "No game called \"%{title}\" in your library yet. `list games` to see what's there, then `search games like <its title>`."
       ai:
         descriptions:
-          ai: "Ask the AI assistant anything about your library (ai <question>)"
-        needs_prompt: "Ask me something — e.g. `ai what should I play next?` or `ai which vids need better tags?`."
+          ai: "Ask the AI assistant anything about your library (@ai <question>)"
+        needs_prompt: "Ask me something — e.g. `@ai what should I play next?` or `@ai which vids need better tags?`."
       update:
         descriptions:
           update: "Update game footage/price/platform or vid description/tags (update game price <id> <amount>)"

@@ -220,7 +220,7 @@ class ChatController < ApplicationController
         text: echo_text, authenticated: input_kind == :chat ? authenticated : false,
         # An `ai …` turn's echo wears the AI gradient accent — the visual
         # thread from chatbox-while-typing through echo to the :ai reply.
-        ai: echo_text.to_s.match?(/\A\s*ai\b/i)
+        ai: echo_text.to_s.match?(/\A\s*@ai\b/i)
       }
     )
     broadcaster.broadcast_event(echo_event)
@@ -680,16 +680,45 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
-    provider = :opencode
-    config   = Ai::ProviderRegistry.provider(provider)
+    active_provider = AppSetting.get("ai_provider").presence || "opencode"
+    providers = Ai::ProviderRegistry.provider_names.map do |name|
+      config      = Ai::ProviderRegistry.provider(name)
+      key_present = AppSetting.get("#{name}_api_key").present?
+      {
+        provider:    name.to_s,
+        label:       config[:label],
+        key_present: key_present,
+        reasoning:   config.dig(:capabilities, :reasoning).to_s,
+        # Live fetch only where it can succeed (a key on file — or OpenCode
+        # Zen, which lists models unauthenticated); keyless providers show
+        # their pinned fallback instantly instead of stacking doomed requests.
+        models:      Ai::ModelCatalog.models(provider: name, live: key_present || name == :opencode)
+      }
+    end
+
+    active_model = AppSetting.get("ai_model")
+    active_entry = active_model.presence && "#{active_provider}/#{active_model}"
+
+    # Models THIS conversation's answers already used (✨ badge stamps),
+    # newest first — the picker's "Conversation" group.
+    conversation_models = conversation.events.where(kind: "ai")
+                                      .order(id: :desc).limit(50)
+                                      .filter_map { |e|
+                                        p = e.payload["provider"].presence
+                                        m = e.payload["model"].presence
+                                        "#{p}/#{m}" if p && m
+                                      }.uniq.first(5)
+
     render partial: "chat/ai_picker",
            formats: [ :turbo_stream ],
            locals:  {
-             provider:     provider,
-             label:        config[:label],
-             models:       Ai::ModelCatalog.models(provider:),
-             active_model: AppSetting.get("ai_model"),
-             key_present:  AppSetting.get("#{provider}_api_key").present?
+             providers:           providers,
+             active_provider:     active_provider,
+             active_model:        active_model,
+             effort:              active_entry && AppSetting.ai_effort_for(active_entry),
+             favorites:           AppSetting.ai_favorites,
+             recents:             AppSetting.ai_recents,
+             conversation_models: conversation_models
            }
   end
 

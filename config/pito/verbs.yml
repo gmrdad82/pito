@@ -16,8 +16,8 @@ schema_version: 1
 #   verb's own declarations: a reply token the target declares itself always
 #   routes to the verb, not to the universal set.
 universal_reply:
-  share:  { mode: append, kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
-  revoke: { mode: append, aliases: [unshare], kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
+  share:  { mode: append, kinds: [system, enhanced, system_follow_up, enhanced_follow_up, ai] }
+  revoke: { mode: append, aliases: [unshare], kinds: [system, enhanced, system_follow_up, enhanced_follow_up, ai] }
 
 # Static + dynamic vocabulary declarations. Faithful transcription of
 # lib/pito/grammar/vocabularies.rb — implementations remain in Ruby.
@@ -28,6 +28,8 @@ vocabularies:
   slash_verbs:
     members: [config, disconnect, help, themes]
   config_providers:
+    # AI config has exactly ONE slash surface: `/config ai` (+ kwargs). The
+    # per-provider names deliberately do NOT appear here — no spillage.
     members: [ai, google, voyage, igdb, webhook, me, sound, timezone]
   config_keys:
     members: [client_id, client_secret, redirect_uri, api_key, slack, discord, nickname, model]
@@ -692,6 +694,8 @@ verbs:
   import:
     description: pito.grammar.chat.import
     auth: session
+    # Import progress/result messages are operational chatter — not shareable.
+    universal_reply: false
     chat:
       dispatch: Chat::Handlers::Import
       slots:
@@ -953,18 +957,6 @@ verbs:
           kind: free
           optional: true
 
-  # Reply-only verb on :ai answers that carry SUGGESTION blocks — runs one of
-  # them as if the owner typed its command (`#a7 apply` = the first suggestion,
-  # `#a7 apply 2` = the second). The AI itself never executes anything; apply
-  # is the owner's explicit hand. The source message stays live (repeatable),
-  # so several suggestions can be applied in turn.
-  apply:
-    auth: session
-    reply:
-      targets:
-        ai_message:
-          mode: append
-
   # The consolidated metadata-setter verb — the commands the AI suggests and
   # only the owner runs. Game fields (footage/price/platform) write locally at
   # once; vid fields (description/tags) stage a confirmation whose `yes` pushes
@@ -986,10 +978,14 @@ verbs:
           source: update_fields
           optional: true
 
-  # The AI entry verb — everything after `ai` is raw free text handed to the
+  # The AI entry verb — everything after `@ai` is raw free text handed to the
   # orchestrator loop (the handler reads message.raw; the grammar never
-  # normalizes it). Deliberately NOT exposed to MCP.
-  ai:
+  # normalizes it). The parser fuses the lexer's bare "@" + word and downcases,
+  # so @AI/@Ai/@aI all reach here. Deliberately NOT exposed to MCP.
+  # Reply form: `#a7 @ai <text>` continues the thread anchored on that answer —
+  # the orchestrator guarantees the anchored exchange rides in the model's
+  # context even when it has scrolled out of the history window.
+  "@ai":
     description: pito.grammar.chat.ai
     auth: session
     chat:
@@ -998,6 +994,10 @@ verbs:
         - name: prompt
           kind: free
           optional: true
+    reply:
+      targets:
+        ai_message:
+          mode: append
 
   link:
     description: pito.grammar.chat.link
@@ -1081,6 +1081,8 @@ verbs:
     # Slash branch: full sectioned help (authenticated) or login hint (unauthenticated).
     description: pito.grammar.chat.help
     auth: session
+    # Help pages are reference chrome — not shareable.
+    universal_reply: false
     chat:
       dispatch: Chat::Handlers::Help
       slots: []
@@ -1305,6 +1307,8 @@ verbs:
 
   login:
     aliases: [authenticate]
+    # Login confirmations carry session context — never shareable.
+    universal_reply: false
     slash:
       auth: unauthenticated_only
       description: pito.grammar.slash.login

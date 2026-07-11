@@ -2,10 +2,12 @@
     removes the node on close, leaving the slot empty for the next open. %>
 <%= turbo_stream.update "pito-ai-picker-slot" do %>
   <%= render(Pito::Ai::PickerComponent.new(
-        provider:     provider,
-        label:        label,
-        models:       models,
-        active_model: active_model,
-        key_present:  key_present
+        providers:           providers,
+        active_provider:     active_provider,
+        active_model:        active_model,
+        effort:              effort,
+        favorites:           favorites,
+        recents:             recents,
+        conversation_models: conversation_models
       )) %>
 <% end %>

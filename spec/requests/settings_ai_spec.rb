@@ -68,6 +68,61 @@ RSpec.describe "PATCH /settings/ai", type: :request do
       expect(response.parsed_body["error"]).to eq("unknown_provider")
       expect(AppSetting.get("nope_api_key")).to be_blank
     end
+
+    it "sets and clears the effort PER MODEL (bound to the active selection)" do
+      AppSetting.set("ai_provider", "opencode")
+      AppSetting.set("ai_model", "m-1")
+
+      patch_ai(effort: "high")
+      expect(AppSetting.ai_effort_for("opencode/m-1")).to eq("high")
+      expect(response.parsed_body["effort"]).to eq("high")
+
+      patch_ai(effort: "off")
+      expect(AppSetting.ai_effort_for("opencode/m-1")).to be_nil
+
+      patch_ai(effort: "ultra")
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to eq("unknown_effort")
+    end
+
+    it "refuses an effort write before any model is picked" do
+      patch_ai(effort: "high")
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to eq("no_model")
+    end
+
+    it "keeps a separate effort per model — switching models restores each one's own" do
+      AppSetting.set("ai_provider", "opencode")
+      AppSetting.set("ai_model", "m-1")
+      patch_ai(effort: "high")
+
+      AppSetting.set("ai_model", "m-2")
+      patch_ai(effort: "low")
+
+      expect(AppSetting.ai_effort_for("opencode/m-1")).to eq("high")
+      expect(AppSetting.ai_effort_for("opencode/m-2")).to eq("low")
+    end
+
+    it "toggles favorites and echoes the list" do
+      patch_ai(favorite: "opencode/m-1")
+      expect(response.parsed_body["favorites"]).to eq([ "opencode/m-1" ])
+
+      patch_ai(favorite: "opencode/m-1")
+      expect(response.parsed_body["favorites"]).to eq([])
+    end
+
+    it "stamps a model pick into recents, newest first, deduped and capped" do
+      allow(::Ai::ModelCatalog).to receive(:models).with(provider: :opencode)
+        .and_return((1..7).map { |i| { id: "m-#{i}", pinned: false } })
+
+      (1..6).each { |i| patch_ai(model: "m-#{i}") }
+      patch_ai(model: "m-6")
+
+      expect(response.parsed_body["recents"]).to eq(
+        [ "opencode/m-6", "opencode/m-5", "opencode/m-4", "opencode/m-3", "opencode/m-2" ]
+      )
+    end
   end
 
   describe "when unauthenticated" do

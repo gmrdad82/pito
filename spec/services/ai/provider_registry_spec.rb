@@ -11,8 +11,10 @@ RSpec.describe Ai::ProviderRegistry do
   after { described_class.reload! }
 
   describe ".provider_names" do
-    it "is exactly [:opencode] against the real config" do
-      expect(described_class.provider_names).to eq([ :opencode ])
+    it "lists every declared provider, opencode first, against the real config" do
+      expect(described_class.provider_names).to eq(
+        %i[opencode openrouter huggingface deepseek openai anthropic qwen glm gemini]
+      )
     end
   end
 

@@ -11,7 +11,7 @@ RSpec.describe Pito::Chat::Handlers::Ai do
   end
 
   it "emits ONE pending :ai event carrying the raw prompt" do
-    result = dispatch("ai what should I play next?")
+    result = dispatch("@ai what should I play next?")
 
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.size).to eq(1)
@@ -23,7 +23,7 @@ RSpec.describe Pito::Chat::Handlers::Ai do
   end
 
   it "keeps the prompt raw — fillers and casing untouched" do
-    result = dispatch("ai please show me the BEST game, ordered by vibes")
+    result = dispatch("@Ai please show me the BEST game, ordered by vibes")
 
     expect(result.events.first[:payload]["prompt"])
       .to eq("please show me the BEST game, ordered by vibes")

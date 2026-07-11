@@ -8,15 +8,71 @@ All notable changes to PITO are documented here. The format follows
 
 ### Added
 
-- **The `ai` verb — ask PITO's assistant anything** — `ai what should I play
-  next?` runs an agentic loop against your configured provider: the model reads
-  your library through PITO's own read-only tools, then either answers by
-  running ONE real pito command (its native card appears, exactly as if you
-  typed it) or composes its own reply. The pending message narrates which tool
-  it is reading; provider switches via `/config ai` apply on the very next
-  question; loop/token caps and provider failures land as clean messages, never
-  a stuck spinner. (Typed content blocks — tables, charts, suggestions — render
-  as plain text for now; the full block renderer is next.)
+- **The `@ai` verb — ask PITO's assistant anything** — `@ai what should I play
+  next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
+  configured provider: the model reads your library through PITO's own
+  read-only tools, then either answers by running ONE real pito command (its
+  native card appears, exactly as if you typed it) or composes its own reply.
+  The pending message narrates which tool it is reading; provider switches via
+  `/config ai` apply on the very next question; loop/token caps and provider
+  failures land as clean messages, never a stuck spinner.
+- **Talk WITH the assistant, not just at it** — every AI answer is replyable
+  (`shift+r`): `#a7 @ai and what about tekken?` continues that thread, and the
+  replied-to exchange (your question plus that exact answer) is guaranteed
+  into the model's context even when it has scrolled far out of the recent
+  window. `apply [n]` still runs a suggested command.
+- **Effort is per model** — the picker's effort cycler now binds
+  low/medium/high to the CHOSEN model (a `provider/model → effort` map), so
+  switching models restores each one's own setting and models without
+  reasoning control simply never carry one.
+- **The picker knows this conversation** — a leading "Conversation" group
+  lists the models this conversation's answers were actually written by
+  (newest first), so hopping back to "whatever wrote that last answer" is one
+  keystroke. Appears only once AI messages exist.
+- **The AI's content vocabulary is declared, not hardcoded** — a new
+  `config/pito/content.yml` is the single ontology of everything the
+  assistant may compose: paragraphs (with **bold**, *italic*, and a limited
+  color palette — default, cyan, red, green), kv-tables, tables, media,
+  sparklines, area/bar/heatmap charts, the new **heart chart** (a braille
+  heart filled to a 0–100 sentiment score with a likes/dislikes legend),
+  score bars, effort gauges, and suggestions. Each block carries an
+  explanatory "what it is / when to use it / exact data shape" the model
+  reads; global content rules ban emoji outright (kaomoji welcome — the
+  terminal look survives). The tool document, validation caps, and system
+  prompt rules all generate from the YAML — changing what the model may say
+  is a YAML edit plus support code, and presentation never leaks to it.
+  While it works, the tool-activity line ("Crunching the numbers… ·
+  pito_analyze") now shimmers like the Thinking block, opening with one of
+  fifty handshake quips ("Somewhere, a GPU sweats…") the instant you ask.
+- **AI answers, dressed by feedback** — the surface settles on a static
+  pure-purple tint while the left bar keeps the purple→pito-blue sweep, now
+  height-aware (a one-line chatbox bar and a tall answer each flow at their
+  own pace); the pending message wears the plain :system dress until the
+  answer lands; the ✨ model badge sits in a translucent corner chip; the
+  reply handle renders through the standard meta line with its clickable
+  `shift+r`. Typed kv-values (price/date/number/score) right-align through
+  the house formatters — prices wear the same coins as `show game` — rows
+  can carry a click-to-run command, and stray `**bold**` markers are
+  unwrapped in cells (styling belongs to paragraphs). Suggestions only
+  appear when you ask for them, and the `apply` reply is gone — AI answers
+  reply with `@ai <text>` (and now `share`, like any card).
+- **`/config` un-spilled** — the nine AI providers no longer clutter the
+  config surface: `/config ai` is the ONLY AI entry, now scriptable as
+  kwargs (`provider=… api_key=… model=… effort=…`, documented in its
+  `--help`); per-provider slash commands are gone.
+- **Nine AI providers, one picker** — the `/config ai` dialog now spans every
+  provider in the registry: OpenCode Zen, OpenRouter, Hugging Face, DeepSeek,
+  OpenAI, Anthropic, Qwen, GLM (Z.ai), and Gemini. Favorites (`ctrl+f`) and
+  recents float your models to the top; each provider gets an inline
+  paste-your-key row (`/config <provider> api_key=…` works from text too, key
+  masked); an effort cycler appears for providers that support reasoning
+  control. Keyless providers show their pinned fallback instantly instead of
+  waiting on doomed requests.
+- **Charts and gauges untied from their data sources** — the big ticked area
+  chart, and the time-to-beat gauge (now generic ordered levels + a current
+  tracker — game footage is just its preset) accept plain values from any
+  caller; the AI's `area` chart blocks render the full ticked chart with
+  y-values, date axis, and target line.
 - **`/config ai` — AI provider foundation** — the first piece of the AI chat
   groundwork: an AI provider registry (`config/pito/ai_providers.yml`, starting
   with OpenCode Zen), a live model catalog (fetched from the provider, cached a
@@ -50,11 +106,29 @@ All notable changes to PITO are documented here. The format follows
   recommendation blend — three results instead of fifty-one on a 66-game
   library. A seed with no genres on record falls back to a similarity floor.
 - **Bottom pull-to-refresh, redone** — the ASCII gauge is gone. Pulling up from
-  the very bottom of the conversation now floats in a square spinner tile
-  (Lucide refresh arrow) that tracks the finger 1:1, its arrow winding up with
-  the drag; crossing ~30% of the screen height fires the reload on the spot,
-  and letting go earlier just drops it back out. The conversation itself no
-  longer moves during the pull.
+  the very bottom of the conversation now floats in the Lucide refresh arrows —
+  no tile, no border, just the glyph on a purple→pito-blue gradient stroke —
+  tracking the finger 1:1, the arrows winding up with the drag while their
+  gradient counter-rotates against them; crossing ~30% of the screen height
+  fires the reload on the spot, and letting go earlier just drops it back out.
+  The conversation itself no longer moves during the pull.
+- **AI answers dress like PITO** — the `:ai` message opens with its timestamp
+  inline in the first line (wrapped text returns to the left margin) and sits
+  on a purple→pito-blue gradient surface in the accent bar's exact colors,
+  cycling every ~10 rows so long answers sweep purple→blue→purple instead of
+  stretching one fade thin. A ✨ badge (inline Lucide sparkles on the same
+  gradient stroke) pins the answering model's name to the bottom-right corner.
+  Any markdown pipe-table the model leaks into prose is extracted into a real
+  table block — rendered on the shared grid in the kv-table palette (cyan
+  leading column, dim values), the same look `show game` details wear. While
+  the loop runs, the pending message narrates each tool read with a line from
+  the copy dictionary ("crunching the numbers… · pito_analyze") instead of a
+  bare arrow.
+- **The AI model picker speaks the palette's language** — bold title row with a
+  tappable Esc hint, yellow section titles for favorites/recents and every
+  provider, the Ctrl+K-style underlined search, and keybinding-styled footer
+  hints. Esc now always dismisses it (nothing can swallow the key while the
+  picker is open); Esc while pasting an API key backs out to the list first.
 - **Universal reply actions no longer override verbs** — a reply token a
   message's verb declares itself always routes to the verb; share/revoke only
   apply where nothing else claims the token.

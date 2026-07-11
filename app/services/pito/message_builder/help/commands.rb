@@ -42,7 +42,7 @@ module Pito
         # main help entirely; found during a help audit).
         "pito.copy.help.analytics_group_title" => %w[analyze at-a-glance breakdowns],
         # The AI assistant spans the whole library — its own group.
-        "pito.copy.help.ai_group_title"        => %w[ai]
+        "pito.copy.help.ai_group_title"        => %w[@ai]
       }.freeze
 
       module Commands

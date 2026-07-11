@@ -2,41 +2,73 @@
 
 module Pito
   module Ai
-    # The /config ai picker overlay — OpenCode-style model selection for one AI
-    # provider, pito-terminal dressed: square corners, mono, no hover theatrics.
+    # The /config ai picker overlay — OpenCode-style model selection across
+    # EVERY provider in config/pito/ai_providers.yml, pito-terminal dressed:
+    # square corners, mono, no hover theatrics.
     #
-    # Two states, both server-rendered and toggled live by pito--ai-picker:
-    #   * no key   → a masked API-key prompt (enter saves via PATCH /settings/ai;
-    #                the key is stored in AppSetting's encrypted key/value store
-    #                and never travels back down).
-    #   * key set  → the model list (live catalog with pinned fallbacks), search
-    #                filter, ↑/↓ + enter to pick, ctrl+x clears the stored key.
+    # Layout: Conversation (models this conversation's answers already used,
+    # only when any exist), Favorites (ctrl+f pins) and Recents lead, then one
+    # section per provider — its models when reachable (live list with a key,
+    # pinned fallback without) plus a connect row for keyless providers. An
+    # effort cycler row shows when the ACTIVE provider declares reasoning
+    # (effort persists PER MODEL). Every selectable row carries data-provider +
+    # data-value; pito--ai-picker owns keyboard flow and persistence
+    # (PATCH /settings/ai).
     #
     # Dumb by design: the caller (the /config ai fast-path) assembles state and
     # passes it in — the component reads no globals, so it renders identically
     # in specs and previews.
     class PickerComponent < ViewComponent::Base
-      # @param provider     [Symbol]  registry name (e.g. :opencode)
-      # @param label        [String]  display label (e.g. "OpenCode Zen")
-      # @param models       [Array<Hash>] { id: String, pinned: Boolean } rows
-      # @param active_model [String, nil] currently selected model id
-      # @param key_present  [Boolean] whether an API key is stored
-      def initialize(provider:, label:, models:, active_model: nil, key_present: false)
-        @provider     = provider.to_s
-        @label        = label
-        @models       = models
-        @active_model = active_model
-        @key_present  = key_present
+      # @param providers [Array<Hash>] {provider:, label:, key_present:,
+      #   reasoning:, models: [{id:, pinned:}]} rows, registry order
+      # @param active_provider [String]  the provider of the active model
+      # @param active_model    [String, nil] currently selected model id
+      # @param effort          [String, nil] the ACTIVE model's effort (nil = model default)
+      # @param favorites       [Array<String>] "provider/model" pins
+      # @param recents         [Array<String>] "provider/model", newest first
+      # @param conversation_models [Array<String>] "provider/model" this
+      #   conversation's :ai answers already used, newest first
+      def initialize(providers:, active_provider:, active_model: nil, effort: nil,
+                     favorites: [], recents: [], conversation_models: [])
+        @providers           = providers
+        @active_provider     = active_provider.to_s
+        @active_model        = active_model
+        @effort              = effort
+        @favorites           = favorites
+        @recents             = recents
+        @conversation_models = conversation_models
       end
 
-      attr_reader :provider, :label, :models, :active_model
+      attr_reader :providers, :active_provider, :active_model, :effort, :favorites, :recents,
+                  :conversation_models
 
-      def key_present?
-        @key_present
+      def active?(provider, model_id)
+        provider.to_s == @active_provider && model_id == @active_model
       end
 
-      def active?(model_id)
-        model_id == @active_model
+      def favorite?(provider, model_id)
+        @favorites.include?("#{provider}/#{model_id}")
+      end
+
+      # "provider/model" entries resolved back to rows (unknown providers —
+      # e.g. one removed from the YAML — are silently skipped).
+      def resolve_entries(entries)
+        by_name = providers.index_by { |p| p[:provider] }
+        entries.filter_map do |entry|
+          provider, model = entry.split("/", 2)
+          next unless model.present? && by_name.key?(provider)
+
+          { provider: provider, label: by_name[provider][:label], id: model }
+        end
+      end
+
+      def effort_row?
+        active = providers.find { |p| p[:provider] == @active_provider }
+        active && active[:reasoning] != "none"
+      end
+
+      def effort_label
+        @effort.presence || "model default"
       end
     end
   end

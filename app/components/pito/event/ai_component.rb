@@ -39,8 +39,15 @@ module Pito
         @payload[:reply_handle].presence
       end
 
-      def component_for(block)
-        Pito::Event::Ai::BlockRenderer.component_for(block)
+      def component_for(block, timestamp: nil)
+        Pito::Event::Ai::BlockRenderer.component_for(block, timestamp:)
+      end
+
+      # Whether the message can open with the timestamp inline in its first
+      # block (text flows around the prefix; other block types get a
+      # standalone timestamp line instead).
+      def text_block?(block)
+        block.respond_to?(:[]) && block["type"].to_s == "text"
       end
 
       def dom_id
@@ -55,6 +62,18 @@ module Pito
 
       def timestamp
         @event&.created_at
+      end
+
+      # The model that composed this answer (stamped by the orchestrator on
+      # finalize) — worn as the ✨ badge. Blank for pre-stamp messages.
+      def model
+        @payload[:model]
+      end
+
+      # The pending tile's opening line — the model takes a beat before its
+      # first tool call, so the slot never sits empty (1-or-50 dictionary).
+      def handshake_line
+        Pito::Copy.render("pito.copy.ai.status.handshake")
       end
     end
   end

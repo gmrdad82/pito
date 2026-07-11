@@ -27,6 +27,26 @@ RSpec.describe Ai::ModelCatalog, type: :service do
       end
     end
 
+    context "live: false (the picker's keyless-provider path)" do
+      it "issues NO request and serves the pinned fallback when nothing is cached" do
+        result = described_class.models(provider: :opencode, live: false)
+
+        expect(result).to eq(pinned_fallback)
+        expect(WebMock).not_to have_requested(:get, models_url)
+      end
+
+      it "serves an already-cached live list without a request" do
+        cache = ActiveSupport::Cache::MemoryStore.new
+        allow(Rails).to receive(:cache).and_return(cache)
+        cache.write(described_class.cache_key(:opencode), [ { id: "cached", pinned: false } ])
+
+        result = described_class.models(provider: :opencode, live: false)
+
+        expect(result).to eq([ { id: "cached", pinned: false } ])
+        expect(WebMock).not_to have_requested(:get, models_url)
+      end
+    end
+
     context "auth header" do
       it "sends Authorization: Bearer <key> when an API key is configured" do
         AppSetting.set("opencode_api_key", "sk-test")

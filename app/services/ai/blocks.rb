@@ -13,6 +13,8 @@ module Ai
   module Blocks
     module_function
 
+    # Ruby fallbacks — the live caps come from config/pito/content.yml
+    # (Ai::ContentRegistry.limit) so tuning a cap is a YAML edit.
     MAX_BLOCKS      = 12
     MAX_TEXT        = 4_000
     MAX_ROWS        = 20
@@ -27,7 +29,18 @@ module Ai
       "channel" => { klass: -> { ::Channel }, variants: %w[avatar banner], default: "avatar" }
     }.freeze
 
-    CHART_VIZ = %w[area bar heatmap].freeze
+    def max_blocks      = Ai::ContentRegistry.limit("max_blocks", default: MAX_BLOCKS)
+    def max_text        = Ai::ContentRegistry.limit("text", "max_chars", default: MAX_TEXT)
+    def max_rows        = Ai::ContentRegistry.limit("kv_table", "max_rows", default: MAX_ROWS)
+    def max_cols        = Ai::ContentRegistry.limit("table", "max_cols", default: MAX_COLS)
+    def max_series      = Ai::ContentRegistry.limit("sparkline", "max_points", default: MAX_SERIES)
+    def max_bars        = Ai::ContentRegistry.limit("chart", "max_bars", default: MAX_BARS)
+    def max_suggestions = Ai::ContentRegistry.limit("suggestion", "max_per_answer", default: MAX_SUGGESTIONS)
+
+    def chart_vizzes
+      vizzes = Ai::ContentRegistry.chart_vizzes
+      vizzes.any? ? vizzes : %w[area bar heatmap heart]
+    end
 
     # @param raw          [Array] the model's blocks (hashes, any key style)
     # @param conversation [Conversation] grammar context for suggestion parsing
@@ -35,58 +48,186 @@ module Ai
     def normalize(raw, conversation:)
       suggestions = 0
 
-      Array(raw).first(MAX_BLOCKS).filter_map do |block|
-        next unless block.is_a?(Hash)
+      Array(raw).first(max_blocks).flat_map do |block|
+        next [] unless block.is_a?(Hash)
 
         b = deep_stringify(block)
-        case b["type"].to_s
-        when "text"       then text(b)
-        when "kv_table"   then kv_table(b)
-        when "table"      then table(b)
-        when "media"      then media(b)
-        when "sparkline"  then sparkline(b)
-        when "chart"      then chart(b)
-        when "score"      then score(b)
-        when "ttb"        then ttb(b)
-        when "suggestion"
-          next degrade(b) if (suggestions += 1) > MAX_SUGGESTIONS
+        out =
+          case b["type"].to_s
+          when "text"       then text(b) # may split into [text, table, …]
+          when "kv_table"   then kv_table(b, conversation)
+          when "table"      then table(b)
+          when "media"      then media(b)
+          when "sparkline"  then sparkline(b)
+          when "chart"      then chart(b)
+          when "score"      then score(b)
+          when "ttb"        then ttb(b)
+          when "suggestion"
+            next [ degrade(b) ] if (suggestions += 1) > max_suggestions
 
-          suggestion(b, conversation)
-        else degrade(b)
-        end
-      end
+            suggestion(b, conversation)
+          else degrade(b)
+          end
+        out.is_a?(Array) ? out : [ out ].compact
+      end.first(max_blocks)
     end
 
     def text_block(text)
-      { "type" => "text", "text" => text.to_s.strip[0, MAX_TEXT] }
+      { "type" => "text", "text" => text.to_s.strip[0, max_text] }
+    end
+
+    # Free prose → blocks, WITH pipe-table extraction — the entry point for
+    # text that never went through normalize (bare-text stops, prose sent
+    # alongside a terminal tool). text_block stays raw: degrade() must never
+    # re-parse the JSON it wraps.
+    def text_blocks(text)
+      value = text.to_s.strip
+      return [] if value.blank?
+
+      extract_pipe_tables(value)
     end
 
     # ── per-type rules (nil never escapes: failures degrade) ──────────────────
 
+    # Models leak markdown pipe-tables into prose no matter what the prompt
+    # says — extract them into real table blocks (component-rendered, kv-table
+    # palette) instead of showing raw "| a | b |" lines. The surrounding prose
+    # stays as text blocks, in order.
     def text(b)
       value = b["text"].to_s.strip
-      value.present? ? text_block(value) : nil
+      return nil if value.blank?
+
+      text_blocks(value)
     end
 
-    def kv_table(b)
-      rows = Array(b["rows"]).first(MAX_ROWS).filter_map do |row|
-        pair = Array(row).map(&:to_s)
-        pair if pair.size == 2
+    PIPE_ROW       = /\A\s*\|.*\|\s*\z/
+    PIPE_SEPARATOR = /\A\s*\|[\s\-:|]+\|\s*\z/
+
+    def extract_pipe_tables(value)
+      blocks = []
+      buffer = []
+      lines  = value.split("\n")
+
+      i = 0
+      while i < lines.size
+        # A table starts at a pipe row whose NEXT line is the |---| separator.
+        unless lines[i].match?(PIPE_ROW) && lines[i + 1]&.match?(PIPE_SEPARATOR)
+          buffer << lines[i]
+          i += 1
+          next
+        end
+
+        run = []
+        while i < lines.size && lines[i].match?(PIPE_ROW)
+          run << lines[i]
+          i += 1
+        end
+
+        table = pipe_table_block(run)
+        if table
+          flush_text(blocks, buffer)
+          blocks << table
+        else
+          buffer.concat(run) # not parseable after all — keep the raw lines
+        end
+      end
+
+      flush_text(blocks, buffer)
+      blocks
+    end
+
+    def pipe_table_block(run)
+      header = pipe_cells(run[0])
+      rows   = run.drop(2).map { |line| pipe_cells(line) }
+      return nil if header.empty? || rows.empty?
+
+      table({ "type" => "table", "header" => header, "rows" => rows })
+    end
+
+    def pipe_cells(line)
+      line.to_s.strip.delete_prefix("|").delete_suffix("|").split("|").map(&:strip)
+    end
+
+    def flush_text(blocks, buffer)
+      joined = buffer.join("\n").strip
+      blocks << text_block(joined) if joined.present?
+      buffer.clear
+    end
+
+    KV_VALUE_FORMATS = %w[price date number score].freeze
+
+    # Rows arrive as [key, value] pairs OR {key:, value:, command:} objects.
+    # A value may itself be typed — {v:, format: price|date|number|score} —
+    # which the component right-aligns and renders through the house
+    # formatters (price = the show-game coin display). `command` (validated
+    # like a suggestion) makes the row's key click-to-prefill.
+    def kv_table(b, conversation = nil)
+      rows = Array(b["rows"]).first(max_rows).filter_map do |row|
+        kv_row(row, conversation)
       end
       rows.any? ? { "type" => "kv_table", "rows" => rows } : degrade(b)
     end
 
+    def kv_row(row, conversation = nil)
+      if row.is_a?(Hash)
+        r = deep_stringify(row)
+        return nil if r["key"].blank?
+
+        out = [ plain(r["key"]), kv_value(r["value"]) ]
+        cmd = runnable_command(r["command"], conversation:)
+        out << cmd if cmd
+        out
+      else
+        pair = Array(row)
+        return nil unless pair.size == 2
+
+        [ plain(pair[0]), kv_value(pair[1]) ]
+      end
+    end
+
+    def kv_value(value)
+      if value.is_a?(Hash)
+        v = deep_stringify(value)
+        format = v["format"].to_s
+        return plain(v.to_s) unless KV_VALUE_FORMATS.include?(format) && !v["v"].nil?
+
+        { "v" => v["v"].to_s, "format" => format }
+      else
+        plain(value)
+      end
+    end
+
     def table(b)
-      header = Array(b["header"]).first(MAX_COLS).map(&:to_s)
+      header = Array(b["header"]).first(max_cols).map { |c| plain(c) }
       return degrade(b) if header.empty?
 
-      rows = Array(b["rows"]).first(MAX_ROWS).map do |row|
-        cells = Array(row).first(header.size).map(&:to_s)
+      rows = Array(b["rows"]).first(max_rows).map do |row|
+        cells = Array(row).first(header.size).map { |c| plain(c) }
         cells + Array.new(header.size - cells.size, "")
       end
       return degrade(b) if rows.empty? # the grid renders nothing without rows
 
       { "type" => "table", "header" => header, "rows" => rows }
+    end
+
+    # Styling notation belongs to paragraphs alone — in cells, keys, and
+    # labels the markers are noise ("**94**" in a table cell): unwrap them.
+    def plain(value)
+      value.to_s
+           .gsub(/\*\*(.+?)\*\*/m, '\1')
+           .gsub(/\*([^*\n]+)\*/, '\1')
+    end
+
+    # A row-level command, validated exactly like a suggestion's — nil when
+    # it isn't a runnable pito command.
+    def runnable_command(command, conversation: nil)
+      cmd = command.to_s.strip
+      return nil if cmd.blank?
+
+      verb = Pito::Dispatch::UniversalReply.chat_verb(cmd, conversation)
+      return nil if verb.blank? || verb == "unknown" || verb == "@ai"
+
+      cmd
     end
 
     def media(b)
@@ -104,7 +245,7 @@ module Ai
       return degrade(b) if series.empty?
 
       out = { "type" => "sparkline", "series" => series }
-      out["label"]      = b["label"].to_s if b["label"].present?
+      out["label"]      = plain(b["label"]) if b["label"].present?
       out["series_max"] = [ b["series_max"].to_f, 0.0 ].max if b["series_max"].present?
       out
     end
@@ -115,15 +256,23 @@ module Ai
     def chart(b)
       viz  = b["viz"].to_s
       data = b["data"].is_a?(Hash) ? b["data"] : {}
-      return degrade(b) unless CHART_VIZ.include?(viz)
+      return degrade(b) unless chart_vizzes.include?(viz)
 
       out =
         case viz
         when "area"
           series = numeric_series(data["series"])
-          series.any? ? { "viz" => "area", "series" => series } : nil
+          if series.any?
+            area = { "viz" => "area", "series" => series }
+            area["target"] = [ data["target"].to_f, 0.0 ].max if data["target"].present?
+            area["format"] = data["format"].to_s if %w[count duration percent].include?(data["format"].to_s)
+            if data["dates"].is_a?(Array) && data["dates"].size == series.size
+              area["dates"] = data["dates"].map(&:to_s)
+            end
+            area
+          end
         when "bar"
-          bars = Array(data["bars"]).first(MAX_BARS).filter_map do |bar|
+          bars = Array(data["bars"]).first(max_bars).filter_map do |bar|
             next unless bar.is_a?(Hash)
 
             h = deep_stringify(bar)
@@ -136,10 +285,19 @@ module Ai
         when "heatmap"
           values = numeric_series(data["values"])
           values.size == 7 ? { "viz" => "heatmap", "values" => values } : nil
+        when "heart"
+          if data["score"].present?
+            {
+              "viz"      => "heart",
+              "score"    => data["score"].to_i.clamp(0, 100),
+              "likes"    => [ data["likes"].to_i, 0 ].max,
+              "dislikes" => [ data["dislikes"].to_i, 0 ].max
+            }
+          end
         end
       return degrade(b) if out.nil?
 
-      out["label"] = b["label"].to_s if b["label"].present?
+      out["label"] = plain(b["label"]) if b["label"].present?
       { "type" => "chart" }.merge(out)
     end
 
@@ -148,23 +306,52 @@ module Ai
       return degrade(b) unless value.is_a?(Numeric) || value.to_s.match?(/\A\d+\z/)
 
       out = { "type" => "score", "value" => value.to_i.clamp(0, 100) }
-      out["label"] = b["label"].to_s if b["label"].present?
+      out["label"] = plain(b["label"]) if b["label"].present?
       out
     end
 
+    # Generic effort gauge: ordered `levels` [{label, hours}, …] (1..3) plus an
+    # optional `current` {label, hours} progress tracker. The legacy game shape
+    # (`hours: {main, extras, completionist}` + `footage_hours`) maps onto the
+    # same structure for compatibility.
     def ttb(b)
-      hours = b["hours"].is_a?(Hash) ? deep_stringify(b["hours"]) : {}
-      main  = hours["main"].to_f
-      return degrade(b) if main <= 0
+      levels = ttb_levels(b)
+      return degrade(b) if levels.empty?
 
-      out = { "type" => "ttb", "hours" => {
-        "main"          => main,
-        "extras"        => [ hours["extras"].to_f, 0.0 ].max,
-        "completionist" => [ hours["completionist"].to_f, 0.0 ].max
-      } }
-      out["footage_hours"] = [ b["footage_hours"].to_f, 0.0 ].max if b["footage_hours"].present?
-      out["label"]         = b["label"].to_s if b["label"].present?
+      out = { "type" => "ttb", "levels" => levels }
+      current = ttb_current(b)
+      out["current"] = current if current
+      out["label"]   = plain(b["label"]) if b["label"].present?
       out
+    end
+
+    def ttb_levels(b)
+      if b["levels"].present?
+        Array(b["levels"]).first(3).filter_map do |level|
+          next unless level.is_a?(Hash)
+
+          l = deep_stringify(level)
+          next if l["label"].to_s.blank? || l["hours"].to_f <= 0
+
+          { "label" => l["label"].to_s, "hours" => l["hours"].to_f }
+        end
+      elsif b["hours"].is_a?(Hash)
+        h = deep_stringify(b["hours"])
+        %w[main extras completionist].filter_map do |name|
+          { "label" => name, "hours" => h[name].to_f } if h[name].to_f.positive?
+        end
+      else
+        []
+      end
+    end
+
+    def ttb_current(b)
+      if b["current"].is_a?(Hash)
+        c = deep_stringify(b["current"])
+        { "label" => c["label"].to_s.presence || "current", "hours" => [ c["hours"].to_f, 0.0 ].max }
+      elsif b["footage_hours"].present?
+        { "label" => "footage", "hours" => [ b["footage_hours"].to_f, 0.0 ].max }
+      end
     end
 
     def suggestion(b, conversation)
@@ -172,10 +359,10 @@ module Ai
       return degrade(b) if command.blank?
 
       verb = Pito::Dispatch::UniversalReply.chat_verb(command, conversation)
-      return degrade(b) if verb.blank? || verb == "unknown" || verb == "ai"
+      return degrade(b) if verb.blank? || verb == "unknown" || verb == "@ai"
 
       out = { "type" => "suggestion", "command" => command }
-      out["note"] = b["note"].to_s if b["note"].present?
+      out["note"] = plain(b["note"]) if b["note"].present?
       out
     end
 
@@ -185,7 +372,7 @@ module Ai
     end
 
     def numeric_series(values)
-      Array(values).first(MAX_SERIES).map { |v| [ v.to_f, 0.0 ].max }
+      Array(values).first(max_series).map { |v| [ v.to_f, 0.0 ].max }
     end
 
     def deep_stringify(hash)
