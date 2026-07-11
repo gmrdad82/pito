@@ -8,7 +8,7 @@ module Pito
     # render(usage:, groups:) → html_safe String wrapped in .pito-help-block
     #
     # Format mirrors Game::ListHelp exactly:
-    #   - Purple bold section headers (G40 — yellow is reserved for the
+    #   - Purple bold section headers (yellow is reserved for the
     #     actionable/clickable class, headings must not wear it)
     #   - Indented usage line (dim)
     #   - Each group row: "  <cyan token><padding><dim desc>"
@@ -61,7 +61,7 @@ module Pito
         result.html_safe
       end
 
-      # Rows render alphabetically by token (owner 1.0.0 G13 — "easier to
+      # Rows render alphabetically by token ("easier to
       # follow"), comparing case-insensitively with leading punctuation
       # stripped so `--help` sorts as "help" and `#id` as "id". Groups holding
       # a Raw row keep their authored order — raw markup is dropped "wherever

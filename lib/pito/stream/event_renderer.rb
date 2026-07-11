@@ -45,7 +45,8 @@ module Pito
         "confirmation"            => Pito::Event::ConfirmationComponent,
         "confirmation_follow_up"  => Pito::Event::ConfirmationFollowUpComponent,
         "error"                   => Pito::Event::ErrorComponent,
-        "theme_diff"              => Pito::Event::ThemeDiffComponent
+        "theme_diff"              => Pito::Event::ThemeDiffComponent,
+        "ai"                      => Pito::Event::AiComponent
       }.freeze
 
       # Renders an event to HTML: fragment-cached body (L1 — FragmentCache) +
@@ -94,7 +95,7 @@ module Pito
       #   (reply_handle / reply_target) from the payload so the rendered message
       #   shows NO `#handle` and isn't presented as repliable. Used by the public
       #   /share/:uuid page — a shared message is read-only, so its hashtag must not
-      #   appear (owner 2026-07-01). Components read reply_handle from the PAYLOAD,
+      #   appear. Components read reply_handle from the PAYLOAD,
       #   so removing it here is enough.
       def self.component_for(event, suppress_reply: false)
         payload = indifferent_payload(event)

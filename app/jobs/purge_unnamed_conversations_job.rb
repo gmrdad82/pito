@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Nightly auto-purge (item 15): finds UNNAMED conversations with no activity in
+# Nightly auto-purge: finds UNNAMED conversations with no activity in
 # the last 30 days and requests an async deletion for EACH one individually
 # through the SAME path the `dd` keybinding uses (Conversation::RequestDeletion →
 # DeleteConversationJob) — NOT a single bulk destroy (which would hold a long

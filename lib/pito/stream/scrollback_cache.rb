@@ -2,7 +2,7 @@
 
 module Pito
   module Stream
-    # L2 conversation-snapshot cache (0.9.0 Phase 6) — the ASSEMBLED scrollback
+    # L2 conversation-snapshot cache — the ASSEMBLED scrollback
     # HTML per conversation, stored in SolidCache and served on GET /chat/:uuid
     # as one cache read.
     #

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The version heartbeat (G80): every 5 minutes, push the running build's
+# The version heartbeat: every 5 minutes, push the running build's
 # identity onto pito:global. This is how open tabs learn the server was
 # updated UNDER them — the one-shot reconnect check (cable-health) can miss
 # the update's reconnect churn, but a recurring push reaches every client

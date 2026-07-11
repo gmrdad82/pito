@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# READONLY performance baseline for the 0.9.0 caching release (Phase 0).
+# READONLY performance baseline for the 0.9.0 caching release.
 #
 # Runs every registered Pito::Bench step under a network kill switch (any
 # outbound socket raises) and a read-only DB session (any app-data write

@@ -3,8 +3,8 @@
 module Pito
   module Capture
     # One capture SCENARIO — a YAML instruction file under config/captures/
-    # describing what to show and what to record (owner 2026-07-03: the
-    # committed successor to the throwaway heredocs that shot the mkt images).
+    # describing what to show and what to record (the committed successor to
+    # the throwaway heredocs that shot the mkt images).
     #
     #   name: ls-channels
     #   base_url: http://localhost:3027   # pito dev; a pitomd preview works too
@@ -17,7 +17,7 @@ module Pito
     #     - shot: ls-channels.png          # single PNG
     #     - gif: { name: ls-channels.gif, duration: 4, fps: 5 }
     #
-    # STORYBOARD mode (owner 2026-07-03) — deliberate keyframes instead of
+    # STORYBOARD mode — deliberate keyframes instead of
     # time-sampled frames: register a `keyframe:` shot at each staged moment
     # (half-typed command / thinking block / rendered message), then a
     # `storyboard:` step assembles the registered frames, in order, into a
@@ -39,7 +39,7 @@ module Pito
     #
     # OUTPUT CONFINEMENT: everything lands under tmp/captures/<name>/ — the
     # tool never writes into docs/media/ or a website's asset tree, so existing
-    # shipped images can never be overwritten (owner). Promoting a capture is a
+    # shipped images can never be overwritten. Promoting a capture is a
     # deliberate manual copy.
     class Scenario
       STEP_KEYS = %w[visit login command type submit wait_for sleep shot gif keyframe burst scroll_to storyboard viewport].freeze
@@ -63,8 +63,7 @@ module Pito
       end
 
       # The pitomd-destined set (rake pitomd:capture) — stored apart in
-      # lib/support/pitomd and output-scoped so the two sets can never collide
-      # (owner 2026-07-03).
+      # lib/support/pitomd and output-scoped so the two sets can never collide.
       def self.pitomd(dir: Rails.root.join("lib/support/pitomd"))
         Dir.glob(dir.join("*.yml")).sort.map { |p| load(p, scope: "pitomd") }
       end

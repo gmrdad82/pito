@@ -3,7 +3,7 @@
 module Pito
   module Dispatch
     # The source context a verb handler runs against — the surface-agnostic half
-    # of the uniform dispatch contract (plan-0.9.5 T8.10).
+    # of the uniform dispatch contract.
     #
     # `Pito::Dispatch::Router` builds one of these per invocation and passes it to
     # the verb's dispatch class as `call(kwargs:, context:)`. It carries exactly

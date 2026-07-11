@@ -5,7 +5,7 @@ require "bigdecimal"
 # Pure function. Parses the `footage [update] <hours>` amount typed for the
 # `games.footage_hours` column — the single canonical parser the `footage` chat
 # verb, its game-detail follow-up reply, and the `:footage_hours` dispatch
-# resolver all share (plan-0.9.5 T8.15 — "wrap, don't fork").
+# resolver all share — "wrap, don't fork".
 #
 # Contract:
 #   * Tolerates an optional leading `update` token (`update 12.5` == `12.5`).

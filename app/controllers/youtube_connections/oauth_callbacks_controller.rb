@@ -27,7 +27,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   # YouTube-connect path expects an active session (the user was signed
   # in to pito BEFORE clicking [ connect ]; the cookie stays through
   # the OAuth round-trip because the redirect bounces through the same
-  # domain). Z1: Current.user is gone; guard is now Current.session.
+  # domain). Current.user is gone; guard is now Current.session.
   allow_anonymous :failure
 
   # OmniAuth's middleware does its own state-parameter check before
@@ -85,7 +85,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     audit("youtube_connection.callback.succeeded",
           connection_id: connection.id)
 
-    # Recovery hook (0.9.0 Phase RQ): this callback just flipped a previously
+    # Recovery hook: this callback just flipped a previously
     # dead grant back to life — requeue failed jobs + catch up the scheduled
     # passes the flag made every job skip. Dirty tracking (not a plain flag
     # read) so a FIRST connect never triggers it; the partial-grant branch
@@ -156,7 +156,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   # current user is in scope (the connect flow expects a logged-in
   # pito user).
   def upsert_youtube_connection_for_current_user(auth_hash)
-    # Z1: User model gone; guard on active session instead.
+    # User model gone; guard on active session instead.
     return nil unless Current.session.present?
 
     info = auth_hash.respond_to?(:info) ? auth_hash.info : auth_hash["info"] || {}

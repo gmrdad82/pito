@@ -109,6 +109,7 @@ en:
           - "link revoked. it'll stop working soon."
         not_shared: "nothing to revoke — this message has not been shared yet. use `share` first."
         not_resolved: "this message is still loading — you can share it once it's finished."
+        not_available: "sharing is switched off for this kind of message."
         help_unavailable: "no help page available for this message type."
         gone:
           title: "this share was revoked or never existed."

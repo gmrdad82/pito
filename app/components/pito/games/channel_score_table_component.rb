@@ -2,7 +2,7 @@
 
 module Pito
   module Games
-    # Column 2 of the show-game channel-matches message (item 16): the channel
+    # Column 2 of the show-game channel-matches message: the channel
     # RECOMMENDATION as a kv-table — each row is a small (40×40 :xs variant)
     # channel avatar in the key column and the channel's fit ScoreBar in the value
     # column. Top-5 by score (caller passes ranked results); renders directly (not

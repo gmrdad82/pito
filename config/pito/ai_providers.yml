@@ -1,0 +1,24 @@
+# AI provider registry — declares HOW to reach each provider (wire format, host,
+# auth style, model discovery). WHICH provider/model is active — and the API
+# keys — live in AppSetting, set through `/config ai`. Adding a provider is one
+# entry here; Ai::ProviderRegistry validates every key on load, so a typo fails
+# loudly at boot/spec time, never silently at call time.
+#
+#   wire:            openai_chat | anthropic_messages — the request/response
+#                    format the adapter speaks. OpenAI-compatible hosts
+#                    (OpenCode Zen, OpenRouter, DeepSeek, Qwen, …) all use
+#                    openai_chat with their own base_url.
+#   auth:            bearer (Authorization: Bearer <key>) | x_api_key.
+#   models_endpoint: GET path returning the OpenAI list shape for the picker.
+#   pinned_models:   fallback ids shown when the live fetch fails or no key is
+#                    configured yet.
+schema_version: 1
+providers:
+  opencode:
+    label: "OpenCode Zen"
+    wire: openai_chat
+    base_url: https://opencode.ai/zen/v1
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: none }
+    pinned_models: [claude-sonnet-5, deepseek-v4-flash-free, big-pickle]

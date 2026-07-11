@@ -17,9 +17,9 @@ class Channel < ApplicationRecord
   # each variant is 2× its CSS display size so hiDPI/retina screens (every
   # phone) get a sharp render; the display size is pinned in CSS:
   #   :sm — 120×120 fill, displayed  60px (show-channel kv-table inline row)
-  #   :xs —  70×70  fill, displayed  35px (game channel-recommendation rows,
-  #          item 16) — a DISTINCT variant sized to ONE braille bar
-  #          (2.5em @ 14px = 35px) so each avatar row aligns with its bar (17.9)
+  #   :xs —  70×70  fill, displayed  35px (game channel-recommendation rows) —
+  #          a DISTINCT variant sized to ONE braille bar (2.5em @ 14px = 35px)
+  #          so each avatar row aligns with its bar
   has_one_attached :avatar do |attachable|
     attachable.variant :sm, resize_to_fill: [ 120, 120 ]
     attachable.variant :xs, resize_to_fill: [ 70, 70 ]
@@ -33,7 +33,7 @@ class Channel < ApplicationRecord
   end
 
   # Host-less proxy path for the :xs avatar variant (35×35) — used in the
-  # show-game channel-recommendation kv-table (item 16). nil when none attached.
+  # show-game channel-recommendation kv-table. nil when none attached.
   def avatar_xs_url
     Pito::ImagePath.call(avatar, variant: :xs)
   end
@@ -71,7 +71,7 @@ class Channel < ApplicationRecord
   # relatedPlaylists.likes is a playlist ID of owner-LIKED videos, not a
   # count) — the channel's likes are MATERIALIZED into its own Pito::Stats
   # row by Channel::StatsRefresh (sum of its videos; recomputed at every
-  # stats pass, G28). `.to_i` → 0 before the first rollup (owner G30).
+  # stats pass). `.to_i` → 0 before the first rollup.
   def like_count
     Pito::Stats.get(self, :likes).to_i
   end
@@ -87,7 +87,7 @@ class Channel < ApplicationRecord
     "@#{handle.to_s.sub(/\A@+/, '')}"
   end
 
-  # Resolve a "@handle" / bare "handle" string to a Channel (#7). Exact,
+  # Resolve a "@handle" / bare "handle" string to a Channel. Exact,
   # @-agnostic, case-insensitive match FIRST; then a pg_trgm fuzzy fallback (best
   # match above the trigram threshold) so "fighter" finds "@fighterpro". Returns
   # nil when nothing matches. The fuzzy query uses the same REPLACE(handle,'@','')

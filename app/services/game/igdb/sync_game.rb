@@ -20,7 +20,7 @@ class Game
         @client = client
       end
 
-      # `prefetched:` (0.9.0 Phase 3) — bulk callers (GameIgdbNightlyRefresh)
+      # `prefetched:` — bulk callers (GameIgdbNightlyRefresh)
       # pass `{ game_json:, ttb_json: }` fetched via the ⌈N/500⌉ bulk queries;
       # the two per-game requests are then skipped. When prefetched is given
       # but carries no game_json, the game is MISSING on IGDB — same
@@ -42,7 +42,7 @@ class Game
           sync_publishers(game, game_json["involved_companies"])
           # BOOKKEEPING stamp, not a data change — update_columns skips the
           # updated_at touch. The nightly refresh detects "this game changed"
-          # by comparing updated_at before/after the sync (E11): stamping
+          # by comparing updated_at before/after the sync: stamping
           # through update! marked every synced game as updated every night
           # ("checked 60, updated 60" with nothing actually changed).
           game.assign_attributes(igdb_synced_at: Time.current, last_sync_error: nil)
@@ -90,7 +90,7 @@ class Game
         game.save!
       rescue ActiveRecord::RecordNotUnique => e
         raise unless e.message.to_s.include?("igdb_slug")
-        # Spec Open Question #7: slug collision. Fall back to NULL slug,
+        # Slug collision. Fall back to NULL slug,
         # stamp last_sync_error, let the user resolve manually.
         game.assign_attributes(attrs.merge(igdb_slug: nil))
         game.last_sync_error = "igdb error: slug collision (#{attrs[:igdb_slug]})"
@@ -127,7 +127,7 @@ class Game
         end
       end
 
-      # Item 24 — per-platform release dates. Upsert one GamePlatformRelease per
+      # Per-platform release dates. Upsert one GamePlatformRelease per
       # recognised platform token, drop tokens no longer present, and re-derive
       # games.release_* as the EARLIEST across platforms (a lower-bound for
       # scopes/sorting; the countdown reads the per-platform rows directly).
@@ -153,7 +153,7 @@ class Game
 
         # assign + save! writes (and touches updated_at) ONLY when a component
         # actually changed — an unconditional update! here re-stamped every game
-        # every night even when IGDB returned identical dates (E11 root cause,
+        # every night even when IGDB returned identical dates (root cause:
         # introduced with the per-platform releases in 5a9a9642).
         game.assign_attributes(
           release_year:    earliest.release_year,

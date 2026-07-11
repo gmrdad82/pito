@@ -13,11 +13,11 @@ module Pito
     # Supported metrics:
     #   :subscribed_status — views share per status; UNSUBSCRIBED first, then SUBSCRIBED
     #   :devices           — views share folded into MOBILE / DESKTOP / TV buckets
-    #   :geography         — views share by country; top 4 + "Other" rollup (G78)
+    #   :geography         — views share by country; top 4 + "Other" rollup
     #   :gender            — viewer_percentage renormalised to 100 across subjects (≤3 buckets)
-    #   :age               — viewer_percentage renormalised to 100; top 4 + "Other" rollup (G78)
+    #   :age               — viewer_percentage renormalised to 100; top 4 + "Other" rollup
     #
-    # G78: every share list is capped at MAX_BARS by with_other_rollup — ≤5
+    # Every share list is capped at MAX_BARS by with_other_rollup — ≤5
     # segments stay discrete; more become top-4 + an OTHER_KEY bar carrying the
     # exact remainder, so a chart's bars ALWAYS total 100.
     #
@@ -44,13 +44,13 @@ module Pito
       # Presentation order for subscribed-status bars (typically larger bar first).
       SUBSCRIBED_ORDER = %w[UNSUBSCRIBED SUBSCRIBED].freeze
 
-      # The rollup bucket's key (G78). Presentation maps it to the localized
+      # The rollup bucket's key. Presentation maps it to the localized
       # "Other" label; it can never collide with a real dimension value
       # (country codes are 2 chars, age buckets carry the "age" prefix).
       OTHER_KEY = "OTHER"
 
       # Max bars a chart shows; when the data has more segments, the tail rolls
-      # up into the 5th bar so every chart's percentages total 100 (G78 — the
+      # up into the 5th bar so every chart's percentages total 100 (the
       # old top-5 slice left e.g. Geography summing to 74% with the long tail
       # silently dropped).
       MAX_BARS = 5
@@ -121,7 +121,7 @@ module Pito
       end
 
       # Views share by country: top-4 countries + an "Other" rollup summing the
-      # long tail (G78), so the bars always total 100. All ≤5 countries stay
+      # long tail, so the bars always total 100. All ≤5 countries stay
       # discrete (no rollup needed to reach 100).
       def geography(groups:, window:)
         rows = all_rows(groups:, window:, report: "country")
@@ -138,7 +138,7 @@ module Pito
       end
 
       # viewer_percentage share by gender, renormalised to 100 over ALL buckets
-      # (≤3 in the API, so the G78 rollup is a structural no-op here). See
+      # (≤3 in the API, so the rollup is a structural no-op here). See
       # module comment for the approximation caveat.
       def gender(groups:, window:)
         rows = all_rows(groups:, window:, report: "demographics")
@@ -146,7 +146,7 @@ module Pito
       end
 
       # viewer_percentage share by age group, renormalised to 100 over ALL
-      # buckets, then top-4 + "Other" (G78 — the API returns up to 7 age
+      # buckets, then top-4 + "Other" (the API returns up to 7 age
       # buckets; the old top-5 renormalisation inflated the kept buckets to
       # fake 100 instead of naming the tail). See module comment for the
       # approximation caveat.
@@ -198,7 +198,7 @@ module Pito
           .map { |k, v| { key: k, pct: pct(v, grand) } }
       end
 
-      # G78: cap a full, descending, sums-to-100 share list at MAX_BARS.
+      # Cap a full, descending, sums-to-100 share list at MAX_BARS.
       # ≤5 segments → all discrete; more → the top 4 stay discrete and the 5th
       # becomes OTHER_KEY carrying the exact remainder (100 − top-4), so the
       # rounded bars always total 100.0 and the long tail is named, not dropped.

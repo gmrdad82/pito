@@ -2,7 +2,7 @@
 
 module Pito
   module Dispatch
-    # Cached loader for config/pito/verbs.yml — the D7 verb ontology.
+    # Cached loader for config/pito/verbs.yml — the verb ontology.
     #
     # Loads + deep-freezes the YAML once per boot; memoized at the class level.
     # In development, Rails.application.config.to_prepare triggers .reload! so

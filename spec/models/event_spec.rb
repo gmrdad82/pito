@@ -6,7 +6,7 @@ RSpec.describe Event, type: :model do
   describe "KINDS" do
     it "includes all expected kinds" do
       expect(described_class::KINDS).to match_array(
-        %w[echo system error enhanced thinking confirmation system_follow_up enhanced_follow_up confirmation_follow_up theme_diff]
+        %w[echo system error enhanced thinking confirmation system_follow_up enhanced_follow_up confirmation_follow_up theme_diff ai]
       )
     end
   end

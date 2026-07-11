@@ -3,8 +3,8 @@
 module Pito
   module Dispatch
     # The agnostic Router — ONE config-driven execution path for chat verbs and
-    # for hashtag verb-replies (plan-0.9.5 T8.10, the owner's D7 end-state:
-    # "no dispatchers with many if/else blocks"; routing IS a config lookup).
+    # for hashtag verb-replies ("no dispatchers with many if/else blocks";
+    # routing IS a config lookup).
     #
     # Given an input string (a typed `<verb> <rest>` OR a reply's reconstructed
     # `<verb> <rest>` threaded with a Pito::Chat::FollowUpContext), it:
@@ -19,8 +19,9 @@ module Pito
     #      the old Registry.lookup-nil path did.
     #   3. intercepts `--help` (verb man pages / the help easter egg) unchanged.
     #   4. binds kwargs: reply paths consume the ReplyBinding output that
-    #      VerbDelegator threaded onto FollowUpContext#bound (advisory in P2 —
-    #      T8.7 — now consumed into the contract here); typed paths carry none.
+    #      VerbDelegator threaded onto FollowUpContext#bound (previously
+    #      advisory only, now consumed into the contract here); typed paths
+    #      carry none.
     #   5. invokes the dispatch class through the uniform contract
     #      `call(kwargs:, context:) -> Pito::Chat::Result` and returns the Result
     #      to the caller UNCHANGED.
@@ -31,9 +32,9 @@ module Pito
     # (the Matrix `invalid_action` gate) stays in Pito::FollowUp::VerbDelegator,
     # which runs before this Router and is preserved exactly.
     #
-    # Adding a verb needs ZERO edits here (the T8.12b foundation): declare the
-    # verb + `chat.dispatch:` in config and ship a handler class that answers the
-    # uniform contract (every Pito::Chat::Handler does, via its base `self.call`).
+    # Adding a verb needs ZERO edits here: declare the verb + `chat.dispatch:`
+    # in config and ship a handler class that answers the uniform contract
+    # (every Pito::Chat::Handler does, via its base `self.call`).
     class Router
       # @param input          [String]            the raw command / reconstructed reply text.
       # @param conversation   [Conversation]      the active conversation.
@@ -139,7 +140,7 @@ module Pito
 
       # Reply paths consume FollowUpContext#bound — the ReplyBinding output
       # VerbDelegator resolved from the verb's `reply.targets.<target>.ref/args`
-      # config (T8.7). Typed free-chat paths carry no pre-bound kwargs.
+      # config. Typed free-chat paths carry no pre-bound kwargs.
       def bound_kwargs
         @follow_up ? @follow_up.bound : {}
       end

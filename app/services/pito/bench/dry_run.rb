@@ -115,7 +115,7 @@ module Pito
       end
 
       # Counter/virtual-store access is mutex-guarded: cold fetches fan out
-      # over Primitives' bounded thread pool since Phase 3.
+      # over Primitives' bounded thread pool.
       def record!(kwargs)
         MUTEX.synchronize do
           @counts["requests"] += 1

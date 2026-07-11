@@ -8,6 +8,10 @@ en:
         usage: "list games  |  list vids  |  list channels"
       search:
         usage: "search games like <title>"
+      ai:
+        usage: "ai <question about your games, vids, or channels>"
+      update:
+        usage: "update game footage|price|platform <id> <value>  |  update vid description|tags <id> <value>"
       show:
         usage: "show game #id  |  show vid #id  |  show channel @handle"
         game:
@@ -61,7 +65,7 @@ en:
               "games": "The channel's linked games as a cover grid (shown only when linked games exist)"
               "videos": "Paginated list of the channel's videos (shown only when videos exist)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
-      # Segment verbs (D20/D21): each promotes one show/analyze :enhanced segment
+      # Segment verbs: each promotes one show/analyze :enhanced segment
       # into its own verb. Behaviour equals `<parent> <noun> <ref> only <segment>`.
       "at-a-glance":
         usage: "at-a-glance channel @handle  |  at-a-glance vid #id  |  at-a-glance game #id"
@@ -173,7 +177,7 @@ en:
               "[#id]": "One or more local numeric game ids"
             Options:
               "--help": "Print this help message"
-      # The `linked` two-word forms (E14): the NOUN names what you GET (the
+      # The `linked` two-word forms: the NOUN names what you GET (the
       # segment) and the id belongs to the OTHER entity — a crossed reference.
       linked:
         usage: "linked game #vid  |  linked vids #game"
@@ -230,14 +234,13 @@ en:
             Options:
               "--help": "Print this help message"
       footage:
-        usage: "footage update #id <hours>  |  footage snippet"
-        update:
-          usage: "footage update #id <hours>"
+        usage: "footage game #id  |  footage snippet"
+        game:
+          usage: "footage game #id"
           sections:
             Arguments:
-              "update": "Target noun — set a game's total recorded footage"
+              "game": "Target noun — the game you're tallying footage for"
               "#id": "Local numeric game id"
-              "<hours>": "Total recorded hours (rounded up to the next 0.5)"
             Options:
               "--help": "Print this help message"
         snippet:
@@ -483,6 +486,16 @@ en:
               "breakdowns": "Lifetime distribution breakdowns card"
 
     hashtag_help:
+      ai-answer:
+        target_usage: "#<ai-answer-hashtag> apply [n]"
+        actions:
+          apply:
+            usage: "#<ai-answer-hashtag> apply [n]"
+            sections:
+              Description:
+                "apply": "Run this answer's nth suggested command (default: the first) — exactly as if you typed it; commands that need confirmation still ask"
+              Options:
+                "--help": "Print this help message"
       show-game:
         target_usage: "#<show-game-hashtag> <action>"
         actions:

@@ -91,13 +91,13 @@ module Pito
 
         # Boot entry point.
         #
-        # Composition order (T8.8 chat migration + T8.9 slash migration):
+        # Composition order:
         #   1. Vocabularies — ALL vocabs built from verbs.yml via ConfigSource
         #      (static canonical/synonyms/fillers + dynamic resolver wiring).
         #   2. Chat specs   — built from verbs.yml via ConfigSource (every verb
         #      that declares a `chat:` branch produces one Spec).
         #   3. Slash specs  — built from verbs.yml via ConfigSource (every verb
-        #      that declares a `slash:` branch). T8.9 replaced BOTH the hand-authored
+        #      that declares a `slash:` branch). This replaced BOTH the hand-authored
         #      Ruby table (lib/pito/grammar/specs.rb) and the per-handler `grammar
         #      do…end` blocks — config is now the single source of slash grammar.
         #   4. Handler specs — the generic `grammar do…end` DSL fallback. Now a no-op

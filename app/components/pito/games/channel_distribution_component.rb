@@ -2,7 +2,7 @@
 
 module Pito
   module Games
-    # Column 1 of the show-game channel-matches message (item 16): the per-game
+    # Column 1 of the show-game channel-matches message: the per-game
     # CHANNEL DISTRIBUTION — an offset bar-group (Analytics::Visualizers::Bar) of
     # each channel's weighted coverage share, OR a NoData dotted canvas while the
     # data is still pending / when no channel covers the game.

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Dedicated LIFETIME watch-time fetch for the channel-distribution blend (item 16).
+# Dedicated LIFETIME watch-time fetch for the channel-distribution blend.
 # Deliberately NOT the Pito::Analytics pipeline (which is period-scoped + has its
 # own primitives cache): this is one lightweight per-channel YouTube Analytics
 # call for all-time `estimatedMinutesWatched` per video, cached for 1 DAY. It is

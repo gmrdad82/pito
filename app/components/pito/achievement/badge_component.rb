@@ -3,8 +3,8 @@
 module Pito
   module Achievement
     # Renders an achievement (shiny) badge as a FILLED material chip — the
-    # G127 stones/awards design system (`.pito-shiny` in application.css):
-    # fixed theme-agnostic palette, travelling gleam, breathing halo.
+    # stones/awards design system (`.pito-shiny` in application.css): fixed
+    # theme-agnostic palette, travelling gleam, breathing halo.
     #
     # All badges share one uniform rounded border regardless of metric (the old
     # per-metric box-drawing charsets are gone — they rendered at != 1ch on
@@ -23,9 +23,9 @@ module Pito
     # (e.g. Subs, Views, Likes, Comments, Watched — not single-letter abbreviations).
     #
     # The material (fill + ink + gleam) is set via data-material =
-    # Pito::Achievement::Tier.material_for (G127 stones/awards). The gleam is
-    # staggered across adjacent badges via Pito::Shimmer.offset_class so they
-    # never rotate in phase.
+    # Pito::Achievement::Tier.material_for. The gleam is staggered across
+    # adjacent badges via Pito::Shimmer.offset_class so they never rotate in
+    # phase.
     #
     # kwargs:
     #   threshold:   (Integer) — one of the 22 milestone steps.
@@ -52,9 +52,9 @@ module Pito
 
       private
 
-      # Stable per-badge stagger bucket — 20 shinies-specific steps (G128) so
-      # a wall of chips never gleams in sync (the shared shimmer offsets only
-      # have 8 buckets, which read as synchronized waves on long lanes).
+      # Stable per-badge stagger bucket — 20 shinies-specific steps so a wall
+      # of chips never gleams in sync (the shared shimmer offsets only have 8
+      # buckets, which read as synchronized waves on long lanes).
       def offset_class
         "pito-shiny-s#{"#{@threshold}#{@metric}#{@scope}".sum % 20}"
       end

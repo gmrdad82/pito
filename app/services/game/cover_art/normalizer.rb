@@ -17,7 +17,7 @@
 #      created_at against `igdb_synced_at` — which the sync stamps moments
 #      earlier, so every nightly re-downloaded all covers, and CDN re-encodes
 #      then re-attached unchanged art; the attachment-touch marked ~all
-#      awaited games "updated" every night — 1.0.0 G24/G25.)
+#      awaited games "updated" every night.)
 #   2. digest gate — for blobs attached before the metadata existed: after
 #      fetching, if the raw bytes' MD5 matches the stored blob checksum, the
 #      id is stamped onto the blob IN PLACE (`blob.update!` — no new blob, no

@@ -5,8 +5,8 @@ module Pito
     # Renders a theme-diff event: the result of a #preview or #apply hashtag
     # transforming the most-recent theme-list message in place.
     #
-    # This component renders the FINAL state instantly (item 18 removed the
-    # diff-reveal morph animation). Reload-correct, no JS needed.
+    # This component renders the FINAL state instantly (the diff-reveal morph
+    # animation was removed). Reload-correct, no JS needed.
     #
     # Payload contract
     # ----------------
@@ -30,8 +30,8 @@ module Pito
     #
     # Rendering structure (both phases share the same root Segment wiring):
     #   - Root Segment id: "event_<event.id>" (stable DOM anchor)
-    #   - Text nodes render their FINAL state directly — item 18 removed the
-    #     diff-reveal morph, so no reveal controller or data-* attrs remain.
+    #   - Text nodes render their FINAL state directly — the diff-reveal morph
+    #     was removed, so no reveal controller or data-* attrs remain.
     class ThemeDiffComponent < ViewComponent::Base
       # @param payload [Hash]
       # @param event   [Event, nil]

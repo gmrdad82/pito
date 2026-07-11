@@ -88,7 +88,7 @@ export default class extends Controller {
 
       if (event.key === "Tab" && event.shiftKey) {
         // shift+tab cycles the channel ONLY while its hint is visible
-        // (focused + `list vids/games`); inert otherwise (item 10).
+        // (focused + `list vids/games`); inert otherwise.
         event.preventDefault()
         if (this.#displayVisible("channelDisplay")) {
           this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
@@ -99,7 +99,7 @@ export default class extends Controller {
 
       if (event.code === "Space" && event.shiftKey) {
         // shift+space cycles the period ONLY while its hint is visible
-        // (focused + `analyze`); inert otherwise (item 10).
+        // (focused + `analyze`); inert otherwise.
         event.preventDefault()
         if (this.#displayVisible("periodDisplay")) {
           this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
@@ -259,7 +259,7 @@ export default class extends Controller {
   }
 
   // True when a display span (channelDisplay / periodDisplay) is currently shown —
-  // i.e. chatbox-hints has revealed its cycler for the typed verb/noun (item 10).
+  // i.e. chatbox-hints has revealed its cycler for the typed verb/noun.
   #displayVisible(displayTarget) {
     return this.targets.has(displayTarget) &&
       !this.targets.find(displayTarget).classList.contains("hidden")
@@ -271,8 +271,8 @@ export default class extends Controller {
     // Send the channel ONLY when shift+tab is visible (list vids/games), the period
     // ONLY when shift+space is visible (analyze). A DISABLED input keeps its cycled
     // value (so the cycling flow is preserved) but is omitted from the POST → the
-    // backend falls back to its defaults (channel @all, period nil). Owner 2026-06-29
-    // item 10: no other verb/noun evaluates channel or period.
+    // backend falls back to its defaults (channel @all, period nil); no other
+    // verb/noun evaluates channel or period.
     if (this.hasChannelInputTarget) this.channelInputTarget.disabled = !this.#displayVisible("channelDisplay")
     if (this.hasPeriodInputTarget)  this.periodInputTarget.disabled  = !this.#displayVisible("periodDisplay")
 

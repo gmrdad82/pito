@@ -19,7 +19,7 @@ module Pito
 
       # Max displayed length before the (scheme-stripped) URL is ellipsised. The
       # full URL always rides the href; only the visible text shortens, so a long
-      # YouTube Studio URL can't blow out the row (owner 2026-06-29).
+      # YouTube Studio URL can't blow out the row.
       MAX_DISPLAY_LEN = 38
 
       def initialize(url:, css_class: DEFAULT_CLASS)

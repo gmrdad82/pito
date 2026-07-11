@@ -10,7 +10,7 @@
 
     <%# Body + stats detail (shown while pending; hidden once resolved). Wrapped
         in a div so the timestamp + body stay inline — a bare BodyComponent would
-        let flex-col row-split its two spans. Renders instantly (item 18). %>
+        let flex-col row-split its two spans. Renders instantly. %>
     <div>
       <%= render(Pito::Event::BodyComponent.new(
             body:      body,

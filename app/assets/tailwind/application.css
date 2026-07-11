@@ -35,7 +35,7 @@
    uses the mono faces above. WIDTH WARNING: these glyphs advance 1500/2048 =
    0.7324em ≈ 10.25px @14px — 22% WIDER than the mono 1ch (8.43px). A row of N
    braille cells is N × 10.25px, NOT N ch; chart column budgets (COLS=42 in
-   visualizers/base.rb, plan-0.9.5 D1) are computed against 10.25px/cell. */
+   visualizers/base.rb) are computed against 10.25px/cell. */
 @font-face {
   font-family: "DejaVu Sans Mono";
   font-style: normal;
@@ -49,7 +49,7 @@
   --font-mono:        "DejaVu Sans Mono", "ui-monospace", monospace;
   --text-base:        14px;
   --text-base--line-height: 1.4;
-  /* ── Shimmer tokens (item 7) — single source of truth for ALL shimmers. ──
+  /* ── Shimmer tokens — single source of truth for ALL shimmers. ──
      Angle + speed are GLOBAL (every shimmer uses them). Each shimmer family has
      its own base/band colour tokens so they retune with one edit. */
   --pito-shimmer-angle: 135deg;   /* diagonal sweep angle, everywhere */
@@ -61,14 +61,14 @@
      the INVERSE of action (purple base + pito-blue band). */
   --shimmer-network-base: var(--accent-purple);
   --shimmer-network-band: var(--brand-pito);
-  /* subject + reference — fg-coloured text with a blue→purple band (G88b:
-     was orange→yellow; the brand pair reads on light AND dark themes). The
+  /* subject + reference — fg-coloured text with a blue→purple band (was
+     orange→yellow; the brand pair reads on light AND dark themes). The
      TEXT color stays fg — only the sweep band changed. */
   --shimmer-fg-base:   var(--fg-default);
   --shimmer-fg-band-a: var(--brand-pito);
   --shimmer-fg-band-b: var(--accent-purple);
   /* charts (Analytics visualizers) + score-bar + ttb: ONE shared band —
-     WHITE on every theme (G88: fg-default is dark on light themes, so the
+     WHITE on every theme (fg-default is dark on light themes, so the
      sweep vanished there; white reads on both families). */
   --chart-shimmer: white;
   --color-root:        var(--bg-root);
@@ -216,13 +216,13 @@ html {
   background: var(--bg-root);
   color: var(--fg-dim);
   border: 1px solid var(--border-faded);
-  /* Minimal chrome: 1px top/bottom, 4px left/right padding (owner 20.1: +2px L/R). */
+  /* Minimal chrome: 1px top/bottom, 4px left/right padding (+2px L/R). */
   padding: 1px 4px;
   max-width: min(964px, calc(100vw - 20px));
   white-space: nowrap;
 }
 
-/* TOP pill: flush against the very top edge of the page, no top border (13.36b). */
+/* TOP pill: flush against the very top edge of the page, no top border. */
 .pito-scroll-nav__pill--top {
   top: 0;
   border-top: none;
@@ -231,7 +231,7 @@ html {
 /* BOTTOM pill: sits 116px up from the viewport bottom so its bottom edge TOUCHES
    the top of the context bar (owner measured this exact value). No bottom border —
    mirrors the TOP pill's missing top border, so each pill is borderless on the
-   edge it hugs (owner 2026-07-01). Static — the controller no longer overrides
+   edge it hugs. Static — the controller no longer overrides
    `bottom`. */
 .pito-scroll-nav__pill--bottom {
   bottom: 116px;
@@ -255,7 +255,7 @@ html {
 
 /* ── Thin themed scrollbar (visible) ─────────────────────────── */
 /* Used by the conversation scrollback (#pito-scrollback) so its scrollbar is
-   VISIBLE but slim + theme-coloured (owner 13.13). The webkit thumb/track inherit
+   VISIBLE but slim + theme-coloured. The webkit thumb/track inherit
    the global ::-webkit-scrollbar styling; this sets the Firefox thin width +
    colours on the scrolling element itself (scrollbar-width does not inherit). */
 .pito-thin-scrollbar {
@@ -267,24 +267,24 @@ html {
 /* The scrollback turns + the bottom controls/chatbox center at a fixed width on
    desktop (md+) sized to the show-detail TWO-COLUMN layout: 450 + 450 columns +
    the gap-4 (16px) between them = 916px content, which fits inside the barred-segment
-   frame; mobile stays full-width (owner 13.3 / 13.34 / 13.38). 964 = 916 + the
+   frame; mobile stays full-width. 964 = 916 + the
    barred frame (4 bar + 6 gap + 22 left pad + 16 right pad = 48). Both detail
    columns land at exactly 450px. .pito-turn is styled directly so cable-appended
-   turns center too. (List cover rows shrink their gap to fit 5 covers — 13.40.) */
+   turns center too. (List cover rows shrink their gap to fit 5 covers.) */
 /* Mobile: the chatbox column carries the SAME 5px horizontal inset as the
    scrollback (#pito-scrollback padding) so the chatbox left border lines up with
    the messages. On desktop this is removed (the centered 964 box matches the
-   padding-less .pito-turn) — see the media query below (17.11). */
+   padding-less .pito-turn) — see the media query below. */
 .pito-conversation-col {
   padding-inline: 5px;
 }
 
-/* G91 — mobile only: the thinking indicator hangs its glyph LEFT of the text
+/* Mobile only: the thinking indicator hangs its glyph LEFT of the text
    column (margin-left: -2ch − 8px, so the verb aligns with message text), and
    on a phone the hang walked past the 5px inset — clipped kaomoji. A few px
    of page-level left padding gives the hang room; it sits on <main>, so the
    scrollback AND the chatbox column shift together and their left-edge
-   alignment contract (13.33/13.38) holds untouched. Desktop never fires. */
+   alignment contract holds untouched. Desktop never fires. */
 @media (max-width: 767px) {
   main {
     padding-left: 5px;
@@ -297,10 +297,10 @@ html {
     max-width: 964px;
     margin-inline: auto;
   }
-  /* The scrollback has a (now-visible, 13.13) scrollbar; the chatbox column does
+  /* The scrollback has a (now-visible) scrollbar; the chatbox column does
      not. A right-only scrollbar would shift the scrollback's centered content
      left of the chatbox. Reserving a SYMMETRIC gutter keeps the scrollback's
-     centered .pito-turn aligned to the chatbox's left edge (13.33/13.38). */
+     centered .pito-turn aligned to the chatbox's left edge. */
   #pito-scrollback {
     scrollbar-gutter: stable both-edges;
   }
@@ -308,12 +308,12 @@ html {
      On a flex item, cross-axis `margin-inline: auto` cancels the default stretch
      and shrinks it to its content — collapsing the chatbox to a narrow centered
      box. width:100% restores full width so it caps at max-width and centers in
-     line with the messages (.pito-turn). (13.20) */
+     line with the messages (.pito-turn). */
   .pito-conversation-col {
     width: 100%;
     /* Desktop: drop the mobile 5px — the centered 964 box already aligns with
        the padding-less .pito-turn; the 5px would push the chatbox 5px right of
-       the messages' left border (17.11). */
+       the messages' left border. */
     padding-inline: 0;
   }
 }
@@ -441,40 +441,50 @@ html {
   animation-iteration-count: infinite;
 }
 
-/* ── Pull-to-refresh gauge (G81 / pull-refresh redesign) ──
-   Cloned under the scrollback's last message by pito--pull-refresh (Hotwire
-   Native AND mobile-web); pulling up slides the conversation up to uncover it. A
-   vertical ASCII block (arrows / shrug+copy / arrows / ● circle). It renders
-   MUTED (--fg-faded) and FILLS pito-blue as ONE continuous vertical gradient
-   driven by --pull-progress (0→1, set on the scrollback by the controller) —
-   clipped to the glyph TEXT (background-clip:text, same recipe as the mini-status
-   shimmer) so the ▲/●/kaomoji stay glyphs. The fill grows top→bottom, so the
-   circle (bottom row) is the LAST to turn blue: fully blue == armed == release to
-   refresh. No opacity fade, no per-row stepping. */
-.pito-pull-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 8px;
-  --pull-fill: calc(var(--pull-progress, 0) * 100%);
-  color: var(--fg-faded); /* fallback when background-clip:text is unsupported */
-  background-image: linear-gradient(
-    to bottom,
-    var(--brand-pito) var(--pull-fill),
-    var(--fg-faded) var(--pull-fill)
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* ── Pull-to-refresh spinner ──
+   Brave's top pull, inverted for pito's bottom-anchored conversation. The
+   pito--pull-refresh controller clones this tile from the layout's <template>
+   onto <body> on the first upward pull, drives its rise 1:1 with the finger
+   (transform set from JS), and rotates the Lucide refresh arrow with the drag.
+   Crossing the reload threshold adds .is-firing — a continuous spin while the
+   reload lands. Square corners, elevated surface, pito-blue arrow; the
+   scrollback content never moves. Parked fully below the viewport edge via
+   translate(-50%, 100%). */
+.pito-pull-spinner {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 100%);
+  z-index: 40;
+  padding: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--brand-pito);
+  pointer-events: none;
 }
 
-.pito-pull-hint__row {
-  display: flex;
-  justify-content: center;
-  gap: 1ch;
+.pito-pull-spinner svg {
+  display: block;
 }
 
-/* ── Mini-status "me" shimmer (G70) ──
+.pito-pull-spinner.is-firing svg {
+  /* LONGHANDS, never the `animation` shorthand — see .pito-trend-number--up. */
+  animation-name: pito-pull-spinner-spin;
+  animation-duration: 700ms;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes pito-pull-spinner-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Mini-status "me" shimmer ──
    The authenticated `■ nickname` in the mini status bar wears the house
    green↔yellow sweep — the SAME recipe as .pito-trend-number--up (yellow is
    the documented contrast band that pops against green), on the shared
@@ -483,7 +493,7 @@ html {
    gradient paints the ■ glyph too via background-clip: text. */
 .pito-me-shimmer {
   color: var(--accent-green);
-  /* G95: the band joined the house blue→purple gradient (G96) — green base,
+  /* The band joined the house blue→purple gradient — green base,
      brand band, same width as the fg shimmers. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
@@ -626,17 +636,17 @@ html {
 
 /* Decorative identifier tokens — channel @handles, @all / period scope chips,
    video/game #ids (Pito::Shimmer::TokenComponent decorative path). PLAIN text
-   (owner 17.4 — no shimmer); the class is the stable hook the chat-form
+   (no shimmer); the class is the stable hook the chat-form
    controller targets to update a cycled scope value. Colour inherits the
    surrounding context (meta line dim, list cell default) — no override. */
 .pito-token { /* hook only — plain, inherits colour */ }
 
 /* ── Identifier shimmer (Pito::Shimmer::TokenComponent) ── RESERVED, UNUSED ──
-   Defined but no longer applied (owner 17.4): the reference band stays in the
-   stylesheet for future reuse. Slow diagonal fg→YELLOW shimmer (17.5).
+   Defined but no longer applied: the reference band stays in the
+   stylesheet for future reuse. Slow diagonal fg→YELLOW shimmer.
    Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-reference-shimmer {
-  /* G96: the band is a GRADIENT — band-a (pito blue) grading into band-b
+  /* The band is a GRADIENT — band-a (pito blue) grading into band-b
      (purple) inside one sweep, and WIDER than the old single-color 6% slice
      (44–56%) so it actually reads while moving. Same for subject below. */
   background-image: linear-gradient(
@@ -660,16 +670,16 @@ html {
 }
 
 /* (Hashtag reply tokens are now MUTED text — see Pito::Shimmer::HashtagTokenComponent;
-   the old .pito-hashtag-shimmer was removed in the item-7 shimmer revisit.) */
+   the old .pito-hashtag-shimmer was removed in the shimmer revisit.) */
 
 /* ── Subject shimmer (Pito::Shimmer::SubjectComponent) ──────────
    The SUBJECT of a message intro (the %{title} / %{game} / %{name} value) gets
-   a fg→ORANGE diagonal shimmer (owner 17.5): default fg at the ends, an orange
+   a fg→ORANGE diagonal shimmer: default fg at the ends, an orange
    band sweeping through the centre. Same shared angle / speed / -dN offsets as
    the other fg-band families (reference = the YELLOW counterpart).
    Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-subject-shimmer {
-  /* G96: same blue→purple gradient band as the reference shimmer — one
+  /* Same blue→purple gradient band as the reference shimmer — one
      family, one band (the old per-variant single colors read as "only blue"). */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
@@ -756,7 +766,7 @@ html {
 
 /* ── Small loading dots (Pito::Analytics::Support::LoadingDots) ──────────────────
    ~50% of .pito-comet (4px dots / 2px gap), SAME comet keyframes + speed. A metric's
-   scalar-slot placeholder while its value loads (item 5). The --dN buckets shift the
+   scalar-slot placeholder while its value loads. The --dN buckets shift the
    whole loader's start so several on screen never pulse in sync. */
 .pito-loading-dots {
   display: inline-flex;
@@ -902,6 +912,12 @@ html {
 .pito-segment__bar[data-accent="blue"]    { background: var(--accent-blue); }
 .pito-segment__bar[data-accent="surface"] { background: var(--bg-elevated); } /* blends into chatbox bg */
 .pito-segment__bar[data-accent="pito"]    { background: var(--brand-pito); }
+/* The AI thread accent — purple→pito-blue, top to bottom. Worn by :ai messages,
+   the echo of an `ai …` turn, and the chatbox bar LIVE while an `ai` input is
+   being typed (pito--ai-accent flips data-accent as you type). */
+.pito-segment__bar[data-accent="ai"] {
+  background: linear-gradient(to bottom, var(--accent-purple), var(--brand-pito));
+}
 
 .pito-segment__gap {
   width: 6px;
@@ -960,7 +976,7 @@ html {
    can't reflow, so on a narrow (mobile) viewport it overflows. The controller
    applies a uniform `transform: scale()` to shrink it just enough to fit —
    alignment preserved, text still live/themed (no raster/SVG), desktop untouched
-   (scale 1). See SB10. The `--center` variant keeps a centered block (the logo)
+   (scale 1). The `--center` variant keeps a centered block (the logo)
    centered as it shrinks; left-aligned in-message art needs no extra CSS (the
    block <pre> already fills its column, scaled from the left). */
 .pito-ascii-fit--center {
@@ -1008,7 +1024,7 @@ html {
 }
 
 /* Resolved ASCII face ("( •_•)>⌐■-■") matches the resolved MESSAGE colour
-   (fg-faded), not the default fg — one calm dim unit (owner 2026-07-01). */
+   (fg-faded), not the default fg — one calm dim unit. */
 .pito-thinking__glyph {
   color: var(--fg-faded);
 }
@@ -1037,20 +1053,20 @@ html {
   position: relative;
 }
 
-/* Shorter chatbox (13.39): modest, symmetric vertical padding so the single-line
+/* Shorter chatbox: modest, symmetric vertical padding so the single-line
    textarea sits vertically CENTERED in the purple zone. Horizontal padding is made
    SYMMETRIC (22px both sides, was 16 right / 22 left) so the right-aligned hint slot
    (right:0 of the field-wrap) is the SAME inset from the purple edge as the text
    (left:0) is on the left. The 22px left keeps the text invariant with the
    scrollback segments. */
-/* Chatbox padding (owner 20.2/20.3): LESS L/R, and the LEFT visual gap (bar 4 +
+/* Chatbox padding: LESS L/R, and the LEFT visual gap (bar 4 +
    gap 6 + padding-left) equals the RIGHT gap (padding-right). padding-left =
    padding-right − 10 makes both = 16px (was 32 left / 22 right). */
 .chatbox-wrapper .pito-segment__content {
   padding: 12px 16px 12px 6px;
 }
 
-/* Absolute-right hint slot on the textarea's line (13.39): vertically centered;
+/* Absolute-right hint slot on the textarea's line: vertically centered;
    right:0 = the field-wrap's right edge = the symmetric 22px purple inset. Only one
    child (c-to-chat / shift+tab / shift+space) is visible at a time. */
 .pito-chatbox__hint-slot {
@@ -1077,8 +1093,8 @@ html {
   vertical-align: bottom;
 }
 
-/* The meta line stays a SINGLE row on Desktop AND Mobile (owner 2026-06-29, item
-   11). It never wraps; on a narrow viewport it scrolls horizontally rather than
+/* The meta line stays a SINGLE row on Desktop AND Mobile.
+   It never wraps; on a narrow viewport it scrolls horizontally rather than
    stacking the shortcut chips onto multiple rows. */
 .pito-chatbox__filter {
   flex-wrap: nowrap;
@@ -1224,7 +1240,7 @@ html {
   max-width: 100%;
   /* The score value is now INLINE on the bar line (no floating bubble above), so
      the old 1.75rem top breathing room is gone — it was the visible gap above the
-     score in show game + similar games (13.29/13.30). */
+     score in show game + similar games. */
   margin-top: 0;
 }
 
@@ -1332,7 +1348,7 @@ html {
 
 /* The score value reads over the '=' line as an INVERT chip: page-bg text on a
    foreground-coloured block, EXACTLY 1px padding all round (line-height:1 +
-   inline-block so the chip hugs the digits — no line-box inflation). (13.21) */
+   inline-block so the chip hugs the digits — no line-box inflation). */
 .pito-score-bar__value {
   display: inline-block;
   line-height: 1;
@@ -1351,7 +1367,7 @@ html {
   transform: translate(-100%, -50%);
 }
 
-/* Pull the value chip 2px CLOSER to the pillar/tick — toward it on each side (13.32a). */
+/* Pull the value chip 2px CLOSER to the pillar/tick — toward it on each side. */
 .pito-score-bar__marker--value-right .pito-score-bar__value { margin-left: -2px; }
 .pito-score-bar__marker--value-left  .pito-score-bar__value { margin-right: -2px; }
 
@@ -1511,7 +1527,7 @@ html {
 .pito-ttb__footage-marker {
   position: absolute;
   top: 50%;
-  /* INVERT chip (same as the score value, 13.21/13.22): page-bg text on a
+  /* INVERT chip (same as the score value): page-bg text on a
      foreground block, EXACTLY 1px padding all round (line-height:1 so the chip
      hugs the digits), reads over the '=' line. */
   display: inline-block;
@@ -1526,10 +1542,10 @@ html {
 
 /* Value RIGHT of the tick (footage in the LEFT half): offset the chip past the
    pillar's INK, not its whole cell — the old 1ch cell-width offset left ~half a
-   character of visible air vs the score bar's flush −2px hug (owner G41). The
+   character of visible air vs the score bar's flush −2px hug. The
    pillar glyph's ink sits centered in its 1ch cell, so 0.6ch clears it while
    hugging like the score chip; still clears the opening "[" when footage is 0
-   and the tick sits at the far-left cell (17.8). */
+   and the tick sits at the far-left cell. */
 .pito-ttb__footage-marker--value-right {
   transform: translate(calc(0.6ch - 2px), -50%);
 }
@@ -1587,7 +1603,7 @@ html {
 
 /* The footage MARKER is an INVERT chip (page-bg text on a fg block), so the
    generic [data-accent="footage"] tick color above must NOT bleed onto it —
-   that made the chip --fg-default text on a --fg-default bg = invisible (13.31).
+   that made the chip --fg-default text on a --fg-default bg = invisible.
    Higher specificity restores the chip's readable inverted text. */
 .pito-ttb__footage-marker[data-accent="footage"] { color: var(--bg-root); }
 
@@ -1606,7 +1622,7 @@ html {
    gradient STOPS move (in place) as that property interpolates, while BOTH
    background layers stay pinned at `background-position: 0 0`. Earlier this
    animated `background-position` instead, which dropped the `background-clip:text`
-   glyph clip mid-sweep on the TTB bar — the `=` glyphs vanished (Z15). Holding the
+   glyph clip mid-sweep on the TTB bar — the `=` glyphs vanished. Holding the
    position static and moving the stops via an @property keeps the clip stable, so
    the glyphs stay fully visible at every frame. The band's peak is TRANSLUCENT, so
    the heat ramp underneath always shows through — the highlight rides OVER the
@@ -1631,7 +1647,7 @@ html {
   background-position: 0 0;
   /* LONGHANDS, never the `animation` shorthand: the shorthand resets
      animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger on this
-     same element (Z32), making every bar pulse in sync. */
+     same element, making every bar pulse in sync. */
   animation-name: pito-bar-glyph-sweep;
   animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
@@ -1673,13 +1689,13 @@ html {
  * Fills left→right from 0% to 100% as the conversation's event count grows
  * toward the THRESHOLD (100). Pegs at 100%/red when full.
  *
- * Layout (CTXF1 + CTXF2):
+ * Layout:
  *   flex-column — % counter sits ABOVE the track (never overlapping it);
  *   track is width:100% so it spans EXACTLY the chatbox width (both live in
  *   the same padding container; the track's left edge touches the chatbox's
  *   left purple accent border with 0px gap).
  *
- * Gradient (CTXF3 — full-track-width reveal):
+ * Gradient (full-track-width reveal):
  *   The 5-stop green→red gradient always spans the FULL track width; the fill
  *   div acts as a width:N% overflow:hidden clip window over an inner
  *   .pito-context-meter__gradient-bar element. The gradient-bar's width is
@@ -1695,16 +1711,16 @@ html {
  */
 .pito-context-meter {
   display: flex;
-  flex-direction: column;    /* CTXF2: counter stacks ABOVE the track */
+  flex-direction: column;    /* counter stacks ABOVE the track */
   align-items: flex-end;     /* counter right-aligned above the track */
-  margin-bottom: 0;          /* 17.1: the meter TOUCHES the chatbox (no gap) */
-  /* CTXBAR1: align the track to the REAL chatbox box (the elevated rectangle),
+  margin-bottom: 0;          /* the meter TOUCHES the chatbox (no gap) */
+  /* Align the track to the REAL chatbox box (the elevated rectangle),
      not its left chroma — the chatbox segment insets its content by the accent
      bar (4px) + gap (6px), so inset the meter by the same 10px. */
   padding-left: 10px;
 }
 
-/* Header row above the track: conversation name (left) ⇔ counter (right). (13.39) */
+/* Header row above the track: conversation name (left) ⇔ counter (right). */
 .pito-context-meter__header {
   display: flex;
   justify-content: space-between;
@@ -1728,14 +1744,14 @@ html {
 }
 
 .pito-context-meter__track {
-  width: 100%;               /* CTXF1: full container width = exact chatbox width */
+  width: 100%;               /* full container width = exact chatbox width */
   height: 3px;               /* same visual weight as the chatbox left purple accent */
   background: var(--border-faded);
   position: relative;
   overflow: hidden;          /* safety clip; fill's own overflow:hidden does the real work */
 }
 
-/* CTXF3: The fill is a width:N% overflow:hidden CLIP WINDOW — not the gradient
+/* The fill is a width:N% overflow:hidden CLIP WINDOW — not the gradient
    carrier. The gradient lives on the inner .pito-context-meter__gradient-bar
    element which spans the full track width via CSS calc. Only rendered when
    fill_pct > 0 (guarded in ERB; avoids division-by-zero in the calc). */
@@ -1773,11 +1789,11 @@ html {
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: 0 0;
-  /* Item 7: the context bar no longer shimmers — the green→red gradient above is
+  /* The context bar no longer shimmers — the green→red gradient above is
      all there is. New growth is shown by the lit-fuse comet (below) instead. */
 }
 
-/* ── Context-meter lit-fuse comet (item 7) ──────────────────────────
+/* ── Context-meter lit-fuse comet ──────────────────────────
    On each new distinct message the fill GROWS from the old % to the new %; the
    controller (pito--context-comet) transitions the fill width and rides an
    ORANGE glowing head at the leading edge — like a lit dynamite fuse — then it
@@ -1841,7 +1857,7 @@ html {
    rows line up. auto-fit packs as many 180px cards per row as fit. */
 /* show-game channel-matches: TWO columns — distribution (col 1) + recommendation
    (col 2). On desktop they sit side by side, each ~450px, top-aligned so the two
-   read as one row of the same 5 channels (item 16); on mobile they stack. */
+   read as one row of the same 5 channels; on mobile they stack. */
 .pito-game-channels {
   display: flex;
   flex-direction: column;
@@ -1865,14 +1881,14 @@ html {
 /* The distribution chart is a surface panel (.pito-metric) — make it FILL its
    column (was max-content, which overflowed into the recommendation column and
    overlapped it). The recommendation column (.pito-game-channels__reco) is NOT a
-   .pito-metric, so it stays surface-less, as intended (owner 2026-07-01, item 46). */
+   .pito-metric, so it stays surface-less, as intended. */
 .pito-game-channels__col .pito-metric {
   width: 100%;
   min-width: 0;
 }
 
 /* Col 2 — recommendation kv-table: avatar (key) + score bar (value), one row each.
-   17.9: ROW-FOR-ROW alignment with col 1's braille bars. When 5 channels render,
+   ROW-FOR-ROW alignment with col 1's braille bars. When 5 channels render,
    the Bar visualizer packs 5 contiguous bars (gap 0, top_pad 0), each 2 braille
    rows tall = 2.5em. So the reco rows are 2.5em tall with NO inter-row gap, and
    the table starts at the column top — each avatar row lines up with its bar. */
@@ -1890,7 +1906,7 @@ html {
 }
 
 /* Tiny avatar = the height of ONE braille bar (2.5em) — a CIRCLE with a 1px ring
-   (17.9; 2px read too thick). A fixed-size wrapper + overflow:hidden keeps it
+   (2px read too thick). A fixed-size wrapper + overflow:hidden keeps it
    square against the score row + Tailwind preflight `img{height:auto}`. The :xs
    variant is regenerated at this size (channel.rb) so there is no browser
    downscale. */
@@ -1925,7 +1941,7 @@ html {
   grid-template-columns: repeat(auto-fit, 180px);
   justify-content: start;
   /* Column gap shrunk to 4px so the TOP 5 covers (180px each) fit one row in the
-     964px conversation column: 5×180 + 4×4 = 916 (13.40). Row gap stays generous
+     964px conversation column: 5×180 + 4×4 = 916. Row gap stays generous
      in case a narrow viewport wraps. */
   gap: 2rem 4px;
 }
@@ -1950,7 +1966,7 @@ html {
   display: block;
 }
 
-/* ── Channel games grid (Pito::Channel::GamesComponent, G120) — the channel's
+/* ── Channel games grid (Pito::Channel::GamesComponent) — the channel's
    linked games as cover cards: same 180px cards + 4px column gap as the
    similar-games strip (5 per row in the 964px conversation column), wrapping
    naturally to further rows. Card = strip cover, then ONE line: #id pinned
@@ -1993,7 +2009,7 @@ html {
 /* Bounded cover box: same 450×253 footprint as the show-video thumbnail (16:9
    at 450px width — matches the :display/:detail 450px variants, no CSS downscale).
    overflow:hidden clips the portrait cover to this window; the image pans
-   vertically to reveal the whole art over time. (13.34) */
+   vertically to reveal the whole art over time. */
 .pito-game-detail__cover,
 .pito-video-linked-game-card__cover {
   width: 450px;
@@ -2025,7 +2041,7 @@ html {
   animation: pito-cover-pan 16s ease-in-out infinite alternate;
 }
 
-/* (The comet text-reveal CSS was removed in item 18 along with the typewriter/
+/* (The comet text-reveal CSS was removed along with the typewriter/
    text-reveal engine — messages render instantly now.) */
 
 /* Detail-card hairline spacing: a plain 10px top/bottom gap. */
@@ -2033,7 +2049,7 @@ html {
   margin: 10px 0;
 }
 
-/* Detail-card Stats + Shinies as a kv-table (owner 2026-07-01, items 48/49): the
+/* Detail-card Stats + Shinies as a kv-table: the
    heading is the KEY column (max-content), the value column (1fr) holds the
    one-line counters / freely-wrapping shinies badges. A dedicated class (NOT the
    Tailwind `grid grid-cols-[...]` utility) so it doesn't collide with the
@@ -2106,8 +2122,8 @@ html {
    must clear the id/title line above it. */
 .pito-game-enhanced-message__similar-game-score {
   /* No extra top gap — the card's own 0.2rem row gap is the spacing toward the
-     cover/title (13.23a). The score bar fills the 180px card width so the [ ]
-     edges line up with the cover's left/right edges (13.23c). */
+     cover/title. The score bar fills the 180px card width so the [ ]
+     edges line up with the cover's left/right edges. */
   margin-top: 0;
 }
 
@@ -2194,7 +2210,7 @@ html {
 
 
 /* Left column is fixed to the banner = vid-thumbnail width (450px, our backend
-   resize) — it must NOT flex wider to fit the Shinies/stats (owner 2026-06-30).
+   resize) — it must NOT flex wider to fit the Shinies/stats.
    The right kv-table (flex-1) takes the rest; on a narrow viewport max-width caps it. */
 .pito-channel-detail__left {
   flex: 0 0 auto;
@@ -2354,7 +2370,7 @@ html {
    right) instead of the fixed label/value columns a bare pair uses.
    The frame lives on THIS wrapper (not the inner sparkline) so it ENCAPSULATES
    the caption/value pair too — matching the analyze .pito-metric wrapper. Trying
-   a SURFACE BACKGROUND instead of the dashed border (owner 2026-07-01): the
+   a SURFACE BACKGROUND instead of the dashed border: the
    wrapper lifts onto --bg-surface; the inner sparkline .pito-metric stays
    transparent + unpadded so the tint reads as one panel around chart + caption. */
 .pito-analytics-scalars__charted {
@@ -2364,7 +2380,7 @@ html {
   /* FILL the 450 grid column (was max-content, which overflowed a narrower column
      and made adjacent surface panels touch/overlap). The chart/pair inside keep
      their natural width, left-aligned; min-width:0 lets the panel shrink with the
-     column (owner 2026-07-01, item 46). */
+     column. */
   width: 100%;
   min-width: 0;
   padding: 4px 6px;
@@ -2373,7 +2389,7 @@ html {
 .pito-analytics-scalars__charted .pito-metric { background: transparent; padding: 0; width: 100%; }
 
 /* Every analyze/glance surface panel fills exactly ONE 450 grid column so the two
-   columns keep their 16px gap and never touch/overlap (owner 2026-07-01, item 46). */
+   columns keep their 16px gap and never touch/overlap. */
 .pito-analytics-scalars .pito-metric {
   width: 100%;
   min-width: 0;
@@ -2407,7 +2423,7 @@ html {
 .pito-platform-icons { display: inline-flex; align-items: center; gap: 0.35rem; vertical-align: middle; }
 .pito-platform-icon  { height: 16px; width: auto; display: inline-block; vertical-align: middle; }
 
-/* Per-platform release rows (Item 24) — logos + date, one line per distinct date. */
+/* Per-platform release rows — logos + date, one line per distinct date. */
 .pito-platform-release__row { display: flex; align-items: center; gap: 0.4rem; }
 .pito-platform-release__row + .pito-platform-release__row { margin-top: 2px; }
 
@@ -2438,13 +2454,12 @@ html {
   /* WRAP the one-liner instead of scaling/scrolling it: pre-wrap keeps its spacing
      but lets it flow to multiple lines; overflow-wrap:anywhere breaks the long
      token-less runs (paths/pipes) so it fits a 450px mobile column. No h-scroll,
-     no transform (owner 2026-07-01, Item 45 — the 3rd revisit; the real cause was
+     no transform (the 3rd revisit; the real cause was
      pito--ascii-fit scaling the old <pre>). */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   border-radius: 0;
-  /* Surface panel + snug padding so the script reads as a proper code block
-     (owner 2026-07-01, item 45.1). */
+  /* Surface panel + snug padding so the script reads as a proper code block. */
   background: var(--bg-surface);
   padding: 5px;
   /* Explicit base size + mono family: the browser "monospace" keyword shrink
@@ -2454,7 +2469,7 @@ html {
 }
 /* ── Copy-to-clipboard widget (Pito::CopyButtonComponent) — the SHARED copy
    affordance used by the share-link message AND the footage snippet, so the copy
-   icon is styled in ONE place (owner 2026-07-01). The lucide copy ICON wears the
+   icon is styled in ONE place. The lucide copy ICON wears the
    ACTION shimmer (pito-blue↔purple), matching every clickable link/token — NOT the
    old cyan. Since the icon is an SVG (stroke:currentColor), the gradient-clip text
    shimmer can't apply, so we animate `color` between the action base/band. No
@@ -2476,7 +2491,7 @@ html {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-/* "Copied!" feedback — ONE rule for every host (owner 2026-07-02): the label
+/* "Copied!" feedback — ONE rule for every host: the label
    overlays to the LEFT of the icon, its right edge anchored at the icon, so it
    can NEVER clip the container's right edge (footage: icon at the bar's right
    edge; share link: icon mid-line after the sentence). It occupies zero flex
@@ -2508,7 +2523,7 @@ html {
   50%      { color: var(--shimmer-action-band); }
 }
 
-/* ═══ SHINIES — the material design system (G127) ═══════════════════════════
+/* ═══ SHINIES — the material design system ═══════════════════════════
    Fully THEME-AGNOSTIC by owner decree: fixed palettes, own gleam/fire/halo/
    shadows, and an embedded face (Chakra Petch, vendored woff2 — no network).
    Progression = eight natural stones (positional per ladder, Opal pinnacle);
@@ -2552,7 +2567,7 @@ html {
 [data-material="diamond"] { --m0:#8ecbe9; --m1:#f2fbff; --m2:#bfe6f8; --ink:#082a44; --medge:#ffffff;
                             --gleam:rgba(255,255,255,.95); --gleam-hot:#ffffff; --halo:rgba(159,212,238,.7); --fire:.28; }
 
-/* 20-step gleam stagger (owner G128) — shinies-specific delay buckets so a
+/* 20-step gleam stagger — shinies-specific delay buckets so a
    wall of chips never pulses in sync; 5s period / 20 = 0.25s per step. */
 .pito-shiny-s0 { animation-delay: 0.00s; }
 .pito-shiny-s1 { animation-delay: 0.25s; }
@@ -2648,7 +2663,7 @@ html {
 .pito-shiny__date { color: inherit; opacity: .78; font-size: 12px; font-weight: 500; }
 
 /* compact form (detail cards, under thumbnail/banner/cover): MAX 3 PER ROW
-   (owner G127) — the strip is a 3-col grid; slim fixed cells that truncate. */
+   — the strip is a 3-col grid; slim fixed cells that truncate. */
 .pito-shiny--compact {
   min-width: 0;
   padding: 3px 10px 4px;
@@ -2741,7 +2756,7 @@ html {
 
 /* ── Mobile swipe-to-delete (conversation rows) ───────────────
  *
- * Z22: a MOBILE-ONLY gesture (desktop keeps the `dd` keyboard delete).
+ * A MOBILE-ONLY gesture (desktop keeps the `dd` keyboard delete).
  * Swipe a conversation row LEFT to slide its content layer aside and
  * reveal a red Delete button anchored at the row's right edge; TAP the
  * button to delete. The swipe only REVEALS — deletion always requires
@@ -2788,7 +2803,7 @@ html {
     transform: translateX(calc(-1 * var(--pito-swipe-reveal, 96px)));
   }
 
-  /* CDEL1: delete button height + alignment fix (mobile only).
+  /* Delete button height + alignment fix (mobile only).
      background: var(--bg-root) bounds the button's visual area to the
      row's height (overflow:hidden on .pito-conversation-row clips it to
      the row's border-box, matching the content's min-height: 44px).
@@ -2809,7 +2824,7 @@ html {
     z-index: 0;
     width: var(--pito-swipe-reveal, 96px);
     padding-inline: 16px;
-    background: var(--bg-root);  /* CDEL1: opaque bg bounded to row height via overflow:hidden */
+    background: var(--bg-root);  /* opaque bg bounded to row height via overflow:hidden */
     border: 0;
     border-radius: 0;
   }
@@ -2843,28 +2858,28 @@ html {
    shimmer (.pito-bar-shimmer recipe) swept OVER it. The green anchor is
    data-driven via the inline --pito-green-anchor escape-hatch var. Ticks +
    caption ride text-fg-dim. */
-/* ACL1: width:max-content makes the column flex hug the braille chart; the
+/* width:max-content makes the column flex hug the braille chart; the
    caption then fills that width (min-width:100%; width:0 avoids expanding the
    container) and wraps normally within the chart area. */
 /* Every analyze chart cell is a SURFACE PANEL — the wrapper lifts onto --bg-surface
    and pads chart + caption together, so the two 450px columns read as distinct
-   without a border (owner 2026-07-01: trying surface-bg in place of the dashed
-   frame from Item 35). ENCAPSULATES the caption because it's on the .pito-metric
+   without a border (trying surface-bg in place of the dashed
+   frame). ENCAPSULATES the caption because it's on the .pito-metric
    CONTAINER (which holds both the chart and the caption). */
 .pito-metric {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  /* G108 (the surviving rule after the 2026-07-06 night): width stays
-     max-content — the surface hugs the canvas exactly as it always did on
-     desktop — and max-width caps it at its column so a canvas wider than a
-     phone SCROLLS instead of bleeding. NO containment: contain:inline-size
-     zeroes intrinsic width and collapsed charts inside any shrink-wrapping
-     wrapper (the breakdowns card). max-width cannot collapse anything. */
+  /* Width stays max-content — the surface hugs the canvas exactly as it
+     always did on desktop — and max-width caps it at its column so a canvas
+     wider than a phone SCROLLS instead of bleeding. NO containment:
+     contain:inline-size zeroes intrinsic width and collapsed charts inside
+     any shrink-wrapping wrapper (the breakdowns card). max-width cannot
+     collapse anything. */
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
-  /* G118: 12px of top headroom, not 4 — the y-ticks are translateY(-50%)
+  /* 12px of top headroom, not 4 — the y-ticks are translateY(-50%)
      centred on their data rows, so the TOP tick pokes half a line above the
      plot, and overflow-x:auto clips vertically as a side effect (overflow-y
      computes to auto). Height-only; the 450px column contract is untouched. */
@@ -2913,7 +2928,7 @@ html {
    band fills the row. 5.5s sweep (slower than the 3.4s bar, per owner),
    staggered per-chart via the shared .pito-shimmer-dN delay so adjacent charts
    never sync. LONGHAND animation props only — the `animation` shorthand would
-   reset that delay (Z32). */
+   reset that delay. */
 .pito-metric__row {
   display: block;
   height: var(--pito-rh);
@@ -2947,7 +2962,7 @@ html {
    dotted braille stays VISIBLE and shimmers in place (the dots carry ink; a blank
    row would have nothing to clip the gradient to). Overrides only the base layer;
    the sweep gradient, clip:text, sizing, position and animation come from
-   .pito-metric__row above. (owner 2026-06-30, item 5) */
+   .pito-metric__row above. */
 .pito-metric--nodata .pito-metric__row {
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
@@ -2957,7 +2972,7 @@ html {
     linear-gradient(var(--fg-faded), var(--fg-faded));
 }
 
-/* G131: the "No data yet." line centred over the dotted paper so an empty
+/* The "No data yet." line centred over the dotted paper so an empty
    metric reads as intentional. .pito-metric__chart is position:relative, so
    the overlay fills it; pointer-events:none keeps the paper inert. */
 .pito-metric__nodata-label {
@@ -2986,7 +3001,7 @@ html {
   transform: translateY(-50%);
   line-height: 1;
   /* Opaque chip in the MESSAGE background so the tick value reads cleanly over the
-     braille (owner 13.9): --pito-msg-bg is the surface bg on :enhanced (set by the
+     braille: --pito-msg-bg is the surface bg on :enhanced (set by the
      Segment) and falls back to the page --bg-root on :system. 1px padding TRBL. */
   background: var(--pito-msg-bg, var(--bg-root));
   padding: 1px;
@@ -3018,7 +3033,7 @@ html {
      CRITICAL: the shimmer band spans the FULL plot width (--pito-plot-w) and each
      bar is shifted left by its --pito-bar-offset, so the 135° sweep is computed
      over the whole heatmap and reads as ONE continuous diagonal across every
-     weekday — not a separate near-vertical sweep per bar (owner 2026-07-01). The
+     weekday — not a separate near-vertical sweep per bar. The
      flat health layer stays local to the bar (100% width, no offset). */
   --pito-heat-color: color-mix(in oklch, var(--color-green) calc(var(--pito-heat, 0.5) * 100%), var(--color-red));
   background-image:
@@ -3126,7 +3141,7 @@ html {
   top: 0;
   left: 0;
   z-index: 0;
-  /* G105: the paper OVERDRAWS the data canvas by a few columns (base.rb
+  /* The paper OVERDRAWS the data canvas by a few columns (base.rb
      BG_OVERDRAW_COLS) and clips at the surface edge — no bald purple strip
      when the surface outruns the 42-cell canvas, and the overdraw never
      widens the box or triggers the swipe. */
@@ -3138,7 +3153,7 @@ html {
   color: color-mix(in srgb, var(--fg-default) 15%, transparent);
   pointer-events: none;
 }
-/* Heart + Bar canvases use an EVEN FAINTER grid than the area chart (owner 13.7)
+/* Heart + Bar canvases use an EVEN FAINTER grid than the area chart
    — ~half the tint, so the hearts / bars dominate over the dotted paper. */
 .pito-metric--heart .pito-metric__bg,
 .pito-metric--bar .pito-metric__bg {
@@ -3183,7 +3198,7 @@ html {
    whole canvas — identical fix to the area chart and heart. */
 .pito-metric__brow .pito-bar-fill {
   /* Filled cells get a saturation-forward lift over the raw theme accent
-     (G36 — owner benchmark: the ScoreBar's punch vs the washed-out braille
+     (owner benchmark: the ScoreBar's punch vs the washed-out braille
      canvas). Derived from the token via relative oklch (+40% chroma, +8% L)
      so every theme keeps its own hue, exactly like the ScoreBar's
      color-mix derivation. */
@@ -3207,7 +3222,7 @@ html {
 }
 /* The dim remainder (above or beyond the bar fill) — hollow treatment,
    faded FURTHER than the heart's 0.45 so the vivid fill pops against it
-   (G36 contrast pass: fade the faded, saturate the filled). The vivid
+   (contrast pass: fade the faded, saturate the filled). The vivid
    custom property must not leak into the remainder — reset to the flat
    token so outline cells stay muted. */
 .pito-metric__brow .pito-bar-fill.is-outline {

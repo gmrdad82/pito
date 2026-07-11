@@ -13,7 +13,7 @@ module Pito
     # rendered HTML) by architecture invariant, which is what makes this
     # serializer a projection rather than a translation.
     #
-    # ONE projection-time addition (G125.3): payloads that carry only a
+    # ONE projection-time addition: payloads that carry only a
     # `message_key` (error events — the web I18n-renders the key at view
     # time) additionally get the server-rendered `text`, because a JSON
     # client has no locale files. Rendering happens HERE, not at persist

@@ -2,7 +2,7 @@
 
 module Pito
   module Stream
-    # L1 message-fragment cache (0.9.0 Phase 5) — rendered-event HTML in
+    # L1 message-fragment cache — rendered-event HTML in
     # SolidCache, keyed by a digest of the event's STABLE payload.
     #
     # Safe because everything volatile is out of the fragment by construction:

@@ -8,8 +8,8 @@ module Pito
           verb = handler_class.verb
           registry[verb] = handler_class
           # Also map the verb's aliases (e.g. /notifs → notifications) so the
-          # dispatcher resolves them — it looks up by the raw parsed verb. Since the
-          # T8.9 migration the aliases live in config (verbs.yml `aliases:`), surfaced
+          # dispatcher resolves them — it looks up by the raw parsed verb. The
+          # aliases live in config (verbs.yml `aliases:`), surfaced
           # via the grammar registry's slash spec — NOT the handler's `grammar do`
           # block (deleted). Boot order guarantees Grammar::Registry is populated
           # first (config/initializers/pito.rb); when it is not (isolated unit spec)

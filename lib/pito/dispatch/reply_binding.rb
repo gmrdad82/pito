@@ -3,7 +3,7 @@
 module Pito
   module Dispatch
     # ReplyBinding — the declarative consumption seam for a reply branch's
-    # `reply.targets.<target>.ref` / `.args` resolver paths (plan-0.9.5 T8.7).
+    # `reply.targets.<target>.ref` / `.args` resolver paths.
     #
     # Given a follow-up reply — `#<handle> <verb> <rest>` on a source event whose
     # `reply_target` is <target> — this reads the verb's declared ref/args paths
@@ -17,16 +17,16 @@ module Pito
     #
     # It is the SINGLE place that reads those declared paths; VerbDelegator
     # consults it and threads the result onto Pito::Chat::FollowUpContext#bound.
-    # In P2 the handlers still do their own extraction — the bound kwargs are
+    # Handlers still do their own extraction — the bound kwargs are
     # advisory (nothing downstream reads them yet), which is exactly why the
-    # frozen dispatch matrices stay green. The P3 Router (T8.10) is what flips
+    # frozen dispatch matrices stay green. The Router is what flips
     # consumption so the binding becomes authoritative-in-effect.
     #
     # == Input contract (how each resolver reads the reply)
     #
     # The reply's text is split into the +verb+ word and +rest+ (everything
     # after it — the same value FollowUpContext#rest carries). Each resolver was
-    # written (T8.6) against a specific raw-input shape; the binding feeds it the
+    # written against a specific raw-input shape; the binding feeds it the
     # matching slice per INPUT_MODE:
     #
     #   :args      → +rest+ verbatim (a bare ref / handle / id / word / when-phrase)

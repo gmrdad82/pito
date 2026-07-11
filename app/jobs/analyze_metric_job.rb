@@ -6,7 +6,7 @@
 # AnalyzePrepareJob, so each metric arrives independently and one failing never
 # blocks the rest (its cell shows the NoData placeholder; the others still fill).
 #
-# Barrier (0.9.0 Phase 4 — the stash pattern, mirroring the glance's
+# Barrier (the stash pattern, mirroring the glance's
 # AnalyticsMetricJob): each job records its metric done AND stashes its RAW
 # ingredient ({slot, data}) on the event (row-locked). The LAST metric to land
 # composes the persisted ready state from the stashes via

@@ -15,7 +15,7 @@ module Pito
     # are masked everywhere they surface (echo, stored turn, logs). Other providers
     # (me, sound, motion, fx, timezone) carry no secret and stay on the async path
     # with their values shown in the clear.
-    CREDENTIAL_PROVIDERS = %w[google voyage igdb webhook].freeze
+    CREDENTIAL_PROVIDERS = %w[ai google voyage igdb webhook].freeze
 
     # `/config …` (verb-bounded, any case).
     def config_command?(input)

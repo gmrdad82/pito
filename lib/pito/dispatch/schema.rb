@@ -31,23 +31,23 @@ module Pito
       TOP_KEYS             = %i[schema_version universal_reply vocabularies verbs mcp_readers].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      VERB_KEYS            = %i[aliases description availability auth internal chat slash reply segments concerns mcp capabilities].freeze
+      VERB_KEYS            = %i[aliases description availability auth internal universal_reply chat slash reply segments concerns mcp capabilities].freeze
 
       # Capability blocks (v1.6 unified grammar) — a per-verb `capabilities:` declares
       # the CONFIG vocabulary that --help, MCP, and autocomplete all read: per-noun
       # `columns` (name → aliases/desc copy keys + sortable/requires_with/
       # internal flags) and `filters` (token or vocabulary + desc). The rendering
       # BEHAVIOR (cell/sort procs, filter scopes) stays in Ruby, keyed by these names;
-      # an orphan-guard spec keeps config ↔ Ruby in 1:1 sync. See plan-v1.6.
+      # an orphan-guard spec keeps config ↔ Ruby in 1:1 sync.
       CAPABILITY_KEYS       = %i[columns filters].freeze
       CAP_COLUMN_KEYS       = %i[aliases desc sortable requires_with internal default].freeze
       CAP_FILTER_KEYS       = %i[tokens vocabulary scope desc].freeze
 
-      # MCP tool blocks (G130) — a per-verb `mcp:` promotes a READ-ONLY verb into an
+      # MCP tool blocks — a per-verb `mcp:` promotes a READ-ONLY verb into an
       # MCP tool; the top-level `mcp_readers:` declares tools with no backing verb
       # (pito_conversations / pito_messages). `input:`/`params:` are an INDEPENDENT
       # declaration (NOT derived from chat.slots) — the Executor interpolates params
-      # into the `input:` grammar template. See docs/claude/mcp.md.
+      # into the `input:` grammar template.
       # `read_only` is REQUIRED on every tool (verb-backed and reader alike): the
       # readOnlyHint annotation each client sees is declared per tool in config,
       # never assumed — a tool whose read path warms a persistent cache or calls
@@ -62,15 +62,15 @@ module Pito
       # backing verb's `capabilities:` vocabulary. The Registry derives the param's
       # per-noun enumeration (description) and the Executor derives the allowlist it
       # validates against, both from `Pito::Grammar::Capability` — so the MCP schema
-      # can never drift from the chatbox grammar (U2: no hardcoded lists).
+      # can never drift from the chatbox grammar (no hardcoded lists).
       MCP_CAPABILITY_REFS  = %w[columns filters sort].freeze
       AVAILABILITY_KEYS    = %i[chat slash].freeze
       CHAT_KEYS            = %i[slots dispatch segment_of].freeze
-      # A `segment_of:` block (plan-0.9.5 D20) marks a chat verb as a "segment verb":
+      # A `segment_of:` block marks a chat verb as a "segment verb":
       # a top-level promotion of one parent (show/analyze) segment into its own verb.
       # FLAT form: `{ verb:, segment: }` (the typed noun routes the parent entity).
       SEGMENT_OF_KEYS      = %i[verb segment].freeze
-      # KEYED (per-noun) form (plan-0.9.5 E14): `{ <noun>: <branch>, … }` where each
+      # KEYED (per-noun) form: `{ <noun>: <branch>, … }` where each
       # branch also FORCES the parent entity and may carry noun `aliases:`.
       SEGMENT_OF_BRANCH_KEYS = %i[verb segment entity aliases].freeze
       SLASH_KEYS           = %i[auth description slots dispatch].freeze
@@ -99,7 +99,7 @@ module Pito
       ].freeze
       # enum/literal/kv resolve against a `source:` vocabulary; free slurps free text.
       # (literal = exact-match sentinel — also gates `when:` conditional slots; kv =
-      # key=value pairs. Both are the /config provider→keys grammar shape, T8.9.)
+      # key=value pairs. Both are the /config provider→keys grammar shape.)
       SLOT_KINDS    = %w[enum free literal kv].freeze
       VERB_AUTH     = %w[session public].freeze
       BRANCH_AUTH   = %w[any unauthenticated_only authenticated_only].freeze
@@ -107,21 +107,21 @@ module Pito
       CONCERN_NAMES = %w[pager].freeze
 
       # ── Allow-lists for constructs whose live registries do not exist yet ──────
-      # These closed sets stand in for registries that later 0.9.5 tasks introduce.
+      # These closed sets stand in for registries that don't exist yet.
       # Re-point each at its registry (and delete the constant) once it lands.
       #
-      # Derived from the live Pito::Dispatch::Predicates registry (§8.2 named emit_if: guards).
+      # Derived from the live Pito::Dispatch::Predicates registry (named emit_if: guards).
       PREDICATES = Pito::Dispatch::Predicates.names.freeze
-      # Derived from the live Pito::Dispatch::Resolvers registry (§5 resolver
-      # registry, plan-0.9.5). The registry is the single source of truth — this
-      # constant is a string projection of Resolvers.names for the schema validator.
+      # Derived from the live Pito::Dispatch::Resolvers registry — the registry
+      # is the single source of truth — this constant is a string projection of
+      # Resolvers.names for the schema validator.
       RESOLVERS = Pito::Dispatch::Resolvers.names.map(&:to_s).freeze
       # Client-side dispatch kinds (`dispatch: { client: … }`) handled in the browser.
       CLIENT_ACTIONS = %w[theme].freeze
       # Controller-routed dispatch kinds (`dispatch: { controller: … }`): commands
       # with NO handler class, executed by the chat_controller slash routing path
-      # (login/logout/connect/new/resume). Declarative today — the Router consumes
-      # this in T8.10; nothing reads it at runtime yet.
+      # (login/logout/connect/new/resume). Declarative today; nothing reads it
+      # at runtime yet.
       CONTROLLER_ACTIONS = %w[login logout connect new resume].freeze
 
       # A single schema violation: a dotted `path` into the document + a `message`.
@@ -289,6 +289,7 @@ module Pito
           validate_availability(body[:availability], join(path, "availability")) if body.key?(:availability)
           validate_enum(body[:auth], Schema::VERB_AUTH, join(path, "auth"), "auth") if body.key?(:auth)
           validate_boolean(body[:internal], join(path, "internal")) if body.key?(:internal)
+          validate_boolean(body[:universal_reply], join(path, "universal_reply")) if body.key?(:universal_reply)
           validate_chat(body[:chat], join(path, "chat")) if body.key?(:chat)
           validate_slash(body[:slash], join(path, "slash")) if body.key?(:slash)
           validate_reply(body[:reply], join(path, "reply")) if body.key?(:reply)
@@ -362,7 +363,7 @@ module Pito
           err(path, "filter must declare tokens (non-empty Array) or vocabulary (String)")
         end
 
-        # ── MCP tool blocks (G130) ──────────────────────────────────────────────
+        # ── MCP tool blocks ──────────────────────────────────────────────────────
         # A per-verb `mcp:` block; `params`/`input`/`input_suffixes` are optional
         # (a param-less tool is valid). Keys/types are validated; the read-only
         # allowlist + tool-name uniqueness + placeholder⊆params live in the
@@ -448,7 +449,7 @@ module Pito
         end
 
         # A `segment_of:` block binds a segment verb to its parent segment(s). Two
-        # shapes are accepted (plan-0.9.5 D20 + E14):
+        # shapes are accepted:
         #
         #   FLAT   `{ verb:, segment: }`  — one pair; the typed noun routes the
         #                                   entity in the parent.
@@ -728,7 +729,7 @@ module Pito
 
           aliases.each_with_index do |token, i|
             if token == true || token == false
-              # YAML 1.1 coerces bare on/off/yes/no to booleans (HF2) — the
+              # YAML 1.1 coerces bare on/off/yes/no to booleans — the
               # author meant a word token; demand quoting instead of guessing.
               err("#{alias_path}[#{i}]", "boolean #{token} — quote YAML-boolean tokens (\"on\"/\"off\"/\"yes\"/\"no\")")
             elsif !scalar?(token)

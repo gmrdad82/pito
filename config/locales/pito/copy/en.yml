@@ -3,7 +3,7 @@ en:
     copy:
       # Centralized home for pito.copy.* dictionary entries.
       # Each key resolves to a String (single line) or Array (variants).
-      # Migrated from legacy pito.* namespace in P3.
+      # Migrated from legacy pito.* namespace.
 
       # Label for the dev-only bottom banner (rendered when Rails.env.development?).
       development:
@@ -791,7 +791,7 @@ en:
             male: "Male"
             female: "Female"
             other: "Other"
-          # G78: the rollup bar summing segments beyond the top 4, so a chart's
+          # The rollup bar summing segments beyond the top 4, so a chart's
           # bars always total 100 (geography's long tail, age's outer brackets).
           other: "Other"
           caption:
@@ -1720,6 +1720,13 @@ en:
             - "Contemplated the abyss"
             - "Winged it"
             - "Made it up"
+      ai:
+        errors:
+          not_configured: "AI isn't configured yet — run `/config ai` to add your OpenCode Zen key and pick a model."
+          failed: "The AI provider call failed. Try again in a moment."
+          capped: "I hit this turn's exploration limit before finishing an answer. Try a narrower question."
+        apply:
+          missing: "No suggestion %{index} on this message (it carries %{count}). Reply `apply` for the first, `apply 2` for the second, and so on."
       auth:
         not_enrolled:
           - "No TOTP enrolled. Run bin/boot --totp to set one up."
@@ -2587,6 +2594,7 @@ en:
         videos_group_title: "VIDEOS"
         channels_group_title: "CHANNELS"
         analytics_group_title: "ANALYTICS"
+        ai_group_title: "AI"
         command_hint: "Use --help for more info"
         chat:
           body: "Follow-up targets and accepted actions, grouped by entity. Type any listed action after a #handle reply."
@@ -5583,6 +5591,11 @@ en:
           - "Not a valid future time. %{title} needs a datetime that's coming up."
           - "Time: not rewound. %{title}: needs a future publish slot."
           - "The past is off-limits. %{title}: future date required."
+        metadata_confirm: "Update %{title}'s %{field} on YouTube? New value: %{preview}"
+        metadata_updated:
+          - "%{title}'s %{field} updated — pushing to YouTube now."
+          - "Done. %{title}'s %{field} is saved and on its way to YouTube."
+          - "%{field} set on %{title}. YouTube gets it in a moment."
         publish_confirm:
           - "Publish %{title}?"
           - "Make %{title} public?"
@@ -5991,113 +6004,6 @@ en:
           - "Channel %{handle} is not in the directory."
           - "Your channels don't include %{handle}."
           - "%{handle} — check your connected channels."
-
-      pull_refresh:
-        # G93: the kaomoji beside the line — sampled INDEPENDENTLY of hints
-        # (50 x 50 = 2500 combos, repetition stays rare).
-        glyphs:
-          - '¯\_(ツ)_/¯'
-          - '¯\_(°_o)_/¯'
-          - '¯\(°_o)/¯'
-          - '┐(´ー｀)┌'
-          - '┐(￣ヮ￣)┌'
-          - '╮(╯▽╰)╭'
-          - '┐(‘～`;)┌'
-          - 'ᕕ( ᐛ )ᕗ'
-          - '(・_・;)'
-          - '(￣▽￣)ノ'
-          - '(◕‿◕)'
-          - '( ͡° ͜ʖ ͡°)'
-          - '(¬‿¬)'
-          - '(＾▽＾)'
-          - '(o^▽^o)'
-          - '(⌐■_■)'
-          - '( •_•)>⌐■-■'
-          - '(￢з￢)'
-          - '(´｡• ᵕ •｡`)'
-          - '( ˙꒳˙ )'
-          - '(=^･ω･^=)'
-          - 'ฅ^•ﻌ•^ฅ'
-          - '(°ロ°)'
-          - 'Σ(°△°|||)'
-          - '(๑•̀ㅂ•́)و'
-          - '(ง''̀-''́)ง'
-          - '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧'
-          - '╰(*°▽°*)╯'
-          - 'ヽ(o＾▽＾o)ノ'
-          - '\(^o^)/'
-          - 'o7'
-          - '\m/'
-          - '\o/'
-          - '>_<'
-          - '^_^'
-          - '(•‿•)'
-          - ':3'
-          - '(⊙_⊙)'
-          - '(¬_¬)'
-          - '(≖_≖ )'
-          - 'ʕ•ᴥ•ʔ'
-          - '(⊃｡•́‿•̀｡)⊃'
-          - '(っ˘ڡ˘ς)'
-          - '( ˘▽˘)っ'
-          - '(￣o￣) zzZ'
-          - '(-_-)ゞ'
-          - 'φ(．．)'
-          - '(☞ﾟヮﾟ)☞'
-          - '☜(ﾟヮﾟ☜)'
-          - '(๑˃̵ᴗ˂̵)و'
-        # G81: the short ironic line beside the shrug while pulling up past
-        # the bottom (Android shell). Kept SHORT - one glance mid-drag.
-        hints:
-          - "Yes, this refreshes"
-          - "Pull harder, believe harder"
-          - "The bottom is a door"
-          - "Keep going, almost honest"
-          - "Gravity called, it approves"
-          - "This is the refresh zone"
-          - "Stretching the timeline"
-          - "You found the secret handle"
-          - "Tugging reality, please hold"
-          - "Commitment detected"
-          - "The scrollback bends to you"
-          - "Release to believe"
-          - "Further. Trust the thumb"
-          - "This counts as exercise"
-          - "Summoning fresher pixels"
-          - "The server likes attention"
-          - "Pull. it's load-bearing"
-          - "Reload rituals in progress"
-          - "Yes yes, it's coming"
-          - "Your thumb, the hero"
-          - "Negotiating with the bottom"
-          - "Freshness lives down here"
-          - "Almost there, drama queen"
-          - "The void appreciates you"
-          - "Warming up the reload"
-          - "Stretchy, isn't it"
-          - "Certified refresh gesture"
-          - "The bottom approves"
-          - "New pixels incoming, maybe"
-          - "That's the spirit"
-          - "Elastic and judgmental"
-          - "Yes, pito feels that"
-          - "Don't stop now"
-          - "The reload is shy"
-          - "Bribing the cache"
-          - "Lower than low, nice"
-          - "Professional pulling detected"
-          - "Your dedication is noted"
-          - "Refresh: pending your grip"
-          - "The update fairy watches"
-          - "Spring-loaded optimism"
-          - "Keep pulling, it's science"
-          - "Reality needs a tug"
-          - "Fresh out of the oven soon"
-          - "The bottom has a basement"
-          - "This is how legends reload"
-          - "Convincing the pixels"
-          - "One good yank does it"
-          - "The scrollback surrenders"
           - "Release when ready, champ"
       refresh_nudge:
         lines:
@@ -7816,7 +7722,7 @@ en:
         - "End of results. Results have ended."
         - "That's the complete set. Frame it if you like."
         - "Nothing more to see. The show is over."
-      # Generic options-footer copy (plan-0.9.5 E7, consolidated W6/D19).
+      # Generic options-footer copy.
       # Domain-agnostic — each surface passes ITS real options; the footer never
       # promises an option the surface lacks. %{noun} = the toggled things
       # ("columns" for lists, "segments" for show/analyze), %{addable} = hidden

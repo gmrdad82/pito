@@ -4,7 +4,7 @@
 // "unfold" → open the full conversation. It is NOT a real chat form (the share
 // page has no dispatch/cable), so Enter must navigate, not newline.
 //
-// Behaviour (owner 2026-07-01):
+// Behaviour:
 //   • `c` (when nothing editable is focused) → focus the textarea.
 //   • textarea focused  → swap the hint "c to chat" → "Enter to unfold".
 //   • textarea blurred  → swap back to "c to chat".

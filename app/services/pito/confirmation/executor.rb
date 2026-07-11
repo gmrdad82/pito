@@ -40,6 +40,8 @@ module Pito
             confirm_video_unlist(payload)
           when "video_schedule"
             confirm_video_schedule(payload)
+          when "video_metadata"
+            confirm_video_metadata(payload)
           when "game_reindex"
             confirm_game_reindex(payload)
           when "video_reindex"
@@ -108,6 +110,23 @@ module Pito
           video.update!(privacy_status: :public, publish_at: nil)
           VideoRemoteStatusSync.perform_later(video.id)
           Pito::Copy.render("pito.copy.videos.published", { title: title })
+        end
+
+        # `update vid description/tags <id> …` — the staged value lands locally,
+        # then the write-through pushes ONLY that field (part=snippet, other
+        # fields untouched via the fresh-snapshot overlay in VideosClient).
+        def confirm_video_metadata(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          field   = payload[:field].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+          return Pito::Copy.render("pito.copy.confirmation.confirmed") unless %w[description tags].include?(field)
+
+          value = payload[:staged_value]
+          video.update!(field => field == "tags" ? Array(value).map(&:to_s) : value.to_s)
+          VideoRemoteStatusSync.perform_later(video.id, fields: [ field ])
+          Pito::Copy.render("pito.copy.videos.metadata_updated", { title: title, field: field })
         end
 
         def confirm_video_unlist(payload)

@@ -19,7 +19,7 @@ module Pito
       #   → writes via `AppSetting` and broadcasts a settings-update cable event.
       # - Invalid toggle value → `Result::Error` with key `pito.slash.config.errors.invalid_toggle_value`.
       #
-      # (The `motion` toggle and `fx` reveal-effect provider were removed in item 18.)
+      # (The `motion` toggle and `fx` reveal-effect provider were removed.)
       #
       # Bare `/config` (no provider) → general overview table of all providers.
       # Unknown provider → `Result::Error` with key `pito.slash.config.errors.unknown_provider`.
@@ -32,14 +32,24 @@ module Pito
       class Config < Pito::Slash::Handler
         self.verb = :config
         self.description_key = "pito.slash.config.descriptions.config"
-        # Grammar (provider/state/settings slots, auth, aliases): config/pito/verbs.yml (T8.9).
+        # Grammar (provider/state/settings slots, auth, aliases): config/pito/verbs.yml.
 
-        KNOWN_PROVIDERS   = %w[google voyage igdb webhook me].freeze
+        KNOWN_PROVIDERS   = %w[ai google voyage igdb webhook me].freeze
         TOGGLE_PROVIDERS  = %w[sound].freeze
         ME_PROVIDER       = "me"
 
         # Maps each provider's supported kwargs to their AppSetting writers.
         PROVIDER_SETTERS = {
+          "ai" => {
+            # The key lands in the encrypted key/value store; the model pick also
+            # stamps the active provider. Bare `/config ai` never reaches this
+            # handler — the web fast-path opens the picker overlay instead.
+            api_key: ->(v) { AppSetting.set("opencode_api_key", v) },
+            model:   ->(v) {
+              AppSetting.set("ai_model", v)
+              AppSetting.set("ai_provider", "opencode")
+            }
+          },
           "google" => {
             client_id:     ->(v) { AppSetting.singleton_row.update!(google_oauth_client_id: v) },
             client_secret: ->(v) { AppSetting.singleton_row.update!(google_oauth_client_secret: v) },
@@ -61,6 +71,12 @@ module Pito
 
         # Status readers for the getter display (returns a Hash of label → value/status).
         PROVIDER_STATUS = {
+          "ai" => -> {
+            {
+              "API Key" => status_flag(AppSetting.get("opencode_api_key")),
+              "Model"   => AppSetting.get("ai_model").presence || I18n.t("pito.slash.config.status.missing")
+            }
+          },
           "google" => -> {
             {
               "Client ID"     => status_flag(Pito::Credentials.google_oauth_client_id),

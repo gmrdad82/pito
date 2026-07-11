@@ -324,6 +324,78 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
   end
 
+  # ── confirm / video_metadata ──────────────────────────────────────────────
+
+  describe ".confirm — video_metadata" do
+    let!(:md_channel) { create(:channel) }
+    let!(:md_video)   { create(:video, channel: md_channel, title: "Let's Play Elden Ring", description: "old desc", tags: [ "old" ]) }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    context "field: description" do
+      it "updates the video's description to the staged value" do
+        described_class.confirm("video_metadata", {
+          "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+          "field" => "description", "staged_value" => "New words"
+        })
+        expect(md_video.reload.description).to eq("New words")
+      end
+
+      it "enqueues VideoRemoteStatusSync with fields: [description]" do
+        described_class.confirm("video_metadata", {
+          "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+          "field" => "description", "staged_value" => "New words"
+        })
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(md_video.id, fields: [ "description" ])
+      end
+
+      it "returns outcome text mentioning the title" do
+        text = described_class.confirm("video_metadata", {
+          "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+          "field" => "description", "staged_value" => "New words"
+        })
+        expect(text).to include("Let's Play Elden Ring")
+      end
+    end
+
+    context "field: tags" do
+      it "updates the video's tags to the staged array" do
+        described_class.confirm("video_metadata", {
+          "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+          "field" => "tags", "staged_value" => [ "a", "b" ]
+        })
+        expect(md_video.reload.tags).to eq([ "a", "b" ])
+      end
+
+      it "enqueues VideoRemoteStatusSync with fields: [tags]" do
+        described_class.confirm("video_metadata", {
+          "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+          "field" => "tags", "staged_value" => [ "a", "b" ]
+        })
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(md_video.id, fields: [ "tags" ])
+      end
+    end
+
+    it "returns not_found text and enqueues nothing when the video is missing" do
+      text = described_class.confirm("video_metadata", {
+        "video_id" => 0, "video_title" => "Ghost",
+        "field" => "description", "staged_value" => "New words"
+      })
+      expect(text).to be_present
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+
+    it "returns the generic confirmed copy, does NOT write, and enqueues nothing for a field outside the allowlist" do
+      text = described_class.confirm("video_metadata", {
+        "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+        "field" => "title", "staged_value" => "Sneaky New Title"
+      })
+      expect(text).to be_present
+      expect(md_video.reload.title).to eq("Let's Play Elden Ring")
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
   # ── confirm / video_schedule ──────────────────────────────────────────────
 
   describe ".confirm — video_schedule" do

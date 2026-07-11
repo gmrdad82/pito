@@ -2,7 +2,7 @@
 
 module Pito
   module Games
-    # The show-game CHANNEL-MATCHES message (item 16), reworked into TWO 450px
+    # The show-game CHANNEL-MATCHES message, reworked into TWO 450px
     # columns that align row-for-row on desktop (stack on mobile):
     #
     #   col 1 — per-game CHANNEL DISTRIBUTION (ChannelDistributionComponent):

@@ -195,7 +195,7 @@ module Pito
 
         game_ids.uniq.each { |game_id| ::GameStatsRefreshJob.perform_later(game_id) }
 
-        # G28 — a sync pass rewrites video stats, so the DERIVED entity stats
+        # A sync pass rewrites video stats, so the DERIVED entity stats
         # (this channel's likes; every linked game's views+likes) must
         # re-materialize too, not only the deleted videos' games above.
         ::ChannelStatsRefreshJob.perform_later(channel.id)

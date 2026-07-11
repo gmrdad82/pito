@@ -1,5 +1,5 @@
 <% if triggers_logout? %><div data-controller="pito--logout"><% end %>
-<%= render(Pito::Segment::Component.new(accent: :purple, background: "var(--bg-elevated)", scrollback_message: true)) do %>
+<%= render(Pito::Segment::Component.new(accent: accent, background: "var(--bg-elevated)", scrollback_message: true)) do %>
   <div>
     <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= @text %></span>
     <%= render(Pito::Event::MetaLineComponent.new) %>

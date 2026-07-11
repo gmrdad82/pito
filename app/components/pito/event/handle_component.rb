@@ -17,8 +17,8 @@ module Pito
       end
 
       # The reply handle is DECORATIVE (purple hashtag shimmer) and NOT clickable
-      # (owner 2026-06-29: purple shimmer must never be clickable — only the yellow
-      # shimmer is). The click-to-prefill affordance was removed; the shift+r
+      # (purple shimmer must never be clickable — only the yellow shimmer is).
+      # The click-to-prefill affordance was removed; the shift+r
       # keybinding (yellow kbd) remains the way to reply. The `data-pito-handle`
       # hook is preserved for the lasthashtag controller.
       def call

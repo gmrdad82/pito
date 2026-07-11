@@ -5,7 +5,7 @@ require "json"
 
 module Pito
   module Bench
-    # READONLY benchmark runner — backs `rake pito:bench` (0.9.0 Phase 0).
+    # READONLY benchmark runner — backs `rake pito:bench`.
     #
     # Every step runs under two mechanical guarantees:
     #
@@ -32,7 +32,6 @@ module Pito
     # `uuid` scopes the replay step to a specific conversation (default: the
     # one with the most events); `iterations` drives the microbench loops.
     class Runner
-      # Populated as Phase-0 steps land (T0.2–T0.7).
       STEPS = [
         Steps::Replay,
         Steps::Components,

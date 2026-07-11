@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# The MCP endpoint (G130) — POST /mcp, JSON-RPC 2.0 over MCP Streamable HTTP.
+# The MCP endpoint — POST /mcp, JSON-RPC 2.0 over MCP Streamable HTTP.
 # READ-ONLY: every tool routes through Pito::Mcp::Executor, which never persists.
-# Bearer-authenticated (OAuth, P4); no cookie session, so it is deliberately NOT an
+# Bearer-authenticated (OAuth); no cookie session, so it is deliberately NOT an
 # ApplicationController subclass (no session-auth concern). A dedicated Puma
 # container serves this in production so a slow tool loop can't starve the app.
 #
@@ -94,7 +94,7 @@ class McpController < ActionController::Base
     defined?(@request_id) ? @request_id : nil
   end
 
-  # ── Bearer gate (OAuth-backed in P4) ─────────────────────────────────────────
+  # ── Bearer gate (OAuth-backed) ───────────────────────────────────────────────
 
   def authenticate_mcp!
     @mcp_client = Pito::Mcp::Auth.authenticate(bearer_token)

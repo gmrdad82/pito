@@ -6,7 +6,7 @@ module Pito
       # Replay bench — renders EVERY event of one conversation exactly the way
       # `GET /chat/:uuid` does (`Pito::Stream::EventRenderer` per event), timing
       # the full pass plus a per-kind breakdown. This is the number the L1
-      # message-fragment and L2 snapshot caches (0.9.0 Phases 5–6) must beat.
+      # message-fragment and L2 snapshot caches must beat.
       #
       # Conversation choice: `ctx.uuid` when given, else the conversation with
       # the most events (the worst realistic page load).

@@ -40,7 +40,7 @@ module Pito
 
       # Slim struct with the interface Primitives.store / AnalyticsPrimitive expect.
       # Expiry goes through the ONE Window policy point (token "lifetime" → 24h
-      # tier; never re-derive TTLs locally — 0.9.0 Phase 2).
+      # tier; never re-derive TTLs locally).
       LifetimeWindow = Struct.new(:start_date, :end_date, :token) do
         def expires_at_for(now:, live_ttl: nil)
           Pito::Analytics::Window.expires_at_for(end_date:, now:, token:, live_ttl:)

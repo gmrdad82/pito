@@ -5,7 +5,7 @@
 # Notification. A begin/rescue per game means one failure does not abort the
 # rest of the batch.
 #
-# Scoping (Item 51 — every awaited game re-syncs EVERY night, no stale gate):
+# Scoping (every awaited game re-syncs EVERY night, no stale gate):
 #   - `synced`           — `igdb_synced_at` present. Never-synced games are
 #     skipped; their only legitimate null window is between `add_from_igdb`
 #     and the immediate per-game sync, which the nightly should not race.
@@ -18,7 +18,7 @@
 #     date slips, precision firms up, platform/genre edits), so those refresh
 #     nightly and every sync rewrites the release fields when IGDB changed.
 #
-# "Changed" detection (1.0.0 G25 — release dates ONLY): the notification is
+# "Changed" detection (release dates ONLY): the notification is
 # about UPCOMING games, so a game is reported only when its RELEASE data
 # moved — the game-level components (year/quarter/month/day/date) or any
 # per-platform release row. Each game's release signature is captured before
@@ -39,7 +39,7 @@
 class GameIgdbNightlyRefresh < ApplicationJob
   queue_as :default
 
-  # 0.9.0 Phase 3 — BULK prefetch: every awaited game's IGDB row + time-to-beat
+  # BULK prefetch: every awaited game's IGDB row + time-to-beat
   # row is fetched in ⌈N/500⌉ bulk queries (2 requests per 500 games instead of
   # 2 per game), then each game syncs from its prefetched payload. If a bulk
   # slice errors (rate limit, 5xx), those games fall back to the per-game

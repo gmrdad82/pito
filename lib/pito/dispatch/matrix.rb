@@ -47,7 +47,7 @@ module Pito
       #                 :append otherwise. Matches the DSL handler's class-level mode.
       # * universal   → always :append (regardless of target).
       # * known alias → resolves per-target alias first, then global verb alias.
-      # * unknown     → the target's BASE mode (HF3 — mirrors the old DSL's
+      # * unknown     → the target's BASE mode (mirrors the old DSL's
       #                 mode_for_action fallback; controller routing depends on it).
       #
       # Returns nil when target_id is not in verbs.yml.
@@ -60,23 +60,26 @@ module Pito
         else
           a = action.to_s.downcase
 
-          # Universal reply verbs are always :append, unless this target is in the verb's except: set.
+          # A token the target itself declares (canonical verb or per-target
+          # alias) always resolves to the verb's declared mode — verb config wins
+          # over the universal set, so a universal token can never override a
+          # verb's own declaration on its target.
+          canonical = resolve_verb_for(t, a)
+          declared  = canonical && idx.dig(:verb_modes, t, canonical)
+          return declared if declared
+
+          # Universal reply verbs are :append, unless this target is in the verb's except: set.
           umode = idx[:universal_modes][a]
           if umode
             excepted = idx[:universal_excepts][a]
             return umode unless excepted&.include?(t)
-            # Excepted: fall through to per-target verb lookup → base mode (HF3) for unknown token.
           end
 
-          # Resolve action token → canonical verb (per-target alias first, then global).
-          canonical = resolve_verb_for(t, a)
-          # Unknown action → the target's BASE mode (HF3): the old handler DSL's
-          # mode_for_action fell back to the class-level mode for unrecognized
-          # tokens, and the controller's route-by-mode depends on that (e.g. the
-          # `--help` fall-through). Returning nil here broke that routing.
-          return idx[:base_mode][t] unless canonical
-
-          idx.dig(:verb_modes, t, canonical) || idx[:base_mode][t]
+          # Unknown action → the target's BASE mode: the handler contract falls
+          # back to the class-level mode for unrecognized tokens, and the
+          # controller's route-by-mode depends on that (e.g. the `--help`
+          # fall-through). Returning nil here would break that routing.
+          idx[:base_mode][t]
         end
       end
 

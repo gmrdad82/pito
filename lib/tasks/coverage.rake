@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Coverage floor (G59/G60 — the pito-tui parity gate).
+# Coverage floor — the pito-tui parity gate.
 #
 # The floor is enforced HERE, on the MERGED result, never per-process: under
 # parallel_rspec each process only executes a slice of the suite, so a

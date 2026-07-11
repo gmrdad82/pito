@@ -32,7 +32,7 @@ class ConversationsController < ApplicationController
 
     respond_to do |format|
       format.html do
-        # L2 snapshot (0.9.0 Phase 6): the assembled scrollback serves as ONE
+        # L2 snapshot: the assembled scrollback serves as ONE
         # cache read; misses rebuild from the L1 fragment layer. Broadcaster
         # chokepoints bust it on every scrollback-visible change. Authenticated only.
         @scrollback_html =
@@ -60,7 +60,7 @@ class ConversationsController < ApplicationController
               title:        @conversation.title,
               display_name: @conversation.display_name,
               created_at:   @conversation.created_at.iso8601,
-              # G125.1: the context meter, server-computed — pct is the exact
+              # The context meter, server-computed — pct is the exact
               # number the web meter draws (ContextMeterComponent math).
               context: {
                 pct:       Pito::Shell::ContextMeterComponent.pct(count),
@@ -68,7 +68,7 @@ class ConversationsController < ApplicationController
                 threshold: Pito::Shell::ContextMeterComponent::THRESHOLD
               }
             },
-            # G125.2: mini-status data for non-browser clients — identity +
+            # Mini-status data for non-browser clients — identity +
             # unread notifications (the web reads these from the HTML shell).
             me:            { handle: "@#{AppSetting.nickname}", name: AppSetting.nickname },
             notifications: { unread: Notification.unread.count },
@@ -112,7 +112,7 @@ class ConversationsController < ApplicationController
             }
           end
         }
-        # G125.2: identity + unread ride beside the recency groups (additive —
+        # Identity + unread ride beside the recency groups (additive —
         # the TUI ignores unknown keys, so older clients are unaffected).
         render json: groups.merge(
           me:            { handle: "@#{AppSetting.nickname}", name: AppSetting.nickname },

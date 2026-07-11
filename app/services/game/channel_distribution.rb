@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Game → channel COVERAGE DISTRIBUTION (item 16). "Across my channels, how is my
+# Game → channel COVERAGE DISTRIBUTION. "Across my channels, how is my
 # coverage of THIS game distributed?" — a normalized 0–100 share per channel,
 # rendered as the offset bar-group in the show-game channel-matches message
 # (col 1), beside the channel RECOMMENDATION (col 2).

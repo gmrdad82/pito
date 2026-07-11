@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The hand-rolled OAuth 2.1 authorization server for MCP (G130). Public clients
+# The hand-rolled OAuth 2.1 authorization server for MCP. Public clients
 # only (PKCE, no client_secret). Anonymous at the HTTP layer — the AUTHORIZATION
 # is gated by TOTP at consent (the owner's single approval per client), not by a
 # cookie session. register/token are JSON APIs (the client's server); authorize/

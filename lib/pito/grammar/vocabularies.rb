@@ -5,7 +5,7 @@ require "set"
 module Pito
   module Grammar
     # Thin module that bridges the old constant-based vocabulary API to the
-    # new config-driven source (Pito::Grammar::ConfigSource, T8.8 migration).
+    # new config-driven source (Pito::Grammar::ConfigSource).
     #
     # The static Vocabulary.define(…) constants that once lived here (NOUNS,
     # GENRES, PLATFORMS, METRICS, etc.) have been deleted — they are now built

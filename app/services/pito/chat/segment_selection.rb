@@ -115,7 +115,7 @@ module Pito
       end
 
       # Builds the Selection that an `only <segment>` clause parses to for this
-      # verb+entity — the seam segment verbs (plan-0.9.5 D20) use to force a single
+      # verb+entity — the seam segment verbs use to force a single
       # segment WITHOUT rewriting the input string. A segment name absent from the
       # entity's table lands in +unknown+ (exactly as a typo in a real `only`
       # clause would), so the caller renders the identical `segments.unknown`

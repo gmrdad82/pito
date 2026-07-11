@@ -1,6 +1,6 @@
 // pito--refresh-nudge
 //
-// The refresh nudge is TAPPABLE (G73): the Android shell has no keyboard and
+// The refresh nudge is TAPPABLE: the Android shell has no keyboard and
 // no refresh affordance (pull-to-refresh is deliberately off), so the yellow
 // segment itself — yellow being the action class — carries the reload. A
 // full location.reload() on purpose: the point of the nudge is fetching the
@@ -16,7 +16,7 @@ import { Controller } from "@hotwired/stimulus"
 
 // Clone the layout's server-rendered nudge template into the scrollback —
 // shared by pito--cable-health (reconnect check) and pito--version-watch
-// (the 5-min heartbeat, G80). CONSUMES the template node, which doubles as
+// (the 5-min heartbeat). CONSUMES the template node, which doubles as
 // the once-per-page-life guard: whichever caller fires second finds nothing
 // to clone. Returns true when the nudge landed.
 export function showRefreshNudge() {

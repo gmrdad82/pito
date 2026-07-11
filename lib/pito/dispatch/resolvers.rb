@@ -2,7 +2,7 @@
 
 module Pito
   module Dispatch
-    # Named resolver registry — the §5 "escape hatch" from the verbs.yml YAML schema.
+    # Named resolver registry — the "escape hatch" from the verbs.yml YAML schema.
     #
     # A resolver is a thin adapter that wraps EXISTING parsing/lookup code behind the
     # uniform contract:
@@ -22,8 +22,6 @@ module Pito
     #   Resolvers.resolve(:name, input, context: {}) — run one; raises KeyError if unknown
     #   Resolvers.registered?(:name)                — predicate
     #   Resolvers.names                             — sorted, frozen Array<Symbol> of all names
-    #
-    # See docs/claude/0.9.5-yaml-schema.md §5 for the design contract.
     module Resolvers
       # Returned when a resolver cannot produce a valid value.
       # Callers pattern-match on the return type (value vs. Invalid).

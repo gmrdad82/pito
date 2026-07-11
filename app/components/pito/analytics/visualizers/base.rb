@@ -21,7 +21,7 @@ module Pito
         # (dejavu-braille.woff2) whose advance is 0.7324em ≈ 10.25px @14px — WIDER
         # than the mono 1ch (8.43px) — so COLS is budgeted against 10.25px/cell:
         # 42 × 10.25 + 12px .pito-metric padding ≈ 442px < the locked 450px column
-        # (owner 2026-07-03, plan-0.9.5 D1; was 45 ≈ 473px, which overflowed).
+        # (was 45 ≈ 473px, which overflowed).
         # (The likes hearts are a SEPARATE locked width —
         # Pito::Analytics::Visualizers::Heart::HEART_COLS — not derived from this.)
         COLS = 42
@@ -49,7 +49,7 @@ module Pito
         # renderer with no data floor (the heart) can sit on the same baseline.
         BASELINE_DOT = [ 0x28C0 ].pack("U") # ⣀
 
-        # G105: extra dotted-paper columns past the data canvas — the surface
+        # Extra dotted-paper columns past the data canvas — the surface
         # spans its column (width:100%) and can be a touch wider than the
         # 42-cell canvas, which left a bald strip at the right edge; the bg
         # layer overdraws and the CSS clips it AT the surface edge, so the

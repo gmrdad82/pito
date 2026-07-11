@@ -17,7 +17,7 @@ module Pito
     #
     # Analytics SCALAR VALUES are not persisted in the payload (the glance marker
     # carries only `metric_keys`; the analyze `scaffold` is 0/1 pulled-flags). The
-    # Executor computes them inline (T2.3) and fills a canonical `metrics` shape,
+    # Executor computes them inline and fills a canonical `metrics` shape,
     # which this projects as `label: value` lines — see #metrics_lines.
     #
     # PURE READ + PURE FUNCTION: no DB, no persistence, no mutation. Payload keys are
@@ -142,7 +142,7 @@ module Pito
         end.join("\n")
       end
 
-      # ── computed analytics scalars (filled by the Executor, T2.3) ──────────────
+      # ── computed analytics scalars (filled by the Executor) ────────────────────
 
       # `metrics` is { label => value } (or Array<[label, value]>) — the inline-
       # computed numbers the Executor substitutes for a pending analytics marker.

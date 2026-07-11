@@ -15,10 +15,10 @@ module Pito
     #     same as the args a free-chat message would carry after the verb.
     #   - +bound+        — kwargs pre-resolved from the verb's declared
     #     `reply.targets.<target>.ref/args` paths in config/pito/verbs.yml, via
-    #     Pito::Dispatch::ReplyBinding (populated by VerbDelegator; plan-0.9.5
-    #     T8.7). Empty `{}` for free-chat construction and any target that
-    #     declares no ref/args. Handlers do their OWN extraction in P2; the P3
-    #     Router (T8.10) is what makes these bound kwargs authoritative-in-effect.
+    #     Pito::Dispatch::ReplyBinding (populated by VerbDelegator).
+    #     Empty `{}` for free-chat construction and any target that
+    #     declares no ref/args. Handlers do their OWN extraction for now; the
+    #     Router is what makes these bound kwargs authoritative-in-effect.
     #
     # A handler reads `follow_up?` to know it was reached via a reply and
     # resolves its reference from this context instead of `message.raw`.

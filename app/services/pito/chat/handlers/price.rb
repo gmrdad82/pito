@@ -25,6 +25,11 @@ module Pito
         UNSET_SUBCOMMAND = "unset"
 
         def call
+          # The typed setter moved to the consolidated `update` verb; reply
+          # forms (`#g3 price 20`, list-scoped `price <id> <amount>`) still
+          # delegate here through the follow-up pipeline and are unchanged.
+          return moved unless follow_up?
+
           subcommand, ref, raw_amount = parse_args
 
           case subcommand
@@ -38,6 +43,13 @@ module Pito
         end
 
         private
+
+        def moved
+          Pito::Chat::Result::Error.new(
+            message_key:  "pito.chat.update.moved",
+            message_args: { example: "update game price 12 59.99" }
+          )
+        end
 
         # `price set <id> <amount>` — resolve the game, parse the amount, save.
         def set(ref, raw_amount)

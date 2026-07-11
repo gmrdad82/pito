@@ -13,7 +13,7 @@ module Pito
     # "Copied!".
     class SnippetComponent < ViewComponent::Base
       # The exact shell script, formatted as a readable multi-line command with `\`
-      # line continuations (owner 2026-07-01: read pro, not a wrapped one-liner).
+      # line continuations (read pro, not a wrapped one-liner).
       # Single-quoted heredoc → no interpolation and no escaping of the embedded
       # quotes/braces/parens. `.chomp` drops the trailing newline. It copies + pastes
       # as-is (backslash-newline continuations are valid bash).

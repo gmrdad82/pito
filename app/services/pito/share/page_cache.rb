@@ -2,7 +2,7 @@
 
 module Pito
   module Share
-    # Cached scrollback section of the public share page (0.9.0 Phase 7):
+    # Cached scrollback section of the public share page:
     # intro line + the shared event (reply-suppressed) + outro line, rendered
     # once and served from SolidCache — share pages are unauthenticated and
     # may be hit by anyone, so this is a hardening win too.

@@ -20,7 +20,7 @@ module Pito
       class Help < Pito::Slash::Handler
         self.verb = :help
         self.description_key = "pito.slash.help.descriptions.help"
-        # Grammar (auth :any, dispatch): config/pito/verbs.yml (T8.9). The handler
+        # Grammar (auth :any, dispatch): config/pito/verbs.yml. The handler
         # itself still branches on `authenticated` for full vs restricted output.
 
         def call

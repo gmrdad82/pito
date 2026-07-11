@@ -141,8 +141,8 @@ class Channel
         subscribersGained subscribersLost likes dislikes comments
       ].join(",").freeze
 
-      # PER-VIDEO scalar rows for a BATCH of videos in ONE request (0.9.0
-      # Phase 3) — the "Top videos with optional regional filters" report
+      # PER-VIDEO scalar rows for a BATCH of videos in ONE request — the "Top
+      # videos with optional regional filters" report
       # shape: `dimensions=video`, `sort` required, ≤ 200 rows, and the ONLY
       # video-dimensioned variant carrying all 9 SCALAR_METRICS (verified
       # against channel_reports docs; subscribersGained/Lost are absent from

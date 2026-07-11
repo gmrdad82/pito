@@ -29,6 +29,8 @@ en:
         schedule: "Schedule a vid for future publishing"
         find: "Search vids by title, genre, or platform"
         search: "Find games similar to another one (search games like <title>)"
+        ai: "Ask the AI assistant anything about your library (ai <question>)"
+        update: "Update game footage/price/platform or vid description/tags (update game price <id> <amount>)"
         link: "Link a vid to a game"
         unlink: "Unlink a vid from a game"
         sync: "Sync vids or channels from YouTube (scope via shift+tab channel)"
@@ -36,7 +38,7 @@ en:
         help: "List all follow-up targets and their accepted actions"
         shinies: "Show achievement tracks and obtained shinies (game, vid, or channel)"
         analyze: "Analyze YouTube metrics for a channel, vid, or game (over the shift+space period)"
-        # Segment verbs (D20/D21) — each promotes one show/analyze :enhanced segment.
+        # Segment verbs — each promotes one show/analyze :enhanced segment.
         "at-a-glance": "Pending analytics summary for a channel, vid, or game (over the shift+space period)"
         videos: "List a channel's videos, or the vids linked to a game"
         game: "Show the game linked to a vid"
@@ -44,7 +46,7 @@ en:
         similar: "Voyage-powered similar-game recommendations for a game"
         channels: "List the channels that publish a game"
         breakdowns: "Lifetime distribution breakdowns for a channel, vid, or game (over the shift+space period)"
-        # The `linked` two-word forms (E14) — the noun names what you get; the id is the OTHER entity's.
+        # The `linked` two-word forms — the noun names what you get; the id is the OTHER entity's.
         linked: "Show what's linked — `linked game #vid` (a vid's game) or `linked vids #game` (a game's vids)"
         greet: "Say hi — PITO greets you with what it can do"
         farewell: "Say bye — PITO waves you off"

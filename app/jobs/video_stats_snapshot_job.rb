@@ -29,7 +29,7 @@ class VideoStatsSnapshotJob < ApplicationJob
 
   private
 
-  # G28 — after every intraday pass, re-materialize the DERIVED entity stats
+  # After every intraday pass, re-materialize the DERIVED entity stats
   # (channel likes; game views+likes) so the list surfaces read fresh
   # `Pito::Stats` rows instead of live-summing videos at render.
   def enqueue_rollups

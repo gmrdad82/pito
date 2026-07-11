@@ -59,7 +59,7 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
     breakdowns:    %i[channel vid game],
     channels:      %i[game],
     delete:        %i[game video],
-    footage:       %i[update snippet],
+    footage:       %i[game snippet],
     game:          %i[vid],
     games:         %i[channel],
     import:        %i[game videos],

@@ -31,7 +31,7 @@
     chatbox_controllers = @unfold_url ? "pito--share-unfold" : ""
     chatbox_data = {}
   else
-    chatbox_controllers = "pito--suggestions pito--chatbox-hints pito--history pito--placeholder-rotate"
+    chatbox_controllers = "pito--suggestions pito--chatbox-hints pito--history pito--placeholder-rotate pito--ai-accent"
     chatbox_data = { "pito--history-entries-value": @history.to_json }
     if @draft_uuid.present?
       chatbox_controllers += " pito--draft"
@@ -57,9 +57,9 @@
       <%= hidden_field_tag :period, @filter[:period], data: { pito__chat_form_target: "periodInput" } %>
     <% end %>
 
-    <%# Single-line chatbox (13.39): the textarea, with an absolute-positioned,
+    <%# Single-line chatbox: the textarea, with an absolute-positioned,
         right-aligned HINT SLOT on the SAME line. Exactly ONE hint shows at a time
-        (chatbox-hints controller, item 10):
+        (chatbox-hints controller):
           • unfocused                     → `c to chat`
           • focused + `list vids/games`   → shift+tab (channel cycler)
           • focused + `analyze`           → shift+space (period cycler)

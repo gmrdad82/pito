@@ -4,7 +4,7 @@ module Pito
   module FollowUp
     module Handlers
       # Follow-up handler for the channel GAMES GRID (reply_target:
-      # "channel_games", G120).
+      # "channel_games").
       #
       # The grid is stamped `reply_target: "channel_games"` by
       # `Pito::MessageBuilder::Channel::Games.call`. The user can reply:

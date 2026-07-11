@@ -1,0 +1,8 @@
+<div class="flex flex-col gap-1">
+  <% if label && !%w[score].include?(@block["type"]) %>
+    <div class="text-fg-dim"><%= label %></div>
+  <% end %>
+  <% if (component = viz_component) %>
+    <%= render(component) %>
+  <% end %>
+</div>

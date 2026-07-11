@@ -110,8 +110,8 @@ module Pito
       # Upserts the cache row to ready with the given payload and expiry.
       #
       # Expiry is EITHER `ttl:` (duration from now) OR `expires_at:` (absolute
-      # Time, or nil = frozen forever — the Window policy's finalized tier;
-      # 0.9.0 Phase 4). Exactly one must be given.
+      # Time, or nil = frozen forever — the Window policy's finalized tier).
+      # Exactly one must be given.
       #
       # @param signature  [String]
       # @param payload    [Hash]

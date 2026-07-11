@@ -21,36 +21,74 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     Pito::FollowUp::VerbDelegator.call(source_event: source, rest: rest, conversation: conversation)
   end
 
-  # ── Context 1: free chat (`platform <id> ps5`) ──────────────────────────────────
+  # ── Typed free chat: moved (setter migrated to `update`) ────────────────────────
+  #
+  # `call` returns the "moved" error BEFORE resolution when there is no follow-up
+  # context, for every argument shape — no lookup, no write. Reply-through-follow-up
+  # invocations (below) are the only surviving path that mutates `game.platforms`.
 
-  it "sets the platform in free chat (leading id + name)" do
+  it "returns the moved error for the plain `<id> <name>` form, without writing" do
     result = free_call("#{game.id} ps5")
 
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(game.reload.platforms).to eq([ "PlayStation 5" ])
-
-    payload = result.events.first[:payload]
-    expect(result.events.first[:kind]).to eq(:system)
-    expect(payload["html"]).to be(true)
-    expect(payload["body"]).to include("playstation.svg")
-    expect(payload["game_id"]).to eq(game.id)
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.update.moved")
+    expect(result.message_args).to eq(example: "update game platform 12 ps5")
+    expect(game.reload.platforms).to eq([])
   end
 
-  it "accepts a `#`-prefixed id and a multi-word platform name" do
-    free_call("##{game.id} PlayStation 5")
+  it "returns the moved error regardless of id form or noun filler (# prefix, `game` filler)" do
+    expect(free_call("##{game.id} PlayStation 5")).to be_a(Pito::Chat::Result::Error)
+    expect(free_call("game #{game.id} switch")).to be_a(Pito::Chat::Result::Error)
+    expect(game.reload.platforms).to eq([])
+  end
+
+  it "returns the moved error for an explicit `set` subcommand, without writing" do
+    result = free_call("set #{game.id} ps5")
+
+    expect(result.message_key).to eq("pito.chat.update.moved")
+    expect(game.reload.platforms).to eq([])
+  end
+
+  it "returns the moved error for an explicit `unset` subcommand, without writing" do
+    game.update!(platforms: [ "PlayStation 5" ])
+    result = free_call("unset #{game.id} ps5")
+
+    expect(result.message_key).to eq("pito.chat.update.moved")
     expect(game.reload.platforms).to eq([ "PlayStation 5" ])
   end
 
-  it "tolerates the `game` noun filler before the id" do
-    free_call("game #{game.id} switch")
-    expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
+  it "returns the moved error with no arguments at all" do
+    result = free_call("")
+
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.update.moved")
+  end
+
+  it "returns the moved error when only an id is given (no platform name)" do
+    result = free_call(game.id.to_s)
+
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.update.moved")
+  end
+
+  it "returns the moved error for an unknown game id (no not-found lookup happens)" do
+    result = free_call("999999 ps5")
+
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.update.moved")
   end
 
   # ── Context 2: reply to `show game` (game from card, no id) ──────────────────────
 
   it "sets the platform via a game_detail reply (game from the card, no id typed)" do
-    reply_call("game_detail", "platform ps5", game_id: game.id)
+    result = reply_call("game_detail", "platform ps5", game_id: game.id)
     expect(game.reload.platforms).to eq([ "PlayStation 5" ])
+
+    events = result.events
+    payload = events.first[:payload]
+    expect(payload["html"]).to be(true)
+    expect(payload["body"]).to include("playstation.svg")
+    expect(payload["game_id"]).to eq(game.id)
   end
 
   # ── Context 3: reply to `list games` (leading id) ───────────────────────────────
@@ -60,30 +98,30 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     expect(game.reload.platforms).to eq([ "PC (Steam)" ])
   end
 
-  # ── De-dup + append ─────────────────────────────────────────────────────────────
+  # ── De-dup + append (via follow-up — the only path that still writes) ───────────
 
   it "is a no-op when the normalized platform is already present (de-duped)" do
     game.update!(platforms: [ "PlayStation 5" ])
-    free_call("#{game.id} PlayStation5")
+    reply_call("game_detail", "platform PlayStation5", game_id: game.id)
     expect(game.reload.platforms).to eq([ "PlayStation 5" ])
   end
 
   it "appends (does not replace) existing platforms" do
     game.update!(platforms: [ "Nintendo Switch" ])
-    free_call("#{game.id} ps5")
+    reply_call("game_detail", "platform ps5", game_id: game.id)
     expect(game.reload.platforms).to contain_exactly("Nintendo Switch", "PlayStation 5")
   end
 
   # ── set / unset subcommands (add / remove) ──────────────────────────────────────
 
-  it "adds via an explicit `set` subcommand" do
-    free_call("set #{game.id} ps5")
+  it "adds via an explicit `set` subcommand through a follow-up reply" do
+    reply_call("game_detail", "platform set ps5", game_id: game.id)
     expect(game.reload.platforms).to eq([ "PlayStation 5" ])
   end
 
   it "removes a specific platform via `unset`, preserving the others" do
     game.update!(platforms: [ "PlayStation 5", "Nintendo Switch" ])
-    result = free_call("unset #{game.id} ps5")
+    result = reply_call("game_detail", "platform unset ps5", game_id: game.id)
 
     expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
     expect(result.events.first[:payload]["body"]).to include("Removed")
@@ -91,9 +129,9 @@ RSpec.describe Pito::Chat::Handlers::Platform do
 
   it "unset is a no-op (still Ok) when the platform is not present" do
     game.update!(platforms: [ "Nintendo Switch" ])
-    result = free_call("unset #{game.id} ps5")
+    result = reply_call("game_detail", "platform unset ps5", game_id: game.id)
 
-    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result).to be_a(Pito::FollowUp::Result::Append)
     expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
   end
 
@@ -109,10 +147,10 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
   end
 
-  # ── Unknown platform: stored as text, no logo ───────────────────────────────────
+  # ── Unknown platform: stored as text, no logo (via follow-up) ───────────────────
 
   it "stores an unknown platform as text with no logo" do
-    result = free_call("#{game.id} Stadia")
+    result = reply_call("game_detail", "platform Stadia", game_id: game.id)
 
     expect(game.reload.platforms).to eq([ "Stadia" ])
     expect(Pito::Games::PlatformTokens.tokens(game.platforms)).to be_empty
@@ -120,29 +158,29 @@ RSpec.describe Pito::Chat::Handlers::Platform do
   end
 
   it "stores Xbox with its logo token (Item 24)" do
-    free_call("#{game.id} Xbox")
+    reply_call("game_detail", "platform Xbox", game_id: game.id)
 
     expect(game.reload.platforms).to eq([ "Xbox" ])
     expect(Pito::Games::PlatformTokens.tokens(game.platforms)).to eq([ "xbox" ])
   end
 
-  # ── Errors ──────────────────────────────────────────────────────────────────────
+  # ── Errors (via follow-up — the only path that still resolves) ──────────────────
 
-  it "returns needs_ref when no game reference is given" do
-    result = free_call("")
-    expect(result).to be_a(Pito::Chat::Result::Error)
+  it "returns needs_ref when no game reference is given in a list reply" do
+    result = reply_call("game_list", "platform")
+    expect(result).to be_a(Pito::FollowUp::Result::Error)
     expect(result.message_key).to eq("pito.chat.platform.needs_ref")
   end
 
-  it "returns missing_name when an id is given with no platform name" do
-    result = free_call(game.id.to_s)
-    expect(result).to be_a(Pito::Chat::Result::Error)
+  it "returns missing_name when a detail reply carries no platform name" do
+    result = reply_call("game_detail", "platform", game_id: game.id)
+    expect(result).to be_a(Pito::FollowUp::Result::Error)
     expect(result.message_key).to eq("pito.chat.platform.missing_name")
   end
 
-  it "returns a witty not-found for an unknown game id" do
-    result = free_call("999999 ps5")
-    expect(result).to be_a(Pito::Chat::Result::Ok)
+  it "returns a witty not-found for an unknown game id via a list reply" do
+    result = reply_call("game_list", "platform 999999 ps5")
+    expect(result).to be_a(Pito::FollowUp::Result::Append)
     expect(result.events.first[:payload]["text"]).to include("999999")
   end
 end

@@ -85,7 +85,7 @@ module Pito
         record(path)
       end
 
-      # STORYBOARD (owner 2026-07-03): a deliberate viewport keyframe, registered
+      # STORYBOARD: a deliberate viewport keyframe, registered
       # in order for the storyboard step — and kept on disk as a playable PNG
       # suite in its own right.
       def keyframe_step(value)
@@ -96,7 +96,7 @@ module Pito
         record(path)
       end
 
-      # BURST (owner 2026-07-03): as many frames as the CDP pipe allows, aiming
+      # BURST: as many frames as the CDP pipe allows, aiming
       # at `fps` — each shot costs real time (~0.3-0.5s at @2x), so the ACHIEVED
       # rate is measured and reported honestly rather than pretended. All frames
       # register as storyboard keyframes AND stay on disk for the

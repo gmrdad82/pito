@@ -47,11 +47,11 @@ module Pito
 
         # Consult the declarative reply-branch paths (verbs.yml
         # reply.targets.<target>.ref/args) via Pito::Dispatch::ReplyBinding, and
-        # thread the resolved kwargs onto the follow-up context (plan-0.9.5 T8.7).
-        # The P3 Router (T8.10) CONSUMES this `bound` into the uniform contract's
+        # thread the resolved kwargs onto the follow-up context.
+        # The Router CONSUMES this `bound` into the uniform contract's
         # `kwargs:` — flipping it from an advisory field nothing read into a
         # first-class dispatch argument. The handlers' own resolution is still
-        # authoritative (byte-identical under the frozen matrices) until the P3
+        # authoritative (byte-identical under the frozen matrices) until the
         # generic executors absorb it.
         binding = Pito::Dispatch::ReplyBinding.bind(
           verb:, target: reply_target, rest: args, source_event:, conversation:

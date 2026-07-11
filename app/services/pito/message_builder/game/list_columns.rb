@@ -25,8 +25,8 @@ module Pito
         SORT_SPECS = {
           id:           { key: ->(g) { g.id },                                                  requires_with: false },
           title:        { key: ->(g) { g.title.to_s.downcase },                                 requires_with: false },
-          # No :platform sort — ordering by an icon set is meaningless
-          # (owner G26.7); the platform COLUMN stays with/without-able.
+          # No :platform sort — ordering by an icon set is meaningless;
+          # the platform COLUMN stays with/without-able.
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
@@ -114,7 +114,7 @@ module Pito
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-price",
             value:      ->(g) { Pito::Games::PriceGlyphs.html(g.price) }
           },
-          # Audience counters (owner G26.2) — a game's views/likes are the SUM
+          # Audience counters — a game's views/likes are the SUM
           # of its linked vids' Pito::Stats rows (Game#view_count/#like_count);
           # 0 when nothing is linked. Same right-aligned numeric treatment as
           # the vids list.
@@ -194,7 +194,7 @@ module Pito
           end
         end
 
-        # E7 options footer — per-surface column and sort summary.
+        # Options footer — per-surface column and sort summary.
         #
         # Derives the three OptionsFooter inputs from the currently-visible column
         # set and delegates rendering to Pito::Lists::OptionsFooter. Recomputes on

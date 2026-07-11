@@ -47,7 +47,7 @@ module Pito
           "game"    => :game,
           "games"   => :game,
           # `duration` is canonical everywhere (heading, footer, sort);
-          # `length` stays accepted as a silent alias (owner G26.3).
+          # `length` stays accepted as a silent alias.
           "duration" => :duration,
           "length"   => :duration,
           "views"   => :views,
@@ -78,7 +78,7 @@ module Pito
           },
           duration: {
             # First alias = the display token users see in footers/palettes:
-            # `duration` is canonical, `length` accepted quietly (owner G26.3).
+            # `duration` is canonical, `length` accepted quietly.
             aliases:    %w[duration length],
             heading:    "Duration",
             align:      :right,
@@ -99,7 +99,7 @@ module Pito
             cell_class: "text-fg-dim text-right tabular-nums",
             value:      ->(v) { count_text(v.like_count) }
           },
-          # (The comments column was removed per owner G26.1 — comment counts
+          # (The comments column was removed — comment counts
           # stay on `show vid` detail; `with comms` is no longer a thing.)
           # YouTube category (Gaming, People & Blogs, …). Last in canonical order, so
           # the viewport auto-fill only surfaces it on the widest viewports; also
@@ -114,7 +114,7 @@ module Pito
           # "—" once live / never scheduled. The PUBLIC, sortable counterpart to the
           # internal relative `scheduled` slate column: `list vids with publish_at`,
           # `sort by publish_at`, and the MCP `columns:["publish_at"]` all read this
-          # (owner U6 — publish_at is its own first-class column, split out of the
+          # (publish_at is its own first-class column, split out of the
           # visibility scope so the scheduled time is visible without a `show vid`).
           publish_at: {
             aliases:    %w[publish_at publish],
@@ -190,7 +190,7 @@ module Pito
           end
         end
 
-        # E7 options footer — per-surface column and sort summary.
+        # Options footer — per-surface column and sort summary.
         #
         # Derives the three OptionsFooter inputs from the currently-visible column
         # set and delegates rendering to Pito::Lists::OptionsFooter. Recomputes on

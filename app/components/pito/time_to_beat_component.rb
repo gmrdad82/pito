@@ -188,7 +188,7 @@ module Pito
     # Compact label rendered INLINE on the `=` bar line, adjacent to the footage
     # `|` tick. ALWAYS the formatted hours — footage_hours defaults to 0 (DB:
     # default 0.0, NOT NULL), so a no-footage game shows "0" (e.g. "0h"), never a
-    # dash (owner 2026-06-30).
+    # dash.
     def footage_inline_label
       footage_value_label
     end

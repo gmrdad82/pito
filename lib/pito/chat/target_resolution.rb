@@ -70,7 +70,7 @@ module Pito
       # `reply_target` (video_list / video_detail) — the reconstructed `<verb>
       # <rest>` carries no noun. In free chat it's the noun word the user typed.
       # Scans only PRE-CLAUSE tokens (before with/only/without/full) so a segment
-      # name inside the clause never ghost-triggers the branch — since G121 the
+      # name inside the clause never ghost-triggers the branch — the
       # game entity has a `videos` segment, and `show game #3 only videos` must
       # stay a GAME invocation (mirrors Show#channel_noun?).
       def video_target?(video_noun_fillers)
@@ -95,7 +95,7 @@ module Pito
 
       # The raw text reference extraction reads. Verbs whose grammar appends
       # trailing clauses AFTER the reference (segment selection on `show`:
-      # `show game 5 full` — plan-0.9.5 D3) override these to return the input
+      # `show game 5 full`) override these to return the input
       # with those clauses stripped, so `find_by_ref` sees only the ref.
       def resolution_raw
         message.raw

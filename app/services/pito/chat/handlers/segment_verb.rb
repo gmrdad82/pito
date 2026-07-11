@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The ONE generic handler behind every "segment verb" (plan-0.9.5 D20/D21).
+# The ONE generic handler behind every "segment verb".
 #
 # A segment verb promotes a single :enhanced segment of `show`/`analyze` into its
 # own top-level chat verb — `at-a-glance game #5`, `similar game #5`, `videos
@@ -50,10 +50,10 @@ module Pito
 
         # The (parent_verb, segment, forced_entity) this verb drives — or a
         # rejection Result when the keyed form is missing its noun. Two config
-        # shapes (plan-0.9.5 D20 + E14):
+        # shapes:
         #
         #   FLAT   `segment_of: { verb:, segment: }` — entity nil; the typed noun
-        #          routes the entity in the parent (the W7 segment verbs).
+        #          routes the entity in the parent.
         #   KEYED  `segment_of: { <noun>: { verb:, segment:, entity: }, … }` — the
         #          `linked` forms: the noun names the segment and `entity:` FORCES
         #          the parent's branch (`linked game #7` → show vid #7 only
@@ -96,7 +96,7 @@ module Pito
         end
 
         # Resolves the parent handler CLASS from the parent verb's own config
-        # `chat.dispatch` declaration — no verb→class conditional in Ruby (D7),
+        # `chat.dispatch` declaration — no verb→class conditional in Ruby,
         # and a future segment-bearing parent needs zero edits here.
         def parent_handler(parent_verb)
           Pito::Dispatch::Config.verb(parent_verb.to_sym)

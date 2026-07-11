@@ -53,6 +53,16 @@ class ChatController < ApplicationController
         return respond_to_client(conversation, turn:)
       end
 
+      if config_ai_command?(input)
+        # Bare `/config ai` opens the AI model/key picker overlay (Turbo Stream
+        # update) — intercepted BEFORE the credential sync path, which would
+        # otherwise swallow it (ai is a credential provider for masking). Forms
+        # with kwargs (`/config ai api_key=…`) fall through to that sync path.
+        return render_web_only if request.format.json?
+
+        return handle_ai_picker(conversation)
+      end
+
       if Pito::InputMasking.config_credential_command?(input)
         # /config google|voyage|igdb|webhook carries secrets → handle
         # SYNCHRONOUSLY so the raw value is applied in-request and NEVER persisted:
@@ -206,7 +216,12 @@ class ChatController < ApplicationController
     # Slash / hashtag command echoes never show the channel filter in the meta line.
     echo_event   = Event.create_with_position!(
       conversation:, turn:, kind: :echo,
-      payload: { text: echo_text, authenticated: input_kind == :chat ? authenticated : false }
+      payload: {
+        text: echo_text, authenticated: input_kind == :chat ? authenticated : false,
+        # An `ai …` turn's echo wears the AI gradient accent — the visual
+        # thread from chatbox-while-typing through echo to the :ai reply.
+        ai: echo_text.to_s.match?(/\A\s*ai\b/i)
+      }
     )
     broadcaster.broadcast_event(echo_event)
 
@@ -640,6 +655,44 @@ class ChatController < ApplicationController
   # Renders a Turbo Stream that populates #pito-sidebar with the theme picker.
   # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
   # No echo, no Turn, no async job.
+  # True for exactly `/config ai` — the picker-opening form. Every other
+  # /config shape (credentials, toggles, --help, bare) keeps its existing path.
+  def config_ai_command?(input)
+    input.strip.match?(%r{\A/config\s+ai\z}i)
+  end
+
+  # Renders a Turbo Stream that mounts the /config ai picker overlay: model
+  # selection + API-key management for the active AI provider (state assembled
+  # here — the component reads no globals). Auth gating mirrors the theme
+  # sidebar. No echo, no Turn, no async job.
+  def handle_ai_picker(conversation)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/config ai"
+        ),
+        kind:    :error,
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
+      )
+      return respond_to_client(conversation)
+    end
+
+    provider = :opencode
+    config   = Ai::ProviderRegistry.provider(provider)
+    render partial: "chat/ai_picker",
+           formats: [ :turbo_stream ],
+           locals:  {
+             provider:     provider,
+             label:        config[:label],
+             models:       Ai::ModelCatalog.models(provider:),
+             active_model: AppSetting.get("ai_model"),
+             key_present:  AppSetting.get("#{provider}_api_key").present?
+           }
+  end
+
   def handle_theme_sidebar(conversation)
     unless Current.session.present?
       broadcaster = Pito::Stream::Broadcaster.new(conversation:)
@@ -757,11 +810,12 @@ class ChatController < ApplicationController
     # This allows handlers to declare different modes per action (e.g. add: :mutate,
     # show: :append) while sharing a single handler class.
     action = ff[:rest].to_s.split(/\s+/).first&.downcase
-    # Universal verbs (share / revoke / unshare) work on any reply_handle event
-    # regardless of its reply_target. Force :append mode so a turn + echo are
-    # created before FollowUpDispatchJob runs its universal short-circuit.
+    # Universal verbs (share / revoke / unshare) work on reply_handle events whose
+    # verb hasn't opted out and whose target doesn't declare the token itself
+    # (verb config always wins — see UniversalActions.intercept?). Force :append
+    # mode so a turn + echo exist before FollowUpDispatchJob short-circuits.
     mode =
-      if Pito::Share::UniversalActions.verbs.include?(action)
+      if Pito::Share::UniversalActions.intercept?(action, event:)
         :append
       else
         Pito::FollowUp::Registry.mode_for(target, action:)

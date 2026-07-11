@@ -82,8 +82,8 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
       expect(Pito::FollowUp::Handlers::Confirmation::SYSTEM_OUTCOME_ON_CONFIRM).to include("import_videos")
     end
 
-    it "ENHANCED_OUTCOME_ON_CONFIRM contains video_schedule, video_publish, video_unlist, video_delete" do
-      expected = %w[video_schedule video_publish video_unlist video_delete]
+    it "ENHANCED_OUTCOME_ON_CONFIRM contains the video write-through commands" do
+      expected = %w[video_schedule video_publish video_unlist video_delete video_metadata]
       expect(Pito::FollowUp::Handlers::Confirmation::ENHANCED_OUTCOME_ON_CONFIRM)
         .to match_array(expected)
     end

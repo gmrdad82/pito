@@ -10,7 +10,7 @@
     <p class="pito-game-enhanced-message__section-header text-fg-dim"><%= channels_header %></p>
 
     <%# Channel matches — the SAME tiny-avatar + score-bar rows as show game's
-        recommendation column (owner 2026-07-02: the 120px card grid retired;
+        recommendation column (the 120px card grid retired;
         avatars live at the left of the score cards everywhere). %>
     <%= render(Pito::Games::ChannelScoreTableComponent.new(
           results: channel_results, caption: nil

@@ -6,7 +6,7 @@ module Pito
       # Builds the two `analyze` messages (roles "system" + "enhanced") in pending
       # and ready states.
       #
-      # SCAFFOLD (owner-resolved): each role renders ITS ordered metrics
+      # SCAFFOLD: each role renders ITS ordered metrics
       # (Pito::Analytics::MetricOrder) as generic Slots::Compact cells via
       # Pito::Analytics::ScaffoldComponent, every cell a `0`/`1` data-pulled flag —
       # proving the fan-out + verb + with/without work end-to-end. Roles differ by
@@ -46,7 +46,7 @@ module Pito
 
         # Metrics that render as a bespoke chart (Area / Heart / Bar). When such a
         # metric has NO data, its cell becomes the NoData placeholder instead of the
-        # "0"/compact scalar (owner: NoData covers every empty Area/Heart/Bar). Pure
+        # "0"/compact scalar (NoData covers every empty Area/Heart/Bar). Pure
         # scalar metrics (day_of_week_heatmap) stay 0/1.
         NO_DATA_METRICS = (CHART_METRIC_KEYS.map(&:to_sym) + %i[likes] + BAR_METRIC_KEYS.map(&:to_sym)).freeze
 
@@ -118,11 +118,11 @@ module Pito
         # card, an `:enhanced` card, or both, per `roles:`. Used by the chat handler
         # AND the glance→new-pair follow-up handler so both build identical messages.
         # `roles:` defaults to BOTH so every existing caller is unaffected; the
-        # analyze handler narrows it from the parsed segment selection (plan-0.9.5
-        # D3: bare `analyze` → numbers only; `full` → both).
-        # The :enhanced message is ALWAYS lifetime (owner 2026-06-29) — its
+        # analyze handler narrows it from the parsed segment selection (bare
+        # `analyze` → numbers only; `full` → both).
+        # The :enhanced message is ALWAYS lifetime — its
         # audience-composition bars + retention are lifetime, so the whole card
-        # ignores shift+space. This also makes it cacheable with a 1-day TTL (0.9.0).
+        # ignores shift+space. This also makes it cacheable with a 1-day TTL.
         # The :system card keeps the shift+space period.
         ENHANCED_PERIOD = "lifetime"
 
@@ -305,7 +305,7 @@ module Pito
           end
         end
 
-        # G78: the Breakdown rollup bucket — the 5th bar summing the long tail
+        # The Breakdown rollup bucket — the 5th bar summing the long tail
         # so charts total 100. Only ramp metrics (geography/age) can carry it.
         def other_key?(key)
           key == Pito::Analytics::Breakdown::OTHER_KEY
@@ -559,7 +559,7 @@ module Pito
             Pito::Formatter::Duration.call(chart["total"].to_f) || "0:00"
           when :avg_viewed_pct
             # PULLED from YouTube's averageViewPercentage (views-weighted) — just the
-            # percentage; no paired M:SS (owner: don't derive; avg_view_duration is
+            # percentage; no paired M:SS (don't derive; avg_view_duration is
             # its own metric). total_pct is the views-weighted overall %.
             format("%.1f%%", chart["total_pct"].to_f)
           else

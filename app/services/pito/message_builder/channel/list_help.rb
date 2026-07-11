@@ -10,7 +10,7 @@ module Pito
       # lives inside the single `.pito-help-block` div produced by ManPage.render.
       #
       # The base table columns are always shown; `with likes` / `without likes`
-      # add or drop the addable audience column (G26.2), and `sorted by
+      # add or drop the addable audience column, and `sorted by
       # <column> [desc]` works on every column except Avatar (an addable
       # column sorts while visible) — the Options group lists with/without,
       # sort, and --help.

@@ -1,8 +1,8 @@
 // pito--chatbox-hints
 //
-// Drives the single-row meta-line hints inside #pito-chatbox (item 10, owner
-// 2026-06-29). Exactly ONE hint shows at a time, chosen from the chatbox focus
-// state AND the leading verb/noun the owner is typing:
+// Drives the single-row meta-line hints inside #pito-chatbox. Exactly ONE
+// hint shows at a time, chosen from the chatbox focus state AND the leading
+// verb/noun the owner is typing:
 //
 //   unfocused                                   → chatHint      (`m to start chatting`)
 //   focused + `list` + a vids/games noun        → shiftTabHint  (channel cycler)

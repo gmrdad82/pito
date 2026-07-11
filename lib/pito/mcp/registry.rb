@@ -3,12 +3,12 @@
 module Pito
   module Mcp
     # The MCP tool ontology, read from the SAME config/pito/verbs.yml the chat
-    # dispatcher uses (owner rule 4: verbs.yml is the ONLY place a tool is declared
+    # dispatcher uses (verbs.yml is the ONLY place a tool is declared
     # — no Ruby verb→tool table). Two sources, one registry:
     #
     #   * per-verb `mcp:` blocks — a READ-ONLY chat verb promoted to a tool. The
     #     Executor builds a grammar string from `input` + `input_suffixes` and
-    #     routes it through Pito::Dispatch::Router (T2.2).
+    #     routes it through Pito::Dispatch::Router.
     #   * top-level `mcp_readers:` — tools with no backing verb (pito_conversations
     #     / pito_messages); they SELECT persisted rows, no dispatch.
     #
@@ -116,7 +116,7 @@ module Pito
       # One param → its JSON-Schema fragment: `hint` → `description`, `enum` carried
       # through, an array param nests `items` (default string). A `capability:` param
       # gets its description ENRICHED with the per-noun valid tokens read live from
-      # `Pito::Grammar::Capability` (U5: the client sees exactly what the chatbox
+      # `Pito::Grammar::Capability` (the client sees exactly what the chatbox
       # grammar accepts, so it can list-with-columns instead of N pito_show calls).
       def property_schema(spec, verb = nil, nouns = [])
         frag = { "type" => spec[:type].to_s }

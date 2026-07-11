@@ -4,13 +4,13 @@
 # event, enqueue one AnalyzeMetricJob per metric — each folds its own data from
 # the shared primitives layer and swaps its own cell. The message owns the fan
 # + the barrier; the last metric to land composes the persisted ready state
-# FROM THE PER-METRIC STASHES (AnalyzeMetricJob#ready_data — 0.9.0 Phase 4),
+# FROM THE PER-METRIC STASHES (AnalyzeMetricJob#ready_data),
 # resolves that message's indicator, and completes the turn. A pending event
 # with no metric_keys resolves immediately so the turn never hangs.
 #
 # The old in-job aggregate path (compute + chart helpers re-fetching every
 # metric at finalize, plus scaffold probes across all reports at the message
-# window) was removed in 0.9.0 Phase 4 — AnalyzeMetricFill is the single
+# window) was removed — AnalyzeMetricFill is the single
 # per-metric compute path now.
 class AnalyzePrepareJob < ApplicationJob
   queue_as :default

@@ -57,11 +57,10 @@ class Game
       #   8 remake | 9 remaster | 10 expanded_game | 11 port |
       #   12 fork | 13 pack | 14 update.
       #
-      # 2026-05-18 follow-up (per user direction) — the filter now
-      # reads `game_type` instead of `category`. IGDB introduced
+      # The filter reads `game_type` instead of `category`. IGDB introduced
       # `game_type` as a successor to `category`; on the `search`
       # endpoint, `category` hydrates as null for nearly every row
-      # (including bundles, DLC, packs, costumes — which is why the
+      # (including bundles, DLC, packs, costumes — which is why a
       # previous 2-pass filter was forced to fall back to "keep nulls"
       # and bundles still leaked through). `game_type` is populated
       # reliably on the same search-endpoint payload, with the same
@@ -90,8 +89,6 @@ class Game
       # ("Super Mario 3D World + Bowser's Fury"); non-combo gt3 rows are
       # filtered in the post-step (see filter_search_hits).
       # DLC (1), packs (13), and ports (11) still drop at the API layer.
-      #
-      # IGB1 (2026-06-28): added GAME_TYPE_BUNDLE (3).
       DEFAULT_SEARCH_GAME_TYPES = [
         GAME_TYPE_MAIN_GAME, GAME_TYPE_BUNDLE, GAME_TYPE_REMAKE, GAME_TYPE_REMASTER, GAME_TYPE_EXPANDED_GAME
       ].freeze
@@ -146,7 +143,7 @@ class Game
           .limit(limit)
 
         unless include_editions
-          # 2026-05-18 — single-pass `game_type` filter. IGDB's search
+          # Single-pass `game_type` filter. IGDB's search
           # endpoint hydrates `game_type` reliably for every row
           # (unlike `category`, which is null for almost every search
           # hit). `game_type = (0,8,9,10)` keeps main games + remakes +
@@ -155,16 +152,15 @@ class Game
           # costumes / pack subtypes, ports (11), etc. drop out at the
           # API layer. No second pass needed.
           #
-          # 2026-06-28 — added expanded_game (10): standalone titles
-          # such as "Granblue Fantasy: Relink - Endless Ragnarok" carry
-          # game_type 10 and are legitimate import targets. Packs (13)
+          # Expanded games (10) are standalone titles
+          # such as "Granblue Fantasy: Relink - Endless Ragnarok"; packs (13)
           # are excluded. Bundles (3) pass the API filter so combo bundles
           # ("X + Y") survive; non-combo gt3 rows drop in filter_search_hits.
           #
           # Null-tolerant just in case IGDB ever ships a freshly
           # indexed row before `game_type` is populated.
           #
-          # 2026-06-07 — also filter `version_parent = null`.
+          # Also filters `version_parent = null`.
           # IGDB populates `version_parent` on "edition" entries
           # (e.g. "Red Dead Redemption 2: Special Edition") pointing to
           # the parent game id. Filtering it null excludes these edition
@@ -177,7 +173,7 @@ class Game
         hits = post("games", builder.to_s)
         return hits if include_editions || hits.empty?
 
-        # 2026-05-19 — drop cover-less rows from omnisearch results. A
+        # Drop cover-less rows from omnisearch results. A
         # row without `cover.image_id` renders as a `[?]` placeholder in
         # the `[+]` add-from-IGDB modal and is almost always noise (IGDB
         # stubs, regional duplicates, draft entries). Filter at the
@@ -210,7 +206,7 @@ class Game
         post("game_time_to_beats", body)
       end
 
-      # BULK variants (0.9.0 Phase 3) — the nightly refresh fetches every
+      # BULK variants — the nightly refresh fetches every
       # awaited game in ⌈N/500⌉ requests instead of 2 per game. IGDB's
       # documented per-query row cap is 500 (`limit`); callers slice to ≤500.
 
@@ -319,12 +315,12 @@ class Game
       # game-listing endpoints (`fetch_games_for_franchise`,
       # `fetch_games_for_collection`, `fetch_games_for_genre`) powered the
       # `Bundle#seed_from_igdb` flow. The flow + the columns it depended
-      # on were removed in the 2026-05-17 Bundle simplification; the
+      # on were removed when Bundle was simplified; the
       # fetchers are gone with it.
 
       private
 
-      # 2026-05-18 — secondary safety net on top of the IGDB `game_type`
+      # Secondary safety net on top of the IGDB `game_type`
       # filter. Drops any non-top-result row whose name starts with the
       # top result's name + ":". Catches edition / pack / DLC noise that
       # IGDB occasionally mis-tags as `game_type = 0` (or that slips
@@ -339,7 +335,7 @@ class Game
       # Explicit edition searches (e.g. "street fighter 6: collector's
       # edition") naturally bypass this: the top hit IS the edition, so
       # the prefix doesn't match anything below it.
-      # 2026-05-19 — drop rows lacking a cover image. IGDB occasionally
+      # Drops rows lacking a cover image. IGDB occasionally
       # returns entries with no `cover` association (stubs, drafts) or
       # with a `cover` hash whose `image_id` is blank. Both render as
       # `[?]` placeholders in the omnisearch row and are filtered out
@@ -357,7 +353,7 @@ class Game
         rows.reject { |row| !row.equal?(top) && row["name"].to_s.start_with?(prefix) }
       end
 
-      # 2026-07-08 — the owner only plays PlayStation / Xbox / Switch / Steam (PC),
+      # The owner only plays PlayStation / Xbox / Switch / Steam (PC),
       # so drop search hits that offer NO platform on that set. IGDB routinely
       # carries a second, ARCADE-ONLY entry for the same title under a duplicate
       # slug (e.g. "Tekken 7" id 394038, slug `tekken-7--1`, Arcade only) that has
@@ -387,9 +383,9 @@ class Game
       # titles ("Elden Ring", "Elden Ring Nightreign", "Elden Ring GB").
       EDITION_NOISE = /\b(edition|deluxe|premium|collector'?s|complete|definitive|goty|game of the year|season pass|bundle|pack|anniversary|upgrade)\b/i
 
-      # IGB1 (2026-06-28): A "combo" bundle joins two distinct titles with a
-      # spaced separator — " + " ("Super Mario 3D World + Bowser's Fury") or,
-      # G85 (2026-07-05), " & " ("Yakuza Kiwami 3 & Dark Ties"). Non-combo gt3
+      # A "combo" bundle joins two distinct titles with a
+      # spaced separator — " + " ("Super Mario 3D World + Bowser's Fury") or
+      # " & " ("Yakuza Kiwami 3 & Dark Ties"). Non-combo gt3
       # rows (Deluxe/Collector editions mis-tagged as bundles, season passes,
       # packs) carry neither and are dropped by filter_search_hits. The
       # separator must be SPACED on both sides, so single titles whose name
@@ -397,7 +393,7 @@ class Game
       # can't be misread; within gt3, a spaced joiner means two titles.
       COMBO_NAME = / \+ | & /
 
-      # Bundle-name ALLOWLIST (owner 2026-07-01): keep bundle (gt3) rows whose
+      # Bundle-name ALLOWLIST: keep bundle (gt3) rows whose
       # name is a legit standalone release the owner wants — GOTY / Game of the
       # Year / Anniversary editions (e.g. "Rayman: 30th Anniversary Edition") —
       # in addition to combo bundles. Case-insensitive (goty/GOTY/GoTY, etc.).
@@ -411,9 +407,9 @@ class Game
         rows.reject { |row| row["name"].to_s.match?(EDITION_NOISE) }
       end
 
-      # IGB1 (2026-06-28) — unified per-row post-fetch filter.
+      # Unified per-row post-fetch filter.
       #
-      # Rule 0 (2026-07-08): Drop rows with no owner-supported platform
+      # Rule 0: Drop rows with no owner-supported platform
       #   (reject_unsupported_platforms) — runs first so an arcade-only row can
       #   never become `top`. See that method for the Arcade-duplicate rationale.
       # Rule 1: Drop cover-less rows for every game type.

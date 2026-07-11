@@ -33,7 +33,7 @@ module Pito
         private
 
         # Free-chat: an EXPLICIT game noun token present? In free chat the 2nd token
-        # IS the entity (owner 2026-06-29) — a bare id (`rm 123`) or unknown word
+        # IS the entity — a bare id (`rm 123`) or unknown word
         # (`rm foo`) is NEVER silently treated as a game; only `game`/`games` routes
         # here. (Follow-up replies bypass this via `follow_up?` in `call`.)
         def game_noun?
@@ -89,7 +89,7 @@ module Pito
         end
 
         # Free-chat with no recognised entity (bare `rm`, bare id, or unknown word)
-        # — no guessing (owner 2026-06-29). Render the generic "I don't get it"
+        # — no guessing. Render the generic "I don't get it"
         # dictionary (`pito.copy.huh`, reused per owner). Pre-rendered so the
         # finalizer routes it to `text:` while keeping the :error chrome.
         def unknown_entity

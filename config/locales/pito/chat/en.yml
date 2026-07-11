@@ -9,7 +9,17 @@ en:
           search: "Find games similar to another one (search games like <title>)"
         needs_seed: "Search for what? Try `search games like <title>` — e.g. `search games like tekken 7`."
         seed_not_found: "No game called \"%{title}\" in your library yet. `list games` to see what's there, then `search games like <its title>`."
-        no_matches: "Nothing in your library is close enough to \"%{title}\" to call it similar — yet."
+      ai:
+        descriptions:
+          ai: "Ask the AI assistant anything about your library (ai <question>)"
+        needs_prompt: "Ask me something — e.g. `ai what should I play next?` or `ai which vids need better tags?`."
+      update:
+        descriptions:
+          update: "Update game footage/price/platform or vid description/tags (update game price <id> <amount>)"
+        usage: "Usage: `update game footage|price|platform <id> <value>` or `update vid description|tags <id> <value>` — e.g. `update game price 12 59.99`, `update vid tags 3 minecraft, ep 4`."
+        not_found: "No %{ref} in your library. `list games` / `list vids` to see ids."
+        bad_value: "Couldn't read %{value} as a %{field} value."
+        moved: "That form moved — use `%{example}`. Replies on cards (`#g3 price 20`) still work as before."
       greet:
         descriptions:
           greet: "Say hi (hi / hello / hola, any case) — PITO greets you with what it can do"
@@ -27,8 +37,8 @@ en:
         usage_hint: "To import a game from IGDB, type `import game [title]`. To sync vids, use `sync vids` (`import vids` is an alias)."
       footage:
         descriptions:
-          footage: "Set a game's total footage hours (by id)"
-        needs_ref: "Usage: `footage update <id> <hours>` (e.g. `footage update 12 8.5`) or `footage snippet` to tally a folder. Use `list games` to see ids."
+          footage: "Show the footage tally snippet (footage game <id> / footage snippet); set hours via update"
+        needs_ref: "Usage: `footage game <id>` (or bare `footage snippet`) to tally a folder. Set hours with `update game footage <id> <hours>`."
       price:
         descriptions:
           price: "Set or clear a game's euro price (by id)"
@@ -91,7 +101,7 @@ en:
         needs_ref: "Which game, vid, or channel? Try `shinies game <id>`, `shinies vid <id>`, or `shinies channel @handle`."
       linked:
         # The keyed `linked` verb needs a noun to name which linked view (the noun
-        # picks the segment; the id is the OTHER entity's). E14.
+        # picks the segment; the id is the OTHER entity's).
         needs_noun: "Which linked view? `linked game <vid-id>` shows a vid's linked game; `linked vids <game-id>` lists a game's linked vids."
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."

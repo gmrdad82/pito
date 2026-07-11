@@ -7,7 +7,7 @@
 # "likes"), written by the video sync + snapshot passes. A game has no
 # audience counters of its own, so this recomputes each as the sum across
 # every video linked through `video_game_links` and upserts the results via
-# `Pito::Stats.set` (G28 — the list surfaces read `Pito::Stats.get`, never
+# `Pito::Stats.set` (the list surfaces read `Pito::Stats.get`, never
 # live-sum at render).
 #
 # Games with no linked videos (or whose videos carry no stat rows) get a

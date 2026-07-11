@@ -17,13 +17,13 @@
 // VERB STAGE (palette)
 //   Float-above .pito-suggestions-palette lists matching catalog entries.
 //   ArrowUp/ArrowDown → navigate rows (single step).
-//   Tab    → ACCEPT highlighted item (_insertToken); does NOT submit (owner 2026-07-09).
+//   Tab    → ACCEPT highlighted item (_insertToken); does NOT submit.
 //   Enter  → ALWAYS submit the current chatbox value (never accepts a row).
 //   Space  → dismiss palette; space types normally → field becomes "/cmd " → arg stage.
 //   Esc    → close palette.
 //   Other  → type normally; onInput re-filters the palette.
 //
-// Tab-to-accept / Enter-to-submit (owner 2026-07-09) is the inverse of the old
+// Tab-to-accept / Enter-to-submit is the inverse of the old
 // Enter-accepts behavior: the palette is discovery, Tab commits a suggestion, and
 // Enter always sends whatever is typed. Shift+Tab is untouched (channel cycling in
 // chat-form). Outside the palette, Tab behaves natively.
@@ -36,11 +36,11 @@
 //   palette open?  → Arrow→nav; Tab→accept; Enter→submit (no preventDefault); Space→dismiss; Esc→close; other→pass through
 //   else           → all keys pass through (Tab native)
 //
-// Implements tasks ad+ae+af+ag:
-//   ad — skeleton: connect, modeFor, onInput
-//   ae — slash/hashtag: verb-stage palette + reply-verb/config palette fetches
-//   af — key coordination (handleKeydown intercepts BEFORE chat-form + home-transition)
-//   ag — auth re-filter on Turbo auth-update
+// This controller covers:
+//   - the skeleton: connect, modeFor, onInput
+//   - slash/hashtag: verb-stage palette + reply-verb/config palette fetches
+//   - key coordination (handleKeydown intercepts BEFORE chat-form + home-transition)
+//   - auth re-filter on Turbo auth-update
 //
 // DOM Contract (set by chatbox ERB — build against this exactly):
 //   Controller:  pito--suggestions  on  #pito-chatbox
@@ -66,11 +66,11 @@ export default class extends Controller {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   connect() {
-    // ad: parse the embedded catalog JSON (auth-aware; rendered server-side)
+    // Parse the embedded catalog JSON (auth-aware; rendered server-side)
     this._catalog       = this._parseCatalog()
     this._authenticated = isAuthenticated()
 
-    // ad: initialise state
+    // Initialise state
     this._mode         = "none"
 
     // Palette state (verb-stage slash/hashtag)
@@ -83,7 +83,7 @@ export default class extends Controller {
     this._argRequestId = 0
     this._argAbort     = null
 
-    // ag: belt-and-suspenders listener for Turbo stream renders that may swap
+    // Belt-and-suspenders listener for Turbo stream renders that may swap
     // #pito-auth-gate (and therefore change auth state) without replacing the
     // chatbox.  If the chatbox IS replaced, connect() re-runs automatically.
     this._onTurboStream = () => {
@@ -113,7 +113,7 @@ export default class extends Controller {
 
   // ── Public actions (wired via data-action on the textarea) ─────────────────
 
-  // af: MUST be listed FIRST in data-action so it fires before chat-form#handleKeydown.
+  // MUST be listed FIRST in data-action so it fires before chat-form#handleKeydown.
   handleKeydown(event) {
     // ── VERB-STAGE PALETTE IS OPEN ──────────────────────────────────────────
     // All key handling for palette navigation/accept/close must
@@ -132,7 +132,7 @@ export default class extends Controller {
         return
       }
       if (event.key === "Tab" && !event.shiftKey) {
-        // Tab ACCEPTS the highlighted suggestion (owner 2026-07-09). preventDefault
+        // Tab ACCEPTS the highlighted suggestion. preventDefault
         // so focus never moves; stopImmediatePropagation so no other handler sees
         // it. Shift+Tab is left ALONE — it is channel cycling in chat-form.
         event.preventDefault()
@@ -142,7 +142,7 @@ export default class extends Controller {
       }
       if (event.key === "Enter" && !event.shiftKey) {
         // Enter ALWAYS submits the current chatbox value — it NEVER accepts a
-        // palette row (owner 2026-07-09; Tab does that). Close the palette chrome
+        // palette row (Tab does that). Close the palette chrome
         // but do NOT preventDefault, so chat-form#handleKeydown submits the form.
         this._closePalette()
         return
@@ -164,7 +164,7 @@ export default class extends Controller {
       return
     }
 
-    // Tab is NOT handled anywhere here (owner 2026-06-29, #9): the inline
+    // Tab is NOT handled anywhere here: the inline
     // suggestion/completion feature was removed, so the chatbox no longer
     // intercepts Tab at all — it behaves natively. (Shift+Tab channel cycling
     // lives in chat-form#handleKeydown and is untouched.)
@@ -173,7 +173,7 @@ export default class extends Controller {
     // home-transition#interceptEnter without suppression.
   }
 
-  // ad: recompute mode and refresh palette on every input event
+  // Recompute mode and refresh palette on every input event
   onInput(event) {
     // History cycling dispatches a synthetic input (detail.historyRecall=true) so
     // other controllers (draft, caret, type-fx) rerender — skip opening palette
@@ -193,7 +193,7 @@ export default class extends Controller {
     this._refreshSuggestion()
   }
 
-  // ── ad: modeFor ────────────────────────────────────────────────────────────
+  // ── modeFor ────────────────────────────────────────────────────────────────
 
   // Returns one of "slash" | "hashtag" | "free" | "none".
   // Looks at the text from the start of the field up to the cursor position.
@@ -205,7 +205,7 @@ export default class extends Controller {
     return "none"
   }
 
-  // ── ae: unified suggestion refresh (palette for verb/reply-verb/config stages) ──
+  // ── Unified suggestion refresh (palette for verb/reply-verb/config stages) ────
 
   _refreshSuggestion() {
     const field  = this.fieldTarget
@@ -233,7 +233,7 @@ export default class extends Controller {
           return
         }
 
-        // Other arg-stage (E13): the engine now serves ARGUMENT menus for
+        // Other arg-stage: the engine now serves ARGUMENT menus for
         // hashtag reply verbs (columns for with/without, sort keys, metrics,
         // row ids, enum args) — ask it; an empty menu closes the palette via
         // the fetch handler, so no-arg verbs behave exactly as before.
@@ -245,7 +245,7 @@ export default class extends Controller {
       this._cancelArgFetch()
       this._refreshVerbPalette(value, cursor)
     } else if (this._mode === "free") {
-      // Free mode (E8/T3.4): chat verbs have server-side argument suggestions
+      // Free mode: chat verbs have server-side argument suggestions
       // (segment names after `show game 5 `, nouns, subcommands, game titles…).
       // Debounced fetch; the engine returns empty for genuinely free prose and
       // the empty menu keeps the palette closed.
@@ -257,7 +257,7 @@ export default class extends Controller {
     }
   }
 
-  // ── ae: verb-stage palette ─────────────────────────────────────────────────
+  // ── Verb-stage palette ─────────────────────────────────────────────────────
 
   // Compute matching catalog entries and render (or close) the palette.
   _refreshVerbPalette(value, cursor) {
@@ -408,7 +408,7 @@ export default class extends Controller {
     this._selectedIdx = 0
   }
 
-  // ae: returns true when the cursor is past the verb + at least one space
+  // Returns true when the cursor is past the verb + at least one space
   // i.e. the user has typed "/config " or "/config goo" (space exists after verb)
   _isArgStage(value, cursor) {
     const before = value.slice(0, cursor)
@@ -436,8 +436,8 @@ export default class extends Controller {
 
   // FREE-mode (chat verb) argument menu at a FRESH token: `list `, `show game
   // 5 with `, … — the engine serves chat verbs' nouns/segments/kwargs tagged
-  // stage:"verb" (E8), but no gate rendered them, so the fetched items were
-  // discarded exactly like the reply-arg case (owner G31, same bug class).
+  // stage:"verb", but no gate rendered them, so the fetched items were
+  // discarded exactly like the reply-arg case (same bug class).
   // Fresh-token rule as everywhere: trailing space → palette; mid-token →
   // closed so Enter sends the message.
   _isFreeArgFreshToken(value, cursor) {
@@ -446,7 +446,7 @@ export default class extends Controller {
     return before.trim().length > 0 && before.endsWith(" ")
   }
 
-  // FREE-mode VERB stage (G75): the FIRST word of a chat message is a verb in
+  // FREE-mode VERB stage: the FIRST word of a chat message is a verb in
   // progress ("l", "lis", "analy") — the engine prefix-filters the chat
   // catalog (alias-aware) and tags it stage:"verb". Unlike the ARG stage's
   // fresh-token rule, the palette stays open WHILE TYPING mid-token — that's
@@ -464,9 +464,9 @@ export default class extends Controller {
 
   // Hashtag reply ARG stage at a FRESH token: `#<handle> <verb> [<args>] ` with
   // a trailing space. The engine serves the verb's argument menu here (columns
-  // for with/without, sort keys, metrics, row ids — E13) tagged stage:"verb",
+  // for with/without, sort keys, metrics, row ids) tagged stage:"verb",
   // but this gate was never opened, so the fetched items were thrown away and
-  // `#h with ` showed nothing (owner G26.5). Same fresh-token rule as the
+  // `#h with ` showed nothing. Same fresh-token rule as the
   // /config gate: mid-token (`#h with cat`) stays closed so Enter sends.
   //   "#h with "      → true   (starting an arg token → palette)
   //   "#h with cat"   → false  (typing a partial → close; Enter sends)
@@ -488,7 +488,7 @@ export default class extends Controller {
   // signals "I'm starting the next token". A COMPLETE token with no trailing space
   // (e.g. "/config google") must NOT pop the palette, so Enter can SEND the
   // read/default version of the command. Scoped to `config` (the only slash
-  // verb with a server arg palette). [owner I3, 2026-06-26]
+  // verb with a server arg palette).
   //   "/config "          → true   (starting the provider token)
   //   "/config goo"       → false  (typing a partial token → close; Enter sends)
   //   "/config google"    → false  (complete token, no trailing space → Enter sends)
@@ -504,7 +504,7 @@ export default class extends Controller {
     return before.endsWith(" ")                   // only at the start of a fresh token
   }
 
-  // ── ae: arg-stage palette fetch (debounced POST /suggestions) ─────────────
+  // ── Arg-stage palette fetch (debounced POST /suggestions) ─────────────────
 
   _scheduleArgFetch(value, cursor) {
     // Cancel previous pending timer or in-flight request
@@ -575,7 +575,7 @@ export default class extends Controller {
         // response stage:"verb" — but we must NOT re-open the palette there, or it
         // would intercept Enter on a complete command. Fall through to close
         // so the token stays Enter-sendable. Slash-only rule;
-        // hashtag reply verbs are unchanged. [owner I3, 2026-06-26]
+        // hashtag reply verbs are unchanged.
         if (this._isHashtagReplyVerbStage(value, cursor) ||
             this._isSlashConfigArgStage(value, cursor) ||
             this._isHashtagReplyArgStage(value, cursor) ||
@@ -608,7 +608,7 @@ export default class extends Controller {
     this._argRequestId++
   }
 
-  // ae: replace the active token (the prefix that triggered the suggestion) with insert
+  // Replace the active token (the prefix that triggered the suggestion) with insert
   //
   // Verb-stage (no space after trigger char yet):
   //   Replace from position 0 up to the cursor — the whole "/foo" partial — with
@@ -641,7 +641,7 @@ export default class extends Controller {
         tokenEnd   = cursor
       }
     } else if (mode === "free" && this._isFreeVerbStage(value, cursor)) {
-      // G75 verb-stage: splice over the partial verb the user is typing
+      // Free-mode verb-stage: splice over the partial verb the user is typing
       // ("li" + accept "link " → "link ", not "lilink ") — the free-mode
       // analogue of the slash verb-stage replace-from-0. Arg-stage free
       // accepts keep the plain insert-at-cursor below (the fresh-token rule
@@ -664,7 +664,7 @@ export default class extends Controller {
     field.focus({ preventScroll: true })
   }
 
-  // ── ag: catalog parsing (called on connect + on auth change) ───────────────
+  // ── Catalog parsing (called on connect + on auth change) ──────────────────
 
   _parseCatalog() {
     try {

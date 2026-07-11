@@ -7,7 +7,7 @@ module Pito
     # Router: they SELECT persisted rows and project them through EventText.
     #
     # Scope: `source: "app"` ONLY — the owner's real scrollback. The MCP anchor
-    # (source: "mcp") never appears, in either direction (T2.5). Read-only: plain
+    # (source: "mcp") never appears, in either direction. Read-only: plain
     # SELECTs, no writes.
     #
     # pito is PULL-ONLY — there is no push to the chat client. Because every

@@ -4,7 +4,7 @@ module Pito
   module Analytics
     module Support
       # A small (~50% of the chatbar comet) activity indicator shown in a metric's
-      # SCALAR slot while its value is still loading (item 5 progressive glance).
+      # SCALAR slot while its value is still loading (progressive glance).
       # Same dots/comet animation as `Pito::Shell::PostCommandDotsComponent`, half
       # the size, with a per-instance start-stagger (seeded) so several loaders on
       # screen never pulse in sync.

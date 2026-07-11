@@ -1,12 +1,26 @@
+# Verb ontology — the config-driven dispatch system.
 schema_version: 1
 
-# Universal reply actions injected on every followupable event (Share::UniversalActions).
+# Universal reply actions offered on followupable events (Share::UniversalActions).
+# share:  withheld on :confirmation kind + unresolved messages;
+# revoke: additionally gated on a Share record existing for the event.
+# `help` is NOT a reply verb — the `--help` FLAG on replies/verbs is a separate
+# surface and stays.
+#
+# HOW TO remove share/unshare|revoke from a verb's messages:
+#   Add `universal_reply: false` to that verb's entry below (top level, next to
+#   `auth:`). Every message that verb emits then gets NO share/unshare|revoke —
+#   no reply handle minted just for them, no palette suggestions, and a typed
+#   `#handle share` is refused. The verb's OWN reply actions are unaffected.
+#   Worked example: the `sync` verb below. Universal actions never override a
+#   verb's own declarations: a reply token the target declares itself always
+#   routes to the verb, not to the universal set.
 universal_reply:
   share:  { mode: append, kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
   revoke: { mode: append, aliases: [unshare], kinds: [system, enhanced, system_follow_up, enhanced_follow_up] }
 
 # Static + dynamic vocabulary declarations. Faithful transcription of
-# lib/pito/grammar/vocabularies.rb — implementations remain in Ruby (P3 target).
+# lib/pito/grammar/vocabularies.rb — implementations remain in Ruby.
 vocabularies:
   nouns:
     members: [channels, vids, games]
@@ -14,9 +28,9 @@ vocabularies:
   slash_verbs:
     members: [config, disconnect, help, themes]
   config_providers:
-    members: [google, voyage, igdb, webhook, me, sound, timezone]
+    members: [ai, google, voyage, igdb, webhook, me, sound, timezone]
   config_keys:
-    members: [client_id, client_secret, redirect_uri, api_key, slack, discord, nickname]
+    members: [client_id, client_secret, redirect_uri, api_key, slack, discord, nickname, model]
   genres:
     # ONE vocab for find slots, the chat list filter, --help and MCP (v1.6
     # unification — GameListFilter's private alias maps derive from here).
@@ -33,11 +47,11 @@ vocabularies:
   platforms:
     # "Xbox" (the bare family) is a deliberate member: as an ILIKE substring it
     # matches One / Series X / Series S / the combined "Series X|S" — so plain
-    # `xbox` tracks the whole family (owner 2026-07-03: Series S too, not only X).
+    # `xbox` tracks the whole family (Series S too, not only X).
     # PlayStation / Xbox Series / Nintendo / Mobile are family members for the
     # same reason: chat `ps`/`playstation`/`sony` cover PS4+PS5, `mobile` covers
     # iOS+Android (v1.6 unification with the chat list filter; Arcade stays
-    # dropped — owner v1.4.0).
+    # dropped).
     members: ["PlayStation 5", "Nintendo Switch", PC, Xbox, "Xbox Series X",
               "Xbox Series S", "PlayStation 4", "Xbox One", iOS, Android,
               PlayStation, "Xbox Series", Nintendo, Mobile]
@@ -57,7 +71,7 @@ vocabularies:
     synonyms: {subscriber: subs, subscribers: subs, "watched hours": "watch time", hours: "watch time"}
     fillers: [count, ratio]
   on_off:
-    # QUOTED — YAML 1.1 coerces bare on/off/yes/no to booleans (HF2).
+    # QUOTED — YAML 1.1 coerces bare on/off/yes/no to booleans.
     members: ["on", "off"]
     synonyms: {"true": "on", "false": "off", enable: "on", disable: "off", "yes": "on", "no": "off",
                enabled: "on", disabled: "off"}
@@ -88,6 +102,11 @@ vocabularies:
   visit_destinations:
     members: [channel, studio]
     synonyms: {youtube: channel, yt: channel}
+  update_nouns:
+    members: [game, vid]
+    synonyms: {games: game, video: vid, videos: vid, vids: vid}
+  update_fields:
+    members: [footage, price, platform, description, tags]
   full_flag:
     members: [full]
   show_segments:
@@ -233,7 +252,7 @@ verbs:
           fill: ~
           reply_target: channel_detail
           emit_if: ~
-        # The channel's linked GAMES grid (owner 2026-07-06): similar-games-style
+        # The channel's linked GAMES grid: similar-games-style
         # cards (strip cover, #id + per-channel vid count, no title/score),
         # alphabetical, 5 per row. Declared BEFORE videos so `full` lands it
         # between detail and the vids table. Skipped silently when the channel
@@ -269,7 +288,7 @@ verbs:
           fill: ~
           reply_target: video_detail
           emit_if: ~
-        # Renamed from "linked-game" (owner 2026-07-06): a vid always has just
+        # Renamed from "linked-game": a vid always has just
         # one game, so the token is the bare singular — `show vid #3 with game`.
         # No aliases by design. reply_target unchanged (persisted messages).
         game:
@@ -302,7 +321,7 @@ verbs:
           reply_target: game_similar
           emit_if: ~
           aliases: [similars]
-        # Renamed from "linked-videos" (owner 2026-07-06) — `show game #3 with
+        # Renamed from "linked-videos" — `show game #3 with
         # vids`. reply_target unchanged (persisted messages + the
         # show/analyze/unlink/sort/with/without matrices keep working).
         videos:
@@ -459,7 +478,7 @@ verbs:
           mode: append
           # analyze #3 → single vid; bare analyze → all listed video_ids.
 
-  # ─── Segment verbs (D20/D21) ─────────────────────────────────────────────────
+  # ─── Segment verbs ─────────────────────────────────────────────────
   # Each promotes ONE :enhanced segment of show/analyze into its own top-level chat
   # verb via the single generic Chat::Handlers::SegmentVerb — ADDITIVE; show/analyze
   # are untouched. `segment_of` binds the verb to its (parent, segment) pair; entity
@@ -500,7 +519,7 @@ verbs:
         game_list:      { mode: append }
         video_list:     { mode: append }
 
-  # `videos channel @h` AND (post-B rename) `vids game #3` — the flat form
+  # `videos channel @h` AND `vids game #3` — the flat form
   # drives the `videos` segment on whatever entity the noun resolves. Absorbs
   # the retired standalone `linked-videos` verb (linked-vids stays typeable).
   videos:
@@ -535,7 +554,7 @@ verbs:
         channel_list:   { mode: append, aliases: [vids] }
         game_list:      { mode: append, aliases: [vids] }
 
-  # Renamed from "linked-game" (owner 2026-07-06, C): a vid has just one game,
+  # Renamed from "linked-game": a vid has just one game,
   # so the verb is the bare singular — `game vid #10`. No aliases by design;
   # the two-word `linked game #7` keyed form below is unaffected.
   game:
@@ -645,7 +664,7 @@ verbs:
           kind: free
           optional: true
 
-  # The `linked` two-word forms (plan-0.9.5 E14) — a PER-NOUN keyed `segment_of`.
+  # The `linked` two-word forms — a PER-NOUN keyed `segment_of`.
   # Unlike the flat segment verbs above (where the typed noun routes the entity in
   # the parent), here the NOUN names WHAT YOU GET (the segment) and the id belongs
   # to the OTHER entity, so each branch FORCES the parent's entity branch:
@@ -676,7 +695,7 @@ verbs:
     chat:
       dispatch: Chat::Handlers::Import
       slots:
-        # #11: the noun is optional now — `import <title>` imports a game (games
+        # The noun is optional now — `import <title>` imports a game (games
         # are the only importable thing). `import game[s] <title>` still works,
         # and `import videos` stays the sync-vids alias.
         - name: noun
@@ -690,6 +709,9 @@ verbs:
   sync:
     description: pito.grammar.chat.sync
     auth: session
+    # Sync status messages are operational chatter — not shareable (see the
+    # HOW-TO on the universal_reply block at the top of this file).
+    universal_reply: false
     chat:
       dispatch: Chat::Handlers::Sync
       slots:
@@ -917,7 +939,7 @@ verbs:
           optional: true
           introducer: for
 
-  # `search games like <title>` — similarity search (#8). The free `query` slot
+  # `search games like <title>` — similarity search. The free `query` slot
   # slurps "[games] like <title>"; the handler extracts the seed after `like`,
   # runs Recommendation::GameSimilarity, and renders a game_list card (so #id
   # replies, sort/with, and more/next paging all work via the existing pager).
@@ -928,6 +950,52 @@ verbs:
       dispatch: Chat::Handlers::Search
       slots:
         - name: query
+          kind: free
+          optional: true
+
+  # Reply-only verb on :ai answers that carry SUGGESTION blocks — runs one of
+  # them as if the owner typed its command (`#a7 apply` = the first suggestion,
+  # `#a7 apply 2` = the second). The AI itself never executes anything; apply
+  # is the owner's explicit hand. The source message stays live (repeatable),
+  # so several suggestions can be applied in turn.
+  apply:
+    auth: session
+    reply:
+      targets:
+        ai_message:
+          mode: append
+
+  # The consolidated metadata-setter verb — the commands the AI suggests and
+  # only the owner runs. Game fields (footage/price/platform) write locally at
+  # once; vid fields (description/tags) stage a confirmation whose `yes` pushes
+  # ONLY that field to YouTube. The old typed `footage update` / `price set` /
+  # `platform set` forms redirect here; their reply forms (`#g3 price 20`, …)
+  # are unchanged. `<id>` + the raw rest-of-line value parse from message.raw.
+  update:
+    description: pito.grammar.chat.update
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::Update
+      slots:
+        - name: noun
+          kind: enum
+          source: update_nouns
+          optional: true
+        - name: field
+          kind: enum
+          source: update_fields
+          optional: true
+
+  # The AI entry verb — everything after `ai` is raw free text handed to the
+  # orchestrator loop (the handler reads message.raw; the grammar never
+  # normalizes it). Deliberately NOT exposed to MCP.
+  ai:
+    description: pito.grammar.chat.ai
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::Ai
+      slots:
+        - name: prompt
           kind: free
           optional: true
 
@@ -1042,7 +1110,7 @@ verbs:
       # Handler reads noun (channel/video/game) + ref from message.raw.
     reply:
       targets:
-        # G127: bare `shinies` on a channel card reads the source entity —
+        # Bare `shinies` on a channel card reads the source entity —
         # completes the owner's show/list x channel/vid/game reply matrix.
         channel_detail:
           mode: append
@@ -1213,7 +1281,7 @@ verbs:
   cancel:
     # Reply verb on confirmation events — cancels the pending command.
     # Aliases per Confirmation::ACTION_ALIASES: no/n/false/discard → cancel.
-    aliases: ["no", "n", "false", discard]  # "no" QUOTED — YAML 1.1 boolean (HF2)
+    aliases: ["no", "n", "false", discard]  # "no" QUOTED — YAML 1.1 boolean
     reply:
       targets:
         confirmation:
@@ -1233,7 +1301,7 @@ verbs:
   # ─── Slash verbs ─────────────────────────────────────────────────────────────
   # Controller-routed specs (login/logout/connect/new/resume): NO handler class in
   # app/services/pito/slash/handlers/ — the chat_controller slash path executes them,
-  # declared via `dispatch: { controller: <verb> }`. Grammar comes from config (T8.9).
+  # declared via `dispatch: { controller: <verb> }`. Grammar comes from config.
 
   login:
     aliases: [authenticate]
@@ -1301,7 +1369,7 @@ verbs:
     # `/games import [title]` opens the IGDB search sidebar (sidebar_open: "games_import").
     # Controller intercepts `/games import` before async pipeline; handler covers job path.
     #
-    # ALSO a chat segment verb since G120 (owner 2026-07-06): free-chat
+    # ALSO a chat segment verb: free-chat
     # `games channel @h` drives the channel's games grid — shape-routing keeps
     # the two surfaces apart (`/games …` slash vs bare `games …` chat).
     description: pito.grammar.chat.games
@@ -1345,7 +1413,7 @@ verbs:
     # `/config <provider> [key=value …]` — credential + toggle provider management.
     # The grammar uses the `literal` sentinel provider, a conditional `when:` enum
     # (only `sound` takes on/off), and a repeatable `kv` for credential keys — the
-    # provider→keys palette shape (T8.9 schema extension).
+    # provider→keys palette shape.
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.config
@@ -1365,7 +1433,7 @@ verbs:
           optional: true
           repeatable: true
           when:
-            provider: [google, voyage, igdb, webhook, me]
+            provider: [ai, google, voyage, igdb, webhook, me]
       dispatch: Slash::Handlers::Config
 
   disconnect:
@@ -1423,11 +1491,11 @@ verbs:
       dispatch:
         client: theme
 
-# ── MCP reader tools (G130) — no backing verb; read persisted app history ────────
+# ── MCP reader tools — no backing verb; read persisted app history ────────
 # Declared here (a sibling of `verbs:`, not a verb) because they dispatch NOTHING
 # through the Router: the Pito::Mcp readers SELECT persisted Conversation/Event rows
 # (source: "app" only) and project them through Pito::Mcp::EventText. Read-only by
-# construction — there is no chat/slash/reply surface. See docs/claude/mcp.md.
+# construction — there is no chat/slash/reply surface.
 mcp_readers:
   pito_conversations:
     tool: pito_conversations

@@ -12,16 +12,28 @@ require "rails_helper"
 #          (app/services/pito/chat/handlers/footage.rb)
 #
 # Dispatch branches (based on the first token after stripping "footage "):
-#   "update" subcommand  → resolve game by numeric id, ceil hours to 0.5-step,
-#                          call game.update!, emit :system event
+#   "update" subcommand, free chat (no follow-up) → the typed setter form is
+#                          RETIRED: ALWAYS Result::Error :moved
+#                          ("pito.chat.update.moved"), for ANY arguments
+#                          (bare, partial, invalid hours, unknown id, or a
+#                          fully well-formed form). Game.find_by / game.update!
+#                          are NEVER called — the branch decides on `follow_up?`
+#                          alone, before any argument is even inspected.
+#   "update" subcommand, follow-up context → unchanged: resolves the typed id
+#                          from message.raw (not the source event), ceils hours
+#                          to the next 0.5-step, calls game.update!. (This is
+#                          the Chat handler's own `follow_up?` branch, exercised
+#                          directly below — the actual `#<handle> footage …`
+#                          reply on a game_detail card routes through the
+#                          separate Pito::FollowUp::Handlers::GameDetail and is
+#                          untouched by this change.)
+#   "game" subcommand     → NEW: an alias for snippet. Any/no trailing ref is
+#                          ignored — identical Result::Ok to bare `footage
+#                          snippet` (no per-game lookup, no DB call).
 #   "snippet" subcommand → emit :system event with copyable ffprobe one-liner
 #   anything else        → Result::Error (needs_ref usage hint)
 #
-# Game resolution (resolve_game):
-#   Numeric ref (#N or N) → Game.find_by(id: N)   (returns record or nil → not_found)
-#   Non-numeric ref        → nil immediately, no DB call (id_only resolution)
-#
-# Hours parsing (parse_hours):
+# Hours parsing (parse_hours, follow-up "update" path only):
 #   Zero or positive value → BigDecimal, ceil UP to next 0.5 step, returned as Rational
 #   Negative              → nil → needs_ref
 #   Non-numeric           → ArgumentError rescued → nil → needs_ref
@@ -63,39 +75,19 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
 
   # ── needs_ref → Result::Error ──────────────────────────────────────────────
   #
-  # Every input that does NOT satisfy (sub == "update") + ref.present? +
-  # raw_hours.present? + parseable non-negative hours → Error :needs_ref.
-  #
-  # Sub-cases:
-  #   A. Bare verb or wrong subcommand  → sub is nil, "set", "game", etc.
-  #   B. update + missing operands      → ref or hours absent
-  #   C. update + negative/non-numeric hours → parse_hours returns nil
+  # Every bare or unrecognized subcommand (not "update", "snippet", or "game")
+  # → Error :needs_ref. "update" now always moves (see below); "game" now
+  # always aliases the snippet (see below) — neither reaches needs_ref anymore.
 
   describe "needs_ref → Result::Error (pito.chat.footage.needs_ref)" do
     {
-      # A — bare / unrecognized subcommand
       "footage"                => "bare verb, no subcommand",
       "footage   "             => "bare verb with trailing spaces",
       "footage set #5 2.5"     => "unrecognized subcommand 'set'",
-      "footage game #5 2"      => "unrecognized subcommand 'game'",
       "footage #5 2.5"         => "id in subcommand slot (no 'update' keyword)",
       "footage 5 2.5"          => "bare id in subcommand slot",
       "footage 2.5"            => "only hours, no subcommand",
-      "footage unknown arg"    => "arbitrary unknown subcommand",
-
-      # B — update present but operands missing
-      "footage update"         => "update, no ref, no hours",
-      "footage update #5"      => "update, ref present, hours absent",
-      "footage update 5"       => "update, bare numeric ref, hours absent",
-
-      # C — update present + ref present, but hours invalid
-      "footage update #5 -1"   => "negative integer hours",
-      "footage update #5 -0.5" => "negative fractional hours",
-      "footage update #5 -0.1" => "negative sub-half hours",
-      "footage update #5 abc"  => "non-numeric hours (pure letters)",
-      "footage update #5 1abc" => "non-numeric hours (mixed alphanumeric)",
-      "footage update #5 1.x"  => "non-numeric hours (digit + dot + letter)",
-      "footage update 5 -1"    => "bare id, negative hours"
+      "footage unknown arg"    => "arbitrary unknown subcommand"
     }.each do |raw, description|
       it "#{raw.inspect} (#{description}) → Result::Error :needs_ref" do
         result = call(raw)
@@ -105,127 +97,31 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
     end
   end
 
-  # ── not-found → Result::Ok (:system event) ────────────────────────────────
+  # ── footage game <anything> → Result::Ok (snippet alias) ──────────────────
   #
-  # Reaches the not_found path when resolve_game returns nil:
-  #   - non-numeric ref   → nil immediately (no DB call)
-  #   - numeric ref + no record in DB → Game.find_by → nil
+  # NEW: "game" is a plain alias for the snippet — whatever follows it (an id,
+  # noise, or nothing) is ignored. No per-game lookup, no DB call; identical
+  # Result::Ok to bare `footage snippet`.
 
-  describe "not-found → Result::Ok (:system event)" do
-    context "non-numeric ref (resolve_game short-circuits before any DB query)" do
-      {
-        "footage update abc 2"     => "plain text ref",
-        "footage update my-game 2" => "hyphenated text ref",
-        "footage update #abc 3"    => "#-prefixed non-numeric ref",
-        "footage update game1 2"   => "alphanumeric starting with letters"
-      }.each do |raw, description|
-        it "#{raw.inspect} (#{description}) → :system event, Game.find_by NOT called" do
-          expect(::Game).not_to receive(:find_by)
-          result = call(raw)
-          expect(result).to be_a(Pito::Chat::Result::Ok)
-          expect(result.events.first[:kind]).to eq(:system)
-        end
-      end
-    end
-
-    context "numeric ref, game not in DB (find_by returns nil)" do
-      before { allow(::Game).to receive(:find_by).and_return(nil) }
-
-      {
-        "footage update #5 2"    => "#-prefixed id, absent from DB",
-        "footage update #99 2"   => "unknown id",
-        "footage update 5 2"     => "bare numeric id, absent from DB",
-        "footage update 1 10"    => "bare id, larger hours",
-        "footage update #5 2.5"  => "#-prefixed id with fractional hours"
-      }.each do |raw, description|
-        it "#{raw.inspect} (#{description}) → :system event (game not found)" do
-          result = call(raw)
-          expect(result).to be_a(Pito::Chat::Result::Ok)
-          expect(result.events.first[:kind]).to eq(:system)
-        end
-      end
-    end
-  end
-
-  # ── update success → Result::Ok (:system event, game.update! called) ──────
-  #
-  # `footage update <id> <hours>` must:
-  #   1. Call Game.find_by(id: <stripped numeric id>)
-  #   2. Call game.update!(footage_hours: <ceiled Rational>)
-  #   3. Return Result::Ok with a :system event
-
-  describe "footage update <id> <hours> → Result::Ok, game.update! called" do
-    context "id forms" do
-      it "footage update #5 2.5 → find_by id: '5', update! hours: 5/2" do
-        expect(::Game).to receive(:find_by).with(id: "5").and_return(game)
-        expect(game).to receive(:update!).with(footage_hours: Rational(5, 2)).and_return(true)
-        result = call("footage update #5 2.5")
+  describe "footage game <anything> → Result::Ok (snippet alias, no DB access)" do
+    {
+      "footage game 5"                  => "id after 'game' — still the game-agnostic snippet",
+      "footage game"                    => "bare 'game', no id — snippet",
+      "footage game #5"                 => "#-prefixed id — ref is ignored",
+      "footage game unrelated noise 99" => "arbitrary trailing tokens — still snippet"
+    }.each do |raw, description|
+      it "#{raw.inspect} (#{description}) → Result::Ok, :system event" do
+        expect(::Game).not_to receive(:find_by)
+        result = call(raw)
         expect(result).to be_a(Pito::Chat::Result::Ok)
         expect(result.events.first[:kind]).to eq(:system)
       end
-
-      it "footage update 5 2.5 → bare numeric id, same result (no # prefix)" do
-        expect(::Game).to receive(:find_by).with(id: "5").and_return(game)
-        expect(game).to receive(:update!).with(footage_hours: Rational(5, 2)).and_return(true)
-        result = call("footage update 5 2.5")
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        expect(result.events.first[:kind]).to eq(:system)
-      end
-
-      it "footage update #42 10 → resolves a different numeric id" do
-        game42 = double("Game", id: 42, title: "Other Game", footage_hours: 0.0)
-        expect(::Game).to receive(:find_by).with(id: "42").and_return(game42)
-        expect(game42).to receive(:update!).with(footage_hours: Rational(10, 1)).and_return(true)
-        result = call("footage update #42 10")
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-      end
-
-      it "footage update #1 0.5 → id 1 resolves correctly" do
-        expect(::Game).to receive(:find_by).with(id: "1").and_return(game)
-        expect(game).to receive(:update!).with(footage_hours: Rational(1, 2)).and_return(true)
-        call("footage update #1 0.5")
-      end
     end
 
-    context "hours rounding: every value ceils UP to the next 0.5-step (exact Rational)" do
-      # parse_hours: BigDecimal ceil → half_units, then half_units / 2r (Rational)
-      # Ruby simplifies Rational automatically: 2/2r → 1/1, 6/2r → 3/1, etc.
-      [
-        [ "0",    Rational(0,  1),  "zero → 0 (valid; zero footage is allowed)" ],
-        [ "0.1",  Rational(1,  2),  "0.1 → ceils to 0.5"                        ],
-        [ "0.5",  Rational(1,  2),  "0.5 → already on a half-step (exact)"       ],
-        [ "0.6",  Rational(1,  1),  "0.6 → ceils to 1.0"                         ],
-        [ "1",    Rational(1,  1),  "integer 1 → 1.0"                             ],
-        [ "1.0",  Rational(1,  1),  "1.0 string → 1.0"                            ],
-        [ "1.1",  Rational(3,  2),  "1.1 → ceils to 1.5"                          ],
-        [ "1.5",  Rational(3,  2),  "1.5 → already on a half-step (exact)"        ],
-        [ "1.6",  Rational(2,  1),  "1.6 → ceils to 2.0"                          ],
-        [ "2.1",  Rational(5,  2),  "2.1 → ceils to 2.5"                          ],
-        [ "2.5",  Rational(5,  2),  "2.5 → already on a half-step (exact)"        ],
-        [ "2.75", Rational(3,  1),  "2.75 → ceils to 3.0"                         ],
-        [ "3",    Rational(3,  1),  "integer 3 → 3.0"                              ],
-        [ "10",   Rational(10, 1),  "integer 10 → 10.0"                            ],
-        [ "12",   Rational(12, 1),  "integer 12 → 12.0"                            ],
-        [ "12.3", Rational(25, 2),  "12.3 → ceils to 12.5"                         ],
-        [ "12.5", Rational(25, 2),  "12.5 → already on a half-step (exact)"        ]
-      ].each do |raw_hours, expected_rational, description|
-        it "hours #{raw_hours.inspect}: #{description} → update!(footage_hours: #{expected_rational})" do
-          expect(game).to receive(:update!).with(footage_hours: expected_rational).and_return(true)
-          call("footage update #5 #{raw_hours}")
-        end
-      end
-    end
-
-    context "trailing tokens beyond the hours value are silently ignored (split limit 3)" do
-      it "footage update #5 2.5 extra tokens → still uses 2.5" do
-        expect(game).to receive(:update!).with(footage_hours: Rational(5, 2)).and_return(true)
-        call("footage update #5 2.5 extra tokens")
-      end
-
-      it "footage update #5 3 second third → still uses 3" do
-        expect(game).to receive(:update!).with(footage_hours: Rational(3, 1)).and_return(true)
-        call("footage update #5 3 second third")
-      end
+    it "Pito::MessageBuilder::Footage::Snippet.call is invoked for 'footage game 5'" do
+      expect(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
+        .once.and_return({ "body" => "<div></div>", "html" => true })
+      call("footage game 5")
     end
   end
 
@@ -249,6 +145,39 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
       expect(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
         .once.and_return({ "body" => "<div></div>", "html" => true })
       call("footage snippet")
+    end
+  end
+
+  # ── typed form moved (free chat) → Result::Error (pito.chat.update.moved) ─
+  #
+  # The typed setter retired: `footage update …` in free chat (no follow-up
+  # context) ALWAYS returns the "moved" error, regardless of whether the ref
+  # or hours are present, missing, or invalid — `call` decides on `follow_up?`
+  # alone, before parse_args' output is ever inspected. Game.find_by /
+  # game.update! are NEVER called. This table collapses what used to be
+  # dozens of needs-ref/not-found/update-success permutations, since every one
+  # of them now short-circuits to the same moved Error.
+
+  describe "footage update <anything> (free chat) → Result::Error (pito.chat.update.moved)" do
+    {
+      "footage update"                     => "bare update, no ref or hours",
+      "footage update #5"                  => "ref present, hours missing",
+      "footage update 5"                   => "bare numeric ref, hours missing",
+      "footage update #5 -1"               => "ref present, negative hours (would have needs_ref'd)",
+      "footage update #5 abc"              => "ref present, non-numeric hours",
+      "footage update abc 2"               => "non-numeric ref (would have short-circuited to not_found)",
+      "footage update #99 2"               => "numeric ref, unknown id (would have hit the DB before)",
+      "footage update #5 2.5"              => "fully valid form (would have succeeded and updated before)",
+      "footage update #5 2.5 extra tokens" => "fully valid + trailing tokens — still moved, no partial parse"
+    }.each do |raw, description|
+      it "#{raw.inspect} (#{description}) → Result::Error :moved, no DB call" do
+        expect(::Game).not_to receive(:find_by)
+        expect(game).not_to receive(:update!)
+        result = call(raw)
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.message_key).to eq("pito.chat.update.moved")
+        expect(result.message_args).to eq(example: "update game footage 12 8.5")
+      end
     end
   end
 
