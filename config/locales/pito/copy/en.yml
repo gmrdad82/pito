@@ -5592,10 +5592,7 @@ en:
           - "Time: not rewound. %{title}: needs a future publish slot."
           - "The past is off-limits. %{title}: future date required."
         metadata_confirm: "Update %{title}'s %{field} on YouTube? New value: %{preview}"
-        metadata_updated:
-          - "%{title}'s %{field} updated — pushing to YouTube now."
-          - "Done. %{title}'s %{field} is saved and on its way to YouTube."
-          - "%{field} set on %{title}. YouTube gets it in a moment."
+        metadata_updated: "%{title}'s %{field} updated — pushing to YouTube now."
         publish_confirm:
           - "Publish %{title}?"
           - "Make %{title} public?"
