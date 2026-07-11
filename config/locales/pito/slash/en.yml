@@ -35,7 +35,7 @@ en:
           general:
             body: "/config <provider> [on|off | key=value …]"
             providers:
-              ai: "AI provider & model (bare `/config ai` opens the picker)"
+              ai: "AI provider, key, model & effort (bare `/config ai` opens the picker)"
               google: "OAuth + YouTube API credentials"
               voyage: "Voyage AI embedding key"
               igdb: "IGDB game database client credentials"
@@ -47,8 +47,10 @@ en:
           providers:
             ai:
               keys:
-                api_key: "OpenCode Zen API key (from opencode.ai/auth)"
-                model: "Active model id (e.g. claude-sonnet-5 — `/config ai` lists them)"
+                provider: "Scope for the other keys (opencode|openrouter|huggingface|deepseek|openai|anthropic|qwen|glm|gemini; defaults to the active provider)"
+                api_key: "API key stored for the scoped provider (encrypted)"
+                model: "Model id from the scoped provider's catalog — becomes the active pick"
+                effort: "low|medium|high|off — binds to the ACTIVE model (per-model setting)"
               omit_hint: "Omit all keys to open the model/key picker."
             google:
               keys:
@@ -106,6 +108,10 @@ en:
         errors:
           unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, me, sound, timezone."
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
+          ai_unknown_provider: "Unknown AI provider %{provider} — see the picker (/config ai) for the registry."
+          ai_unknown_model: "%{provider} has no model %{model} in its catalog — pick from /config ai."
+          ai_unknown_effort: "Effort must be low, medium, high, or off — got %{effort}."
+          ai_no_model: "Effort binds to the active model — pick a model first (/config ai or model=…)."
           invalid_toggle_value: "Invalid value '%{value}'. Use on or off."
           unknown_timezone: "'%{city}'? No clock ticks there. Name a major city like Madrid, Tokyo, or London."
           blank_nickname: "Nickname can't be blank."

@@ -135,6 +135,67 @@ class AppSetting < ApplicationRecord
     voyage_api_key.present?
   end
 
+  # ── AI picker lists ───────────────────────────────────────────────────
+  #
+  # Favorites, recents, and per-model efforts for the /config ai model picker,
+  # stored as JSON in plain key/value rows. Favorites toggle; recents are
+  # most-recent-first, deduped, capped. Efforts are a
+  # {"provider/model" => "low|medium|high"} map — effort is a property of the
+  # CHOSEN MODEL (some models have none), never a global switch; "off" simply
+  # removes the entry.
+
+  AI_FAVORITES_KEY = "ai_model_favorites"
+  AI_RECENTS_KEY   = "ai_model_recents"
+  AI_EFFORTS_KEY   = "ai_model_efforts"
+  AI_RECENTS_CAP   = 5
+
+  def self.ai_favorites
+    JSON.parse(get(AI_FAVORITES_KEY).presence || "[]")
+  rescue JSON::ParserError
+    []
+  end
+
+  def self.toggle_ai_favorite(entry)
+    list = ai_favorites
+    list.include?(entry) ? list.delete(entry) : list.push(entry)
+    set(AI_FAVORITES_KEY, JSON.generate(list))
+    list
+  end
+
+  def self.ai_recents
+    JSON.parse(get(AI_RECENTS_KEY).presence || "[]")
+  rescue JSON::ParserError
+    []
+  end
+
+  def self.push_ai_recent(entry)
+    list = [ entry ] + (ai_recents - [ entry ])
+    list = list.first(AI_RECENTS_CAP)
+    set(AI_RECENTS_KEY, JSON.generate(list))
+    list
+  end
+
+  def self.ai_model_efforts
+    JSON.parse(get(AI_EFFORTS_KEY).presence || "{}")
+  rescue JSON::ParserError
+    {}
+  end
+
+  def self.ai_effort_for(entry)
+    ai_model_efforts[entry]
+  end
+
+  def self.set_ai_effort(entry, value)
+    map = ai_model_efforts
+    if value.blank? || value.to_s == "off"
+      map.delete(entry)
+    else
+      map[entry] = value.to_s
+    end
+    set(AI_EFFORTS_KEY, JSON.generate(map))
+    map
+  end
+
   # ── Sound toggle ──────────────────────────────────────────────────────
   #
   # Stored as a plain key/value row ("sound_enabled"). Default is true — the

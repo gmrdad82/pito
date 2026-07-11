@@ -5,9 +5,8 @@
 # loudly at boot/spec time, never silently at call time.
 #
 #   wire:            openai_chat | anthropic_messages — the request/response
-#                    format the adapter speaks. OpenAI-compatible hosts
-#                    (OpenCode Zen, OpenRouter, DeepSeek, Qwen, …) all use
-#                    openai_chat with their own base_url.
+#                    format the adapter speaks. Most hosts are OpenAI-compatible
+#                    with their own base_url.
 #   auth:            bearer (Authorization: Bearer <key>) | x_api_key.
 #   models_endpoint: GET path returning the OpenAI list shape for the picker.
 #   pinned_models:   fallback ids shown when the live fetch fails or no key is
@@ -22,3 +21,67 @@ providers:
     models_endpoint: /models
     capabilities: { streaming: true, reasoning: none }
     pinned_models: [claude-sonnet-5, deepseek-v4-flash-free, big-pickle]
+  openrouter:
+    label: "OpenRouter"
+    wire: openai_chat
+    base_url: https://openrouter.ai/api/v1
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: passthrough }
+    pinned_models: ["deepseek/deepseek-chat", "qwen/qwen3-coder"]
+  huggingface:
+    label: "Hugging Face"
+    wire: openai_chat
+    base_url: https://router.huggingface.co/v1
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: none }
+    pinned_models: []
+  deepseek:
+    label: "DeepSeek"
+    wire: openai_chat
+    base_url: https://api.deepseek.com/v1
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: none }
+    pinned_models: [deepseek-chat, deepseek-reasoner]
+  openai:
+    label: "OpenAI"
+    wire: openai_chat
+    base_url: https://api.openai.com/v1
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: effort }
+    pinned_models: [gpt-5.5, gpt-5.4-mini]
+  anthropic:
+    label: "Anthropic"
+    wire: anthropic_messages
+    base_url: https://api.anthropic.com/v1
+    auth: x_api_key
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: budget }
+    pinned_models: [claude-sonnet-5, claude-haiku-4-5]
+  qwen:
+    label: "Qwen"
+    wire: openai_chat
+    base_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: none }
+    pinned_models: [qwen3-max, qwen-plus]
+  glm:
+    label: "GLM (Z.ai)"
+    wire: openai_chat
+    base_url: https://api.z.ai/api/paas/v4
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: none }
+    pinned_models: [glm-5.2, glm-5.1]
+  gemini:
+    label: "Gemini"
+    wire: openai_chat
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    auth: bearer
+    models_endpoint: /models
+    capabilities: { streaming: true, reasoning: effort }
+    pinned_models: [gemini-3.5-flash, gemini-3.1-pro]

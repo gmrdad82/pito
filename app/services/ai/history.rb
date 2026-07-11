@@ -27,14 +27,21 @@ module Ai
     # @param before_turn [Turn, nil] when given, only turns strictly BEFORE it
     #   contribute — the orchestrator passes the live ai turn so the prompt
     #   arrives once (as the explicit final user message), not twice.
+    # @param must_include_turn [Turn, nil] a turn GUARANTEED into the result —
+    #   the `#a7 @ai …` reply anchor: prepended when it has scrolled out of the
+    #   window, and immune to the budget's oldest-first drop.
     # @return [Array<Hash>] [{role: "user"|"assistant", content: String}, …]
-    def messages(conversation:, turn_limit: TURN_LIMIT, char_budget: CHAR_BUDGET, before_turn: nil)
+    def messages(conversation:, turn_limit: TURN_LIMIT, char_budget: CHAR_BUDGET, before_turn: nil, must_include_turn: nil)
       scope = conversation.turns.order(:position)
       scope = scope.where(position: ...before_turn.position) if before_turn
       turns = scope.last(turn_limit)
 
+      pinned = must_include_turn if must_include_turn && turns.none? { |t| t.id == must_include_turn.id }
+      pinned_index = pinned ? 0 : turns.index { |t| must_include_turn && t.id == must_include_turn.id }
+
       per_turn = turns.map { |turn| turn_messages(turn) }
-      budgeted = apply_budget(per_turn, char_budget)
+      per_turn.unshift(turn_messages(pinned)) if pinned
+      budgeted = apply_budget(per_turn, char_budget, pinned_index:)
       coalesce(budgeted.flatten)
     end
 
@@ -63,7 +70,13 @@ module Ai
     def ai_message(event)
       parts = Array(event.payload["blocks"]).map do |block|
         block = block.transform_keys(&:to_s) if block.respond_to?(:transform_keys)
-        block["type"].to_s == "text" ? block["text"].to_s : "[#{block['type']}]"
+        case block["type"].to_s
+        when "text" then block["text"].to_s
+        # Carry the command so the model never imitates a bare "[suggestion]"
+        # marker as if it were prose (owner saw exactly that).
+        when "suggestion" then "[suggested command: #{block['command']}]"
+        else "[#{block['type']} block shown]"
+        end
       end
       content = parts.join("\n").strip
       { role: "assistant", content: content } if content.present?
@@ -75,14 +88,26 @@ module Ai
     end
 
     # Keep whole turns, newest first, until the character budget is spent —
-    # a partial turn would strand a user line without its answer (or vice versa).
-    def apply_budget(per_turn, char_budget)
-      kept  = []
-      spent = 0
+    # a partial turn would strand a user line without its answer (or vice
+    # versa). The pinned anchor turn (pinned_index) survives regardless — it is
+    # charged up front and kept at its chronological position.
+    def apply_budget(per_turn, char_budget, pinned_index: nil)
+      kept    = []
+      spent   = pinned_index ? per_turn[pinned_index].sum { |m| m[:content].length } : 0
+      stopped = false
 
-      per_turn.reverse_each do |msgs|
+      per_turn.each_with_index.reverse_each do |msgs, idx|
+        if idx == pinned_index
+          kept.unshift(msgs) # already charged; immune to the drop
+          next
+        end
+        next if stopped
+
         cost = msgs.sum { |m| m[:content].length }
-        break if kept.any? && spent + cost > char_budget
+        if kept.any? && spent + cost > char_budget
+          stopped = true
+          next
+        end
 
         kept.unshift(msgs)
         spent += cost

@@ -8,6 +8,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["spec/javascript/**/*.test.js"],
+    // Forks over the default threads pool: jsdom state accumulates per WORKER
+    // across test files, and the suite has grown past the point where a
+    // long-lived worker hits node's heap ceiling (OOM + ERR_IPC_CHANNEL_CLOSED
+    // mid-run). Process-isolated forks reclaim each file's memory on exit.
+    pool: "forks",
   },
   resolve: {
     alias: [

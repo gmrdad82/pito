@@ -35,6 +35,29 @@ RSpec.describe Ai::Blocks do
       it "drops (does not degrade) a blank text block" do
         expect(normalize([ { "type" => "text", "text" => "   " } ])).to eq([])
       end
+
+      it "extracts a markdown pipe-table into a real table block between the prose" do
+        leaked = "Games to try:\n| # | Game | Score |\n|---|------|-------|\n| 12 | Elden Ring | 94 |\n| 18 | Nioh 3 | 84 |\nPick one."
+        result = normalize([ { "type" => "text", "text" => leaked } ])
+
+        expect(result.map { |b| b["type"] }).to eq(%w[text table text])
+        expect(result[1]["header"]).to eq([ "#", "Game", "Score" ])
+        expect(result[1]["rows"]).to eq([ [ "12", "Elden Ring", "94" ], [ "18", "Nioh 3", "84" ] ])
+        expect(result[0]["text"]).to eq("Games to try:")
+        expect(result[2]["text"]).to eq("Pick one.")
+      end
+
+      it "leaves pipe lines without a |---| separator as plain text" do
+        value  = "| not | a table |\n| just | pipes |"
+        result = normalize([ { "type" => "text", "text" => value } ])
+        expect(result).to eq([ { "type" => "text", "text" => value } ])
+      end
+
+      it "keeps the block cap after a table split" do
+        leaked = "t\n| a | b |\n|---|---|\n| 1 | 2 |\nrest"
+        result = normalize(Array.new(12) { { "type" => "text", "text" => leaked } })
+        expect(result.length).to eq(12)
+      end
     end
 
     context "kv_table blocks" do
@@ -177,6 +200,20 @@ RSpec.describe Ai::Blocks do
       end
     end
 
+    context "chart heart blocks" do
+      it "clamps score and floors the legend counts" do
+        result = normalize([ { "type" => "chart", "viz" => "heart",
+                               "data" => { "score" => 130, "likes" => -3, "dislikes" => "7" }, "label" => "loved?" } ])
+        expect(result).to eq([ { "type" => "chart", "viz" => "heart",
+                                 "score" => 100, "likes" => 0, "dislikes" => 7, "label" => "loved?" } ])
+      end
+
+      it "degrades a heart without a score" do
+        result = normalize([ { "type" => "chart", "viz" => "heart", "data" => { "likes" => 1 } } ])
+        expect(result.first["type"]).to eq("text")
+      end
+    end
+
     context "score blocks" do
       it "clamps an integer value to 0..100" do
         result = normalize([ { "type" => "score", "value" => 250 } ])
@@ -200,7 +237,7 @@ RSpec.describe Ai::Blocks do
         expect(result.first["type"]).to eq("text")
       end
 
-      it "clamps extras/completionist to >= 0 and carries an optional footage_hours" do
+      it "maps the legacy game shape onto levels, dropping absent tiers, footage → current" do
         result = normalize([ {
           "type" => "ttb",
           "hours" => { "main" => 10, "extras" => -2, "completionist" => -1 },
@@ -208,9 +245,32 @@ RSpec.describe Ai::Blocks do
         } ])
 
         expect(result).to eq([ {
-          "type" => "ttb",
-          "hours" => { "main" => 10.0, "extras" => 0.0, "completionist" => 0.0 },
-          "footage_hours" => 5.0
+          "type"    => "ttb",
+          "levels"  => [ { "label" => "main", "hours" => 10.0 } ],
+          "current" => { "label" => "footage", "hours" => 5.0 }
+        } ])
+      end
+
+      it "accepts the generic shape: ordered labelled levels + a current tracker" do
+        result = normalize([ {
+          "type"   => "ttb",
+          "levels" => [
+            { "label" => "level 1", "hours" => 5 },
+            { "label" => "level 2", "hours" => 20 },
+            { "label" => "level 3", "hours" => 50 },
+            { "label" => "level 4 overflow", "hours" => 99 }
+          ],
+          "current" => { "label" => "so far", "hours" => -3 }
+        } ])
+
+        expect(result).to eq([ {
+          "type"    => "ttb",
+          "levels"  => [
+            { "label" => "level 1", "hours" => 5.0 },
+            { "label" => "level 2", "hours" => 20.0 },
+            { "label" => "level 3", "hours" => 50.0 }
+          ],
+          "current" => { "label" => "so far", "hours" => 0.0 }
         } ])
       end
     end

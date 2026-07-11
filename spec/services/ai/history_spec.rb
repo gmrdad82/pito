@@ -69,7 +69,7 @@ RSpec.describe Ai::History do
 
       expect(described_class.messages(conversation:)).to eq([
         { role: "user", content: "ai what should I play?" },
-        { role: "assistant", content: "Try Tekken 7.\n[kv_table]" }
+        { role: "assistant", content: "Try Tekken 7.\n[kv_table block shown]" }
       ])
     end
 
@@ -116,6 +116,33 @@ RSpec.describe Ai::History do
         { role: "user", content: "this is way over ten chars" },
         { role: "assistant", content: "so is this reply" }
       ])
+    end
+
+
+    it "pins the must_include_turn even when it scrolled out of the window, at chronological position" do
+      anchor = make_turn(text: "@ai first question")
+      make_event(turn: anchor, kind: :echo, payload: { "text" => "@ai first question" })
+      make_event(turn: anchor, kind: :ai, payload: { "status" => "done", "blocks" => [ { "type" => "text", "text" => "first answer" } ] })
+
+      3.times do |i|
+        t = make_turn(text: "filler #{i}")
+        make_event(turn: t, kind: :echo, payload: { "text" => "filler #{i}" })
+      end
+
+      result = described_class.messages(conversation:, turn_limit: 2, must_include_turn: anchor)
+      expect(result.first[:content]).to include("@ai first question")
+      expect(result.map { |m| m[:content] }.join).to include("first answer", "filler 2")
+    end
+
+    it "keeps the pinned anchor turn even when the budget would drop the oldest" do
+      anchor = make_turn(text: "@ai anchor")
+      make_event(turn: anchor, kind: :echo, payload: { "text" => "@ai anchor" })
+
+      newest = make_turn(text: "n")
+      make_event(turn: newest, kind: :echo, payload: { "text" => "n" * 200 })
+
+      result = described_class.messages(conversation:, char_budget: 10, must_include_turn: anchor)
+      expect(result.map { |m| m[:content] }.join).to include("@ai anchor")
     end
 
     it "produces no message for a blank echo text" do

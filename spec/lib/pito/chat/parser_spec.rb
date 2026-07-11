@@ -108,5 +108,25 @@ RSpec.describe Pito::Chat::Parser do
       expect(result.verb).to be_nil
       expect(result.kind).to eq(:unknown)
     end
+
+    it "fuses a leading @ with its adjacent word into the @ai verb, any case" do
+      %w[@ai @AI @Ai @aI].each do |form|
+        result = described_class.call(lex("#{form} what should I play"), raw: "#{form} what should I play", conversation:)
+        expect(result.verb).to eq(:"@ai"), "expected #{form} to parse as @ai"
+        expect(result.kind).to eq(:new_turn)
+      end
+    end
+
+    it "does NOT fuse when a space separates the @ from the word" do
+      result = described_class.call(lex("@ ai hello"), raw: "@ ai hello", conversation:)
+      expect(result.verb).to be_nil
+      expect(result.kind).to eq(:unknown)
+    end
+
+    it "leaves non-verb @handles unfused (channel handles are not verbs)" do
+      result = described_class.call(lex("@all hello"), raw: "@all hello", conversation:)
+      expect(result.verb).to be_nil
+      expect(result.kind).to eq(:unknown)
+    end
   end
 end

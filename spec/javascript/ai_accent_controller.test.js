@@ -56,13 +56,13 @@ describe("pito--ai-accent controller", () => {
 
   it('flips the bar to "ai" when the textarea starts with the ai verb', async () => {
     const wrapper = await mount()
-    typeAndDispatch(wrapper, "ai what should I play")
+    typeAndDispatch(wrapper, "@ai what should I play")
     expect(bar(wrapper).dataset.accent).toBe("ai")
   })
 
   it("flips back to purple once the value no longer starts with ai", async () => {
     const wrapper = await mount()
-    typeAndDispatch(wrapper, "ai what should I play")
+    typeAndDispatch(wrapper, "@ai what should I play")
     expect(bar(wrapper).dataset.accent).toBe("ai")
 
     typeAndDispatch(wrapper, "list vids")
@@ -72,11 +72,15 @@ describe("pito--ai-accent controller", () => {
   it("matches case-insensitively and with leading whitespace", async () => {
     const wrapper = await mount()
 
-    typeAndDispatch(wrapper, "AI SOMETHING")
+    typeAndDispatch(wrapper, "@AI SOMETHING")
     expect(bar(wrapper).dataset.accent).toBe("ai")
 
-    typeAndDispatch(wrapper, "  ai x")
+    typeAndDispatch(wrapper, "  @aI x")
     expect(bar(wrapper).dataset.accent).toBe("ai")
+
+    // bare "ai" (no @) no longer arms the accent — the verb is @ai now.
+    typeAndDispatch(wrapper, "ai x")
+    expect(bar(wrapper).dataset.accent).toBe("purple")
   })
 
   it("does not match on a word-boundary miss (aim high, chair)", async () => {
@@ -90,13 +94,13 @@ describe("pito--ai-accent controller", () => {
   })
 
   it("syncs immediately on connect when the field is pre-filled", async () => {
-    const wrapper = await mount({ value: "ai hi" })
+    const wrapper = await mount({ value: "@ai hi" })
     expect(bar(wrapper).dataset.accent).toBe("ai")
   })
 
   it("stays inert (no throw) when the bar is missing", async () => {
     const wrapper = await mount({ withBar: false })
-    expect(() => typeAndDispatch(wrapper, "ai hi")).not.toThrow()
+    expect(() => typeAndDispatch(wrapper, "@ai hi")).not.toThrow()
   })
 
   it("stays inert (no throw) when the field is missing", async () => {

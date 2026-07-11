@@ -3,9 +3,9 @@
 module Pito
   module Chat
     module Handlers
-      # Handler for the `ai` chat verb — the AI assistant entry point.
+      # Handler for the `@ai` chat verb — the AI assistant entry point.
       #
-      #   ai <anything>  → a pending :ai event; the Finalizer's ai-pending gate
+      #   @ai <anything> → a pending :ai event; the Finalizer's ai-pending gate
       #                    enqueues AiOrchestratorJob, which runs the tool loop
       #                    against the active provider (Ai::Client) and finalizes
       #                    this event with the answer (or converts it into the
@@ -17,11 +17,12 @@ module Pito
       # immediately, let the async filler resolve this message's own thinking
       # indicator when the answer lands.
       class Ai < Pito::Chat::Handler
-        self.verb = :ai
+        self.verb = :"@ai"
         self.description_key = "pito.chat.ai.descriptions.ai"
 
-        # "ai what should I play" → captures "what should I play".
-        PROMPT_PATTERN = /\Aai\b\s*(.*)\z/im
+        # "@ai what should I play" → captures "what should I play" (the parser
+        # fuses + downcases the verb, but raw keeps the owner's typing: any case).
+        PROMPT_PATTERN = /\A@ai\b\s*(.*)\z/im
 
         def call
           prompt = extract_prompt

@@ -34,11 +34,14 @@
               data-accent="<%= tick[:key] %>"
               style="left: <%= tick[:position] %>%;">|</span>
       <% end %>
-      <%# Footage value inline on the `=` line — adjacent to the footage | tick,
-          left or right depending on tick position. Shows "-" when footage is 0. %>
-      <span class="pito-ttb__footage-marker <%= footage_inline_side_class %>"
-            data-accent="footage"
-            style="left: <%= footage_position %>%;"><%= footage_inline_label %></span>
+      <%# Current-tracker value inline on the `=` line — adjacent to its | tick,
+          left or right depending on tick position. Omitted entirely when the
+          caller passed levels without a current tracker. %>
+      <% if render_footage_tick? %>
+        <span class="pito-ttb__footage-marker <%= footage_inline_side_class %>"
+              data-accent="footage"
+              style="left: <%= footage_position %>%;"><%= footage_inline_label %></span>
+      <% end %>
     </span>
   </div>
 
@@ -58,7 +61,7 @@
     <% legend_pillars.each do |key| %>
       <span class="pito-ttb__legend-item">
         <span class="pito-ttb__legend-tick" data-accent="<%= key %>">|</span>
-        <span class="pito-ttb__legend-label"><%= self.class.pillar_label[key] %></span>
+        <span class="pito-ttb__legend-label"><%= level_label(key) %></span>
       </span>
     <% end %>
   </div>

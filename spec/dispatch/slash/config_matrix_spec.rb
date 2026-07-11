@@ -176,8 +176,10 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
 
   # ── Unknown provider (no --help) ─────────────────────────────────────────────
   describe "unknown provider" do
-    # motion + fx were removed (item 18) — they are now unknown providers.
-    %w[bogus youtube twitch openai unknown_service 123 foobar motion fx].each do |provider|
+    # motion + fx were removed — they are now unknown providers. (openai left
+    # this list when the AI provider registry made every ai_providers.yml entry
+    # a real /config credential provider.)
+    %w[bogus youtube twitch unknown_service 123 foobar motion fx].each do |provider|
       it "/config #{provider} → unknown_provider error" do
         result = build_handler(args: [ provider ]).call
         expect(result).to be_a(Pito::Slash::Result::Error)

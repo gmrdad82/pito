@@ -1,20 +1,32 @@
-<%= render(Pito::Segment::Component.new(accent: :ai, background: "var(--bg-surface)", id: dom_id, scrollback_message: true)) do %>
+<%= render(Pito::Segment::Component.new(accent: :ai, content_class: pending? ? nil : "pito-ai-surface", background: pending? ? "var(--bg-surface)" : nil, msg_bg: "var(--bg-surface)", id: dom_id, scrollback_message: true)) do %>
   <% if pending? %>
-    <%# The loop is running: the thinking indicator carries the spinner; this
-        slot narrates which pito tool the model is reading right now. %>
-    <div id="<%= status_slot_id %>" class="text-fg-faded"></div>
+    <%# The loop is running — the tile wears the plain :system dress (no purple
+        surface) until the answer lands. The slot opens with a witty handshake
+        line (the model takes a beat before its first tool call), then the
+        Broadcaster narrates each tool read; both shimmer like the Thinking
+        block. %>
+    <div id="<%= status_slot_id %>" class="text-fg-faded pito-network-shimmer"><%= handshake_line %></div>
   <% else %>
-    <div class="flex flex-col gap-2">
+    <%# The bottom padding keeps the last line clear of the ✨ badge (which
+        pins itself to the surrounding .pito-ai-surface tile's corner). %>
+    <div class="flex flex-col gap-2 pb-4">
       <% blocks.each_with_index do |block, idx| %>
-        <% if idx.zero? %>
-          <div class="flex gap-0"><%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: timestamp)) %><div class="min-w-0 flex-1"><%= render(component_for(block)) %></div></div>
+        <% if idx.zero? && text_block?(block) %>
+          <%# The timestamp rides INSIDE the first text block (inline flow), so
+              "05:22 Iată…" gets its space and wrapped lines return to the left
+              margin instead of hanging indented under the prefix. %>
+          <%= render(component_for(block, timestamp: timestamp)) %>
+        <% elsif idx.zero? %>
+          <div><%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: timestamp)) %></div>
+          <%= render(component_for(block)) %>
         <% else %>
           <%= render(component_for(block)) %>
         <% end %>
       <% end %>
-      <% if reply_handle %>
-        <div><%= render(Pito::Event::HandleComponent.new(reply_handle)) %></div>
-      <% end %>
+      <%# The established meta footer — shimmer #handle + the clickable shift+r
+          reply affordance, exactly like every other repliable message. %>
+      <%= render(Pito::Event::MetaLineComponent.new(handle: reply_handle)) %>
+      <%= render(Pito::Event::Ai::ModelBadgeComponent.new(model: model)) %>
     </div>
   <% end %>
 <% end %>

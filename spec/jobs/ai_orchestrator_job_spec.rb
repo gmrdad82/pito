@@ -12,11 +12,13 @@ RSpec.describe AiOrchestratorJob do
   # Minimal stand-in honoring Ai::Client's loop-facing API. Messages passed to
   # each chat call are snapshotted for assertions.
   class ScriptedClient
-    attr_reader :calls
+    attr_reader :calls, :model, :provider
 
-    def initialize(responses)
+    def initialize(responses, model: "scripted-model", provider: "scripted")
       @responses = responses
       @calls     = []
+      @model     = model
+      @provider  = provider
     end
 
     def chat(messages:, tools:, system:)
@@ -90,6 +92,15 @@ RSpec.describe AiOrchestratorJob do
       expect(event.kind).to eq("ai")
       expect(event.payload["status"]).to eq("done")
       expect(event.payload["blocks"]).to eq([ { "type" => "text", "text" => "Play Tekken 7." } ])
+    end
+
+    it "stamps the answering model into the payload (the message's ✨ badge)" do
+      event, = run_with([
+        response(tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
+      ])
+
+      expect(event.payload["model"]).to eq("scripted-model")
     end
 
     it "keeps prose sent alongside pito_respond as a leading text block" do

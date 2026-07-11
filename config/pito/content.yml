@@ -1,0 +1,209 @@
+# AI content ontology — the single declaration of WHAT the assistant may send
+# when it composes an answer (the pito_respond blocks), written FOR the model:
+# every block below explains what it renders as, when it earns its place, and
+# the exact data shape to send. The registry (Ai::ContentRegistry) validates
+# and freezes this file; Ai::Toolset generates the pito_respond tool document
+# from it; Ai::Blocks reads its limits. Changing what the model may say —
+# a new block, a new color, a cap — happens HERE plus the support code,
+# never as hard-coded strings in the backend.
+#
+# THE STYLE LINE (owner-locked): presentation stays in the app. This file
+# describes blocks by their MEANING ("a compact 0–100 gauge"), never by their
+# dress — the model needs to know what data and copy to send, not how pito
+# paints it. Where pito uses these same components natively, pito's copy
+# dictionary fills the words; when the model uses them, the MODEL writes the
+# words (labels, captions, notes) — that is the one place it authors copy.
+schema_version: 1
+
+# Global content rules — injected verbatim into the model's instructions.
+rules:
+  emoji: >-
+    NEVER use emoji — they break the terminal look. When a face or gesture
+    helps, use a kaomoji instead.
+  kaomoji: >-
+    Kaomoji are welcome in paragraph text, sparingly — e.g. (⌐■_■) (•‿•)
+    (ಠ_ಠ) (¬_¬ ) (T_T) ( ˘▽˘) — any tasteful text-only face works.
+  language: >-
+    Answer in the language the owner asked in.
+  grounding: >-
+    Keep every number, id, and title grounded in tool results — never invent
+    data, and prefer structured blocks over long prose.
+
+# Inline styling allowed INSIDE paragraph text. Anything outside this list is
+# shown as plain text. Color names map to the app's theme — the model picks a
+# MEANING (default prose, cyan for identifiers/keys, red for bad/danger, green
+# for good/success), never a hex value.
+inline:
+  bold: "**bold**"
+  italic: "*italic*"
+  colors:
+    allowed: [default, cyan, red, green]
+    notation: "[cyan]like this[/cyan] · [red]bad[/red] · [green]good[/green] (default color needs no tag)"
+
+# The blocks — wire `type` → declaration. `data` documents the exact keys to
+# send; `limits` are enforced by validation (over-limit content is clamped,
+# malformed blocks degrade to plain text carrying their JSON).
+blocks:
+  text:
+    label: paragraph
+    about: >-
+      A paragraph of monospace prose. Newlines are preserved; the inline
+      styling above (bold, italic, the allowed colors, kaomoji) is available.
+      No markdown headers, no code backticks, no pipe-tables — tabular data
+      belongs in kv_table or table blocks.
+    when_to_use: >-
+      Openers, explanations, reasoning, and anything conversational. Lead with
+      one; keep them short and put facts into structured blocks.
+    data:
+      text: "String — the paragraph, plain text plus the allowed inline notation"
+    limits:
+      max_chars: 4000
+
+  kv_table:
+    label: key/value table
+    about: >-
+      Aligned label→value rows, the same look pito's own detail cards use.
+      Keys render as identifiers, values as regular text. Typed values
+      (price/date/number/score) are formatted by pito and right-aligned —
+      a price renders in pito's own currency display, so send the raw number,
+      never a pre-formatted "€59.99" string. Cells are plain text — no
+      styling notation here.
+    when_to_use: >-
+      Facts about ONE thing — a game's genre/score/price, a vid's stats. The
+      go-to for attribute lists; prefer it over prose enumerations.
+    data:
+      rows: >-
+        Array of rows. A row is [key, value] — value either a plain string or
+        a typed {v: rawValue, format: price|date|number|score} — or an object
+        {key:, value:, command:} where `command` is a complete pito command
+        that makes the row's key clickable to run it (e.g. "show game 12").
+    limits:
+      max_rows: 20
+
+  table:
+    label: table
+    about: >-
+      A columns-aligned grid with a header row — for comparing SEVERAL things
+      across the same attributes. The first column is the row's identity.
+    when_to_use: >-
+      Rankings and comparisons across items (games by score, vids by views).
+      Never draw a table as pipe characters inside a paragraph. Cells are
+      plain text — no styling notation here.
+    data:
+      header: "Array of column title strings (sets the column count)"
+      rows: "Array of rows; each row an array of cell strings matching the header"
+    limits:
+      max_rows: 20
+      max_cols: 6
+
+  media:
+    label: media
+    about: >-
+      An image from the owner's own library, resolved server-side by id —
+      a game's cover, a vid's thumbnail, a channel's avatar or banner.
+    when_to_use: >-
+      When showing WHICH game/vid/channel you mean adds real value (a
+      recommendation's cover, a thumbnail being discussed). Never send URLs.
+    data:
+      entity: "game | vid | channel"
+      id: "Integer — the entity's local id from tool results"
+      variant: "optional: cover (game) | thumb (vid) | avatar | banner (channel)"
+
+  sparkline:
+    label: sparkline
+    about: >-
+      A tiny inline trend line drawn from a number series — shape over detail,
+      no axes.
+    when_to_use: >-
+      A quick "how has this moved" beside a stat — views over days, subs over
+      weeks. For a full read with axes and ticks, use chart viz=area instead.
+    data:
+      series: "Array of numbers, oldest first"
+      label: "optional String — one short line above it (you write it)"
+      series_max: "optional Number — fixes the scale's top"
+    limits:
+      max_points: 90
+
+  chart:
+    label: chart
+    about: >-
+      A full-size visualization. `viz` picks the kind; each kind reads its own
+      `data` keys. All of them render in pito's native chart chrome.
+    when_to_use: >-
+      The centerpiece of an analytical answer. One good chart beats three —
+      pick the viz whose QUESTION matches yours.
+    data:
+      viz: "area | bar | heatmap | heart"
+      label: "optional String — a short title line (you write it)"
+      data: "per-viz keys, below"
+    vizzes:
+      area:
+        about: "A ticked trend chart with value axis and date/index axis — 'how did X develop over time'."
+        data:
+          series: "Array of numbers, oldest first (≤90)"
+          dates: "optional Array of ISO dates, same length as series — labels the x-axis"
+          target: "optional Number — draws a goal line to measure the series against"
+          format: "optional: count | duration | percent — how values read on the axis"
+      bar:
+        about: "Up to 5 horizontal labelled bars, each a share of 100 — 'how does X split'."
+        data:
+          bars: "Array of {label: String, pct: 0..100, value_label: optional String shown at the bar's end}"
+      heatmap:
+        about: "Seven weekday cells shaded by intensity — 'which days carry the weight'."
+        data:
+          values: "Array of exactly 7 numbers, Monday first"
+      heart:
+        about: "A heart filled bottom-up to a 0–100 sentiment score with a likes/dislikes legend — 'how loved is this'."
+        data:
+          score: "Integer 0..100 — the fill level"
+          likes: "Integer — the legend's likes count"
+          dislikes: "Integer — the legend's dislikes count"
+    limits:
+      max_points: 90
+      max_bars: 5
+      heatmap_points: 7
+
+  score:
+    label: score bar
+    about: >-
+      A compact 0–100 gauge with an optional label — one number, made visual.
+    when_to_use: >-
+      A single rating or percentage the answer hinges on (a game's critic
+      score, a health metric). For several numbers, use chart viz=bar.
+    data:
+      value: "Integer 0..100"
+      label: "optional String — what the number is (you write it)"
+
+  ttb:
+    label: effort gauge (time-to-beat)
+    about: >-
+      An ordered gauge of named effort levels in hours, with an optional
+      'current progress' tracker rendered against them.
+    when_to_use: >-
+      Time-investment answers: how long a game takes (main/extras/completionist)
+      versus footage recorded, or any staged-effort comparison.
+    data:
+      levels: "Array (1..3) of {label: String, hours: Number > 0}, ascending"
+      current: "optional {label: String, hours: Number} — the progress tracker"
+      label: "optional String — a title line"
+    limits:
+      max_levels: 3
+
+  suggestion:
+    label: suggestion
+    about: >-
+      A ready-to-run pito command the OWNER may execute. You can never execute
+      anything yourself — this is how you recommend an action when asked.
+    when_to_use: >-
+      ONLY when the owner explicitly asks for suggestions, recommendations, or
+      next steps. Never volunteer suggestion blocks otherwise — an unasked
+      answer ends without them.
+    data:
+      command: "String — a complete, valid pito command exactly as typed"
+      note: "optional String — one line on why (you write it)"
+    limits:
+      max_per_answer: 5
+
+# Answer-level cap: at most this many blocks per pito_respond.
+limits:
+  max_blocks: 12

@@ -28,6 +28,15 @@ en:
           theme_apply: "Apply a theme"
           theme_preview: "Preview a theme without saving"
           theme_reset: "Reset to Tokyo Night"
+      ai_picker:
+        title: "AI Models"
+        esc_hint: "Esc"
+        search_placeholder: "Search models"
+        no_model: "no model selected"
+        sections:
+          conversation: "Conversation"
+          favorites: "Favorites"
+          recents: "Recents"
       slash:
         descriptions:
           login: "Log in to access PITO"

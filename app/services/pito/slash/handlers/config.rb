@@ -34,21 +34,29 @@ module Pito
         self.description_key = "pito.slash.config.descriptions.config"
         # Grammar (provider/state/settings slots, auth, aliases): config/pito/verbs.yml.
 
+        # Every AI provider in the registry gets a `/config <name> api_key=…`
+        # entry (and a status getter) automatically — one YAML entry, full
+        # config surface.
         KNOWN_PROVIDERS   = %w[ai google voyage igdb webhook me].freeze
         TOGGLE_PROVIDERS  = %w[sound].freeze
         ME_PROVIDER       = "me"
 
         # Maps each provider's supported kwargs to their AppSetting writers.
+        # AI config has EXACTLY ONE slash surface — `/config ai` with kwargs
+        # (owner-locked): `provider=` scopes the other kwargs, `api_key=` lands
+        # in the encrypted store for that provider, `model=` must exist in that
+        # provider's catalog and stamps the active pick + recents, `effort=`
+        # binds to the ACTIVE model. NO per-provider slash commands, no AI
+        # spillage into the /config overview. Bare `/config ai` never reaches
+        # this handler — the web fast-path opens the picker overlay instead.
         PROVIDER_SETTERS = {
+          # Keys only — the AI path routes through set_ai_values (ORDERED:
+          # provider scopes, then key, then model, then effort), never these.
           "ai" => {
-            # The key lands in the encrypted key/value store; the model pick also
-            # stamps the active provider. Bare `/config ai` never reaches this
-            # handler — the web fast-path opens the picker overlay instead.
-            api_key: ->(v) { AppSetting.set("opencode_api_key", v) },
-            model:   ->(v) {
-              AppSetting.set("ai_model", v)
-              AppSetting.set("ai_provider", "opencode")
-            }
+            provider: nil,
+            api_key:  nil,
+            model:    nil,
+            effort:   nil
           },
           "google" => {
             client_id:     ->(v) { AppSetting.singleton_row.update!(google_oauth_client_id: v) },
@@ -72,9 +80,14 @@ module Pito
         # Status readers for the getter display (returns a Hash of label → value/status).
         PROVIDER_STATUS = {
           "ai" => -> {
+            provider = AppSetting.get("ai_provider").presence || "opencode"
+            model    = AppSetting.get("ai_model").presence
             {
-              "API Key" => status_flag(AppSetting.get("opencode_api_key")),
-              "Model"   => AppSetting.get("ai_model").presence || I18n.t("pito.slash.config.status.missing")
+              "Provider" => provider,
+              "API Key"  => status_flag(AppSetting.get("#{provider}_api_key")),
+              "Model"    => model || I18n.t("pito.slash.config.status.missing"),
+              "Effort"   => (model && AppSetting.ai_effort_for("#{provider}/#{model}")).presence ||
+                            I18n.t("pito.slash.config.status.missing")
             }
           },
           "google" => -> {
@@ -462,6 +475,8 @@ module Pito
             )
           end
 
+          return set_ai_values(kwargs) if provider == "ai"
+
           kwargs.each { |key, value| setters[key.to_sym]&.call(value.to_s) }
           Pito::Credentials.invalidate!
 
@@ -474,6 +489,67 @@ module Pito
               }
             }
           ])
+        end
+
+        AI_EFFORTS = %w[low medium high off].freeze
+
+        # The ONE slash surface for AI config (owner-locked): ordered kwargs —
+        # `provider=` scopes the rest (defaults to the active provider),
+        # `api_key=` lands in that provider's encrypted slot, `model=` is
+        # catalog-validated and stamps the active pick + recents, `effort=`
+        # binds to the ACTIVE model (per-model map). Everything else about AI
+        # lives in the /config ai picker overlay.
+        def set_ai_values(kwargs)
+          kwargs = kwargs.transform_keys(&:to_sym)
+          scope  = (kwargs[:provider].presence || AppSetting.get("ai_provider").presence || "opencode").to_s
+
+          begin
+            ::Ai::ProviderRegistry.provider(scope.to_sym)
+          rescue KeyError
+            return ai_error("unknown_provider", provider: scope)
+          end
+
+          AppSetting.set("#{scope}_api_key", kwargs[:api_key].to_s.strip) if kwargs[:api_key].present?
+
+          if kwargs[:model].present?
+            model = kwargs[:model].to_s
+            known = ::Ai::ModelCatalog.models(provider: scope.to_sym).any? { |m| m[:id] == model }
+            return ai_error("unknown_model", model: model, provider: scope) unless known
+
+            AppSetting.set("ai_model", model)
+            AppSetting.set("ai_provider", scope)
+            AppSetting.push_ai_recent("#{scope}/#{model}")
+          end
+
+          if kwargs[:effort].present?
+            effort = kwargs[:effort].to_s
+            return ai_error("unknown_effort", effort: effort) unless AI_EFFORTS.include?(effort)
+
+            active_model = AppSetting.get("ai_model").presence
+            return ai_error("no_model") if active_model.nil?
+
+            active_provider = AppSetting.get("ai_provider").presence || scope
+            AppSetting.set_ai_effort("#{active_provider}/#{active_model}", effort)
+          end
+
+          Pito::Credentials.invalidate!
+
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    :system,
+              payload: {
+                message_key:  "pito.slash.config.updated",
+                message_args: { provider: "ai", keys: kwargs.keys.map(&:to_s).join(", ") }
+              }
+            }
+          ])
+        end
+
+        def ai_error(key, **args)
+          Pito::Slash::Result::Error.new(
+            message_key:  "pito.slash.config.errors.ai_#{key}",
+            message_args: args
+          )
         end
 
         def self.status_flag(value)

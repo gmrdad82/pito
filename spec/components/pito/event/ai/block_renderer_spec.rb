@@ -33,13 +33,45 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
       expect(node.text).to include("\n")
     end
 
-    it "strips emphasis, backticks, and leading # headers" do
+    it "strips backticks and leading # headers; emphasis renders as styling" do
       node = render_block(block)
       expect(node.text).not_to include("**")
       expect(node.text).not_to include("`")
       expect(node.text).not_to include("# Heading")
+      expect(node.css("span.font-bold").text).to eq("bold")
       expect(node.text).to include("bold and code")
       expect(node.text).to include("Heading")
+    end
+
+    it "renders the declared inline styling — bold, italic, allowed colors — as spans" do
+      node = render_block({ "type" => "text",
+                            "text" => "**bold** and *slanted* and [cyan]id[/cyan] and [red]bad[/red]" })
+
+      expect(node.css("span.font-bold").text).to eq("bold")
+      expect(node.css("span.italic").text).to eq("slanted")
+      expect(node.css("span.text-cyan").text).to eq("id")
+      expect(node.css("span.text-red").text).to eq("bad")
+      expect(node.text).not_to include("**", "[cyan]")
+    end
+
+    it "unwraps a color tag outside the allowed palette to plain text" do
+      node = render_block({ "type" => "text", "text" => "[purple]nope[/purple]" })
+      expect(node.text).to include("nope")
+      expect(node.text).not_to include("[purple]")
+      expect(node.css("span[class*=purple]")).to be_empty
+    end
+
+    it "escapes HTML inside styled spans" do
+      node = render_block({ "type" => "text", "text" => "**<script>x</script>**" })
+      expect(node.css("script")).to be_empty
+      expect(node.css("span.font-bold").text).to eq("<script>x</script>")
+    end
+
+    it "renders the timestamp prefix INLINE inside the text flow when given one" do
+      node = render_inline(described_class.component_for(block, timestamp: Time.zone.parse("2026-07-11 05:22")))
+      prefix = node.css("div.whitespace-pre-wrap .pito-timestamp-prefix")
+      expect(prefix).not_to be_empty
+      expect(node.text).to start_with("05:22 Hello")
     end
   end
 
@@ -151,13 +183,32 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
       end
     end
 
-    context "viz=area" do
-      let(:block) { { "type" => "chart", "viz" => "area", "series" => [ 1.0, 2.0, 3.0 ] } }
+    context "viz=heart" do
+      let(:block) do
+        { "type" => "chart", "viz" => "heart", "score" => 84, "likes" => 120, "dislikes" => 6 }
+      end
 
-      it "renders via the sparkline engine" do
+      it "renders one red braille heart with the likes/dislikes legend" do
         node = render_block(block)
-        expect(node.css(".pito-metric--sparkline")).not_to be_empty
-        expect(node.css(".pito-metric__row").size).to eq(2)
+        expect(node.to_html).to include("pito-metric")
+        expect(node.text).to include("120")
+        expect(node.text).to include("6")
+      end
+    end
+
+    context "viz=area" do
+      let(:block) do
+        { "type" => "chart", "viz" => "area", "series" => [ 1.0, 2.0, 3.0 ],
+          "target" => 2.0, "format" => "count" }
+      end
+
+      it "renders the full ticked Area chart via its generic kwargs" do
+        node = render_block(block)
+        expect(node.to_html).to include("pito-metric")
+        # The full chart carries y-tick VALUES and an x-axis row — the compact
+        # sparkline has neither.
+        expect(node.css(".pito-metric__row").size).to be > 2
+        expect(node.text).to include("1") # day-index x fallback (no dates given)
       end
     end
   end
@@ -184,7 +235,13 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
 
   describe "ttb" do
     let(:block) do
-      { "type" => "ttb", "hours" => { "main" => 30.0, "extras" => 60.0, "completionist" => 100.0 } }
+      { "type" => "ttb",
+        "levels" => [
+          { "label" => "level 1", "hours" => 30.0 },
+          { "label" => "level 2", "hours" => 60.0 },
+          { "label" => "level 3", "hours" => 100.0 }
+        ],
+        "current" => { "label" => "so far", "hours" => 12.0 } }
     end
 
     it "maps to VizBlockComponent" do

@@ -21,21 +21,6 @@ module Ai
     RENDER_COMMAND = "pito_render_command"
     RESPOND = "pito_respond"
 
-    RESPOND_DESCRIPTION = <<~DESC.strip
-      End your turn with your own composed answer as typed blocks. Prefer structured blocks over prose paragraphs.
-
-      Each block is an object with a required "type" plus per-type keys:
-        - text: {text}
-        - kv_table: {rows: [[key, value], …] max 20}
-        - table: {header: [...], rows: [[...]] max 20x6}
-        - media: {entity: game|vid|channel, id: integer, variant: cover|thumb|banner|avatar}
-        - sparkline: {series: [numbers ≤90], label?, series_max?}
-        - chart: {viz: area|bar|heatmap, data, label?}
-        - score: {value: 0..100, label?}
-        - ttb: {hours: {main, extras, completionist}, footage_hours?, label?}
-        - suggestion: {command: a valid pito command the user could run, note?} max 5 per answer
-    DESC
-
     # [{name:, description:, input_schema:}, …] — Pito::Mcp::Registry.tools
     # (inputSchema → input_schema, annotations dropped — the wires don't
     # take them) followed by the two terminal tools.
@@ -81,23 +66,26 @@ module Ai
       }
     end
 
+    # The whole document — block types, data shapes, guidance, content rules —
+    # generates from config/pito/content.yml (Ai::ContentRegistry). Adding a
+    # block or changing a rule happens THERE plus its support code, never here.
     def respond_tool
       {
         name: RESPOND,
-        description: RESPOND_DESCRIPTION,
+        description: Ai::ContentRegistry.respond_description,
         input_schema: {
           "type" => "object",
           "properties" => {
             "blocks" => {
               "type" => "array",
               "minItems" => 1,
-              "maxItems" => 12,
+              "maxItems" => Ai::ContentRegistry.limit("max_blocks", default: 12),
               "items" => {
                 "type" => "object",
                 "properties" => {
                   "type" => {
                     "type" => "string",
-                    "enum" => %w[text kv_table table media sparkline chart score ttb suggestion]
+                    "enum" => Ai::ContentRegistry.block_types
                   }
                 },
                 "required" => [ "type" ],

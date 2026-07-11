@@ -76,12 +76,16 @@ export default class extends Controller {
     const spinner = this.#spinner()
     if (!spinner) return
 
-    // The tile parks at translate(-50%, 100%) (fully below the edge, CSS) and
-    // rises 1:1 with the finger; the arrow winds up with the pulled distance.
+    // The glyph parks at translate(-50%, 100%) (fully below the edge, CSS) and
+    // rises 1:1 with the finger; the arrows wind up with the pulled distance
+    // while their purple→pito-blue gradient counter-rotates against them.
     spinner.style.transition = "none"
     spinner.style.transform  = `translate(-50%, calc(100% - ${this.pull}px))`
-    const arrow = spinner.querySelector("svg")
-    if (arrow) arrow.style.transform = `rotate(${(this.pull * ROTATE_PER_PX).toFixed(1)}deg)`
+    const degrees = (this.pull * ROTATE_PER_PX).toFixed(1)
+    const arrow   = spinner.querySelector("svg")
+    if (arrow) arrow.style.transform = `rotate(${degrees}deg)`
+    const gradient = spinner.querySelector("#pito-pull-grad")
+    if (gradient) gradient.setAttribute("gradientTransform", `rotate(-${degrees} 0.5 0.5)`)
 
     if (this.pull >= this.#threshold()) this.#fire(spinner)
   }

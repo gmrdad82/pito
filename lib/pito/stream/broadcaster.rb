@@ -163,9 +163,11 @@ module Pito
       def broadcast_ai_status(event:, text:)
         helper  = ApplicationController.helpers
         slot    = "event_#{event.id}__ai_status"
+        # pito-network-shimmer — the same live sweep the Thinking block's copy
+        # wears; this line is the same kind of "working on it" chrome.
         content = helper.turbo_stream.replace(
           slot,
-          %(<div id="#{slot}" class="text-fg-faded">#{ERB::Util.html_escape(text)}</div>).html_safe
+          %(<div id="#{slot}" class="text-fg-faded pito-network-shimmer">#{ERB::Util.html_escape(text)}</div>).html_safe
         )
         Turbo::StreamsChannel.broadcast_stream_to(
           "pito:conversation:#{@conversation.uuid}",

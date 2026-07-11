@@ -77,33 +77,79 @@ module Pito
       }.freeze
     end
 
-    # Pillars IGDB returned data for, in display order — drives the legend row
-    # (absent pillars are omitted from both the ticks and the legend).
-    def legend_pillars
-      %i[main extras completionist].select { |key| hours[key].to_i.positive? }
-    end
+    # The gauge is GENERIC: up to three ordered effort LEVELS plus an optional
+    # CURRENT progress tracker. `main`/`extras`/`completionist` survive only as
+    # POSITIONAL accent tokens (level 1/2/3 — the CSS `data-accent` contract);
+    # their game meaning lives in the presets, not in this component.
+    #
+    #   levels:  [{ label:, hours: }, …]  — ascending effort, 1..3 entries;
+    #            position drives the tick accent and the heat-ramp truncation.
+    #   current: { label:, hours:, value_label: } — the `|` progress tick with
+    #            its inline value (value_label defaults to the hours formatter).
+    #
+    # Game preset (game:/hours:/footage_hours: kwargs): levels = the TTB
+    # main/extras/completionist hours with their Pito copy labels; current =
+    # the footage tracker (always shown, 0h included — DB default 0.0).
+    LEVEL_KEYS = PILLAR_KEYS
 
-    def initialize(game: nil, hours: nil, footage_hours: nil, label: nil)
+    def initialize(game: nil, hours: nil, footage_hours: nil, label: nil, levels: nil, current: nil)
       @game          = game
       @hours         = hours
       @footage_hours = footage_hours
       @label         = label
+      @levels        = levels
+      @current       = current
+    end
+
+    # Positional level rows: [{key:, label:, hours:}, …] — key is the accent
+    # token for the tick/legend CSS, label the legend text.
+    def levels_data
+      @levels_data ||=
+        if @levels
+          Array(@levels).first(LEVEL_KEYS.size).each_with_index.map do |level, i|
+            level = level.transform_keys(&:to_sym) if level.respond_to?(:transform_keys)
+            { key: LEVEL_KEYS[i], label: level[:label].to_s, hours: level[:hours].to_i }
+          end
+        else
+          game_hours = legacy_hours
+          LEVEL_KEYS.map do |key|
+            { key:, label: self.class.pillar_label[key], hours: game_hours[key].to_i }
+          end
+        end
+    end
+
+    def level_label(key)
+      levels_data.find { |l| l[:key] == key }&.dig(:label).to_s
+    end
+
+    # Levels with data, in display order — drives the legend row (absent
+    # levels are omitted from both the ticks and the legend).
+    def legend_pillars
+      levels_data.filter_map { |l| l[:key] if l[:hours].positive? }
     end
 
     def hours
-      return symbolize_hours(@hours) if @hours
+      levels_data.to_h { |l| [ l[:key], l[:hours] ] }
+    end
 
-      from_game = {
-        main:          seconds_to_hours(@game&.ttb_main_seconds),
-        extras:        seconds_to_hours(@game&.ttb_extras_seconds),
-        completionist: seconds_to_hours(@game&.ttb_completionist_seconds)
-      }
-
-      from_game.values.all?(&:zero?) ? SAMPLE_HOURS.dup : from_game
+    # The current tracker: explicit `current:` kwarg, or the game preset's
+    # footage (present even at 0 — the game surfaces always show progress).
+    def current
+      @normalized_current ||=
+        if @current
+          c = @current.respond_to?(:transform_keys) ? @current.transform_keys(&:to_sym) : @current
+          { label:       c[:label].to_s,
+            hours:       c[:hours].to_f,
+            value_label: c[:value_label].presence || Pito::Formatter::FootageHours.call(c[:hours].to_f) }
+        elsif @levels.nil?
+          { label:       I18n.t("pito.game.ttb.footage", default: "footage"),
+            hours:       (@footage_hours || 0).to_f,
+            value_label: Pito::Formatter::FootageHours.call((@footage_hours || 0).to_f) }
+        end
     end
 
     def footage_hours
-      @footage_hours || 0
+      current ? current[:hours] : 0
     end
 
     # The largest PRESENT (positive) pillar hour value; 0 if all absent.
@@ -182,7 +228,7 @@ module Pito
     end
 
     def footage_value_label
-      Pito::Formatter::FootageHours.call(footage_hours)
+      current ? current[:value_label] : Pito::Formatter::FootageHours.call(0)
     end
 
     # Compact label rendered INLINE on the `=` bar line, adjacent to the footage
@@ -210,7 +256,7 @@ module Pito
     end
 
     def render_footage_tick?
-      true
+      current.present?
     end
 
     TICK_TOKEN_CLASS = {
@@ -386,6 +432,20 @@ module Pito
     end
 
     private
+
+    # The game preset's raw hours (hours: kwarg, else the game's TTB seconds,
+    # else the showcase sample).
+    def legacy_hours
+      return symbolize_hours(@hours) if @hours
+
+      from_game = {
+        main:          seconds_to_hours(@game&.ttb_main_seconds),
+        extras:        seconds_to_hours(@game&.ttb_extras_seconds),
+        completionist: seconds_to_hours(@game&.ttb_completionist_seconds)
+      }
+
+      from_game.values.all?(&:zero?) ? SAMPLE_HOURS.dup : from_game
+    end
 
     def seconds_to_hours(seconds)
       return 0 if seconds.nil? || seconds.to_i <= 0

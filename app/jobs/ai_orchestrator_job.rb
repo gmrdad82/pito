@@ -46,17 +46,31 @@ class AiOrchestratorJob < ApplicationJob
        answer (e.g. the user should just see `show game 79`). Send no prose with it.
     2. pito_respond {blocks} — when you gathered or derived something: compose typed
        blocks (see the tool description for the block types). Prefer structured
-       blocks over prose paragraphs. To recommend an action the owner must take,
-       emit a suggestion block whose command is a valid pito command — you can
-       NEVER execute changes yourself.
+       blocks over prose paragraphs. NEVER format tables as markdown pipes inside a
+       text block — use a kv_table block (label/value pairs) or a table block.
+       To recommend an action the owner must take, emit a suggestion block whose
+       command is a valid pito command — you can NEVER execute changes yourself.
 
     Keep answers grounded in tool results. If pito has no data for the question,
     say so in a text block. Never fabricate ids, metrics, or titles.
   PROMPT
 
+  # The static protocol above + the content rules declared in
+  # config/pito/content.yml (no emoji / kaomoji, styling, colors) — edited
+  # there, never here.
+  def self.system_prompt
+    "#{SYSTEM_PROMPT}\nCONTENT RULES:\n#{Ai::ContentRegistry.prompt_rules}"
+  end
+
   # The Finalizer's ai-pending gate: a persisted :ai event still awaiting fill.
   def self.pending?(event)
     event.kind.to_s == "ai" && event.payload["status"].to_s == "pending"
+  end
+
+  # The `#a7 @ai …` reply anchor — the turn whose exchange History must carry.
+  def anchor_turn
+    anchor_id = @event.payload["anchor_event_id"].presence
+    anchor_id && Event.find_by(id: anchor_id)&.turn
   end
 
   def perform(turn_id)
@@ -78,14 +92,18 @@ class AiOrchestratorJob < ApplicationJob
   private
 
   def run(client)
+    @client  = client
     prompt   = @event.payload["prompt"].to_s
     tools    = Ai::Toolset.tools
-    messages = Ai::History.messages(conversation: @conversation, before_turn: @turn)
+    messages = Ai::History.messages(
+      conversation: @conversation, before_turn: @turn,
+      must_include_turn: anchor_turn
+    )
     messages << { role: "user", content: prompt }
 
     spent = 0
     MAX_ITERATIONS.times do
-      response = client.chat(messages:, tools:, system: SYSTEM_PROMPT)
+      response = client.chat(messages:, tools:, system: self.class.system_prompt)
       spent += response.usage.total
 
       terminal = response.tool_calls.find { |tc| Ai::Toolset.terminal?(tc.name) }
@@ -99,11 +117,15 @@ class AiOrchestratorJob < ApplicationJob
         messages << client.assistant_tool_message(response)
         messages << client.tool_result_message(terminal, failure, error: true)
       else
-        return finalize_blocks([ text_block(response.text) ]) unless response.tool_calls?
+        unless response.tool_calls?
+          blocks = Ai::Blocks.text_blocks(response.text)
+          blocks = [ text_block(Pito::Copy.render("pito.copy.ai.errors.failed")) ] if blocks.empty?
+          return finalize_blocks(blocks)
+        end
 
         messages << client.assistant_tool_message(response)
         response.tool_calls.each do |tc|
-          @broadcaster.broadcast_ai_status(event: @event, text: "→ #{tc.name}")
+          @broadcaster.broadcast_ai_status(event: @event, text: status_line(tc.name))
           result = Ai::ToolExecutor.call(name: tc.name, arguments: tc.arguments)
           messages << client.tool_result_message(tc, result[:content], error: result[:error])
         end
@@ -113,6 +135,16 @@ class AiOrchestratorJob < ApplicationJob
     end
 
     finalize_blocks([ text_block(Pito::Copy.render("pito.copy.ai.errors.capped")) ])
+  end
+
+  # The live tool-activity line under the thinking indicator: a playful
+  # copy-dictionary narration per tool (pito.copy.ai.status.* — 1-or-50
+  # variants apply) with the bare tool name kept as the dim technical
+  # indicator. Tools without their own line fall back to the generic one.
+  def status_line(tool_name)
+    copy = Pito::Copy.render_soft("pito.copy.ai.status.#{tool_name}") ||
+           Pito::Copy.render("pito.copy.ai.status.generic", tool: tool_name)
+    "#{copy} · #{tool_name}"
   end
 
   # ── Flow A: render a pito command's native output ────────────────────────────
@@ -130,7 +162,7 @@ class AiOrchestratorJob < ApplicationJob
     # must bounce back to the model, never render as the answer. And `ai …`
     # would recurse.
     verb = Pito::Dispatch::UniversalReply.chat_verb(command, @conversation)
-    if verb.blank? || verb == "unknown" || verb == "ai"
+    if verb.blank? || verb == "unknown" || verb == "@ai"
       return "`#{command}` is not a runnable pito command. Fix it or answer with pito_respond."
     end
 
@@ -144,7 +176,7 @@ class AiOrchestratorJob < ApplicationJob
     prose = response.text.to_s.strip
     if prose.present?
       # Keep the model's prose as the :ai message; the command's messages land after.
-      update_ai_event(blocks: [ text_block(prose) ])
+      update_ai_event(blocks: Ai::Blocks.text_blocks(prose))
       rest = events
     else
       convert_ai_event(events.first, command)
@@ -178,12 +210,16 @@ class AiOrchestratorJob < ApplicationJob
   end
 
   def update_ai_event(blocks:)
-    payload = @event.payload.merge("status" => "done", "blocks" => blocks)
-    # An answer carrying suggestions becomes repliable: `#<handle> apply [n]`
-    # runs suggestion n through the normal pipeline (the apply reply verb).
-    if blocks.any? { |b| b["type"] == "suggestion" }
-      Pito::FollowUp.make_followupable!(payload, target: "ai_message", conversation: @conversation)
-    end
+    # The answering provider/model ride along — the ✨ badge and the picker's
+    # "Conversation" group read them back.
+    payload = @event.payload.merge(
+      "status" => "done", "blocks" => blocks,
+      "model" => @client&.model, "provider" => @client&.provider&.to_s
+    )
+    # EVERY answer is repliable: `#<handle> @ai <text>` continues the thread
+    # anchored here, and `#<handle> apply [n]` runs suggestion n through the
+    # normal pipeline when suggestions are present.
+    Pito::FollowUp.make_followupable!(payload, target: "ai_message", conversation: @conversation)
     @event.update!(payload:)
     @broadcaster.replace_event(@event)
   end
@@ -204,7 +240,7 @@ class AiOrchestratorJob < ApplicationJob
   # pito_respond leads as a text block so nothing is lost.
   def blocks_from(terminal, response)
     blocks = Ai::Blocks.normalize(terminal.arguments["blocks"], conversation: @conversation)
-    blocks.unshift(text_block(response.text)) if response.text.to_s.strip.present?
+    blocks = Ai::Blocks.text_blocks(response.text) + blocks if response.text.to_s.strip.present?
     blocks = [ text_block(Pito::Copy.render("pito.copy.ai.errors.failed")) ] if blocks.empty?
     blocks.first(Ai::Blocks::MAX_BLOCKS)
   end
