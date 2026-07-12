@@ -1,0 +1,12 @@
+# mkt-03 — "Game price, tracked": a game detail card with coins on the
+# Price row. Game 16 (Stellar Blade) — script/recapture-parade seeds its
+# price when nil (owner-editable field; dev DB).
+name: mkt-03-price
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "show game 16"
+  - wait_for: { selector: ".pito-game-detail", timeout: 20 }
+  - sleep: 4.0
+  - shot: { name: mkt-03-price.png, selector: ".pito-game-detail" }

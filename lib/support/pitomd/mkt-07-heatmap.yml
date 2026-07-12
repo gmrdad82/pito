@@ -1,0 +1,10 @@
+# mkt-07 — "Day-of-week heatmap": the heatmap chart element from the
+# channel breakdowns (crop = just the chart, like the shipped original).
+name: mkt-07-heatmap
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "breakdowns channel @gmrdad82"
+  - sleep: 12
+  - shot: { name: mkt-07-heatmap.png, selector: ".pito-metric--heatmap" }

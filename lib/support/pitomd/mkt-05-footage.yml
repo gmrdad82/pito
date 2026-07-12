@@ -1,0 +1,11 @@
+# mkt-05 — "Footage hours per game": game 1 (Ghosts 'n Goblins, 12.5h
+# footage) — the recorded backlog sitting on the time-to-beat bar.
+name: mkt-05-footage
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "show game 1"
+  - wait_for: { selector: ".pito-game-detail", timeout: 20 }
+  - sleep: 4.0
+  - shot: { name: mkt-05-footage.png, selector: ".pito-game-detail" }

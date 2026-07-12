@@ -1,0 +1,11 @@
+# mkt-13 — "Similar games": the Voyage similars strip for game 20
+# (Demon's Souls -> the soul-likes shelf). Element crop of the strip.
+name: mkt-13-similar
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "show game 20 with similar"
+  - wait_for: { selector: ".pito-game-enhanced-message__similar-games-strip", timeout: 25 }
+  - sleep: 4.0
+  - shot: { name: mkt-13-similar.png, selector: ".pito-game-enhanced-message__similar-games-strip" }

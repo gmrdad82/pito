@@ -1,0 +1,11 @@
+# mkt-12 — "the whole thing is a conversation": a list on the open shell,
+# chatbox + chrome visible. Viewport keyframe (837 -> 750 after the 87px
+# headless delta).
+name: mkt-12-chatbox
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 837, scale: 1 }
+steps:
+  - login: true
+  - command: "list games"
+  - sleep: 4.0
+  - keyframe: mkt-12-chatbox.png
