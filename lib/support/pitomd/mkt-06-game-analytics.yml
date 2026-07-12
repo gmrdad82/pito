@@ -1,0 +1,12 @@
+# mkt-06 — "Analytics at the game level": the breakdowns grid for game 1.
+# Job-backed fills — the 12s sleep matches the tui-audit reference spec.
+# Full-page shot (the grid is taller than any viewport); the parade script
+# clears the conversation first so nothing else is on the page.
+name: mkt-06-game-analytics
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "breakdowns game 1"
+  - sleep: 12
+  - shot: mkt-06-game-analytics.png

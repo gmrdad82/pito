@@ -1,0 +1,9 @@
+# mkt-14 — "Shinies": the lifetime achievement grid for the main channel.
+name: mkt-14-shinies
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "shinies channel @gmrdad82"
+  - sleep: 4.0
+  - shot: { name: mkt-14-shinies.png, selector: ".pito-achievement-shinies" }

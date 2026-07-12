@@ -62,9 +62,20 @@ module Pito
         when "gif"        then gif_step(value)
         when "keyframe"   then keyframe_step(value)
         when "burst"      then burst_step(value)
-        when "scroll_to"  then @browser.scroll_to(value.to_s)
+        when "scroll_to"  then scroll_step(value)
         when "storyboard" then storyboard_step(value)
         when "viewport"   then nil # applied at Browser.new; kept for per-scenario docs
+        end
+      end
+
+      # scroll_to: ".selector"  — centered (the chart-framing default), or
+      # scroll_to: { selector: ".selector", align: start } for edge alignment.
+      def scroll_step(value)
+        if value.is_a?(Hash)
+          value = value.stringify_keys
+          @browser.scroll_to(value["selector"].to_s, align: value["align"].to_s)
+        else
+          @browser.scroll_to(value.to_s)
         end
       end
 

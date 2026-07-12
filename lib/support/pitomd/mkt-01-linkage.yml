@@ -1,0 +1,12 @@
+# mkt-01 — "Games <-> videos, explicitly linked": a vid detail card whose
+# intro + linked-game context tell the linkage story. Vid 20 = a Demon's
+# Souls vlog (dev DB). Element crop of the detail card.
+name: mkt-01-linkage
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "show vid 20"
+  - wait_for: { selector: ".pito-video-detail", timeout: 20 }
+  - sleep: 4.0
+  - shot: { name: mkt-01-linkage.png, selector: ".pito-video-detail" }

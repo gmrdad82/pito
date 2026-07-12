@@ -154,8 +154,10 @@ module Pito
         settle_paint
         ensure_banner_hidden!
         if selector
-          node = wait_for_selector(selector)
-          node.screenshot(path: path.to_s)
+          # Ferrum crops via the page API (Ferrum::Node has no #screenshot);
+          # wait first so the element exists before the bounding-box math.
+          wait_for_selector(selector)
+          page.screenshot(path: path.to_s, selector: selector)
         else
           page.screenshot(path: path.to_s, full: full)
         end
@@ -167,10 +169,13 @@ module Pito
 
       # Scroll a node into view (centered) — storyboards that focus a specific
       # message (the enhanced videos/channels cards, similar games).
-      def scroll_to(css)
+      # `align:` maps to scrollIntoView's block — "center" (default) frames a
+      # chart mid-viewport; "start" pins a tall card's top edge (theme shots).
+      def scroll_to(css, align: "center")
+        align = "center" unless %w[start center end nearest].include?(align)
         wait_for_selector(css)
         page.evaluate(
-          "document.querySelector(#{css.to_json})?.scrollIntoView({block: 'center'})"
+          "document.querySelector(#{css.to_json})?.scrollIntoView({block: #{align.to_json}})"
         )
         settle_paint
       end

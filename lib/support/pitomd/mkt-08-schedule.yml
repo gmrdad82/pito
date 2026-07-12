@@ -1,0 +1,12 @@
+# mkt-08 — "A calendar that finds the gap" (`schedule 20 slate`) —
+# DATA-BLOCKED on dev (zero scheduled vids: publish_at all past, so the
+# slate renders its witty empty copy, not the strip). Not in
+# script/recapture-parade until dev has future-scheduled vids.
+name: mkt-08-schedule
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 1 }
+steps:
+  - login: true
+  - command: "schedule 20 slate"
+  - sleep: 4.0
+  - shot: { name: mkt-08-schedule.png, selector: ".pito-data-grid" }

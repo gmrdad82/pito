@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Recapture the README/pitomd "parade" stills (mkt-01..14, minus the owner's
+# keeps mkt-02 and the data-blocked mkt-04/mkt-08). Each scenario runs against
+# a CLEARED main conversation so element selectors hit exactly one message;
+# specials are seeded first (game 16 price, the mkt-09 share). Outputs are
+# copied into docs/media/ AND ~/Dev/pitomd/public/media/ — staging/commit
+# stays manual, like every capture path. Dev-only.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+PITOMD_MEDIA="${HOME}/Dev/pitomd/public/media"
+
+run_one() {
+  local name="$1"
+  echo "── ${name}"
+  bundle exec rake "pitomd:capture[${name}]"
+  local out="tmp/captures/pitomd/${name}/${name}.png"
+  cp "${out}" "docs/media/${name}.png"
+  cp "${out}" "${PITOMD_MEDIA}/${name}.png"
+}
+
+# ── Seeds ────────────────────────────────────────────────────────────────────
+# mkt-03: game 16 (Stellar Blade) needs coins on the Price row — seed only
+# when unset (price is the owner's manual field; noted in the session log).
+# All seeds are LOCAL-mirror writes only — never a YouTube API call.
+RAILS_ENV=development bin/rails runner '
+  g = Game.find(16)
+  g.update!(price: 69.99) if g.price.nil?
+
+  # mkt-04: Nioh 3 staggered per-platform releases (original Pragmata shape).
+  nioh = Game.find(18)
+  [
+    { platform_token: "ps",     release_year: 2026, release_month: 8,  release_day: 27 },
+    { platform_token: "steam",  release_year: 2026, release_month: 8,  release_day: 27 },
+    { platform_token: "switch", release_year: 2026, release_quarter: 4 },
+    { platform_token: "xbox",   release_year: 2026, release_month: 10, release_day: 15 }
+  ].each do |attrs|
+    row = nioh.platform_releases.find_or_initialize_by(platform_token: attrs[:platform_token])
+    row.assign_attributes(attrs)
+    row.save!
+  end
+
+  # mkt-08: a populated slate — future publish_at on private vids across
+  # channels (local columns; the slate reads the mirror, not YouTube).
+  slate = { 25 => 26.hours, 22 => 2.days, 21 => 4.days, 28 => 6.days }
+  slate.each do |vid_id, offset|
+    v = Video.find_by(id: vid_id)
+    next unless v
+    v.update_columns(privacy_status: "private", publish_at: Time.current + offset)
+  end
+'
+
+run_one mkt-01-linkage
+run_one mkt-03-price
+run_one mkt-04-releases
+run_one mkt-05-footage
+
+# mkt-09 wants a share of the game-detail message that is on screen right
+# now (the mkt-05 `show game 1` turn) — mint it and shoot its
+# public URL back-to-back — the next scenario's clear deletes the record
+# (the captured still is what ships; the URL in it is illustrative).
+MKT09_UUID=$(RAILS_ENV=development bin/rails runner '
+  c = Conversation.order(:created_at).last # each capture logs into a FRESH conversation
+  e = c.events.where.not(kind: %w[thinking echo]).order(:position).last
+  print Share.create!(conversation: c, event: e).uuid
+')
+echo "── minted share ${MKT09_UUID} for mkt-09"
+# ── mkt-09: the public share page ────────────────────────────────────────────
+# Shoot the freshly minted share's public URL. The script rewrites the
+# committed spec with that uuid — the yml documents the last capture.
+{
+  echo '# mkt-09 — "Any message is a link": the public /share page of the newest'
+  echo '# share (uuid written by script/recapture-parade at capture time).'
+  echo 'name: mkt-09-share'
+  echo 'base_url: https://dev.pitomd.com'
+  echo 'viewport: { width: 1000, height: 837, scale: 1 }'
+  echo 'steps:'
+  echo "  - visit: /share/${MKT09_UUID}"
+  echo '  - sleep: 4.0'
+  echo '  - keyframe: mkt-09-share.png'
+} > lib/support/pitomd/mkt-09-share.yml
+echo "── mkt-09-share (share ${MKT09_UUID})"
+bundle exec rake "pitomd:capture[mkt-09-share]"
+cp tmp/captures/pitomd/mkt-09-share/mkt-09-share.png docs/media/mkt-09-share.png
+cp tmp/captures/pitomd/mkt-09-share/mkt-09-share.png "${PITOMD_MEDIA}/mkt-09-share.png"
+
+
+
+run_one mkt-06-game-analytics
+run_one mkt-07-heatmap
+run_one mkt-10-snapshot
+run_one mkt-11-mobile
+run_one mkt-12-chatbox
+run_one mkt-08-schedule
+run_one mkt-13-similar
+run_one mkt-14-shinies
+
+echo "done — review docs/media/mkt-*.png before staging"

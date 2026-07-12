@@ -1,0 +1,13 @@
+# mkt-11 — "Happily mobile": phone-sized shell (448x998 CSS @2x = 896x1996)
+# on a game detail. scroll_to start pins the card's top.
+name: mkt-11-mobile
+base_url: https://dev.pitomd.com
+viewport: { width: 448, height: 1085, scale: 2 }
+steps:
+  - login: true
+  - command: "show game 1"
+  - wait_for: { selector: ".pito-game-detail", timeout: 20 }
+  - sleep: 4.0
+  - scroll_to: { selector: ".pito-game-detail", align: start }
+  - sleep: 0.5
+  - keyframe: mkt-11-mobile.png

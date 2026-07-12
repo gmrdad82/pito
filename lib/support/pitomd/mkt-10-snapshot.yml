@@ -1,0 +1,11 @@
+# mkt-10 — the conversations sidebar (/resume): recent history over the
+# dimmed shell. Viewport keyframe (window height compensates the 87px
+# headless chrome delta: 837 -> 750).
+name: mkt-10-snapshot
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 837, scale: 1 }
+steps:
+  - login: true
+  - command: "/resume"
+  - sleep: 2.0
+  - keyframe: mkt-10-snapshot.png

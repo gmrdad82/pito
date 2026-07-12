@@ -1,0 +1,9 @@
+# mkt-09 — "Any message is a link": the public /share page of the newest
+# share (uuid written by script/recapture-parade at capture time).
+name: mkt-09-share
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 837, scale: 1 }
+steps:
+  - visit: /share/b7bc9ceb-6109-4351-a420-313f29a748c5
+  - sleep: 4.0
+  - keyframe: mkt-09-share.png
