@@ -392,7 +392,7 @@ until a second source exists).
 - **`app/services/`** — the adapter/domain: `channel/`, `game/`, `video/`,
   `google/`, `voyage/`, `conversation/`, and the domain-flavored
   `pito/{analytics, auth, games, achievements, recommendation, schedule,
-  search, stats, sync, showcase, credentials}`.
+search, stats, sync, showcase, credentials}`.
 - **`app/{components,controllers,jobs,models,views}`** — Rails surfaces;
   `config/pito/` — the ontologies (`tools.yml`, `content.yml`,
   `ai_providers.yml`).

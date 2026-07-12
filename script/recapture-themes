@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Recapture the README theme-showcase gallery: one theme-showcase capture per
+# built-in palette (config/captures/theme-showcase.yml — `show video #1` at
+# 760x712), flipping the server-side theme via AppSetting between runs and
+# copying each shot into docs/media/themes/<slug>.png. Restores the owner's
+# current theme afterwards. Dev-only, like every capture path.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+current=$(RAILS_ENV=development bin/rails runner "print AppSetting.theme")
+echo "current theme: ${current} (will be restored)"
+
+for png in docs/media/themes/*.png; do
+  slug=$(basename "$png" .png)
+  echo "── ${slug}"
+  RAILS_ENV=development bin/rails runner "AppSetting.theme = '${slug}'"
+  bundle exec rake "pito:capture[theme-showcase]"
+  cp tmp/captures/theme-showcase/theme.png "docs/media/themes/${slug}.png"
+done
+
+RAILS_ENV=development bin/rails runner "AppSetting.theme = '${current}'"
+echo "done — theme restored to ${current}"

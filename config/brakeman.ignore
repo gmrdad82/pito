@@ -9,10 +9,6 @@
       "note": "HEAD requests do not need intended-URL stashing; the behaviour is intentional."
     },
     {
-      "fingerprint": "9ea997b0cb677c31fa4f8a92bba0eac8e37cc7cc89febd139072b700a03b845b",
-      "note": "list games platform filter: the interpolated fragment is only static `p ILIKE ?` placeholders (one per platform token); user values are bound via *args, so the query is fully parameterized. False positive."
-    },
-    {
       "warning_type": "Cross-Site Scripting",
       "check_name": "CrossSiteScripting",
       "fingerprint": "a0c7a7d85dbefe8c43839b039978b01877b464b8027648e0ff337464671ea9c6",
@@ -27,6 +23,29 @@
       "file": "app/views/conversations/show.html.erb",
       "line": 14,
       "note": "@scrollback_html is the L2 snapshot: Pito::Stream::ScrollbackCache assembles Pito::Stream::EventRenderer output \u2014 the SAME server-rendered ViewComponent HTML this view previously rendered inline per event (0.9.0 Phase 6). All user/import-derived values are escaped at component level (see Pito::Copy.render_html's XSS contract); no raw user input reaches the string. Weak-confidence false positive on the html_safe hop."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "2dcb64d10081f609239985ff7e386f4328fb9f26e92497c894af540ca758976d",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "lib/pito/chat/game_list_filter.rb",
+      "line": 335,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "relation.where(\"EXISTS (SELECT 1 FROM unnest(games.platforms) AS p WHERE #{platform_substrings.map do\n \"p ILIKE ?\"\n end.join(\" OR \")})\", *platform_substrings.map do\n \"%#{s}%\"\n end)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "Pito::Chat::GameListFilter",
+        "method": "self.apply_platform_filter"
+      },
+      "user_input": "platform_substrings.map do\n \"p ILIKE ?\"\n end.join(\" OR \")",
+      "confidence": "Weak",
+      "cwe_id": [
+        89
+      ],
+      "note": "list games platform filter: the interpolated fragment is only static `p ILIKE ?` placeholders (one per platform token); user values are bound via *args, so the query is fully parameterized. False positive."
     }
   ],
   "updated": "2026-06-09",
