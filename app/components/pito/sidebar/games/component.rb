@@ -21,10 +21,14 @@ module Pito
       class Component < ViewComponent::Base
         # @param games [Array<Game>]
         # @param mode  [Symbol] :show or :delete
-        def initialize(games:, mode: :show)
-          @games = games
-          @mode  = mode.to_s
+        def initialize(games:, mode: :show, next_cursor: nil)
+          @games       = games
+          @mode        = mode.to_s
+          # Opaque keyset token (Game.picker_page) — nil renders no pager.
+          @next_cursor = next_cursor
         end
+
+        attr_reader :next_cursor
 
         def empty?
           @games.empty?

@@ -8,7 +8,7 @@ require "rails_helper"
 # UNDERSTANDS from a raw input, not data persistence. All DB lookups are stubbed
 # so the handler resolves records without touching the database.
 #
-# Subject:  Pito::Chat::Handlers::Reindex (app/services/pito/chat/handlers/reindex.rb)
+# Subject:  Pito::Chat::Handlers::Reindex (lib/pito/chat/handlers/reindex.rb)
 #           lib/pito/chat/target_resolution.rb (id_only_resolution!)
 # Resolver: id_only_resolution! — title (ILIKE) lookups intentionally disabled.
 #
@@ -44,7 +44,7 @@ RSpec.describe "Dispatch matrix — reindex (recognition, DB mocked)", type: :di
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :reindex,
+      tool:        :reindex,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw

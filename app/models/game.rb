@@ -1,6 +1,34 @@
 # frozen_string_literal: true
 
 class Game < ApplicationRecord
+  # One picker page (PICKER_PAGE_SIZE rows) in case-stable title order plus
+  # the opaque next-page cursor (nil on the last page) — feeds the `show game`
+  # picker sidebar's scroll pager and the TUI's JSON picker. LOWER() keys the
+  # keyset so paging never trips over the DB collation's idea of case.
+  PICKER_PAGE_SIZE = 50
+
+  def self.picker_page(after: nil, q: nil)
+    scope = order(Arel.sql("LOWER(games.title) ASC, games.id ASC"))
+    # Same ILIKE as /games/search-local, but keyset-paged: a filtered picker
+    # feed (the TUI's server-side search) pages exactly like the full list.
+    scope = scope.where("games.title ILIKE ?", "%#{q}%") if q.present?
+    if (cursor = Pito::ListCursor.decode(after))
+      title, id = cursor
+      scope = scope.where(
+        "(LOWER(games.title), games.id) > (?, ?)", title.to_s, id.to_i
+      )
+    end
+
+    rows = scope.limit(PICKER_PAGE_SIZE + 1).to_a
+    more = rows.size > PICKER_PAGE_SIZE
+    rows = rows.first(PICKER_PAGE_SIZE)
+    [ rows, (more ? picker_cursor_for(rows.last) : nil) ]
+  end
+
+  # The opaque cursor for a row's position in picker order.
+  def self.picker_cursor_for(row)
+    Pito::ListCursor.encode([ row.title.to_s.downcase, row.id ])
+  end
   has_many :game_genres, dependent: :destroy
   has_many :genres, through: :game_genres
 

@@ -5,7 +5,7 @@ require "rails_helper"
 # ── Help/usage derivation-sync guard (plan-0.9.5 T8.12) ─────────────────────
 #
 # Asserts that pito.chat_help.* and pito.hashtag_help.* stay in sync with the
-# config-driven dispatch reality (config/pito/verbs.yml + Pito::Dispatch::Matrix).
+# config-driven dispatch reality (config/pito/tools.yml + Pito::Dispatch::Matrix).
 #
 # Design rule: NEVER weaken this guard.  When copy is missing, either author the
 # copy entry or add the gap to the explicit pinned-omission table below with a
@@ -15,7 +15,7 @@ require "rails_helper"
 # Four assertion tiers:
 #
 #   1. CHAT HELP   — every dispatched chat verb has a pito.chat_help.<verb>.usage
-#                    entry; VERB_GROUPS lists only valid config verbs; no dispatched
+#                    entry; TOOL_GROUPS lists only valid config tools; no dispatched
 #                    verb is absent from the main-help listing (unless pinned).
 #
 #   2. SEGMENTS    — show/analyze Segments sections name EXACTLY the config segment
@@ -26,16 +26,16 @@ require "rails_helper"
 #                    every non-universal action has a copy entry (or is pinned).
 #                    Failure messages name the verb, target, and key path.
 #
-#   4. PAGER       — paginated list targets document the configured more_verb name,
+#   4. PAGER       — paginated list targets document the configured more_tool name,
 #                    not a hardcoded token.
 
 RSpec.describe "help/usage derivation-sync", type: :dispatch do
   Pito::Dispatch::Config.reload!
   Pito::Dispatch::Matrix.reload!
 
-  # The full verbs.yml document and its verb table.
+  # The full tools.yml document and its verb table.
   HELP_DOC   = Pito::Dispatch::Config.data
-  HELP_VERBS = HELP_DOC[:verbs]
+  HELP_VERBS = HELP_DOC[:tools]
 
   before(:all) do
     Pito::FollowUp::Registry.register_all!
@@ -51,19 +51,19 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
     body.dig(:chat, :dispatch).is_a?(String)
   }.keys.map(&:to_s).freeze
 
-  # Ordered flat list of every verb that appears in the main-help VERB_GROUPS.
+  # Ordered flat list of every tool that appears in the main-help TOOL_GROUPS.
   # Referencing Commands first ensures Zeitwerk loads commands.rb, which also
-  # defines Pito::MessageBuilder::Help::VERB_GROUPS (same file, same module).
+  # defines Pito::MessageBuilder::Help::TOOL_GROUPS (same file, same module).
   Pito::MessageBuilder::Help::Commands
-  HELP_GROUP_VERBS = Pito::MessageBuilder::Help::VERB_GROUPS.values.flatten.freeze
+  HELP_GROUP_TOOLS = Pito::MessageBuilder::Help::TOOL_GROUPS.values.flatten.freeze
 
   # target_id → i18n indicator key (e.g. "game_detail" → "show-game").
   HELP_TARGET_INDICATORS = Pito::MessageBuilder::HashtagHelp::TARGET_INDICATORS.freeze
 
-  # Configured pager verb for `list` (currently "next").
-  PAGER_MORE_VERB = Pito::Dispatch::Config.pager(verb: :list)&.fetch(:more_verb).freeze
+  # Configured pager tool for `list` (currently "next").
+  PAGER_MORE_TOOL = Pito::Dispatch::Config.pager(tool: :list)&.fetch(:more_tool).freeze
 
-  # Targets that expose the pager more_verb as a reply action.
+  # Targets that expose the pager more_tool as a reply action.
   PAGED_LIST_TARGETS = HELP_VERBS.dig(:next, :reply, :targets)&.keys&.map(&:to_s).to_a.freeze
 
   # ── Pinned-omission tables ─────────────────────────────────────────────────────
@@ -80,8 +80,8 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
     "farewell" # whole-input phrase-match in Chat::Parser; not a keyword command
   ].freeze
 
-  # Dispatched chat verbs intentionally absent from the VERB_GROUPS main-help listing.
-  VERB_GROUPS_OMISSIONS = [
+  # Dispatched chat verbs intentionally absent from the TOOL_GROUPS main-help listing.
+  TOOL_GROUPS_OMISSIONS = [
     "help",    # the page itself — listing it would be self-referential
     "greet",   # phrase-matched greeting; suppressed from keyword command listing
     "farewell" # phrase-matched farewell; suppressed from keyword command listing
@@ -161,7 +161,7 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
   }.freeze
 
   # ══ TIER 1 — Chat verb ↔ chat_help coverage ════════════════════════════════
-  describe "CHAT HELP — dispatched verb coverage and VERB_GROUPS sync" do
+  describe "CHAT HELP — dispatched verb coverage and TOOL_GROUPS sync" do
     describe "every dispatched chat verb (modulo pinned omissions) has a pito.chat_help.<verb>.usage entry" do
       HELP_DISPATCH_VERBS.each do |verb|
         next if CHAT_HELP_OMISSIONS.include?(verb)
@@ -177,27 +177,27 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
       end
     end
 
-    it "every verb in VERB_GROUPS is a valid dispatched chat verb in config" do
-      bad = HELP_GROUP_VERBS.reject do |verb|
+    it "every tool in TOOL_GROUPS is a valid dispatched chat verb in config" do
+      bad = HELP_GROUP_TOOLS.reject do |verb|
         HELP_VERBS[verb.to_sym]&.dig(:chat, :dispatch).is_a?(String)
       end
       expect(bad).to(
         be_empty,
-        "VERB_GROUPS lists verbs absent from config or lacking a chat dispatch:\n" +
+        "TOOL_GROUPS lists tools absent from config or lacking a chat dispatch:\n" +
           bad.map { |v|
-            "  #{v} — either remove from VERB_GROUPS or add chat.dispatch to verbs.yml"
+            "  #{v} — either remove from TOOL_GROUPS or add chat.dispatch to tools.yml"
           }.join("\n")
       )
     end
 
-    it "no dispatched chat verb is absent from VERB_GROUPS (modulo pinned omissions)" do
-      ungrouped = HELP_DISPATCH_VERBS - HELP_GROUP_VERBS - VERB_GROUPS_OMISSIONS
+    it "no dispatched chat verb is absent from TOOL_GROUPS (modulo pinned omissions)" do
+      ungrouped = HELP_DISPATCH_VERBS - HELP_GROUP_TOOLS - TOOL_GROUPS_OMISSIONS
       expect(ungrouped).to(
         be_empty,
-        "dispatched chat verbs absent from VERB_GROUPS and not in VERB_GROUPS_OMISSIONS:\n" +
+        "dispatched chat verbs absent from TOOL_GROUPS and not in TOOL_GROUPS_OMISSIONS:\n" +
           ungrouped.map { |v|
-            "  #{v} — add to a Pito::MessageBuilder::Help::VERB_GROUPS entry " \
-            "or pin in VERB_GROUPS_OMISSIONS with an explanation"
+            "  #{v} — add to a Pito::MessageBuilder::Help::TOOL_GROUPS entry " \
+            "or pin in TOOL_GROUPS_OMISSIONS with an explanation"
           }.join("\n")
       )
     end
@@ -228,7 +228,7 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
           expect(copy_names).to(
             eq(config_names),
             "pito.chat_help.#{verb}.#{copy_key}.sections.Segments " \
-            "lists #{copy_names.inspect} but config/pito/verbs.yml declares " \
+            "lists #{copy_names.inspect} but config/pito/tools.yml declares " \
             "#{config_names.inspect} — update the copy to match the config"
           )
         end
@@ -262,7 +262,7 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
             "pito.hashtag_help.#{indicator}.actions has entries that are NOT in " \
             "Matrix.actions_for(#{target.inspect}): #{phantoms.inspect}\n" \
             "  Cause: the copy references a verb that was removed or was never wired " \
-            "as a reply.targets.#{target} entry in config/pito/verbs.yml"
+            "as a reply.targets.#{target} entry in config/pito/tools.yml"
           )
         end
       end
@@ -296,13 +296,13 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
     end
   end
 
-  # ══ TIER 4 — Pager more_verb ═════════════════════════════════════════════
-  describe "PAGER — paginated list targets document the configured more_verb name" do
-    it "list pager has a more_verb configured in verbs.yml" do
-      expect(PAGER_MORE_VERB).to(
+  # ══ TIER 4 — Pager more_tool ═════════════════════════════════════════════
+  describe "PAGER — paginated list targets document the configured more_tool name" do
+    it "list pager has a more_tool configured in tools.yml" do
+      expect(PAGER_MORE_TOOL).to(
         be_present,
-        "verbs.list.concerns.pager.more_verb is missing — " \
-        "the pager verb cannot be cross-checked against hashtag help copy"
+        "tools.list.concerns.pager.more_tool is missing — " \
+        "the pager tool cannot be cross-checked against hashtag help copy"
       )
     end
 
@@ -310,14 +310,14 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
       indicator = Pito::MessageBuilder::HashtagHelp::TARGET_INDICATORS[target]
       next unless indicator
 
-      it "#{target} (pito.hashtag_help.#{indicator}): actions includes the pager verb #{PAGER_MORE_VERB.inspect}" do
+      it "#{target} (pito.hashtag_help.#{indicator}): actions includes the pager tool #{PAGER_MORE_TOOL.inspect}" do
         actions_tree = Pito::Copy.subtree("pito.hashtag_help.#{indicator}.actions") || {}
         copy_actions  = actions_tree.keys.map(&:to_s)
         expect(copy_actions).to(
-          include(PAGER_MORE_VERB),
+          include(PAGER_MORE_TOOL),
           "pito.hashtag_help.#{indicator}.actions is missing the configured pager " \
-          "more_verb #{PAGER_MORE_VERB.inspect} — if more_verb is renamed in " \
-          "verbs.yml, rename the action key in pito.hashtag_help.#{indicator}.actions too"
+          "more_tool #{PAGER_MORE_TOOL.inspect} — if more_tool is renamed in " \
+          "tools.yml, rename the action key in pito.hashtag_help.#{indicator}.actions too"
         )
       end
     end

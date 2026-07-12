@@ -300,4 +300,29 @@ RSpec.describe Game, type: :model do
       expect(game.like_count).to eq(40)
     end
   end
+
+  describe ".picker_page" do
+    it "pages by PICKER_PAGE_SIZE, case-stable, zero overlap, exact continuity" do
+      stub_const("Game::PICKER_PAGE_SIZE", 3)
+      %w[apple Banana cherry Delta echo].each { |t| create(:game, title: t) }
+
+      p1, c1 = Game.picker_page
+      expect(p1.size).to eq(3)
+      expect(c1).to be_present
+
+      p2, c2 = Game.picker_page(after: c1)
+      expect(p2.size).to eq(2)
+      expect(c2).to be_nil
+
+      expect((p1 + p2).map(&:title).map(&:downcase))
+        .to eq(%w[apple banana cherry delta echo])
+      expect((p1.map(&:id) & p2.map(&:id))).to be_empty
+    end
+
+    it "treats a malformed cursor as the first page" do
+      create(:game, title: "Solo")
+      rows, = Game.picker_page(after: "garbage!!")
+      expect(rows).not_to be_empty
+    end
+  end
 end

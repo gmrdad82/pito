@@ -17,7 +17,9 @@
 #   4. Resolve the thinking indicator (elapsed computed from its own started_at).
 #   5. Complete the turn (broadcasts pito:done — dots hide).
 class ChatDispatchJob < ApplicationJob
-  queue_as :default
+  # Dedicated lane (config/queue.yml): command dispatch stays snappy no
+  # matter what the general workers are grinding through.
+  queue_as :dispatch
 
   def perform(turn_id, channel: nil, period: nil, authenticated: true, viewport_width: nil)
     turn         = Turn.find(turn_id)

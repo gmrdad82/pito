@@ -3,7 +3,7 @@
 require "bigdecimal"
 
 # Pure function. Parses the `price [set] <amount>` euro value for the nullable
-# `games.price` column — the single canonical parser the `price` chat verb, its
+# `games.price` column — the single canonical parser the `price` chat tool, its
 # game-detail follow-up reply, and the `:price_amount` dispatch resolver all
 # share — "wrap, don't fork".
 #

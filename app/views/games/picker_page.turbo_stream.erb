@@ -1,0 +1,10 @@
+<%# Next picker page — appends into the picker rows container and replaces the
+    pager sentinel (mirrors notifications/index.turbo_stream.erb's shape). %>
+<%= turbo_stream.append "pito-games-picker-rows" do %>
+  <%= render partial: "games/picker_rows", locals: { games: games } %>
+<% end %>
+<%= turbo_stream.replace Pito::ListPager::SentinelComponent::SENTINEL_ID do %>
+  <%= render(Pito::ListPager::SentinelComponent.new(
+        next_url: next_cursor.present? ? games_picker_path(after: next_cursor, format: :turbo_stream) : nil
+      )) %>
+<% end %>

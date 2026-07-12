@@ -32,7 +32,7 @@ module Pito
     #    case; the Invocation is unaffected.  Do NOT call register_all! from here.
     class Parser
       NotASlashCommand = Class.new(StandardError)
-      MissingVerb       = Class.new(StandardError)
+      MissingTool       = Class.new(StandardError)
 
       def self.call(tokens, raw:)
         new(tokens, raw).parse
@@ -50,8 +50,8 @@ module Pito
         raise NotASlashCommand, "input must start with /" unless current_token&.type == :slash
         advance
 
-        raise MissingVerb, "expected a verb after /" unless current_token&.type == :word
-        verb = current_token.value.to_sym
+        raise MissingTool, "expected a tool after /" unless current_token&.type == :word
+        tool = current_token.value.to_sym
         advance
 
         args   = []
@@ -69,11 +69,11 @@ module Pito
           end
         end
 
-        invocation = Invocation.new(verb:, args:, kwargs:, raw: @raw)
+        invocation = Invocation.new(tool:, args:, kwargs:, raw: @raw)
 
         # Grammar hook: look up a registered spec for optional use by callers.
         # Returns nil when no spec is registered — never mutates the Invocation.
-        grammar_spec_for(verb)
+        grammar_spec_for(tool)
 
         invocation
       end
@@ -145,11 +145,11 @@ module Pito
           @tokens[@pos + 1]&.type.in?([ :colon, :equals ])
       end
 
-      # Returns the Pito::Grammar::Spec registered for this verb (canonical name or
+      # Returns the Pito::Grammar::Spec registered for this tool (canonical name or
       # alias) in the :slash namespace, or nil if no spec is registered.
       # Safe to call when the registry is empty (returns nil).
-      def grammar_spec_for(verb)
-        Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: verb)
+      def grammar_spec_for(tool)
+        Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: tool)
       rescue NameError
         # Grammar::Registry may not be defined in very early load contexts.
         nil

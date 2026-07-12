@@ -4,7 +4,7 @@ module Pito
   module Slash
     # Universal man-page-style --help renderer for slash commands.
     #
-    # Every /<verb> --help now produces a
+    # Every /<tool> --help now produces a
     # `.pito-help-block` HTML payload via Pito::MessageBuilder::ManPage instead
     # of the old body:/table_rows:/info_lines: hash format.
     #
@@ -19,18 +19,27 @@ module Pito
     #      fx live-showcase rows, motion on/off, timezone, general overview)
     #   3. Any other command              → generic usage + description (man style)
     module HelpBuilder
-      # Ordered provider list for /config --help; mirrors the i18n copy order.
-      ALL_CONFIG_PROVIDERS = %w[
-        ai opencode openrouter huggingface deepseek openai anthropic qwen glm gemini
-        google voyage igdb webhook me sound timezone
-      ].freeze
+      # Presentational grouping for the /config --help overview (T10.57).
+      # Group keys map to i18n titles under pito.slash.config.help.general.groups;
+      # commands are untouched — every entry is still `/config <provider>`.
+      # AI config has exactly ONE entry here (owner: no per-provider spillage).
+      CONFIG_PROVIDER_GROUPS = {
+        "ai"      => %w[ai tavily],
+        "sources" => %w[google voyage igdb],
+        "profile" => %w[webhook me sound timezone]
+      }.freeze
+
+      # Ordered provider list for /config --help; derived from the groups so the
+      # overview and provider extraction can never drift apart. Mirrors the i18n
+      # copy order.
+      ALL_CONFIG_PROVIDERS = CONFIG_PROVIDER_GROUPS.values.flatten.freeze
 
       class << self
         def call(invocation:)
-          verb     = invocation.verb.to_s
-          provider = extract_provider(invocation.raw, verb)
+          tool     = invocation.tool.to_s
+          provider = extract_provider(invocation.raw, tool)
 
-          return nonsense_help if %w[help themes].include?(verb)
+          return nonsense_help if %w[help themes].include?(tool)
 
           # /config <provider> --help and /config --help both delegate to the
           # Config handler's #show_help — the single source of truth for every
@@ -39,17 +48,17 @@ module Pito
           # The interceptor fires BEFORE the handler runs, so without this
           # delegation the rich provider pages (fx/motion especially) were never
           # reached and every toggle/enum provider fell back to generic help.
-          return config_help(invocation, provider) if verb == "config"
+          return config_help(invocation, provider) if tool == "config"
 
           # Any handler that overrides #show_help renders its OWN rich man page —
           # the same delegation /config uses, generalised (checked dynamically, no
           # hardcoded list) so no authored slash `--help` page is dead. This is how
           # /jobs (subcommands), /games (import), and /rename (arguments) get their
           # full pages instead of the bare generic usage+description.
-          handler_class = Pito::Slash::Registry.lookup(invocation.verb)
+          handler_class = Pito::Slash::Registry.lookup(invocation.tool)
           return handler_help(invocation, handler_class) if overrides_show_help?(handler_class)
 
-          generic_command_help(verb)
+          generic_command_help(tool)
         end
 
         # Returns the raw HTML for the nonsense "manual's manual" man page.
@@ -80,7 +89,7 @@ module Pito
         # man-page renderers read only i18n copy and AppSetting constants.
         def config_help(invocation, provider)
           synthetic = Pito::Slash::Invocation.new(
-            verb:   :config,
+            tool:   :config,
             args:   provider ? [ provider ] : [],
             kwargs: {},
             raw:    invocation.raw
@@ -117,12 +126,12 @@ module Pito
 
         # ── Generic per-command help ───────────────────────────────────────────
 
-        def generic_command_help(verb)
-          usage = I18n.t("pito.slash.#{verb}.help.usage",       default: "/#{verb}")
-          desc  = I18n.t("pito.slash.#{verb}.help.description", default: I18n.t("pito.grammar.slash.#{verb}", default: ""))
+        def generic_command_help(tool)
+          usage = I18n.t("pito.slash.#{tool}.help.usage",       default: "/#{tool}")
+          desc  = I18n.t("pito.slash.#{tool}.help.description", default: I18n.t("pito.grammar.slash.#{tool}", default: ""))
 
           groups = []
-          groups << [ "Description:", [ [ "/#{verb}", desc ] ] ] if desc.present?
+          groups << [ "Description:", [ [ "/#{tool}", desc ] ] ] if desc.present?
           groups << [ "Options:",     [ [ "--help", "Print this help message" ] ] ]
 
           body = Pito::MessageBuilder::ManPage.render(usage:, groups:)
@@ -132,9 +141,9 @@ module Pito
         # ── Provider extraction ────────────────────────────────────────────────
 
         # Parses the provider from the raw slash input, ignoring --help/-h tokens.
-        # Returns nil when the verb is not "config" or no known provider is present.
-        def extract_provider(raw, verb)
-          return nil unless verb == "config"
+        # Returns nil when the tool is not "config" or no known provider is present.
+        def extract_provider(raw, tool)
+          return nil unless tool == "config"
 
           tokens = raw.to_s.split
           tokens.find do |t|

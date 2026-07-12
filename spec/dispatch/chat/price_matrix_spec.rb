@@ -8,7 +8,7 @@ require "rails_helper"
 # stubbed (zero factories).
 #
 # Subject:  Pito::Chat::Handlers::Price
-#           (app/services/pito/chat/handlers/price.rb)
+#           (lib/pito/chat/handlers/price.rb)
 #
 # ── Two entry points, two behaviors ──────────────────────────────────────────
 #
@@ -25,7 +25,7 @@ require "rails_helper"
 #   follow-up context present (reply path — `#g3 price 20` on a game_detail
 #   card is handled inline in follow_up/handlers/game_detail.rb and never
 #   reaches this handler at all; a game_list reply routes through
-#   VerbDelegator, which reconstructs the full "price …" string as message.raw
+#   ToolDelegator, which reconstructs the full "price …" string as message.raw
 #   and attaches a FollowUpContext, then calls this handler exactly as chat
 #   used to)
 #     → `follow_up?` is true, so `moved` is skipped and the pre-existing
@@ -91,7 +91,7 @@ RSpec.describe "Dispatch matrix — price (recognition, DB mocked)", type: :disp
   end
 
   # Builds a FollowUpContext as though the user replied to a game_detail card
-  # for the canonical game (PRICE_GAME_ID). Mirrors VerbDelegator: message.raw
+  # for the canonical game (PRICE_GAME_ID). Mirrors ToolDelegator: message.raw
   # carries the FULL "price …" string (verb included), a FollowUpContext is
   # attached alongside it.
   def game_detail_ctx(rest: "")
@@ -168,7 +168,7 @@ RSpec.describe "Dispatch matrix — price (recognition, DB mocked)", type: :disp
 
   # ── C. Reply path (FollowUpContext) — set/unset/not-found/shape parity ─────
   #
-  # The game_list reply delegates through VerbDelegator, which attaches a
+  # The game_list reply delegates through ToolDelegator, which attaches a
   # FollowUpContext alongside the FULL "price …" string as message.raw — so
   # the handler resolves the game/amount from message.raw exactly as the old
   # (pre-"moved") chat path did. These confirm that pipeline is byte-identical

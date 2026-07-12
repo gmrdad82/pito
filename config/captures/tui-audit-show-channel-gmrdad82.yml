@@ -1,0 +1,11 @@
+# `show channel @gmrdad82` — the single-channel detail card.
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-show-channel-gmrdad82
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "show channel @gmrdad82"
+  - sleep: 6
+  - shot: show-channel-gmrdad82.png

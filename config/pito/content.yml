@@ -39,6 +39,11 @@ inline:
   colors:
     allowed: [default, cyan, red, green]
     notation: "[cyan]like this[/cyan] · [red]bad[/red] · [green]good[/green] (default color needs no tag)"
+  # Semantic tokens — pito renders these in its own house style (the model
+  # marks MEANING, never a color): a SUBJECT is the entity a line is about
+  # (a game/vid/channel NAME); a REFERENCE is an identifier (#id, @handle).
+  subject: "[subject]Elden Ring[/subject] — the entity name a line is about"
+  reference: "[ref]#12[/ref] · [ref]@gmrdad82hard[/ref] — ids and handles"
 
 # The blocks — wire `type` → declaration. `data` documents the exact keys to
 # send; `limits` are enforced by validation (over-limit content is clamped,
@@ -47,13 +52,17 @@ blocks:
   text:
     label: paragraph
     about: >-
-      A paragraph of monospace prose. Newlines are preserved; the inline
-      styling above (bold, italic, the allowed colors, kaomoji) is available.
-      No markdown headers, no code backticks, no pipe-tables — tabular data
-      belongs in kv_table or table blocks.
+      ONE paragraph of monospace prose per block. Newlines are preserved; the
+      inline styling above (bold, italic, the allowed colors, kaomoji) is
+      available. No markdown headers, no code backticks, no pipe-tables —
+      tabular data belongs in kv_table or table blocks.
     when_to_use: >-
       Openers, explanations, reasoning, and anything conversational. Lead with
-      one; keep them short and put facts into structured blocks.
+      one; keep them short and put facts into structured blocks. For longer
+      prose (a story, a multi-paragraph answer) send SEVERAL text blocks — one
+      per paragraph, NEVER one giant block: pito streams each block onto the
+      screen the moment you finish it, so paragraph-blocks appear as you
+      write while a monolith keeps the reader staring at a spinner.
     data:
       text: "String — the paragraph, plain text plus the allowed inline notation"
     limits:
@@ -145,13 +154,14 @@ blocks:
           target: "optional Number — draws a goal line to measure the series against"
           format: "optional: count | duration | percent — how values read on the axis"
       bar:
-        about: "Up to 5 horizontal labelled bars, each a share of 100 — 'how does X split'."
+        about: "Up to 5 horizontal labelled bars, each a share of 100 — 'how does X split'. OMIT zero-value buckets entirely (a bar with nothing to show is noise; pito drops them anyway)."
         data:
           bars: "Array of {label: String, pct: 0..100, value_label: optional String shown at the bar's end}"
       heatmap:
-        about: "Seven weekday cells shaded by intensity — 'which days carry the weight'."
+        about: "2..42 equal cells shaded by intensity over any interval — hours, days, weeks, months — 'which slots carry the weight'."
         data:
-          values: "Array of exactly 7 numbers, Monday first"
+          values: "Array of 2..42 numbers, oldest/first slot first"
+          labels: "optional Array of Strings, exactly one per value — you write them; omit with exactly 7 values for the Monday-first weekday preset"
       heart:
         about: "A heart filled bottom-up to a 0–100 sentiment score with a likes/dislikes legend — 'how loved is this'."
         data:
@@ -161,7 +171,8 @@ blocks:
     limits:
       max_points: 90
       max_bars: 5
-      heatmap_points: 7
+      heatmap_min_values: 2
+      heatmap_max_values: 42
 
   score:
     label: score bar

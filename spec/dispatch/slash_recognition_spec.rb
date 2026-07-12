@@ -14,7 +14,7 @@ RSpec.describe "Dispatch — slash verb recognition", type: :dispatch do
         it "/#{token} → verb #{spec.name}, auth #{spec.auth}" do
           intent = parsed_intent("/#{token} some args")
           expect(intent[:stack]).to eq(:slash)
-          expect(intent[:verb]).to eq(spec.name)
+          expect(intent[:tool]).to eq(spec.name)
           expect(intent[:auth]).to eq(spec.auth)
           expect(intent[:known]).to be(true)
         end
@@ -26,7 +26,7 @@ RSpec.describe "Dispatch — slash verb recognition", type: :dispatch do
     it "login (and its /authenticate alias) is unauthenticated_only" do
       expect(parsed_intent("/login 123456")[:auth]).to eq(:unauthenticated_only)
       expect(parsed_intent("/authenticate 123456")[:auth]).to eq(:unauthenticated_only)
-      expect(parsed_intent("/authenticate 123456")[:verb]).to eq(:login)
+      expect(parsed_intent("/authenticate 123456")[:tool]).to eq(:login)
     end
 
     # The grammar-recognized authenticated-only verbs.
@@ -48,7 +48,7 @@ RSpec.describe "Dispatch — slash verb recognition", type: :dispatch do
     # palette); /notifs is its alias. Both dispatch via the handler registry.
     it "/notifications is grammar-recognized (canonical) with /notifs as an alias" do
       expect(parsed_intent("/notifications")[:known]).to be(true)
-      expect(parsed_intent("/notifs")[:verb]).to eq(:notifications)
+      expect(parsed_intent("/notifs")[:tool]).to eq(:notifications)
       expect(Pito::Slash::Registry.lookup(:notifications)).to eq(Pito::Slash::Handlers::Notifications)
       expect(Pito::Slash::Registry.lookup(:notifs)).to eq(Pito::Slash::Handlers::Notifications)
     end

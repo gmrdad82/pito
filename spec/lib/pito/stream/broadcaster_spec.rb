@@ -364,6 +364,100 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
   end
 
+  # UPSERT, not append: a kv_table/table block streams partial snapshots at the
+  # same `index` before the final one lands, so each delivery must REPLACE the
+  # prior preview div rather than pile up duplicates. broadcast_ai_block folds
+  # a remove + append of the SAME dom id into one cable transmission — the
+  # default have_broadcasted_to expectation is already "exactly 1 message",
+  # so asserting against a single `.with` block below also proves the two
+  # actions travel together in ONE Turbo::StreamsChannel.broadcast_stream_to
+  # call, not two.
+  describe "#broadcast_ai_block" do
+    let(:event) do
+      conversation.events.create!(
+        turn:, position: 1, kind: :ai, payload: { "status" => "pending", "blocks" => [] }
+      )
+    end
+
+    it "broadcasts ONE remove+append pair, both targeting the same block dom id" do
+      dom_id = "event_#{event.id}__ai_block_1"
+
+      expect {
+        broadcaster.broadcast_ai_block(event:, block: { "type" => "text", "text" => "hello" }, index: 1)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include(%(<turbo-stream action="remove" target="#{dom_id}">))
+        expect(html).to include(%(<turbo-stream action="append" target="event_#{event.id}__ai_blocks">))
+        expect(html).to include(%(<div id="#{dom_id}">))
+      }
+    end
+
+    it "re-broadcasting the same index targets the SAME dom id both times (upsert)" do
+      targets = []
+
+      expect {
+        broadcaster.broadcast_ai_block(event:, block: { "type" => "text", "text" => "partial" }, index: 1)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        targets << html[/<turbo-stream action="remove" target="([^"]+)">/, 1]
+      }
+
+      expect {
+        broadcaster.broadcast_ai_block(event:, block: { "type" => "text", "text" => "final" }, index: 1)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        targets << html[/<turbo-stream action="remove" target="([^"]+)">/, 1]
+      }
+
+      expect(targets).to eq([ "event_#{event.id}__ai_block_1", "event_#{event.id}__ai_block_1" ])
+    end
+
+    # G-tui: the JSON pane of the same tick — additive alongside the Turbo
+    # remove+append proven above, never instead of it.
+    it "also mirrors event.ai_block onto the JSON stream with the exact contract hash" do
+      block = { "type" => "text", "text" => "hello" }
+
+      expect {
+        broadcaster.broadcast_ai_block(event:, block:, index: 1)
+      }.to have_broadcasted_to("pito:json:conversation:#{conversation.uuid}").with { |msg|
+        expect(msg["type"]).to eq("event.ai_block")
+        expect(msg["event_id"]).to eq(event.id)
+        expect(msg["index"]).to eq(1)
+        expect(msg["block"]).to eq(block)
+      }
+    end
+  end
+
+  describe "#broadcast_ai_status" do
+    let(:event) do
+      conversation.events.create!(
+        turn:, position: 1, kind: :ai, payload: { "status" => "pending", "blocks" => [] }
+      )
+    end
+
+    it "broadcasts a Turbo Stream replace for the event_<id>__ai_status slot" do
+      expect {
+        broadcaster.broadcast_ai_status(event:, text: "Checking recent videos…")
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include(%(target="event_#{event.id}__ai_status"))
+        expect(html).to include("Checking recent videos…")
+      }
+    end
+
+    # G-tui: the JSON pane of the same tick — additive alongside the Turbo
+    # replace proven above, never instead of it.
+    it "also mirrors event.ai_status onto the JSON stream with the exact contract hash" do
+      expect {
+        broadcaster.broadcast_ai_status(event:, text: "Checking recent videos…")
+      }.to have_broadcasted_to("pito:json:conversation:#{conversation.uuid}").with { |msg|
+        expect(msg["type"]).to eq("event.ai_status")
+        expect(msg["event_id"]).to eq(event.id)
+        expect(msg["text"]).to eq("Checking recent videos…")
+      }
+    end
+  end
+
   # ── class-level global broadcasts ────────────────────────────────────────────
 
   describe ".broadcast_global_mini_status" do

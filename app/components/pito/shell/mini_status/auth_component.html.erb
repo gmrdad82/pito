@@ -1,7 +1,17 @@
-<%# Nickname (green) + a muted @suffix (image tag in prod, host in dev). The two
-    spans are concatenated with NO inter-element whitespace — the monospace body
-    renders stray whitespace as a visible gap. The suffix span carries a stable
-    id: it is the mini status' DEDICATED app-version slot — every cable
-    version heartbeat writes the SERVER's current version into it via
-    pito--version-watch, so the bar tracks the running app live. %>
-<span class="<%= css_class %>"><%= label %></span><% if version_suffix.present? %><span id="<%= Pito::Shell::MiniStatus::AuthComponent::VERSION_SLOT_ID %>" class="text-fg-dim">@<%= version_suffix %></span><% end %>
+<%# Connection dot + the build tag ("cable dev" / "cable 1.6.0"). The label
+    span IS the mini status' dedicated version slot — every cable version
+    heartbeat (pito--version-watch) writes the SERVER's current tag into it,
+    so the bar tracks the running app live. No inter-element whitespace: the
+    monospace body renders stray whitespace as a visible gap.
+
+    The dot is a Lucide icon per state (ISC, inlined — nothing fetched):
+      lock/red      — unauthenticated, all states (server-rendered, static)
+      plug-zap/orange — authenticated, connecting/dropped (initial paint;
+                        pito--cable-health owns the live flips)
+      cable/green   — authenticated + cable connected (idle = static)
+    Cable ACTIVITY runs the spark: a duplicate of the cable's long run
+    (pathLength-normalized) whose dash races the stroke end-to-end — fast,
+    one-shot per incoming message; the fill color is var(--fg-default) by
+    owner absolution (max luminance contrast against the green in both
+    light and dark themes). %>
+<% if @state %><span id="pito-conn-dot" class="pito-conn-dot" data-authenticated="true" data-state="connecting" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pito-conn-icon pito-conn-icon--cable text-green"><path d="M17 19a1 1 0 0 1-1-1v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a1 1 0 0 1-1 1z"/><path d="M17 21v-2"/><path d="M19 14V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V10"/><path d="M21 21v-2"/><path d="M3 5V3"/><path d="M4 10a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a2 2 0 0 1-2 2z"/><path d="M7 5V3"/><path class="pito-cable-spark" d="M19 14V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V10" pathLength="100"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pito-conn-icon pito-conn-icon--plug text-orange"><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="m2 22 3-3"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m18 3-4 4h6l-4 4"/></svg></span><% else %><span id="pito-conn-dot" class="pito-conn-dot text-red" data-authenticated="false" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pito-conn-icon pito-conn-icon--lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><% end %><span<% if @state %> id="<%= Pito::Shell::MiniStatus::AuthComponent::VERSION_SLOT_ID %>"<% end %> class="<%= css_class %>">&nbsp;<%= label %></span>

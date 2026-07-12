@@ -11,7 +11,8 @@
     <% sidebar.with_body do %>
       <%= render(Pito::Sidebar::Games::Component.new(
             games: games,
-            mode:  mode
+            mode:  mode,
+            next_cursor: local_assigns[:next_cursor]
           )) %>
     <% end %>
   <% end %>

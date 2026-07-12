@@ -30,5 +30,3 @@ en:
         keybindings:
           "shift+↑ / shift+↓": "Scroll through chat history"
           "↑ / ↓": "Browse input history in chatbox"
-          "ctrl+`": "Rename current conversation inline"
-          "d / d d": "Arm / confirm conversation delete (sidebar)"

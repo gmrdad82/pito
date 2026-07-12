@@ -4,7 +4,7 @@ module Pito
   module Sync
     # Shared, turn-less video-library sync for a single channel — the single home
     # for all YouTube video sync. Every caller (the cron `VideoSyncJob` fan-out and
-    # the chat sync/import verbs) routes through it; their outer responsibilities
+    # the chat sync/import tools) routes through it; their outer responsibilities
     # (turn/broadcast for chat, notification for cron) stay in the jobs.
     #
     # Entry points:
@@ -15,7 +15,7 @@ module Pito
     #   - #reconcile  — update existing rows (attributes + Pito::Stats) + hard-
     #     delete uploads removed on YouTube (cascading thumbnail, stats, links).
     #   - #sync       — #import_new then #reconcile, merged into one Result; the
-    #     canonical full per-channel sync. `import` and `sync` verbs both use it.
+    #     canonical full per-channel sync. `import` and `sync` tools both use it.
     #
     # Counters persist via `Pito::Stats`; thumbnail + Voyage-index jobs are
     # enqueued as needed. Per-page and per-video errors are rescued + logged so a
@@ -81,7 +81,7 @@ module Pito
       end
 
       # Full per-channel sync — the SINGLE entry point used by both the cron
-      # fan-out (`VideoSyncJob`) and the chat sync/import verbs. Imports
+      # fan-out (`VideoSyncJob`) and the chat sync/import tools. Imports
       # new/private uploads ({#import_new}) THEN reconciles existing rows
       # ({#reconcile} — attribute updates + hard-delete of removed uploads),
       # returning one merged {Result}. Import runs first so freshly-imported

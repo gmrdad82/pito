@@ -29,12 +29,12 @@ module Pito
           return Pito::Slash::HelpBuilder.call(invocation:)
         end
 
-        handler_class = Pito::Slash::Registry.lookup(invocation.verb)
+        handler_class = Pito::Slash::Registry.lookup(invocation.tool)
 
         if handler_class.nil?
           return Pito::Slash::Result::Error.new(
-            message_key: "pito.slash.errors.unknown_verb",
-            message_args: { verb: invocation.verb }
+            message_key: "pito.slash.errors.unknown_tool",
+            message_args: { tool: invocation.tool }
           )
         end
 
@@ -52,7 +52,7 @@ module Pito
         #
         # Commands with no grammar spec are silently skipped (not validated).
         unless handler_class.validates_own_arity
-          spec = Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: invocation.verb)
+          spec = Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: invocation.tool)
           if spec
             positional_slots = spec.slots.reject { |s| s.kind == :kv || s.kind == :connective }
             unbounded = positional_slots.any? { |s| s.repeatable? || s.kind == :free }
@@ -62,7 +62,7 @@ module Pito
               if invocation.args.size > capacity
                 return Pito::Slash::Result::Error.new(
                   message_key:  "pito.slash.errors.too_many_args",
-                  message_args: { verb: invocation.verb }
+                  message_args: { tool: invocation.tool }
                 )
               end
             end
@@ -81,7 +81,7 @@ module Pito
 
       def parse(tokens)
         Pito::Slash::Parser.call(tokens, raw: @input)
-      rescue Pito::Slash::Parser::NotASlashCommand, Pito::Slash::Parser::MissingVerb => e
+      rescue Pito::Slash::Parser::NotASlashCommand, Pito::Slash::Parser::MissingTool => e
         Pito::Slash::Result::Error.new(
           message_key: "pito.slash.errors.parse_failed",
           message_args: { raw: @input }

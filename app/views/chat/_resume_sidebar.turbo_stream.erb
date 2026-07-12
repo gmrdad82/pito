@@ -23,6 +23,7 @@
     <% sidebar.with_body do %>
       <%= render(Pito::Sidebar::Conversations::Component.new(
             groups:       groups,
+            next_cursor:  local_assigns[:next_cursor],
             current_uuid: current_uuid
           )) %>
     <% end %>

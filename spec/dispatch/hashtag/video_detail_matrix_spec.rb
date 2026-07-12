@@ -6,8 +6,8 @@ require "rails_helper"
 #
 # RULE: every declared action is gated in — no exception.
 # Verifies that each action VideoDetail declares does NOT fall through to
-# invalid_action, and that the handler delegates to VerbDelegator for all of
-# them.  DB is fully mocked (zero factories); VerbDelegator is stubbed to a
+# invalid_action, and that the handler delegates to ToolDelegator for all of
+# them.  DB is fully mocked (zero factories); ToolDelegator is stubbed to a
 # sentinel so we test ROUTING, not execution.
 #
 # Subject: Pito::FollowUp::Handlers::VideoDetail
@@ -34,12 +34,12 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
 
   let(:conversation) { instance_double(Conversation) }
 
-  # Sentinel returned by VerbDelegator for every gated-in action.
+  # Sentinel returned by ToolDelegator for every gated-in action.
   # Using consume: false so the double is stable under all delegated paths.
   let(:sentinel) { Pito::FollowUp::Result::Append.new(events: [], consume: false) }
 
   before do
-    allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(sentinel)
+    allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel)
   end
 
   def call(rest)
@@ -76,9 +76,9 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
   # ── Declared actions — each must delegate, not hit invalid_action ─────────────
   #
   # Table: action word → representative rest string passed to handler.call.
-  # All lookups are mocked via the VerbDelegator stub — no DB is touched.
+  # All lookups are mocked via the ToolDelegator stub — no DB is touched.
 
-  describe "declared actions → delegate to VerbDelegator (not invalid_action)" do
+  describe "declared actions → delegate to ToolDelegator (not invalid_action)" do
     {
       # delete aliases
       "rm"       => "rm",
@@ -107,14 +107,14 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
           expect(result).not_to be_a(Pito::FollowUp::Result::Error)
         end
 
-        it "delegates to VerbDelegator.call with source_event + rest + conversation" do
+        it "delegates to ToolDelegator.call with source_event + rest + conversation" do
           result
-          expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+          expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
             hash_including(source_event:, rest: rest_input, conversation:)
           )
         end
 
-        it "returns the sentinel Append from VerbDelegator" do
+        it "returns the sentinel Append from ToolDelegator" do
           expect(result).to eq(sentinel)
         end
       end
@@ -138,9 +138,9 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
       expect(result.message_args).to include(action: "bogus")
     end
 
-    it "does NOT delegate to VerbDelegator" do
+    it "does NOT delegate to ToolDelegator" do
       result
-      expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
     end
   end
 end

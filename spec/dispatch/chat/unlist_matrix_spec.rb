@@ -9,7 +9,7 @@ require "rails_helper"
 # stubbed so the handler resolves records without touching the database.
 #
 # Subject: Pito::Chat::Handlers::Unlist
-#          (app/services/pito/chat/handlers/unlist.rb)
+#          (lib/pito/chat/handlers/unlist.rb)
 #
 # Resolution path — own implementation, NOT TargetResolution:
 #   extract_ref  → strips NOUN_FILLERS from body_tokens, joins remainder.
@@ -30,14 +30,14 @@ require "rails_helper"
 #
 # Follow-up note (Phase F4 — source changed):
 #   `unlist` IS NOW declared in video_detail's action list
-#   (app/services/pito/follow_up/handlers/video_detail.rb — actions include
+#   (lib/pito/follow_up/handlers/video_detail.rb — actions include
 #   rm, del, delete, reindex, link, unlink, shinies, sync, publish, pub,
 #   unlist, schedule). A `#<handle> unlist` reply on a video_detail card is
 #   delegated to this chat Unlist handler with a FollowUpContext attached.
 #   The handler is follow-up-aware: when no ref is typed it reads `video_id`
 #   from the source event payload (see Unlist#call follow_up? branch).
 #   `unlist` is also declared in video_list's action list
-#   (app/services/pito/follow_up/handlers/video_list.rb). Both registry
+#   (lib/pito/follow_up/handlers/video_list.rb). Both registry
 #   contracts and the video_detail follow-up resolution are asserted below.
 
 RSpec.describe "Dispatch matrix — unlist (recognition, DB mocked)", type: :dispatch do
@@ -63,7 +63,7 @@ RSpec.describe "Dispatch matrix — unlist (recognition, DB mocked)", type: :dis
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :unlist,
+      tool:        :unlist,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -228,13 +228,13 @@ RSpec.describe "Dispatch matrix — unlist (recognition, DB mocked)", type: :dis
   # ── Follow-up registry contract ───────────────────────────────────────────────
   #
   # Phase F4: `unlist` is NOW declared in the video_detail follow-up handler's
-  # action list (app/services/pito/follow_up/handlers/video_detail.rb → includes
+  # action list (lib/pito/follow_up/handlers/video_detail.rb → includes
   # "unlist" alongside rm/del/delete/reindex/link/unlink/shinies/sync/publish/
   # pub/schedule). A `#<handle> unlist` reply on a video_detail card is therefore
-  # delegated via VerbDelegator to the chat Unlist handler.
+  # delegated via ToolDelegator to the chat Unlist handler.
   #
   # `unlist` is also declared in the video_list follow-up handler's action list
-  # (app/services/pito/follow_up/handlers/video_list.rb → includes "unlist").
+  # (lib/pito/follow_up/handlers/video_list.rb → includes "unlist").
   #
   # We assert membership only (the action sets carry other verbs too) — not the
   # exact set, which is owned by the source and changes as verbs are added.
@@ -253,7 +253,7 @@ RSpec.describe "Dispatch matrix — unlist (recognition, DB mocked)", type: :dis
 
   # ── Follow-up: video_detail reply (`#<handle> unlist`) ─────────────────────────
   #
-  # When the user replies `#<handle> unlist` on a video_detail card, VerbDelegator
+  # When the user replies `#<handle> unlist` on a video_detail card, ToolDelegator
   # reconstructs a chat invocation of verb :unlist with NO trailing ref (body_tokens
   # empty) and a FollowUpContext carrying the source event. Unlist#call's
   # extract_ref is then blank, so it takes the `follow_up?` branch and reads

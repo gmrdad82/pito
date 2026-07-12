@@ -7,7 +7,7 @@ require "rails_helper"
 # RULE: every form the handler recognises — no exception. `Conversation::Rename`
 # is stubbed; zero factories, zero DB writes, no Conversation record created.
 #
-# Branches (source: app/services/pito/slash/handlers/rename.rb #call):
+# Branches (source: lib/pito/slash/handlers/rename.rb #call):
 #
 #   1. help?  (raw includes `--help\b`)      → show_help (handler-level man page)
 #   2. new_title.blank?                      → needs_title (usage-hint Result::Ok)
@@ -33,7 +33,7 @@ RSpec.describe "Dispatch matrix — /rename (recognition, DB mocked)", type: :di
   # every branch is reachable without routing concerns or auth interception.
   def call_handler(raw:, authenticated: true)
     invocation = Pito::Slash::Invocation.new(
-      verb:   :rename,
+      tool:   :rename,
       args:   [],
       kwargs: {},
       raw:    raw
@@ -52,7 +52,7 @@ RSpec.describe "Dispatch matrix — /rename (recognition, DB mocked)", type: :di
   # ═══════════════════════════════════════════════════════════════════════════
   describe "grammar recognition" do
     it "/rename resolves to verb :rename on the :slash stack (known)" do
-      expect(parsed_intent("/rename")).to include(stack: :slash, verb: :rename, known: true)
+      expect(parsed_intent("/rename")).to include(stack: :slash, tool: :rename, known: true)
     end
 
     it "/rename is gated as :authenticated_only" do
@@ -60,11 +60,11 @@ RSpec.describe "Dispatch matrix — /rename (recognition, DB mocked)", type: :di
     end
 
     it "/rename My Channel still resolves — the title is a free arg, not a separate verb" do
-      expect(parsed_intent("/rename My Channel")).to include(stack: :slash, verb: :rename, known: true)
+      expect(parsed_intent("/rename My Channel")).to include(stack: :slash, tool: :rename, known: true)
     end
 
     it "/rename --help still resolves — --help is parsed as a flag, not a verb" do
-      expect(parsed_intent("/rename --help")).to include(stack: :slash, verb: :rename, known: true)
+      expect(parsed_intent("/rename --help")).to include(stack: :slash, tool: :rename, known: true)
     end
   end
 

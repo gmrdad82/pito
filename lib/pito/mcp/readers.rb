@@ -2,8 +2,8 @@
 
 module Pito
   module Mcp
-    # The two READER tools (verbs.yml `mcp_readers:`) — pito_conversations and
-    # pito_messages. Unlike verb-backed tools they dispatch NOTHING through the
+    # The two READER tools (tools.yml `mcp_readers:`) — pito_conversations and
+    # pito_messages. Unlike chat-tool-backed tools they dispatch NOTHING through the
     # Router: they SELECT persisted rows and project them through EventText.
     #
     # Scope: `source: "app"` ONLY — the owner's real scrollback. The MCP anchor

@@ -38,7 +38,7 @@ en:
         help: "List all follow-up targets and their accepted actions"
         shinies: "Show achievement tracks and obtained shinies (game, vid, or channel)"
         analyze: "Analyze YouTube metrics for a channel, vid, or game (over the shift+space period)"
-        # Segment verbs — each promotes one show/analyze :enhanced segment.
+        # Segment tools — each promotes one show/analyze :enhanced segment.
         "at-a-glance": "Pending analytics summary for a channel, vid, or game (over the shift+space period)"
         videos: "List a channel's videos, or the vids linked to a game"
         game: "Show the game linked to a vid"

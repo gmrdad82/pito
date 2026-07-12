@@ -51,7 +51,7 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
 
   def build_handler(raw, channel: nil, viewport_width: nil)
     Pito::Chat::Handlers::List.new(
-      message:        Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
+      message:        Pito::Chat::Message.new(tool: :list, body_tokens: [], kind: :new_turn, raw:),
       conversation:   instance_double(Conversation, id: 1, uuid: "test"),
       channel:        channel,
       viewport_width: viewport_width

@@ -4,13 +4,13 @@ module Pito
   module Lex
     # Downcases command KEYWORD tokens so phone auto-titleization ("List games",
     # "Schedule 22 Tomorrow At 14:30", "sort By views Desc") still matches the
-    # case-sensitive verb / connector / time vocabulary.
+    # case-sensitive tool / connector / time vocabulary.
     #
     # Only `:word` tokens whose downcased value is a KNOWN keyword are lowered —
     # game titles, @handles, numbers, and quoted (`:string`) literals keep their
     # case, so "Demon's Souls" and `"Lies of P"` are never mangled. Idempotent.
     #
-    # The set is deliberately scoped to genuine command syntax (verbs, nouns,
+    # The set is deliberately scoped to genuine command syntax (tools, nouns,
     # connectors, sort dirs, and the schedule time grammar) — not common English
     # words like "the"/"of"/"and" — to avoid corrupting free-text title args.
     module KeywordSanitizer

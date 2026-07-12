@@ -6,24 +6,27 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
-        it "renders '■ gmrdad82' in the me-shimmer" do
+        it "renders the orange dot + the dim tag" do
           node = render_inline(described_class.new(state: true))
-          green_span = node.css("span.pito-me-shimmer").first
-          expect(green_span).to be_present
-          expect(green_span.text.strip).to eq("■ gmrdad82")
+          dot = node.css("span#pito-conn-dot").first
+          expect(dot["data-state"]).to eq("connecting")
+          expect(dot.css("svg.pito-conn-icon--plug, svg.pito-conn-icon--cable")).not_to be_empty
+          expect(node.text).to include("dev")
         end
 
         it "does not render the anonymous label" do
           node = render_inline(described_class.new(state: true))
-          expect(node.to_html).not_to include("● tarnished")
+          expect(node.to_html).not_to include("tarnished")
         end
       end
 
       context "when state is false (anonymous)" do
-        it "renders the red ● tarnished label" do
+        it "renders the red dot + red tarnished label" do
           node = render_inline(described_class.new(state: false))
-          expect(node.to_html).to include("● tarnished")
-          expect(node.css("span.text-red").text).to include("● tarnished")
+          dot = node.css("span#pito-conn-dot").first
+          expect(dot["class"]).to include("text-red")
+          expect(dot.css("svg.pito-conn-icon--lock")).not_to be_empty
+          expect(node.css("span.text-red").text).to include("tarnished")
         end
 
         it "does not render the authenticated label" do
@@ -36,7 +39,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
     context "mode: :start" do
       it "renders only the auth label — no hints" do
         node = render_inline(described_class.new(mode: :start, state: false))
-        expect(node.to_html).to include("● tarnished")
+        expect(node.text).to include("tarnished")
         expect(node.to_html).not_to include("ctrl+m")
         expect(node.to_html).not_to include("mute")
         expect(node.to_html).not_to include("tab")
@@ -49,19 +52,16 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("chat")
       end
 
-      it "renders ● tarnished in red when state: false" do
+      it "renders tarnished in red when state: false" do
         node = render_inline(described_class.new(mode: :start, state: false))
-        label = node.css("span.text-red").first
-        expect(label).to be_present
-        expect(label.text).to include("● tarnished")
+        expect(node.css("span.text-red svg.pito-conn-icon--lock")).not_to be_empty
+        expect(node.css("span.text-red").map(&:text).join).to include("tarnished")
       end
 
-      it "renders ■ gmrdad82 in the me-shimmer when state: true (authenticated)" do
+      it "renders the dot + tag when state: true (authenticated)" do
         node = render_inline(described_class.new(mode: :start, state: true))
-        label = node.css("span.pito-me-shimmer").first
-        expect(label).to be_present
-        expect(label.text.strip).to eq("■ gmrdad82")
-        expect(node.to_html).to include("■ gmrdad82")
+        expect(node.text).to include("dev")
+        expect(node.css("span#pito-conn-dot svg.pito-conn-icon--cable")).not_to be_empty
       end
 
       it "renders no separators in start mode" do
@@ -99,18 +99,20 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         node = render_inline(described_class.new(notifications: 2, show_notifications: true))
         yellow = node.css("span.font-bold.text-yellow")
         expect(yellow.map(&:text)).to include("ctrl+/")
-        expect(node.to_html).to include("2*")
+        expect(node.text).to include("2")
+          expect(node.to_html).to include("M10.268 21a2 2 0 0 0 3.464 0") # the bell
         expect(node.css('[role="button"]')).to be_empty
       end
 
       it "renders the count with the '*' glyph (singular)" do
         node = render_inline(described_class.new(notifications: 1, show_notifications: true))
-        expect(node.to_html).to include("1*")
+        expect(node.to_html).to include("1")
       end
 
-      it "renders the count with the '*' glyph (plural)" do
+      it "renders the count with the bell glyph (plural)" do
         node = render_inline(described_class.new(notifications: 3, show_notifications: true))
-        expect(node.to_html).to include("3*")
+        expect(node.text).to include("3")
+        expect(node.to_html).to include("M10.268 21a2 2 0 0 0 3.464 0") # the bell
       end
 
       it "does NOT render notifications when unauthenticated (state: false)" do

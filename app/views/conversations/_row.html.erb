@@ -3,6 +3,8 @@
       conversation — responds to #uuid, #display_name
       current      — boolean, true when this is the active conversation
       timestamp    — pre-formatted timestamp string (may be nil for Turbo replace path)
+      ai           — optional boolean: conversation carries :ai messages (list path
+                     precomputes it; when absent the row asks the DB itself)
 
     Structure: a positioning shell (.pito-conversation-row) holds a sliding
     content layer (.pito-conversation-row__content) over a red Delete button
@@ -35,7 +37,16 @@
   </button>
   <%# Sliding content layer — opaque (bg-root on mobile) so it hides the button. %>
   <div class="pito-conversation-row__content flex justify-between items-baseline py-1 px-2 hover:bg-bg-hover">
-    <span class="text-fg truncate mr-2 pito--rename-display"><%= conversation.display_name %></span>
+    <%# The name + optional AI-thread sparkle; min-w-0 keeps truncate working
+        inside the nested flex, and the badge never gets clipped by it. List
+        renders pass `ai:` precomputed; single-row Turbo replaces fall back
+        to one EXISTS. %>
+    <span class="flex items-baseline gap-1 min-w-0 mr-2">
+      <span class="text-fg truncate pito--rename-display"><%= conversation.display_name %></span>
+      <%= render(Pito::Ai::BadgeComponent.new(
+            ai: local_assigns.key?(:ai) ? ai : conversation.events.exists?(kind: "ai")
+          )) %>
+    </span>
     <% if current %>
       <span class="text-cyan shrink-0"><%= Pito::Copy.render("pito.copy.conversations.current_marker") %></span>
     <% else %>

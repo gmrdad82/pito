@@ -9,7 +9,7 @@ require "rails_helper"
 # stubbed so the handler resolves records without touching the database.
 #
 # Subject: Pito::Chat::Handlers::Publish
-#          (app/services/pito/chat/handlers/publish.rb)
+#          (lib/pito/chat/handlers/publish.rb)
 #
 # Resolution path — own implementation, NOT TargetResolution:
 #   extract_ref  → strips NOUN_FILLERS from body_tokens, joins remainder.
@@ -56,7 +56,7 @@ RSpec.describe "Dispatch matrix — publish (recognition, DB mocked)", type: :di
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :publish,
+      tool:        :publish,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -221,8 +221,8 @@ RSpec.describe "Dispatch matrix — publish (recognition, DB mocked)", type: :di
   # ── Publish IS a video_detail reply action (publish + pub alias) ─────────────
   #
   # publish/pub are registered video_detail follow-up actions
-  # (app/services/pito/follow_up/handlers/video_detail.rb:29-30). A
-  # `#<handle> publish` reply on a video_detail card is delegated (VerbDelegator)
+  # (lib/pito/follow_up/handlers/video_detail.rb:29-30). A
+  # `#<handle> publish` reply on a video_detail card is delegated (ToolDelegator)
   # to the chat Publish handler, which reads video_id from the source event's
   # payload. We don't assert an exact action set — it also carries
   # del/sync/unlist/schedule — only that publish + pub are present.
@@ -325,9 +325,9 @@ RSpec.describe "Dispatch matrix — publish (recognition, DB mocked)", type: :di
           conversation: conversation
         )
         # Parser canonicalizes the alias `pub` to the publish verb.
-        expect(message.verb).to eq(:publish)
+        expect(message.tool).to eq(:publish)
         # The chat registry routes that canonical verb to the Publish handler.
-        expect(Pito::Chat::Registry.lookup(message.verb)).to eq(Pito::Chat::Handlers::Publish)
+        expect(Pito::Chat::Registry.lookup(message.tool)).to eq(Pito::Chat::Handlers::Publish)
 
         result = Pito::Chat::Handlers::Publish.new(
           message:      message,
@@ -348,7 +348,7 @@ RSpec.describe "Dispatch matrix — publish (recognition, DB mocked)", type: :di
         raw:          "pub",
         conversation: conversation
       )
-      expect(message.verb).to eq(:publish)
+      expect(message.tool).to eq(:publish)
       result = Pito::Chat::Handlers::Publish.new(
         message: message, conversation: conversation, follow_up: nil
       ).call

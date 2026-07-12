@@ -56,6 +56,18 @@ RSpec.describe Pito::Ai::PickerComponent, type: :component do
     expect(others.map { |r| r.css("span").first.text }).to all(eq(""))
   end
 
+  it "shows the key-gate copy line — not pinned rows — for a keyless provider with no models" do
+    keyless = [ { provider: "huggingface", label: "Hugging Face", key_present: false,
+                  reasoning: "none", models: [] } ]
+    node = render_inline(described_class.new(
+      providers: keyless, active_provider: "opencode", active_model: nil, effort: nil
+    ))
+
+    section = node.css('[data-section="provider"][data-provider="huggingface"]').first
+    expect(section.text).to include("Models will load once a key is added.")
+    expect(section.css('[data-row-type="model"]')).to be_empty
+  end
+
   it "badges pinned models" do
     node = render_picker
     pinned = node.css('[data-row-type="model"]').find { |r| r["data-value"] == "or-1" }

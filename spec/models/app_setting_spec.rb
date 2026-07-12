@@ -79,35 +79,7 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  describe ".nickname" do
-    before { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
-    after  { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
 
-    it "returns 'gmrdad82' by default when no row is stored" do
-      expect(AppSetting.nickname).to eq("gmrdad82")
-    end
-
-    it "returns the stored value after assignment" do
-      AppSetting.nickname = "Foo"
-      expect(AppSetting.nickname).to eq("Foo")
-    end
-  end
-
-  describe ".nickname=" do
-    before { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
-    after  { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
-
-    it "persists the value as a string" do
-      AppSetting.nickname = "streamer"
-      expect(AppSetting.get(AppSetting::NICKNAME_KEY)).to eq("streamer")
-    end
-
-    it "overwrites a previous value" do
-      AppSetting.nickname = "first"
-      AppSetting.nickname = "second"
-      expect(AppSetting.nickname).to eq("second")
-    end
-  end
 
   describe ".timezone=" do
     it "normalizes a major-city name to its IANA identifier" do

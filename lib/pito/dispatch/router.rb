@@ -2,37 +2,37 @@
 
 module Pito
   module Dispatch
-    # The agnostic Router — ONE config-driven execution path for chat verbs and
-    # for hashtag verb-replies ("no dispatchers with many if/else blocks";
+    # The agnostic Router — ONE config-driven execution path for chat tools and
+    # for hashtag tool-replies ("no dispatchers with many if/else blocks";
     # routing IS a config lookup).
     #
-    # Given an input string (a typed `<verb> <rest>` OR a reply's reconstructed
-    # `<verb> <rest>` threaded with a Pito::Chat::FollowUpContext), it:
+    # Given an input string (a typed `<tool> <rest>` OR a reply's reconstructed
+    # `<tool> <rest>` threaded with a Pito::Chat::FollowUpContext), it:
     #
-    #   1. tokenizes + parses via Pito::Chat::Parser — this canonicalizes the verb
+    #   1. tokenizes + parses via Pito::Chat::Parser — this canonicalizes the tool
     #      (config/grammar aliases: `ls`→`list`, `analytics`→`analyze`) and decides
     #      new_turn vs unknown vs parse-error.
-    #   2. resolves the verb's dispatch class from config/pito/verbs.yml
-    #      (`verbs.<verb>.chat.dispatch`) — the map that used to live in Ruby
-    #      (Pito::Chat::Registry) now lives in config. A recognised chat verb with
-    #      no chat dispatch (e.g. `find`) yields verb_not_implemented, exactly as
+    #   2. resolves the tool's dispatch class from config/pito/tools.yml
+    #      (`tools.<tool>.chat.dispatch`) — the map that used to live in Ruby
+    #      (Pito::Chat::Registry) now lives in config. A recognised chat tool with
+    #      no chat dispatch (e.g. `find`) yields tool_not_implemented, exactly as
     #      the old Registry.lookup-nil path did.
-    #   3. intercepts `--help` (verb man pages / the help easter egg) unchanged.
+    #   3. intercepts `--help` (tool man pages / the help easter egg) unchanged.
     #   4. binds kwargs: reply paths consume the ReplyBinding output that
-    #      VerbDelegator threaded onto FollowUpContext#bound (previously
+    #      ToolDelegator threaded onto FollowUpContext#bound (previously
     #      advisory only, now consumed into the contract here); typed paths
     #      carry none.
     #   5. invokes the dispatch class through the uniform contract
     #      `call(kwargs:, context:) -> Pito::Chat::Result` and returns the Result
     #      to the caller UNCHANGED.
     #
-    # Surface availability: the CHAT surface is gated here — a verb reaches the
-    # dispatch step only when the parser recognised it as a chat verb AND config
+    # Surface availability: the CHAT surface is gated here — a tool reaches the
+    # dispatch step only when the parser recognised it as a chat tool AND config
     # declares a chat dispatch class. The REPLY surface's per-target availability
-    # (the Matrix `invalid_action` gate) stays in Pito::FollowUp::VerbDelegator,
+    # (the Matrix `invalid_action` gate) stays in Pito::FollowUp::ToolDelegator,
     # which runs before this Router and is preserved exactly.
     #
-    # Adding a verb needs ZERO edits here: declare the verb + `chat.dispatch:`
+    # Adding a tool needs ZERO edits here: declare the tool + `chat.dispatch:`
     # in config and ship a handler class that answers the uniform contract
     # (every Pito::Chat::Handler does, via its base `self.call`).
     class Router
@@ -79,12 +79,12 @@ module Pito
       end
 
       def route_verb(message)
-        handler_class = dispatch_class_for(message.verb)
+        handler_class = dispatch_class_for(message.tool)
 
         if handler_class.nil?
           return Pito::Chat::Result::Error.new(
-            message_key: "pito.chat.errors.verb_not_implemented",
-            message_args: { verb: message.verb }
+            message_key: "pito.chat.errors.tool_not_implemented",
+            message_args: { tool: message.tool }
           )
         end
 
@@ -94,14 +94,14 @@ module Pito
         invoke(handler_class, message)
       end
 
-      # Resolves `verbs.<verb>.chat.dispatch` from config to a handler Class, or
-      # nil when the verb is unknown to config or declares no chat dispatch. The
+      # Resolves `tools.<tool>.chat.dispatch` from config to a handler Class, or
+      # nil when the tool is unknown to config or declares no chat dispatch. The
       # nil case mirrors the old Pito::Chat::Registry.lookup miss → the caller
-      # returns verb_not_implemented.
-      def dispatch_class_for(verb)
+      # returns tool_not_implemented.
+      def dispatch_class_for(tool)
         class_string =
           begin
-            Pito::Dispatch::Config.verb(verb).dig(:chat, :dispatch)
+            Pito::Dispatch::Config.tool(tool).dig(:chat, :dispatch)
           rescue KeyError
             nil
           end
@@ -112,23 +112,23 @@ module Pito
 
       # `--help` / `-h` interception, byte-for-byte from the retired
       # Pito::Chat::Dispatcher: `help --help` is the easter-egg nonsense page;
-      # `<verb> [noun] --help` renders the verb man page. Returns a Result::Ok, or
+      # `<tool> [noun] --help` renders the tool man page. Returns a Result::Ok, or
       # nil to fall through to normal dispatch (CommandHelp gave no page).
       def help_page(message)
         return nil unless message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
-        if message.verb == :help
+        if message.tool == :help
           body    = Pito::Slash::HelpBuilder.nonsense_body
           payload = { "html" => true, "body" => body }
           return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
 
         noun    = extract_noun(message)
-        payload = Pito::MessageBuilder::CommandHelp.call(message.verb, noun:)
+        payload = Pito::MessageBuilder::CommandHelp.call(message.tool, noun:)
         # A token that isn't a real noun page (`link #3 to game #5 --help` extracts
         # :to) must not send a --help message into handler execution — fall back to
-        # the verb-level page rather than dispatching.
-        payload ||= Pito::MessageBuilder::CommandHelp.call(message.verb, noun: nil) if noun
+        # the tool-level page rather than dispatching.
+        payload ||= Pito::MessageBuilder::CommandHelp.call(message.tool, noun: nil) if noun
         payload ? Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) : nil
       end
 
@@ -139,7 +139,7 @@ module Pito
       end
 
       # Reply paths consume FollowUpContext#bound — the ReplyBinding output
-      # VerbDelegator resolved from the verb's `reply.targets.<target>.ref/args`
+      # ToolDelegator resolved from the tool's `reply.targets.<target>.ref/args`
       # config. Typed free-chat paths carry no pre-bound kwargs.
       def bound_kwargs
         @follow_up ? @follow_up.bound : {}
@@ -156,7 +156,7 @@ module Pito
         )
       end
 
-      # Extract the noun token (first plain word after the verb) from the raw
+      # Extract the noun token (first plain word after the tool) from the raw
       # input, skipping `--help` / `-h` flags. Returns a Symbol or nil.
       #
       # The lexer splits "--help" into :unknown(-) :unknown(-) :word("help"), so
@@ -166,7 +166,7 @@ module Pito
       #   "delete game --help"   → :game
       #   "delete --help"        → nil
       #   "import videos --help" → :videos
-      #   "show #3 --help"       → nil (an id ref is not a noun → verb-level page)
+      #   "show #3 --help"       → nil (an id ref is not a noun → tool-level page)
       #   "show @handle --help"  → nil (a handle ref is not a noun)
       def extract_noun(message)
         raw_after_verb = message.raw.to_s.sub(/\A\s*\S+\s*/, "")
@@ -176,7 +176,7 @@ module Pito
           next if token.match?(/\A\d+\z/)
           next if token.start_with?('"')
           # Entity references (numeric `#id` / `@handle`) are targets, not nouns:
-          # skip them so `show #3 --help` / `show @foo --help` render the verb page
+          # skip them so `show #3 --help` / `show @foo --help` render the tool page
           # instead of mis-parsing the ref as an unknown noun and falling through.
           next if token.start_with?("#", "@")
 

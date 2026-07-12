@@ -6,7 +6,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
   # ── Synthetic config doc ─────────────────────────────────────────────────────
   #
   # Field-by-field construction tests use a minimal synthetic document so they
-  # are fully isolated from verbs.yml changes. The doc mimics the symbol-keyed
+  # are fully isolated from tools.yml changes. The doc mimics the symbol-keyed
   # structure that Pito::Dispatch::Config.data returns (symbolize_names: true).
 
   let(:synthetic_static_vocab) do
@@ -21,10 +21,10 @@ RSpec.describe Pito::Grammar::ConfigSource do
     { resolver: "channels" }
   end
 
-  let(:synthetic_chat_verb) do
+  let(:synthetic_chat_tool) do
     {
       aliases:     %w[tv],
-      description: "pito.grammar.chat.test_verb",
+      description: "pito.grammar.chat.test_tool",
       auth:        "session",
       chat:        {
         slots: [
@@ -36,9 +36,9 @@ RSpec.describe Pito::Grammar::ConfigSource do
     }
   end
 
-  # A slash-only verb exercising every T8.9 slot kind (literal / enum+when / kv+when
-  # / free), verb-level aliases, branch-level description, and a branch auth tier.
-  let(:synthetic_slash_verb) do
+  # A slash-only tool exercising every T8.9 slot kind (literal / enum+when / kv+when
+  # / free), tool-level aliases, branch-level description, and a branch auth tier.
+  let(:synthetic_slash_tool) do
     {
       aliases: %w[cfg],
       slash:   {
@@ -62,9 +62,9 @@ RSpec.describe Pito::Grammar::ConfigSource do
         test_words:  synthetic_static_vocab,
         dyn_vocab:   synthetic_dynamic_vocab
       },
-      verbs: {
-        test_verb:    synthetic_chat_verb,
-        test_cfg:     synthetic_slash_verb,
+      tools: {
+        test_tool:    synthetic_chat_tool,
+        test_cfg:     synthetic_slash_tool,
         reply_only:   {
           # No `chat:`/`slash:` branch — must NOT produce a chat or slash spec
           reply: { targets: { some_target: { mode: "append" } } }
@@ -168,11 +168,11 @@ RSpec.describe Pito::Grammar::ConfigSource do
       expect(specs).to all(be_a(Pito::Grammar::Spec))
     end
 
-    it "produces exactly one spec (the chat-branch verb; reply-only verb excluded)" do
+    it "produces exactly one spec (the chat-branch tool; reply-only tool excluded)" do
       expect(specs.length).to eq(1)
     end
 
-    context ":test_verb spec" do
+    context ":test_tool spec" do
       subject(:spec) { specs.first }
 
       it "namespace is :chat" do
@@ -180,7 +180,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
       end
 
       it "name is symbolized from the YAML key" do
-        expect(spec.name).to eq(:test_verb)
+        expect(spec.name).to eq(:test_tool)
       end
 
       it "aliases are symbolized from the YAML array" do
@@ -188,10 +188,10 @@ RSpec.describe Pito::Grammar::ConfigSource do
       end
 
       it "description_key matches the YAML string" do
-        expect(spec.description_key).to eq("pito.grammar.chat.test_verb")
+        expect(spec.description_key).to eq("pito.grammar.chat.test_tool")
       end
 
-      it "auth is always :any for chat specs regardless of YAML verb-level auth" do
+      it "auth is always :any for chat specs regardless of YAML tool-level auth" do
         expect(spec.auth).to eq(:any)
       end
 
@@ -255,7 +255,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
       expect(specs).to all(be_a(Pito::Grammar::Spec))
     end
 
-    it "produces exactly one spec (the slash-branch verb; chat + reply-only excluded)" do
+    it "produces exactly one spec (the slash-branch tool; chat + reply-only excluded)" do
       expect(specs.length).to eq(1)
       expect(specs.first.name).to eq(:test_cfg)
     end
@@ -267,7 +267,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
         expect(spec.namespace).to eq(:slash)
       end
 
-      it "aliases come from the verb-level aliases key" do
+      it "aliases come from the tool-level aliases key" do
         expect(spec.aliases).to eq([ :cfg ])
       end
 
@@ -345,12 +345,12 @@ RSpec.describe Pito::Grammar::ConfigSource do
     end
   end
 
-  # ── Real verbs.yml spot checks ───────────────────────────────────────────────
+  # ── Real tools.yml spot checks ───────────────────────────────────────────────
   #
-  # These tests use the actual config/pito/verbs.yml (no stub) to pin that the
+  # These tests use the actual config/pito/tools.yml (no stub) to pin that the
   # builder faithfully translates the real file into the expected objects.
 
-  describe ".vocabularies (real verbs.yml)" do
+  describe ".vocabularies (real tools.yml)" do
     before { allow(Pito::Dispatch::Config).to receive(:data).and_call_original }
 
     subject(:vocabs) { described_class.vocabularies }
@@ -363,8 +363,8 @@ RSpec.describe Pito::Grammar::ConfigSource do
     it "includes all expected static vocabulary names" do
       names = vocabs.map(&:name)
       expect(names).to include(
-        :nouns, :slash_verbs, :config_providers, :config_keys, :genres, :platforms,
-        :release_status, :metrics, :on_off, :hashtag_verbs, :fillers, :connectives,
+        :nouns, :slash_tools, :config_providers, :config_keys, :genres, :platforms,
+        :release_status, :metrics, :on_off, :hashtag_tools, :fillers, :connectives,
         :games_subcommands, :jobs_subcommands, :import_nouns, :sync_targets,
         :schedule_whens, :price_subcommands, :platform_subcommands,
         :visit_destinations, :full_flag, :show_segments
@@ -511,7 +511,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
     end
   end
 
-  describe ".chat_specs (real verbs.yml)" do
+  describe ".chat_specs (real tools.yml)" do
     before { allow(Pito::Dispatch::Config).to receive(:data).and_call_original }
 
     subject(:specs) { described_class.chat_specs }
@@ -520,7 +520,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
       expect(specs.map(&:namespace).uniq).to eq([ :chat ])
     end
 
-    it "includes the expected chat verbs" do
+    it "includes the expected chat tools" do
       names = specs.map(&:name)
       expect(names).to include(
         :list, :show, :analyze, :import, :sync, :footage, :find,
@@ -529,7 +529,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
       )
     end
 
-    it "does not include reply-only verbs (next, visit, sort, with, without, confirm, cancel)" do
+    it "does not include reply-only tools (next, visit, sort, with, without, confirm, cancel)" do
       names = specs.map(&:name)
       expect(names).not_to include(:next, :visit, :sort, :with, :without, :confirm, :cancel)
     end
@@ -689,7 +689,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
       end
     end
 
-    context ":help spec (multi-branch verb — only chat branch produced)" do
+    context ":help spec (multi-branch tool — only chat branch produced)" do
       subject(:spec) { specs.find { |s| s.name == :help } }
 
       it "is present" do
@@ -730,12 +730,12 @@ RSpec.describe Pito::Grammar::ConfigSource do
     end
   end
 
-  # ── .slash_specs (real verbs.yml) ─────────────────────────────────────────────
+  # ── .slash_specs (real tools.yml) ─────────────────────────────────────────────
   #
   # Parity proof: config-built slash specs must match the pre-T8.9 hand-authored
   # table + per-handler grammar field-by-field. Auth tiers are the risk surface.
 
-  describe ".slash_specs (real verbs.yml)" do
+  describe ".slash_specs (real tools.yml)" do
     before { allow(Pito::Dispatch::Config).to receive(:data).and_call_original }
 
     subject(:specs) { described_class.slash_specs }
@@ -744,14 +744,14 @@ RSpec.describe Pito::Grammar::ConfigSource do
       expect(specs.map(&:namespace).uniq).to eq([ :slash ])
     end
 
-    it "includes exactly the 13 declared slash verbs" do
+    it "includes exactly the 13 declared slash tools" do
       expect(specs.map(&:name)).to contain_exactly(
         :login, :logout, :connect, :new, :resume, :games, :config,
         :disconnect, :jobs, :notifications, :rename, :themes, :help
       )
     end
 
-    it "pins every verb's auth tier (the risk surface)" do
+    it "pins every tool's auth tier (the risk surface)" do
       auth = specs.to_h { |s| [ s.name, s.auth ] }
       expect(auth).to eq(
         login:         :unauthenticated_only,

@@ -1,8 +1,10 @@
-<%# Day-of-week heatmap — 7 equal-width, full-height braille bars (Mon→Sun) over
-    the shared dotted canvas. Value is encoded by COLOUR: each bar's --pito-heat
-    (0..1) samples the green→red health ramp (busiest weekday green, quietest red),
-    with the shared pito-blue diagonal shimmer swept over it. x-ticks read
-    Mo…Su. Bars carry the area-chart reveal targets so they wipe in on connect.
+<%# Heatmap — N equal-width, full-height braille bars over the shared dotted
+    canvas (the 7-weekday Mon→Sun form is the preset). Value is encoded by
+    COLOUR: each bar's --pito-heat (0..1) samples the green→red health ramp
+    (best column green, worst red), with the shared pito-blue diagonal shimmer
+    swept over it. x-ticks render only when labels exist (preset: Mo…Su); a
+    non-preset count carries per-bar fr tracks so labels centre under unequal
+    bars. Bars carry the area-chart reveal targets so they wipe in on connect.
     Bars are emitted with NO inter-span whitespace (monospace would show gaps). %>
 <div class="pito-metric pito-metric--heatmap" data-controller="<%= reveal_controller %>">
   <div class="pito-metric__chart">
@@ -11,9 +13,11 @@
          style="--pito-rows: <%= rows %>; --pito-plot-w: <%= plot_cols %>ch"><%
       bars.each_with_index do |bar, i| %><span class="pito-heatmap__bar <%= shimmer_offset_class %>" style="--i: <%= i %>; --pito-heat: <%= bar[:heat] %>; --pito-bar-offset: <%= bar[:offset] %>ch" data-pito--area-chart-reveal-target="row"><%= bar[:glyphs] %></span><% end %>
     </div>
-    <div class="pito-metric__xticks pito-heatmap__xticks text-fg-dim" aria-hidden="true"><%
-      day_labels.each do |label| %><span><%= label %></span><% end %>
+    <% if labels.present? %>
+    <div class="pito-metric__xticks pito-heatmap__xticks text-fg-dim" aria-hidden="true"<% if xtick_tracks %> style="--pito-heatmap-xtick-cols: <%= xtick_tracks %>"<% end %>><%
+      labels.each do |label| %><span><%= label %></span><% end %>
     </div>
+    <% end %>
   </div>
   <% if caption.present? %><p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p><% end %>
 </div>

@@ -79,7 +79,7 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
   def expect_too_many_args(result)
     expect(result).to be_a(Pito::Slash::Result::Error)
     expect(result.message_key).to eq("pito.slash.errors.too_many_args")
-    expect(result.message_args[:verb]).to eq(:themes)
+    expect(result.message_args[:tool]).to eq(:themes)
   end
 
   # Asserts the --help intercept nonsense easter egg (not a sidebar event).
@@ -93,9 +93,9 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
   end
 
   # Asserts an unknown-verb error from the dispatcher.
-  def expect_unknown_verb(result)
+  def expect_unknown_tool(result)
     expect(result).to be_a(Pito::Slash::Result::Error)
-    expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
+    expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
   end
 
   # ── bare `/themes` ───────────────────────────────────────────────────────────
@@ -209,13 +209,13 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
       expect_too_many_args(dispatch("/themes -H"))
     end
 
-    it "/themes--help (no space before flag) → unknown_verb error" do
+    it "/themes--help (no space before flag) → unknown_tool error" do
       # The lexer treats hyphens as word chars: `themes--help` tokenizes as ONE
       # :word token. Verb becomes :"themes--help", which is not in Slash::Registry.
       # The --help regex also does not match (no space before --help).
       result = dispatch("/themes--help")
-      expect_unknown_verb(result)
-      expect(result.message_args[:verb]).to eq(:"themes--help")
+      expect_unknown_tool(result)
+      expect(result.message_args[:tool]).to eq(:"themes--help")
     end
   end
 
@@ -243,16 +243,16 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
       end
     end
 
-    describe "singular variants (NOT normalized → unknown_verb error)" do
+    describe "singular variants (NOT normalized → unknown_tool error)" do
       {
         "/theme"  => :theme,
         "/THEME"  => :"THEME",
         "/Theme"  => :"Theme"
-      }.each do |input, expected_verb|
-        it "#{input.inspect} → unknown_verb error (verb #{expected_verb.inspect})" do
+      }.each do |input, expected_tool|
+        it "#{input.inspect} → unknown_tool error (tool #{expected_tool.inspect})" do
           result = dispatch(input)
-          expect_unknown_verb(result)
-          expect(result.message_args[:verb]).to eq(expected_verb)
+          expect_unknown_tool(result)
+          expect(result.message_args[:tool]).to eq(expected_tool)
         end
       end
     end
@@ -268,24 +268,24 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
     it "/theme → Result::Error (unknown verb :theme)" do
       result = dispatch("/theme")
       expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
-      expect(result.message_args[:verb]).to eq(:theme)
+      expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
+      expect(result.message_args[:tool]).to eq(:theme)
     end
 
     it "/theme tokyo-night → Result::Error (still unknown verb :theme)" do
       result = dispatch("/theme tokyo-night")
       expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
-      expect(result.message_args[:verb]).to eq(:theme)
+      expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
+      expect(result.message_args[:tool]).to eq(:theme)
     end
 
     it "/theme default → Result::Error" do
       result = dispatch("/theme default")
       expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
+      expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
     end
 
-    it "/theme --help → Ok (--help intercept fires before unknown_verb check)" do
+    it "/theme --help → Ok (--help intercept fires before unknown_tool check)" do
       # The --help intercept fires at step 2; registry lookup is step 3.
       # So even /theme --help returns Ok (HelpBuilder handles any verb gracefully).
       result = dispatch("/theme --help")
@@ -320,7 +320,7 @@ RSpec.describe "Dispatch matrix — /themes (recognition, zero DB)", type: :disp
     it "/theme with authenticated: false → Result::Error (still unknown verb)" do
       result = dispatch("/theme", authenticated: false)
       expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
+      expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
     end
   end
 end

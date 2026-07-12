@@ -7,8 +7,8 @@ RSpec.describe Pito::Slash::Parser do
     Pito::Lex::Lexer.call(input)
   end
 
-  def iv(verb, args: [], kwargs: {}, raw: "")
-    Pito::Slash::Invocation.new(verb:, args:, kwargs:, raw:)
+  def iv(tool, args: [], kwargs: {}, raw: "")
+    Pito::Slash::Invocation.new(tool:, args:, kwargs:, raw:)
   end
 
   describe ".call" do
@@ -38,10 +38,10 @@ RSpec.describe Pito::Slash::Parser do
       }.to raise_error(described_class::NotASlashCommand)
     end
 
-    it "raises MissingVerb when / is followed by no verb" do
+    it "raises MissingTool when / is followed by no verb" do
       expect {
         described_class.call(lex("/"), raw: "/")
-      }.to raise_error(described_class::MissingVerb)
+      }.to raise_error(described_class::MissingTool)
     end
 
     describe "unquoted kwarg values with special characters" do

@@ -6,7 +6,7 @@ RSpec.describe Pito::Chat::TargetResolution, type: :model do
   # A throwaway verb handler — the module is mixed into Pito::Chat::Handler.
   let(:handler_class) do
     Class.new(Pito::Chat::Handler) do
-      self.verb = :test
+      self.tool = :test
       self.description_key = "pito.chat.test.descriptions.test"
       def call = Pito::Chat::Result::Ok.new(events: [])
     end
@@ -14,7 +14,7 @@ RSpec.describe Pito::Chat::TargetResolution, type: :model do
 
   let(:id_only_handler_class) do
     Class.new(Pito::Chat::Handler) do
-      self.verb = :test
+      self.tool = :test
       self.description_key = "pito.chat.test.descriptions.test"
       id_only_resolution!
       def call = Pito::Chat::Result::Ok.new(events: [])

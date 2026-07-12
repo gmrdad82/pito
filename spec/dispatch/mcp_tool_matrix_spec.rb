@@ -5,7 +5,7 @@ require "rails_helper"
 # ── THE MCP TOOL MATRIX (G130) — the MCP analog of the dispatch matrices ────────
 #
 # Two guarantees, table-driven:
-#   (a) tools/list ≡ the verbs.yml declarations EXACTLY — no phantom tools, none
+#   (a) tools/list ≡ the tools.yml declarations EXACTLY — no phantom tools, none
 #       missing. The Registry is the ONLY source; this pins it against the config.
 #   (b) for every VERB tool, a representative tool call builds a grammar string
 #       that the REAL parser recognizes as the tool's OWN backing verb — proving
@@ -23,10 +23,10 @@ RSpec.describe "the MCP tool matrix (G130)", type: :dispatch do
   end
 
   # ── (a) tools/list ≡ the declarations ───────────────────────────────────────
-  describe "tools/list is exactly the verbs.yml declarations" do
+  describe "tools/list is exactly the tools.yml declarations" do
     it "surfaces every declared tool and no phantoms" do
       data         = Pito::Dispatch::Config.data
-      verb_tools   = data[:verbs].filter_map { |_, body| body.dig(:mcp, :tool) }
+      verb_tools   = data[:tools].filter_map { |_, body| body.dig(:mcp, :tool) }
       reader_tools = (data[:mcp_readers] || {}).values.map { |r| r[:tool] }
       declared     = (verb_tools + reader_tools)
 
@@ -56,8 +56,8 @@ RSpec.describe "the MCP tool matrix (G130)", type: :dispatch do
       descriptor = Pito::Mcp::Registry.tool(tool)
       input      = Pito::Mcp::Executor.build_input(descriptor, args)
 
-      expect(parse(input).verb.to_s).to eq(descriptor[:verb]),
-                                        "built #{input.inspect} → verb #{parse(input).verb.inspect}, expected #{descriptor[:verb]}"
+      expect(parse(input).tool.to_s).to eq(descriptor[:verb]),
+                                        "built #{input.inspect} → verb #{parse(input).tool.inspect}, expected #{descriptor[:verb]}"
     end
   end
 

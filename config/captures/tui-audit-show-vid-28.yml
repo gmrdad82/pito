@@ -1,0 +1,11 @@
+# `show vid 28` — the single-video detail card.
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-show-vid-28
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "show vid 28"
+  - sleep: 6
+  - shot: show-vid-28.png

@@ -193,7 +193,7 @@ RSpec.describe "Dispatch matrix — #channel_visit follow-up (recognition, DB mo
   # ── Unknown action → invalid_action Error ─────────────────────────────────────
   #
   # channel_visit declares only "consume". Any other action returns invalid_action
-  # directly (no VerbDelegator involvement — handler does not delegate).
+  # directly (no ToolDelegator involvement — handler does not delegate).
 
   describe "unknown action → invalid_action Error" do
     %w[visit sync open show delete rm shinies bogus nope].each do |unknown|

@@ -46,7 +46,7 @@ export default class extends Controller {
   #updateMiniStatus() {
     if (!this.versionValue) return
     const slot = document.getElementById("pito-mini-status-version")
-    if (slot) slot.textContent = `@${this.versionValue}`
+    if (slot) slot.textContent = `\u00A0${this.versionValue}`
   }
 
   #compare() {

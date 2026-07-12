@@ -63,7 +63,7 @@ module Pito
         # Only the compact form (show channel/vid/game detail cards) gets a
         # modifier — slimmer padding, truncating face; its strip container caps
         # at 3 per row (.pito-detail-card__shinies). The extended form
-        # (shinies-verb message) stays on the base class.
+        # (shinies-tool message) stays on the base class.
         base = "pito-shiny #{offset_class}"
         base += " pito-shiny--iridescent" if %w[pearl opal diamond].include?(material)
         base += " pito-shiny--award" if Pito::Achievement::Tier::AWARDS.value?(material)

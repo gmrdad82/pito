@@ -9,7 +9,7 @@ require "rails_helper"
 # payload: { "reply_target" => "game_detail", "game_id" => 7 }.
 #
 # Delegated actions (rm/del/delete/reindex/link/unlink/platform/shinies/sync):
-#   → VerbDelegator; asserted gated-in + routes (not invalid_action).
+#   → ToolDelegator; asserted gated-in + routes (not invalid_action).
 # Direct actions (footage, price):
 #   → handled inline; asserted Append with correct effect; stubs ::Game.find_by.
 # Unknown action:
@@ -35,7 +35,7 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     double("Event", payload: { "reply_target" => "game_detail", "game_id" => 7 })
   end
 
-  # Canned Append returned by the VerbDelegator stub.
+  # Canned Append returned by the ToolDelegator stub.
   let(:delegated_append) do
     Pito::FollowUp::Result::Append.new(
       events: [ { kind: :system, payload: { "text" => "delegated" } } ]
@@ -46,8 +46,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     # DB: always resolve game 7.
     allow(::Game).to receive(:find_by).with(id: 7).and_return(game_stub)
 
-    # VerbDelegator stub — delegated actions hit this.
-    allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(delegated_append)
+    # ToolDelegator stub — delegated actions hit this.
+    allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(delegated_append)
 
     # Builder / formatter stubs so direct handlers don't blow up.
     allow(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
@@ -81,9 +81,9 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     end
   end
 
-  # ── Delegated actions → VerbDelegator ──────────────────────────────────────
+  # ── Delegated actions → ToolDelegator ──────────────────────────────────────
   #
-  # Each of these must be gated-in (declared) AND routed to VerbDelegator
+  # Each of these must be gated-in (declared) AND routed to ToolDelegator
   # (result is Append, not an invalid_action Error).
 
   describe "delegated actions" do
@@ -97,7 +97,7 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
           expect(Pito::FollowUp::Registry.actions_for("game_detail")).to include(action)
         end
 
-        it "returns Result::Append (routes to VerbDelegator, not invalid_action)" do
+        it "returns Result::Append (routes to ToolDelegator, not invalid_action)" do
           expect(result).to be_a(Pito::FollowUp::Result::Append)
         end
 
@@ -105,8 +105,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
           expect(result).not_to be_a(Pito::FollowUp::Result::Error)
         end
 
-        it "calls VerbDelegator.call with source_event and rest" do
-          expect(Pito::FollowUp::VerbDelegator).to receive(:call).with(
+        it "calls ToolDelegator.call with source_event and rest" do
+          expect(Pito::FollowUp::ToolDelegator).to receive(:call).with(
             hash_including(source_event: source_event, rest: action, conversation: conversation)
           ).and_return(delegated_append)
           result
@@ -134,8 +134,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
         result
       end
 
-      it "does NOT delegate to VerbDelegator" do
-        expect(Pito::FollowUp::VerbDelegator).not_to receive(:call)
+      it "does NOT delegate to ToolDelegator" do
+        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
       end
 
@@ -156,8 +156,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
         result
       end
 
-      it "does NOT delegate to VerbDelegator" do
-        expect(Pito::FollowUp::VerbDelegator).not_to receive(:call)
+      it "does NOT delegate to ToolDelegator" do
+        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
       end
     end
@@ -179,8 +179,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
         result
       end
 
-      it "does NOT delegate to VerbDelegator" do
-        expect(Pito::FollowUp::VerbDelegator).not_to receive(:call)
+      it "does NOT delegate to ToolDelegator" do
+        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
       end
 
@@ -254,8 +254,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
         result
       end
 
-      it "does NOT delegate to VerbDelegator" do
-        expect(Pito::FollowUp::VerbDelegator).not_to receive(:call)
+      it "does NOT delegate to ToolDelegator" do
+        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
       end
 
@@ -276,8 +276,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
         result
       end
 
-      it "does NOT delegate to VerbDelegator" do
-        expect(Pito::FollowUp::VerbDelegator).not_to receive(:call)
+      it "does NOT delegate to ToolDelegator" do
+        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
       end
     end
@@ -294,8 +294,8 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
         result
       end
 
-      it "does NOT delegate to VerbDelegator" do
-        expect(Pito::FollowUp::VerbDelegator).not_to receive(:call)
+      it "does NOT delegate to ToolDelegator" do
+        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
       end
     end

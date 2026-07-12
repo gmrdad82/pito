@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 class Conversation < ApplicationRecord
+  # /resume sidebar page size (keyset pages via recency_page).
+  SIDEBAR_PAGE_SIZE = 50
+
   has_many :turns, -> { order(:position) }, dependent: :destroy
   has_many :events, -> { order(:position) }, dependent: :destroy
 
@@ -93,7 +96,45 @@ class Conversation < ApplicationRecord
         "COALESCE(MAX(events.created_at), conversations.created_at) AS last_activity_at"
       )
       .group("conversations.id")
-      .order("last_activity_at DESC")
+      # id tiebreak makes the order DETERMINISTIC — keyset paging (recency_page)
+      # depends on it; same-timestamp rows can never straddle a page boundary
+      # ambiguously.
+      .order("last_activity_at DESC, conversations.id DESC")
+  end
+
+  # One sidebar page (SIDEBAR_PAGE_SIZE rows) in by_recent_activity order plus
+  # the opaque next-page cursor (nil on the last page) — the /resume list's
+  # keyset pager, mirroring Notification.panel_page. The first page (blank
+  # `after`) keeps the 24h recent/older partition; follow-up pages return flat
+  # `older:` rows — every one of them is older than page 1's cutoff by
+  # construction, so the append container under the Older section is always
+  # the right home. Aggregate keyset: the HAVING row-value compare matches the
+  # (last_activity_at DESC, id DESC) order above.
+  def self.recency_page(after: nil)
+    scope = by_recent_activity
+    if (cursor = Pito::ListCursor.decode(after))
+      ts, id = cursor
+      scope = scope.having(
+        "(COALESCE(MAX(events.created_at), conversations.created_at), conversations.id) < (?, ?)",
+        Time.iso8601(ts.to_s), id.to_i
+      )
+    end
+
+    rows = scope.limit(SIDEBAR_PAGE_SIZE + 1).to_a
+    more = rows.size > SIDEBAR_PAGE_SIZE
+    rows = rows.first(SIDEBAR_PAGE_SIZE)
+    next_cursor = more ? recency_cursor_for(rows.last) : nil
+
+    if after.present?
+      { recent: [], older: rows, next_cursor: next_cursor }
+    else
+      partition_by_recency(rows).merge(next_cursor: next_cursor)
+    end
+  end
+
+  # The opaque cursor for a row's position in by_recent_activity order.
+  def self.recency_cursor_for(row)
+    Pito::ListCursor.encode([ row.last_activity_at.utc.iso8601(6), row.id ])
   end
 
   # Returns a hash with two keys:
@@ -107,11 +148,15 @@ class Conversation < ApplicationRecord
   #   - Single conversation → it lands in :recent; :older is [].
   #   - All within 24 h → all land in :recent; :older is [].
   def self.recency_groups
-    all_ordered = by_recent_activity.to_a
-    return { recent: [], older: [] } if all_ordered.empty?
+    partition_by_recency(by_recent_activity.to_a)
+  end
 
-    cutoff = all_ordered.first.last_activity_at - 24.hours
-    recent, older = all_ordered.partition { |c| c.last_activity_at > cutoff }
+  # The 24h recent/older split, cutoff anchored on the newest row given.
+  def self.partition_by_recency(rows)
+    return { recent: [], older: [] } if rows.empty?
+
+    cutoff = rows.first.last_activity_at - 24.hours
+    recent, older = rows.partition { |c| c.last_activity_at > cutoff }
     { recent: recent, older: older }
   end
 

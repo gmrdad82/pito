@@ -1,0 +1,11 @@
+# `/jobs status` — the SolidQueue jobs status panel (slash-only tool — no bare-word chat form exists).
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-jobs-status
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "/jobs status"
+  - sleep: 6
+  - shot: jobs-status.png

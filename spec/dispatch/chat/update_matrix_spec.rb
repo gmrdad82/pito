@@ -6,8 +6,8 @@ require "bigdecimal"
 # ── Dispatch matrix: `update` (game footage/price/platform local writes;
 #    vid description/tags staged confirmations) ──────────────────────────────
 #
-# Subject:  Pito::Chat::Handlers::Update (app/services/pito/chat/handlers/update.rb)
-# Grammar:  verbs.update in config/pito/verbs.yml — update_nouns (game/games,
+# Subject:  Pito::Chat::Handlers::Update (lib/pito/chat/handlers/update.rb)
+# Grammar:  verbs.update in config/pito/tools.yml — update_nouns (game/games,
 #           vid/vids/video/videos) + update_fields (footage/price/platform,
 #           description/tags). The handler's PATTERN parses message.raw
 #           directly (`update <noun> <field> #?<id> <value…>`), so every case

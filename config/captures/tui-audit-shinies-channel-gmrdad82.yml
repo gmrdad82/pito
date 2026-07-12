@@ -1,0 +1,11 @@
+# `shinies channel @gmrdad82` — the channel's shinies (achievement chips) card.
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-shinies-channel-gmrdad82
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "shinies channel @gmrdad82"
+  - sleep: 6
+  - shot: shinies-channel-gmrdad82.png

@@ -1,0 +1,34 @@
+# @ai slide — the in-chat assistant answering a real question over the owner's
+# library: the chatbox wears the AI accent as "@ai" is typed, the pending tile
+# narrates its tool reads ("Listing Vids: …"), typed blocks stream in, and the
+# answer lands with the ✨ model chip. Storyboard gif = the whole act; the
+# final keyframe doubles as the still.
+#
+# PREREQS (owner, dev env): pito dev server up behind dev.pitomd.com with an
+# AI model configured (/config ai — the free OpenCode default works) so the
+# orchestrator actually answers. Answer time varies (10-60s on the free
+# model); the wait_for rides the ✨ chip. Then:
+#   rake "pitomd:capture[mkt-ai]"
+# Promote: cp tmp/captures/pitomd/mkt-ai/mkt-ai.png   ~/Dev/pitomd/public/media/
+#          cp tmp/captures/pitomd/mkt-ai/mkt-ai.gif   ~/Dev/pitomd/public/media/
+name: mkt-ai
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 900, scale: 2 }
+steps:
+  - login: true
+  - sleep: 0.8
+  # ── the ask: chatbox flips to the AI accent live while typing ──
+  - type: "@ai"
+  - keyframe: 010-at-ai.png
+  - type: " compare my channels: a table of subs and views, a bar chart of the views split, and one line on who's winning"
+  - burst: { prefix: 020-cmd, frames: 4, fps: 8 }
+  - submit: true
+  # ── the act: handshake line, tool narration, streaming blocks ──
+  - burst: { prefix: 030-handshake, frames: 10, fps: 5 }
+  - burst: { prefix: 040-working, frames: 12, fps: 4 }
+  # ── the answer: blocks + the ✨ model chip ─────────────────────
+  - wait_for: { selector: ".pito-ai-model-badge", timeout: 120 }
+  - sleep: 0.5
+  - burst: { prefix: 050-answer, frames: 6, fps: 6 }
+  - shot: mkt-ai.png
+  - storyboard: { name: mkt-ai.gif, fps: 6 }

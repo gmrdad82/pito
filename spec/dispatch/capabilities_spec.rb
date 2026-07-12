@@ -2,12 +2,12 @@
 
 require "rails_helper"
 
-# v1.6 unified grammar — the ORPHAN + COPY guard. The verbs.yml `capabilities:` block
+# v1.6 unified grammar — the ORPHAN + COPY guard. The tools.yml `capabilities:` block
 # is the single source of truth for the column/filter vocabulary that --help, MCP,
 # and autocomplete read. This suite proves config ↔ Ruby (the behavior procs) stay in
 # 1:1 sync and that every declared element has a resolvable description — so a column
 # can never exist in one place but not the other, and none ships undocumented.
-RSpec.describe "verbs.yml capabilities — orphan + copy guard", type: :dispatch do
+RSpec.describe "tools.yml capabilities — orphan + copy guard", type: :dispatch do
   Cap = Pito::Grammar::Capability
 
   RUBY = {

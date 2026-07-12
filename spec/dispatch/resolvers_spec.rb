@@ -11,7 +11,7 @@ require "rails_helper"
 #      use real records via FactoryBot (transactional fixtures roll them back).
 #      In-memory adapters use the real collaborator modules — no mocks.
 #   3. INTEGRITY          — every resolver: name used in ref/args positions of
-#      verbs.yml is registered in the live registry, closing the loop the schema
+#      tools.yml is registered in the live registry, closing the loop the schema
 #      suite previously stubbed out with a hard-coded allow-list.
 RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
   # Shorthand
@@ -462,7 +462,7 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
 
   # ══ 3. INTEGRITY ════════════════════════════════════════════════════════════
   #
-  # Every resolver: name used in ref/args positions in verbs.yml must be
+  # Every resolver: name used in ref/args positions in tools.yml must be
   # registered in the live Resolvers registry. This closes the loop that the
   # schema-integrity suite previously covered with a hard-coded RESOLVERS
   # constant (now derived from the registry itself).
@@ -470,9 +470,9 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
   describe "integrity" do
     before(:all) { Pito::Dispatch::Config.reload! }
 
-    it "every resolver: name in verbs.yml ref/args positions is registered" do
+    it "every resolver: name in tools.yml ref/args positions is registered" do
       doc   = Pito::Dispatch::Config.data
-      verbs = doc[:verbs]
+      verbs = doc[:tools]
 
       used_names = verbs.flat_map do |_verb, body|
         Array(body.dig(:reply, :targets)&.values).flat_map do |target|
@@ -485,7 +485,7 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       unregistered = used_names.reject { |name| described_class.registered?(name.to_sym) }
       expect(unregistered).to(
         eq([]),
-        -> { "These resolver names appear in verbs.yml but are not registered: #{unregistered.inspect}" }
+        -> { "These resolver names appear in tools.yml but are not registered: #{unregistered.inspect}" }
       )
     end
   end

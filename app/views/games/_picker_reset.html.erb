@@ -1,0 +1,10 @@
+<%# Page 1 + pager sentinel — what a CLEARED picker search swaps back in
+    (the nav controller replaces the list target's contents with this). %>
+<div id="pito-games-picker-rows" class="flex flex-col" data-pito--list-pager-target="list">
+  <%= render partial: "games/picker_rows", locals: { games: games } %>
+</div>
+<% if next_cursor.present? %>
+  <%= render(Pito::ListPager::SentinelComponent.new(
+        next_url: games_picker_path(after: next_cursor, format: :turbo_stream)
+      )) %>
+<% end %>

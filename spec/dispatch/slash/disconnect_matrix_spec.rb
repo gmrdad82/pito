@@ -7,7 +7,7 @@ require "rails_helper"
 # RULE: every input form the handler recognises — no exception. All ::Channel
 # lookups (where + find_by) are stubbed; zero factories, zero DB writes.
 #
-# Source: app/services/pito/slash/handlers/disconnect.rb
+# Source: lib/pito/slash/handlers/disconnect.rb
 #
 # Branches in #call (in priority order):
 #   1. parse_target → nil (blank / no second token)    → missing_target_error
@@ -41,7 +41,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
   # args/kwargs are not used by the disconnect handler.
   def call_handler(raw:, authenticated: true)
     invocation = Pito::Slash::Invocation.new(
-      verb:   :disconnect,
+      tool:   :disconnect,
       args:   [],
       kwargs: {},
       raw:    raw
@@ -81,7 +81,7 @@ RSpec.describe "Dispatch matrix — disconnect (recognition, DB mocked)", type: 
       it "#{input.inspect} → stack :slash, verb :disconnect, known: true" do
         intent = parsed_intent(input)
         expect(intent[:stack]).to eq(:slash)
-        expect(intent[:verb]).to eq(:disconnect)
+        expect(intent[:tool]).to eq(:disconnect)
         expect(intent[:known]).to be(true)
       end
     end

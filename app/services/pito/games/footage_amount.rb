@@ -4,7 +4,7 @@ require "bigdecimal"
 
 # Pure function. Parses the `footage [update] <hours>` amount typed for the
 # `games.footage_hours` column — the single canonical parser the `footage` chat
-# verb, its game-detail follow-up reply, and the `:footage_hours` dispatch
+# tool, its game-detail follow-up reply, and the `:footage_hours` dispatch
 # resolver all share — "wrap, don't fork".
 #
 # Contract:

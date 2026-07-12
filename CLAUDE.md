@@ -127,16 +127,17 @@ invariants you can't discover by reading a single file — keep them.
 
 - **Dispatch is shape-routed and config-declared.** One `POST /chat` endpoint
   routes by input shape: leading `/` → slash, leading `#` → hashtag, else
-  natural-language chat. Since 0.9.5 every verb (all three shapes) is declared
-  ONCE in `config/pito/verbs.yml` — the single ontology (aliases, kwargs +
+  natural-language chat. Since 0.9.5 every tool (all three shapes) is declared
+  ONCE in `config/pito/tools.yml` (dispatch "tools", known as verbs pre-2.0;
+  distinct from MCP tools) — the single ontology (aliases, kwargs +
   resolver paths, segments, reply availability, auth, dispatch targets) — and
-  chat + hashtag-reply verbs EXECUTE through one generic
+  chat + hashtag-reply tools EXECUTE through one generic
   `Pito::Dispatch::Router` with the uniform contract
   `call(kwargs:, context:) → Result` (the softened stack isolation was a
   deliberate 0.9.5 decision; the slash dispatcher remains separate but is fed
-  by the same config). NEVER re-introduce Ruby verb tables, per-handler
-  availability DSLs, or verb→handler conditionals — new verbs are YAML entries
-  - a handler class; the schema-integrity, help-sync, and add-a-verb proof
+  by the same config). NEVER re-introduce Ruby tool tables, per-handler
+  availability DSLs, or tool→handler conditionals — new tools are YAML entries
+  - a handler class; the schema-integrity, help-sync, and add-a-tool proof
     suites are the guards. The controller still pattern-matches Results and
     never reads handler internals.
 - **`Pito::Stream::Broadcaster` is the only way to add to the scrollback.** Never

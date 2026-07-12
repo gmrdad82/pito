@@ -13,11 +13,11 @@ require "rails_helper"
 #   sort / order             → mutate_sort     → Result::Mutation (in-place re-sort)
 #   show / delete / del / rm /
 #   schedule / publish / pub /
-#   unlist / link / unlink / shinies → VerbDelegator → Result::Append (sentinel)
-#   unknown verb             → VerbDelegator gates → Result::Error
+#   unlist / link / unlink / shinies → ToolDelegator → Result::Append (sentinel)
+#   unknown verb             → ToolDelegator gates → Result::Error
 #
-# VerbDelegator is stubbed to a sentinel for delegated-action paths.
-# For the unknown-action paths VerbDelegator is let run for real (gating check
+# ToolDelegator is stubbed to a sentinel for delegated-action paths.
+# For the unknown-action paths ToolDelegator is let run for real (gating check
 # is pure: registry lookup only, no DB, no Chat::Dispatcher invocation).
 #
 # A declared action that returns invalid_action Error = BUG — reported verbatim.
@@ -27,7 +27,7 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
   let(:handler)      { Pito::FollowUp::Handlers::VideoList.new }
   let(:conversation) { double("Conversation") }
 
-  # Sentinel returned by VerbDelegator for every delegated action.
+  # Sentinel returned by ToolDelegator for every delegated action.
   let(:sentinel) { Pito::FollowUp::Result::Append.new(events: [], consume: true) }
 
   # Source event: video_list with 2 stamped ids and two extra columns (channel, views).
@@ -52,8 +52,8 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
 
   # ── Global stubs ─────────────────────────────────────────────────────────────
   before do
-    # VerbDelegator → sentinel for all delegated-action paths (overridden for unknowns).
-    allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(sentinel)
+    # ToolDelegator → sentinel for all delegated-action paths (overridden for unknowns).
+    allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel)
 
     # DB: Video.where(id: [10, 20]) → 2 plain doubles ordered by stamped position.
     v1 = double(:video, id: 10)
@@ -167,9 +167,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(call("with views").payload["reply_target"]).to eq("video_list")
     end
 
-    it "does NOT delegate to VerbDelegator" do
+    it "does NOT delegate to ToolDelegator" do
       call("with views")
-      expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
     end
   end
 
@@ -216,9 +216,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(call("without views").payload["reply_target"]).to eq("video_list")
     end
 
-    it "does NOT delegate to VerbDelegator" do
+    it "does NOT delegate to ToolDelegator" do
       call("without views")
-      expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
     end
   end
 
@@ -280,9 +280,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(call("sort id").payload["reply_target"]).to eq("video_list")
     end
 
-    it "does NOT delegate to VerbDelegator" do
+    it "does NOT delegate to ToolDelegator" do
       call("sort views")
-      expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
     end
   end
 
@@ -315,19 +315,19 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       end
     end
 
-    it "does NOT delegate to VerbDelegator" do
+    it "does NOT delegate to ToolDelegator" do
       call("order views")
-      expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
     end
   end
 
-  # ── Delegated actions → VerbDelegator ────────────────────────────────────────
+  # ── Delegated actions → ToolDelegator ────────────────────────────────────────
   #
   # All declared actions that are NOT with/without/sort/order go directly to
-  # VerbDelegator.  VerbDelegator is stubbed to the sentinel — we test ROUTING
+  # ToolDelegator.  ToolDelegator is stubbed to the sentinel — we test ROUTING
   # only (not the downstream chat handler execution or DB effects).
 
-  describe "delegated actions → VerbDelegator (not invalid_action)" do
+  describe "delegated actions → ToolDelegator (not invalid_action)" do
     {
       # show
       "show"     => "show 10",
@@ -354,14 +354,14 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
           expect(result).not_to be_a(Pito::FollowUp::Result::Error)
         end
 
-        it "delegates to VerbDelegator.call with source_event + rest + conversation" do
+        it "delegates to ToolDelegator.call with source_event + rest + conversation" do
           result
-          expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+          expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
             hash_including(source_event: source_event, rest: rest_input, conversation: conversation)
           )
         end
 
-        it "returns the sentinel Append from VerbDelegator" do
+        it "returns the sentinel Append from ToolDelegator" do
           expect(result).to eq(sentinel)
         end
       end
@@ -370,15 +370,15 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
 
   # ── Unknown action → Result::Error ───────────────────────────────────────────
   #
-  # The handler's `else` branch calls VerbDelegator for EVERY non-mutate action.
-  # VerbDelegator gates by the declared action list — unknown verbs short-circuit
+  # The handler's `else` branch calls ToolDelegator for EVERY non-mutate action.
+  # ToolDelegator gates by the declared action list — unknown verbs short-circuit
   # with the invalid_action Error before reaching Chat::Dispatcher.
-  # We let VerbDelegator run for real here (pure registry lookup, no DB).
+  # We let ToolDelegator run for real here (pure registry lookup, no DB).
 
   describe "unknown action → invalid_action Error" do
     before do
-      # Override the global stub: let VerbDelegator's own gating fire for real.
-      allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_call_original
+      # Override the global stub: let ToolDelegator's own gating fire for real.
+      allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_call_original
     end
 
     %w[channel sync visit studio foo bar baz].each do |action|

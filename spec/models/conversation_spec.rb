@@ -288,6 +288,39 @@ RSpec.describe Conversation, type: :model do
     end
   end
 
+  describe ".recency_page" do
+    it "pages by SIDEBAR_PAGE_SIZE with an opaque cursor, no overlap, no gap" do
+      stub_const("Conversation::SIDEBAR_PAGE_SIZE", 3)
+      conversations = Array.new(5) { |i| create(:conversation, created_at: (i + 6).hours.ago) }
+
+      p1 = Conversation.recency_page
+      expect(p1[:recent].size + p1[:older].size).to eq(3)
+      expect(p1[:next_cursor]).to be_present
+
+      p2 = Conversation.recency_page(after: p1[:next_cursor])
+      expect(p2[:recent]).to be_empty # follow-up pages are flat older rows
+      expect(p2[:older].size).to eq(2)
+      expect(p2[:next_cursor]).to be_nil
+
+      paged = (p1[:recent] + p1[:older] + p2[:older]).map(&:id)
+      expect(paged).to eq(conversations.map(&:id)) # newest-first, complete
+    end
+
+    it "keeps the 24h recent/older partition on the first page" do
+      fresh = create(:conversation, created_at: 1.hour.ago)
+      stale = create(:conversation, created_at: 3.days.ago)
+
+      page = Conversation.recency_page
+      expect(page[:recent].map(&:id)).to include(fresh.id)
+      expect(page[:older].map(&:id)).to include(stale.id)
+    end
+
+    it "returns nil cursor when everything fits one page" do
+      create(:conversation)
+      expect(Conversation.recency_page[:next_cursor]).to be_nil
+    end
+  end
+
   describe ".recency_groups" do
     context "when there are no conversations" do
       it "returns empty recent and older buckets" do

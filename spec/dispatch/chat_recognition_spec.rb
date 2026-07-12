@@ -22,7 +22,7 @@ RSpec.describe "Dispatch — chat verb recognition", type: :dispatch do
         it "#{token.inspect} → verb #{spec.name} (stack :chat)" do
           intent = parsed_intent("#{token} some args here")
           expect(intent[:stack]).to eq(:chat)
-          expect(intent[:verb]).to eq(spec.name)
+          expect(intent[:tool]).to eq(spec.name)
         end
       end
     end

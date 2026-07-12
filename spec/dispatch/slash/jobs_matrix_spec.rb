@@ -8,7 +8,7 @@ require "rails_helper"
 # exception. All Pito::Jobs::* services are stubbed; zero SolidQueue model
 # access, zero factories. No Conversation record created.
 #
-# Branches (source: app/services/pito/slash/handlers/jobs.rb #call):
+# Branches (source: lib/pito/slash/handlers/jobs.rb #call):
 #
 #   1. help?                                 → show_help (man page)
 #   2. args.first ∈ {"", "status"}           → show_status
@@ -41,7 +41,7 @@ RSpec.describe "Dispatch matrix — /jobs (recognition, DB mocked)", type: :disp
   # exercise every branch without routing concerns or auth interception.
   def call_handler(args: [], kwargs: {}, raw: nil, authenticated: true)
     invocation = Pito::Slash::Invocation.new(
-      verb:   :jobs,
+      tool:   :jobs,
       args:   args,
       kwargs: kwargs,
       raw:    raw || [ "/jobs", *args ].join(" ")
@@ -72,7 +72,7 @@ RSpec.describe "Dispatch matrix — /jobs (recognition, DB mocked)", type: :disp
   describe "grammar recognition" do
     it "/jobs resolves to verb :jobs on the :slash stack (known)" do
       intent = parsed_intent("/jobs")
-      expect(intent).to include(stack: :slash, verb: :jobs, known: true)
+      expect(intent).to include(stack: :slash, tool: :jobs, known: true)
     end
 
     it "/jobs is gated as :authenticated_only" do
@@ -81,7 +81,7 @@ RSpec.describe "Dispatch matrix — /jobs (recognition, DB mocked)", type: :disp
 
     it "/jobs status also resolves — the subcommand is a positional arg, not a separate verb" do
       intent = parsed_intent("/jobs status")
-      expect(intent).to include(stack: :slash, verb: :jobs, known: true)
+      expect(intent).to include(stack: :slash, tool: :jobs, known: true)
     end
   end
 

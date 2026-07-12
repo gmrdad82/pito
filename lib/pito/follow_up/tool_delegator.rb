@@ -1,0 +1,81 @@
+# frozen_string_literal: true
+
+module Pito
+  module FollowUp
+    # Delegates a `#<handle> <tool> <rest>` reply to the SAME chat tool handler
+    # that serves `<tool> <rest>` in free chat.
+    #
+    # A follow-up handler (game_list, game_detail, …) becomes a thin shim: it
+    # passes the live source event + the reply's `rest` here. We reconstruct the
+    # chat invocation, run it through `Pito::Dispatch::Router` (the SAME path the
+    # typed pipeline uses) with a `FollowUpContext` attached (so resolution can
+    # scope to the source list's rows or read the source card's entity), then
+    # adapt the chat result into a follow-up result. One code path builds + sends;
+    # no duplication.
+    #
+    #   ToolDelegator.call(source_event: ev, rest: "show 5", conversation: c)
+    #   # → runs Chat::Handlers::Show with follow_up context → FollowUp::Result::Append
+    #
+    # GATING: the tool must be one of the source event's allowed reply
+    # actions (the `reply_target`'s declared `actions`, the canonical matrix). A
+    # disallowed tool is rejected with that target's `invalid_action` copy — never
+    # delegated. (An empty/unknown action list means "not gated".)
+    module ToolDelegator
+      module_function
+
+      # @param source_event   [Event]        the live event being replied to.
+      # @param rest            [String]       text after `#<handle> ` (e.g. "show 5", "rm").
+      # @param conversation    [Conversation]
+      # @param channel         [String, nil]  shift+tab channel scope, if any.
+      # @param period          [String, nil]  analytics window (e.g. "28d"), if any.
+      # @param viewport_width  [Integer, String, nil] scrollback width for list auto-fill.
+      # @return [Pito::FollowUp::Result::Append, Pito::FollowUp::Result::Error]
+      def call(source_event:, rest:, conversation:, channel: nil, period: nil, viewport_width: nil)
+        input = rest.to_s.strip
+        tool  = input[/\A\S+/].to_s.downcase
+
+        reply_target = source_event.payload.to_h.with_indifferent_access[:reply_target].to_s
+        allowed      = Pito::FollowUp::Registry.actions_for(reply_target).map(&:to_s)
+        if allowed.any? && !allowed.include?(tool)
+          return Pito::FollowUp::Result::Error.new(
+            message_key:  "pito.follow_up.#{reply_target}.errors.invalid_action",
+            message_args: { action: tool }
+          )
+        end
+
+        args    = input.sub(/\A\S+\s*/, "") # everything after the tool word
+
+        # Consult the declarative reply-branch paths (tools.yml
+        # reply.targets.<target>.ref/args) via Pito::Dispatch::ReplyBinding, and
+        # thread the resolved kwargs onto the follow-up context.
+        # The Router CONSUMES this `bound` into the uniform contract's
+        # `kwargs:` — flipping it from an advisory field nothing read into a
+        # first-class dispatch argument. The handlers' own resolution is still
+        # authoritative (byte-identical under the frozen matrices) until the
+        # generic executors absorb it.
+        binding = Pito::Dispatch::ReplyBinding.bind(
+          tool:, target: reply_target, rest: args, source_event:, conversation:
+        )
+        context = Pito::Chat::FollowUpContext.new(source_event:, rest: args, bound: binding.kwargs)
+        result  = Pito::Dispatch::Router.call(
+          input:          input,
+          conversation:   conversation,
+          channel:        channel,
+          period:         period,
+          viewport_width: viewport_width,
+          follow_up:      context
+        )
+
+        adapted = Pito::FollowUp::ChatResultAdapter.call(result)
+
+        # link and unlink are repeatable: the source card must NOT be consumed
+        # so the user can keep linking/unlinking additional targets.
+        if %w[link unlink].include?(tool) && adapted.is_a?(Pito::FollowUp::Result::Append)
+          adapted = Pito::FollowUp::Result::Append.new(events: adapted.events, consume: false)
+        end
+
+        adapted
+      end
+    end
+  end
+end

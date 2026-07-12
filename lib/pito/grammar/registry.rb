@@ -21,8 +21,8 @@ module Pito
     # BOOT CONTRACT
     #   register_all! resets all stores, then populates in order:
     #     1. Pito::Grammar::Vocabularies.register_all!(self)  — static + dynamic vocabs
-    #     2. ConfigSource.chat_specs                          — chat specs from verbs.yml
-    #     3. ConfigSource.slash_specs                         — slash specs from verbs.yml
+    #     2. ConfigSource.chat_specs                          — chat specs from tools.yml
+    #     3. ConfigSource.slash_specs                         — slash specs from tools.yml
     #     4. register_handler_specs                           — `grammar do…end` DSL fallback
     #        (now a no-op for slash; skips any name already registered in steps 2-3).
     #   Call register_all! once at app boot (config/initializers or to_prepare).
@@ -92,18 +92,18 @@ module Pito
         # Boot entry point.
         #
         # Composition order:
-        #   1. Vocabularies — ALL vocabs built from verbs.yml via ConfigSource
+        #   1. Vocabularies — ALL vocabs built from tools.yml via ConfigSource
         #      (static canonical/synonyms/fillers + dynamic resolver wiring).
-        #   2. Chat specs   — built from verbs.yml via ConfigSource (every verb
+        #   2. Chat specs   — built from tools.yml via ConfigSource (every tool
         #      that declares a `chat:` branch produces one Spec).
-        #   3. Slash specs  — built from verbs.yml via ConfigSource (every verb
+        #   3. Slash specs  — built from tools.yml via ConfigSource (every tool
         #      that declares a `slash:` branch). This replaced BOTH the hand-authored
         #      Ruby table (lib/pito/grammar/specs.rb) and the per-handler `grammar
         #      do…end` blocks — config is now the single source of slash grammar.
         #   4. Handler specs — the generic `grammar do…end` DSL fallback. Now a no-op
-        #      for slash (config registered every slash verb in step 3, so each
+        #      for slash (config registered every slash tool in step 3, so each
         #      handler's bare spec is skipped by the already-registered guard); kept
-        #      as cross-namespace infra for any future DSL-declared chat/hashtag verb.
+        #      as cross-namespace infra for any future DSL-declared chat/hashtag tool.
         def register_all!
           reset!
           Pito::Grammar::Vocabularies.register_all!(self)   if defined?(Pito::Grammar::Vocabularies)

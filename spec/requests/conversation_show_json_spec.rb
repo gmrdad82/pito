@@ -18,6 +18,23 @@ RSpec.describe "GET /chat/:uuid.json", type: :request do
   context "when authenticated" do
     before { login! }
 
+    it "carries the cycler seeds: conversation.scope + the top-level channels list" do
+      conversation.update!(scope_channel: "@gmrdad82hard", stats_period: "28d")
+      create(:channel, handle: "@gmrdad82")
+      create(:channel, handle: "@gmrdad82hard")
+
+      get "/chat/#{conversation.uuid}.json"
+
+      body = response.parsed_body
+      expect(body["conversation"]["scope"]).to eq({ "channel" => "@gmrdad82hard", "period" => "28d" })
+      expect(body["channels"]).to eq([ "@all", "@gmrdad82", "@gmrdad82hard" ])
+    end
+
+    it "defaults scope to @all/7d on a fresh conversation" do
+      get "/chat/#{conversation.uuid}.json"
+      expect(response.parsed_body["conversation"]["scope"]).to eq({ "channel" => "@all", "period" => "7d" })
+    end
+
     it "returns the conversation envelope and the events in EventJson shape, position-ordered" do
       turn = conversation.turns.create!(
         position: Turn.next_position_for(conversation), input_kind: :chat, input_text: "hello"
@@ -40,8 +57,6 @@ RSpec.describe "GET /chat/:uuid.json", type: :request do
       expect(ctx["pct"]).to eq(Pito::Shell::ContextMeterComponent.pct(conversation.context_event_count))
 
       # G125: identity + unread for the mini status.
-      expect(body["me"]["handle"]).to eq("@#{AppSetting.nickname}")
-      expect(body["me"]["name"]).to eq(AppSetting.nickname)
       expect(body["notifications"]["unread"]).to eq(Notification.unread.count)
 
       expect(body["events"].map { |e| e["id"] }).to eq([ echo.id, sys.id ])

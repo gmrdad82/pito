@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-# Test-support seam for injecting a synthetic verbs.yml document into
+# Test-support seam for injecting a synthetic tools.yml document into
 # Pito::Dispatch::Config for the duration of an example — the config-document
-# injection helper the add-a-verb proof (spec/dispatch/add_a_verb_proof_spec.rb)
+# injection helper the add-a-dispatch-tool proof (spec/dispatch/add_a_tool_proof_spec.rb)
 # relies on. It is the ONLY new test-support code that proof needs.
 #
 # WHY A DOC OVERRIDE (and not a Config::PATH + stub_const seam)
@@ -35,7 +35,7 @@ module DispatchConfigInjection
   # rebuild the derived caches. Returns the injected (deep-frozen) document.
   def inject_dispatch_config!(verbs: nil, vocabularies: nil, universal_reply: nil, mcp_readers: nil)
     doc = Pito::Dispatch::Config.data.deep_dup # ActiveSupport deep_dup → unfrozen tree
-    merge_section!(doc, :verbs, verbs)
+    merge_section!(doc, :tools, verbs)
     merge_section!(doc, :vocabularies, vocabularies)
     merge_section!(doc, :universal_reply, universal_reply)
     merge_section!(doc, :mcp_readers, mcp_readers)
@@ -49,7 +49,7 @@ module DispatchConfigInjection
   # The document installed by the most recent inject_dispatch_config! call.
   attr_reader :injected_dispatch_document
 
-  # Restore the real verbs.yml document + every derived cache. Idempotent.
+  # Restore the real tools.yml document + every derived cache. Idempotent.
   def restore_dispatch_config!
     Pito::Dispatch::Config.reload!
     rebuild_dispatch_caches!

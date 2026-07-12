@@ -41,4 +41,20 @@ RSpec.describe "GET /resume", type: :request do
       expect(response).not_to have_http_status(:ok)
     end
   end
+  describe "pagination (?after=)" do
+    it "appends the next page's rows and replaces the sentinel" do
+      stub_const("Conversation::SIDEBAR_PAGE_SIZE", 2)
+      3.times { Conversation.create! }
+      authenticate_via_totp
+
+      get resume_path, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      cursor = response.body[/after=([A-Za-z0-9_\-]+)/, 1]
+      expect(cursor).to be_present
+
+      get resume_path(after: cursor), headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('action="append" target="pito-conversations-more"')
+      expect(response.body).to include(Pito::ListPager::SentinelComponent::SENTINEL_ID)
+    end
+  end
 end

@@ -65,8 +65,8 @@ en:
               "games": "The channel's linked games as a cover grid (shown only when linked games exist)"
               "videos": "Paginated list of the channel's videos (shown only when videos exist)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
-      # Segment verbs: each promotes one show/analyze :enhanced segment
-      # into its own verb. Behaviour equals `<parent> <noun> <ref> only <segment>`.
+      # Segment tools: each promotes one show/analyze :enhanced segment
+      # into its own tool. Behaviour equals `<parent> <noun> <ref> only <segment>`.
       "at-a-glance":
         usage: "at-a-glance channel @handle  |  at-a-glance vid #id  |  at-a-glance game #id"
         channel:
@@ -443,7 +443,7 @@ en:
           usage: "analyze channel [@handle[, @h2…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
-              "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are verb aliases"
+              "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are command aliases"
               "[@handle]": "One or more channel handles; omit to use the shift+tab scope (@all = every channel, else the selected one)"
             Options:
               "full": "Emit both numbers and breakdowns segments"

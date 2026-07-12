@@ -43,7 +43,7 @@ file.
 
 ### Steps
 
-1. **Create a definition file** in `app/services/pito/themes/definitions/`. Name it
+1. **Create a definition file** in `lib/pito/themes/definitions/`. Name it
    `<slug_underscored>.rb` (e.g. `rose_pine.rb` for slug `"rose-pine"`). The
    registry auto-discovers every `*.rb` file in that directory on first access — no
    other wiring needed.
@@ -225,7 +225,7 @@ decides its own chrome.**
    `border-radius: 0`; no `style=`; no hover.
 
 3. **Write the builder** at
-   `app/services/pito/message_builder/<domain>/<verb>.rb` — a `module_function`
+   `lib/pito/message_builder/<domain>/<verb>.rb` — a `module_function`
    module with a single `.call` returning a **Hash with string keys** (symbol keys
    stringify on `jsonb` persist; string keys round-trip cleanly):
 

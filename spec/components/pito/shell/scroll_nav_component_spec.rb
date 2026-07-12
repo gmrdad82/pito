@@ -61,7 +61,8 @@ RSpec.describe Pito::Shell::ScrollNavComponent do
 
   it "includes the filled jump-to-end arrow copy in the bottom pill" do
     bottom_pill = node.css(".pito-scroll-nav__pill--bottom").first
-    expect(bottom_pill.text).to include("jump ▼")
+    expect(bottom_pill.text).to include("▼")
+    expect(bottom_pill.text).not_to include("jump")
   end
 
   # ── Count spans (JS-filled, empty on render) ─────────────────────────────────

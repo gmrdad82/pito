@@ -9,8 +9,8 @@ require "rails_helper"
 # are stubbed; the resolver "finds" exactly what was requested.
 #
 # Subjects:
-#   app/services/pito/chat/handlers/link.rb
-#   app/services/pito/chat/handlers/multi_link_helpers.rb (included in Link)
+#   lib/pito/chat/handlers/link.rb
+#   lib/pito/chat/handlers/multi_link_helpers.rb (included in Link)
 #
 # Free-chat (Handler#call non-follow_up branch):
 #   body_tokens joined → split on \b(to|with)\b → left / right halves
@@ -44,7 +44,7 @@ RSpec.describe "Dispatch matrix — link (recognition, DB mocked)", type: :dispa
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: i.positive?)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :link,
+      tool:        :link,
       body_tokens: tokens,
       kind:        :new_turn,
       raw:         "link #{body}"

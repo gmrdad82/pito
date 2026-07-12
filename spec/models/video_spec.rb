@@ -133,4 +133,29 @@ RSpec.describe Video, type: :model do
       expect(build(:video, category_id: nil).category_name).to be_nil
     end
   end
+
+  describe ".picker_page" do
+    it "pages by PICKER_PAGE_SIZE, case-stable, zero overlap, exact continuity" do
+      stub_const("Video::PICKER_PAGE_SIZE", 3)
+      %w[apple Banana cherry Delta echo].each { |t| create(:video, title: t) }
+
+      p1, c1 = Video.picker_page
+      expect(p1.size).to eq(3)
+      expect(c1).to be_present
+
+      p2, c2 = Video.picker_page(after: c1)
+      expect(p2.size).to eq(2)
+      expect(c2).to be_nil
+
+      expect((p1 + p2).map(&:title).map(&:downcase))
+        .to eq(%w[apple banana cherry delta echo])
+      expect((p1.map(&:id) & p2.map(&:id))).to be_empty
+    end
+
+    it "treats a malformed cursor as the first page" do
+      create(:video, title: "Solo")
+      rows, = Video.picker_page(after: "garbage!!")
+      expect(rows).not_to be_empty
+    end
+  end
 end

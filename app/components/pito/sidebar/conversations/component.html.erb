@@ -1,14 +1,20 @@
 <%# Sidebar conversation list — Recent section + optional Older section.
     data-delete-prompt carries a witty Pito::Copy "press d again" variant the
     resume controller shows when a row is armed (orange = confirmation). %>
-<div class="flex flex-col" data-delete-prompt="<%= Pito::Copy.render("pito.copy.conversations.delete_confirm") %>">
+<%# The wrapper is also the generic keyset pager (pito--list-pager): scrolling
+    the sentinel into view fetches /resume?after=… which appends rows into
+    #pito-conversations-more and replaces the sentinel — same mechanism as the
+    notifications panel. %>
+<div class="flex flex-col" data-controller="pito--list-pager"
+     data-delete-prompt="<%= Pito::Copy.render("pito.copy.conversations.delete_confirm") %>">
   <%# Recent section %>
   <div class="mb-2">
     <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.recent"), color: :yellow)) %>
     <% recent.each do |conversation| %>
       <%= render partial: "conversations/row",
                  locals: { conversation: conversation, current: current?(conversation),
-                           timestamp: formatted_timestamp(conversation) } %>
+                           timestamp: formatted_timestamp(conversation),
+                           ai: ai_thread?(conversation) } %>
     <% end %>
   </div>
 
@@ -22,8 +28,16 @@
       <% older.each do |conversation| %>
         <%= render partial: "conversations/row",
                    locals: { conversation: conversation, current: current?(conversation),
-                             timestamp: formatted_timestamp(conversation) } %>
+                             timestamp: formatted_timestamp(conversation),
+                             ai: ai_thread?(conversation) } %>
       <% end %>
     </div>
+  <% end %>
+
+  <%# Later pages land here (always older than page 1's cutoff), then the
+      pager sentinel (shimmer loader while fetching / end-of-list copy). %>
+  <div id="pito-conversations-more" class="flex flex-col" data-pito--list-pager-target="list"></div>
+  <% if next_cursor.present? %>
+    <%= render(Pito::ListPager::SentinelComponent.new(next_url: resume_path(after: next_cursor))) %>
   <% end %>
 </div>

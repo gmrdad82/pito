@@ -15,19 +15,18 @@ module Pito
 
         def label
           if @state
-            t("pito.shell.mini_status.authenticated", nickname: AppSetting.nickname)
+            # The tag IS the identity now (owner fat-cut: the nickname/"me"
+            # concept is gone): "dev" outside production, the image tag in
+            # prod ("pito" only when the build carries no meaningful tag).
+            t("pito.shell.mini_status.authenticated", tag: Pito::Version.suffix.presence || "pito")
           else
             t("pito.shell.mini_status.anonymous")
           end
         end
 
-        # Authenticated wears the green↔yellow "me" shimmer; anonymous
-        # stays flat red.
-        def css_class = @state ? "pito-me-shimmer" : "text-red"
-
-        # The muted `@suffix` after the nickname (image tag in prod, host in dev) —
-        # only when authenticated. nil → no suffix rendered.
-        def version_suffix = @state ? Pito::Version.suffix : nil
+        # One trailing tone across the bar (owner): tag, count, "commands"
+        # all wear the dim token; anonymous stays red.
+        def css_class = @state ? "text-fg-dim" : "text-red"
       end
     end
   end

@@ -12,7 +12,7 @@ require "rails_helper"
 # ── What is mocked ──────────────────────────────────────────────────────────
 # • AppSetting.singleton_row.update! (google client_id/secret, voyage api_key)
 # • All AppSetting class-level writer methods (redirect_uri=, igdb_client_id=, …)
-# • All AppSetting class-level reader methods (sound_enabled?, nickname, …)
+# • All AppSetting class-level reader methods (sound_enabled?, …)
 #   → deterministic defaults so getter paths return predictable text
 # • Pito::Credentials.* reader methods (for provider status display)
 # • Pito::Credentials.invalidate!
@@ -42,7 +42,7 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
   # The handler's own `help?` check fires when raw contains "--help".
   def build_handler(args: [], kwargs: {}, raw: nil, authenticated: true)
     raw ||= args.empty? ? "/config" : "/config #{args.join(' ')}"
-    invocation = Pito::Slash::Invocation.new(verb: :config, args:, kwargs:, raw:)
+    invocation = Pito::Slash::Invocation.new(tool: :config, args:, kwargs:, raw:)
     Pito::Slash::Handlers::Config.new(invocation:, conversation:, authenticated:)
   end
 
@@ -59,7 +59,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     allow(AppSetting).to receive(:slack_webhook_url=)
     allow(AppSetting).to receive(:discord_webhook_url=)
     allow(AppSetting).to receive(:sound_enabled=)
-    allow(AppSetting).to receive(:nickname=)
     allow(AppSetting).to receive(:timezone=)
 
     # ── Cache invalidation: no-op
@@ -67,7 +66,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
 
     # ── AppSetting readers: deterministic defaults
     allow(AppSetting).to receive(:sound_enabled?).and_return(true)
-    allow(AppSetting).to receive(:nickname).and_return("testuser")
     allow(AppSetting).to receive(:timezone).and_return("UTC")
 
     # ── Pito::Credentials readers (used by PROVIDER_STATUS lambdas in show_status)
@@ -133,7 +131,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       "/config voyage --help"              => [ %w[voyage],  "/config voyage --help" ],
       "/config igdb --help"               => [ %w[igdb],    "/config igdb --help" ],
       "/config webhook --help"             => [ %w[webhook], "/config webhook --help" ],
-      "/config me --help"                  => [ %w[me],      "/config me --help" ],
       "/config timezone --help"            => [ %w[timezone], "/config timezone --help" ]
     }.each do |label, (args, raw)|
       it "#{label} → Result::Ok (HTML man-page)" do
@@ -154,11 +151,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(body).to include("/connect")
     end
 
-    it "/config me --help body contains nickname= token" do
-      result = build_handler(args: %w[me], raw: "/config me --help").call
-      body = result.events.first[:payload]["body"]
-      expect(body).to include("nickname=")
-    end
 
     it "/config timezone --help body contains /config timezone usage" do
       result = build_handler(args: %w[timezone], raw: "/config timezone --help").call
@@ -411,57 +403,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
 
   # ── Me provider ──────────────────────────────────────────────────────────────
   describe "me provider" do
-    it "/config me (getter, no kwargs) → Result::Ok with current nickname" do
-      result = build_handler(args: %w[me], raw: "/config me").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    it "/config me nickname=Foo → Result::Ok; calls AppSetting.nickname=" do
-      expect(AppSetting).to receive(:nickname=).with("Foo")
-      result = build_handler(args: %w[me], kwargs: { nickname: "Foo" }).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    it "/config me nickname=Foo broadcasts global mini-status (live auth-label refresh)" do
-      expect(Pito::Stream::Broadcaster).to receive(:broadcast_global_mini_status)
-      build_handler(args: %w[me], kwargs: { nickname: "Foo" }).call
-    end
-
-    it "/config me nickname=   (blank after strip) → blank_nickname error" do
-      result = build_handler(args: %w[me], kwargs: { nickname: "   " }).call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.blank_nickname")
-    end
-
-    it "/config me nickname= (empty string) → blank_nickname error" do
-      result = build_handler(args: %w[me], kwargs: { nickname: "" }).call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.blank_nickname")
-    end
-
-    it "/config me nickname=blank → blank_nickname error does NOT broadcast" do
-      expect(Pito::Stream::Broadcaster).not_to receive(:broadcast_global_mini_status)
-      build_handler(args: %w[me], kwargs: { nickname: "" }).call
-    end
-
-    it "/config me bad_key=val → unknown_keys error" do
-      result = build_handler(args: %w[me], kwargs: { bad_key: "val" }).call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
-      expect(result.message_args[:provider]).to eq("me")
-    end
-
-    it "/config me api_key=x → unknown_keys error (only nickname= accepted)" do
-      result = build_handler(args: %w[me], kwargs: { api_key: "x" }).call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
-    end
-
-    it "/config me client_id=x → unknown_keys error" do
-      result = build_handler(args: %w[me], kwargs: { client_id: "x" }).call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
-    end
   end
 
   # ── Timezone provider ─────────────────────────────────────────────────────────

@@ -11,8 +11,8 @@ require "rails_helper"
 # Declared actions: "shinies"
 #
 # Routing in ChannelList#call:
-#   "shinies"      → VerbDelegator (delegates to Chat::Handlers::Shinies)
-#   unknown action → Result::Error (invalid_action) — returned directly, no VerbDelegator
+#   "shinies"      → ToolDelegator (delegates to Chat::Handlers::Shinies)
+#   unknown action → Result::Error (invalid_action) — returned directly, no ToolDelegator
 #
 # Bug contract: a declared action that returns invalid_action Error is a BUG.
 RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB mocked)", type: :dispatch do
@@ -26,11 +26,11 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
 
   let(:conversation) { instance_double(Conversation) }
 
-  # Sentinel returned by VerbDelegator for every delegated action.
+  # Sentinel returned by ToolDelegator for every delegated action.
   let(:sentinel) { Pito::FollowUp::Result::Append.new(events: [], consume: false) }
 
   before do
-    allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(sentinel)
+    allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel)
   end
 
   def call(rest)
@@ -86,9 +86,9 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
     end
   end
 
-  # ── shinies — declared action, delegates to VerbDelegator ─────────────────────
+  # ── shinies — declared action, delegates to ToolDelegator ─────────────────────
 
-  describe "'shinies' — declared action → delegates to VerbDelegator" do
+  describe "'shinies' — declared action → delegates to ToolDelegator" do
     context "shinies @handle" do
       subject(:result) { call("shinies @mychannel") }
 
@@ -96,14 +96,14 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
         expect(result).not_to be_a(Pito::FollowUp::Result::Error)
       end
 
-      it "delegates to VerbDelegator.call with source_event, full rest, conversation" do
+      it "delegates to ToolDelegator.call with source_event, full rest, conversation" do
         result
-        expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+        expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
           hash_including(source_event:, rest: "shinies @mychannel", conversation:)
         )
       end
 
-      it "returns the sentinel Append from VerbDelegator" do
+      it "returns the sentinel Append from ToolDelegator" do
         expect(result).to eq(sentinel)
       end
     end
@@ -111,13 +111,13 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
     context "bare 'shinies' (no handle argument)" do
       subject(:result) { call("shinies") }
 
-      it "still delegates to VerbDelegator (not invalid_action)" do
+      it "still delegates to ToolDelegator (not invalid_action)" do
         expect(result).not_to be_a(Pito::FollowUp::Result::Error)
       end
 
       it "delegates with rest: 'shinies'" do
         result
-        expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+        expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
           hash_including(source_event:, rest: "shinies", conversation:)
         )
       end
@@ -131,7 +131,7 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
   # ── Unknown action → invalid_action Error ─────────────────────────────────────
   #
   # channel_list declares only "shinies". All other verbs return invalid_action
-  # directly (no VerbDelegator involvement).
+  # directly (no ToolDelegator involvement).
 
   describe "unknown action → invalid_action Error" do
     %w[visit open sync show help delete rm reindex bogus].each do |unknown|
@@ -150,9 +150,9 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
           expect(result.message_args).to include(action: unknown)
         end
 
-        it "does NOT delegate to VerbDelegator" do
+        it "does NOT delegate to ToolDelegator" do
           result
-          expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+          expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
         end
       end
     end

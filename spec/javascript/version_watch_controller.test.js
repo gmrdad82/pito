@@ -69,22 +69,22 @@ describe("pito--version-watch controller", () => {
     scaffold({ pageVersion: "1.0.1", serverVersion: "1.1.0" })
     const slot = document.createElement("span")
     slot.id = "pito-mini-status-version"
-    slot.textContent = "@1.0.1"
+    slot.textContent = "\u00A0dev"
     document.body.appendChild(slot)
     await start()
 
-    expect(slot.textContent).toBe("@1.1.0")
+    expect(slot.textContent).toBe("\u00A01.1.0")
   })
 
   it("updates the slot even when versions MATCH (the listener is unconditional)", async () => {
     scaffold({ pageVersion: "1.1.0", serverVersion: "1.1.0" })
     const slot = document.createElement("span")
     slot.id = "pito-mini-status-version"
-    slot.textContent = "@stale"
+    slot.textContent = "\u00A0stale"
     document.body.appendChild(slot)
     await start()
 
-    expect(slot.textContent).toBe("@1.1.0")
+    expect(slot.textContent).toBe("\u00A01.1.0")
   })
 
   it("stays quiet when the versions match", async () => {

@@ -17,13 +17,15 @@ module Games
   class SearchLocalController < ApplicationController
     def create
       q = params[:q].to_s.strip
-      games = if q.blank?
-        Game.order(:title).limit(50)
+      if q.blank?
+        # Clearing the search restores page 1 AND the pager sentinel — a
+        # bare rows render here used to strand the picker capped at 50.
+        games, next_cursor = Game.picker_page
+        render partial: "games/picker_reset", locals: { games:, next_cursor: }
       else
-        Game.where("title ILIKE ?", "%#{q}%").order(:title).limit(50)
+        games = Game.where("title ILIKE ?", "%#{q}%").order(:title).limit(50)
+        render partial: "games/picker_rows", locals: { games: games }
       end
-
-      render partial: "games/picker_rows", locals: { games: games }
     end
   end
 end

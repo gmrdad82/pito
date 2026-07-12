@@ -9,7 +9,7 @@ module Pito
     #
     # The static Vocabulary.define(…) constants that once lived here (NOUNS,
     # GENRES, PLATFORMS, METRICS, etc.) have been deleted — they are now built
-    # from config/pito/verbs.yml by ConfigSource. MASKED_CONFIG_KEYS and
+    # from config/pito/tools.yml by ConfigSource. MASKED_CONFIG_KEYS and
     # PROVIDER_KEYS are non-vocabulary config helpers and remain here.
     #
     # External callers that referenced individual vocabulary objects by constant
@@ -23,11 +23,12 @@ module Pito
       # Per-provider kv key lists — single source of truth for autocomplete.
       # These mirror the keys in Pito::Slash::Handlers::Config::PROVIDER_SETTERS.
       PROVIDER_KEYS = {
+        "ai"       => %w[provider api_key model effort],
+        "tavily"   => %w[api_key],
         "google"   => %w[client_id client_secret redirect_uri api_key],
         "voyage"   => %w[api_key],
         "igdb"     => %w[client_id client_secret],
         "webhook"  => %w[slack discord],
-        "me"       => %w[nickname],
         "sound"    => [],
         "timezone" => []
       }.freeze
@@ -40,7 +41,7 @@ module Pito
 
       # ── Public API ───────────────────────────────────────────────────────────
 
-      # Returns all Vocabulary objects, built from config/pito/verbs.yml via
+      # Returns all Vocabulary objects, built from config/pito/tools.yml via
       # Pito::Grammar::ConfigSource. Replaces the former hand-authored constant array.
       def self.all
         Pito::Grammar::ConfigSource.vocabularies

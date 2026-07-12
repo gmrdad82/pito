@@ -2,9 +2,9 @@ en:
   pito:
     slash:
       errors:
-        unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
+        unknown_tool: "Unknown command: /%{tool}. Type /help for the command list."
         parse_failed: "Couldn't parse command: %{raw}"
-        too_many_args: "/%{verb} doesn't take that many arguments. You're overloading it — try /help."
+        too_many_args: "/%{tool} doesn't take that many arguments. You're overloading it — try /help."
       confirm_hint: "type /confirm or /cancel"
       login:
         help:
@@ -30,17 +30,21 @@ en:
           description: "Initiate Google OAuth to connect a YouTube channel."
       config:
         descriptions:
-          config: "Read or write install-wide credentials, toggle sound, set the display time zone, or configure your nickname (/config ai|google|voyage|igdb|webhook|me|sound|timezone)"
+          config: "Read or write install-wide credentials, toggle sound, or set the display time zone (/config ai|google|voyage|igdb|webhook|sound|timezone)"
         help:
           general:
             body: "/config <provider> [on|off | key=value …]"
+            groups:
+              ai: "AI:"
+              sources: "Sources:"
+              profile: "Profile:"
             providers:
               ai: "AI provider, key, model & effort (bare `/config ai` opens the picker)"
+              tavily: "Web search key for @ai --web (Tavily)"
               google: "OAuth + YouTube API credentials"
               voyage: "Voyage AI embedding key"
               igdb: "IGDB game database client credentials"
               webhook: "Slack / Discord incoming webhook URLs"
-              me: "Set the authenticated display nickname"
               sound: "Toggle sound effects on or off"
               timezone: "Set the display time zone (timestamps + schedule input)"
             info_line: "`/config <provider> --help` for provider-level key reference."
@@ -52,6 +56,9 @@ en:
                 model: "Model id from the scoped provider's catalog — becomes the active pick"
                 effort: "low|medium|high|off — binds to the ACTIVE model (per-model setting)"
               omit_hint: "Omit all keys to open the model/key picker."
+            tavily:
+              keys:
+                api_key: "Tavily API key — powers `@ai --web <question>` (tavily.com, free tier)"
             google:
               keys:
                 client_id: "Google OAuth client ID (Google Cloud Console)"
@@ -73,16 +80,9 @@ en:
               keys:
                 slack: "Slack incoming webhook URL"
                 discord: "Discord webhook URL"
-            me:
-              keys:
-                nickname: "Display name shown in the status bar when authenticated (default: gmrdad82)"
-              omit_hint: "Omit the key to show the current nickname."
             sound:
               keys: {}
             timezone: "/config timezone <City> — set the display zone from a major city (e.g. /config timezone Madrid → Europe/Madrid). Times still store in UTC; only rendering and schedule input switch to local. `/config timezone` shows the current zone."
-        me:
-          nickname_updated: "Nickname set to %{nickname}."
-          status: "Nickname: %{nickname}."
         status:
           ok: "OK"
           missing: "MISSING"
@@ -92,7 +92,6 @@ en:
             voyage: "Voyage credentials"
             igdb: "IGDB credentials"
             webhook: "Webhook URLs"
-            me: "Display nickname"
         updated: "Updated %{provider} credentials (%{keys}). Changes take effect immediately."
         toggle:
           sound:
@@ -114,7 +113,6 @@ en:
           ai_no_model: "Effort binds to the active model — pick a model first (/config ai or model=…)."
           invalid_toggle_value: "Invalid value '%{value}'. Use on or off."
           unknown_timezone: "'%{city}'? No clock ticks there. Name a major city like Madrid, Tokyo, or London."
-          blank_nickname: "Nickname can't be blank."
       notifications:
         descriptions:
           notifications: "Open the notifications panel"

@@ -5,19 +5,19 @@ module Pito
     class Registry
       class << self
         def register(handler_class)
-          verb = handler_class.verb
-          registry[verb] = handler_class
+          tool = handler_class.tool
+          registry[tool] = handler_class
         end
 
-        def lookup(verb)
-          registry[verb.to_sym]
+        def lookup(tool)
+          registry[tool.to_sym]
         end
 
         def size
           registry.size
         end
 
-        def registered_verbs
+        def registered_tools
           registry.keys
         end
 
@@ -36,7 +36,7 @@ module Pito
 
           Pito::Chat::Handlers.constants
             .map { |c| Pito::Chat::Handlers.const_get(c) }
-            .select { |c| c.is_a?(Class) && c < Pito::Chat::Handler && c.instance_variable_defined?(:@verb) && c.instance_variable_get(:@verb) }
+            .select { |c| c.is_a?(Class) && c < Pito::Chat::Handler && c.instance_variable_defined?(:@tool) && c.instance_variable_get(:@tool) }
         rescue NameError
           []
         end

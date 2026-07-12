@@ -3,7 +3,7 @@
 require "rails_helper"
 
 class ChatRegistryTestHandler < Pito::Chat::Handler
-  self.verb = :testcmd
+  self.tool = :testcmd
   self.description_key = "pito.chat.test.descriptions.testcmd"
 
   def call

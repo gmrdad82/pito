@@ -4,8 +4,8 @@ require "rails_helper"
 
 RSpec.describe Pito::Slash::HelpBuilder do
   def build_invocation(raw:, args: [])
-    verb = raw.strip.split(/\s+/).first.delete_prefix("/").to_sym
-    Pito::Slash::Invocation.new(verb:, args:, kwargs: {}, raw:)
+    tool = raw.strip.split(/\s+/).first.delete_prefix("/").to_sym
+    Pito::Slash::Invocation.new(tool:, args:, kwargs: {}, raw:)
   end
 
   # Every --help response must be a man-page block.
@@ -173,11 +173,21 @@ RSpec.describe Pito::Slash::HelpBuilder do
       expect(result.events.first[:payload]["body"]).to include("/config")
     end
 
-    it "body includes a Providers: section listing all known providers" do
+    it "body groups providers under the three titled sections (T16.3: AI / Sources / Profile)" do
       body = result.events.first[:payload]["body"]
-      expect(body).to include("Providers:")
-      %w[google voyage igdb webhook me sound timezone].each do |p|
+      [ "AI:", "Sources:", "Profile:" ].each do |title|
+        expect(body).to include(title)
+      end
+      expect(body).not_to include("Providers:")
+    end
+
+    it "body lists every known provider with its description line" do
+      body = result.events.first[:payload]["body"]
+      %w[ai tavily google voyage igdb webhook sound timezone].each do |p|
         expect(body).to include(p)
+        expect(body).to include(
+          ERB::Util.html_escape(I18n.t("pito.slash.config.help.general.providers.#{p}"))
+        )
       end
     end
   end

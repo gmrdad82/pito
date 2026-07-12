@@ -9,8 +9,8 @@ module Pito
     # ## Contract
     #
     # Every concrete subclass MUST:
-    # - Set `self.verb = :symbol` — the command word (e.g. `:config`, `:help`).
-    # - Set `self.description_key = "pito.slash.<verb>.descriptions.<verb>"` — I18n key.
+    # - Set `self.tool = :symbol` — the command word (e.g. `:config`, `:help`).
+    # - Set `self.description_key = "pito.slash.<tool>.descriptions.<tool>"` — I18n key.
     # - Implement `#call` → returning `Pito::Slash::Result::Ok` or `Pito::Slash::Result::Error`.
     #
     # ## Class-level DSL (via `Pito::Grammar::HandlerDsl`)
@@ -20,7 +20,7 @@ module Pito
     #   literal :provider, source: :config_providers
     #   enum    :state,    source: :on_off, optional: true, when: { provider: %w[sound fx] }
     #   auth    :authenticated_only   # or :any
-    #   description_key "pito.grammar.slash.<verb>"
+    #   description_key "pito.grammar.slash.<tool>"
     # end
     # ```
     #
@@ -30,7 +30,7 @@ module Pito
     #
     # ## Instance accessors (available in `#call`)
     #
-    # - `invocation` (`Pito::Slash::Invocation`) — verb, args, kwargs, raw string.
+    # - `invocation` (`Pito::Slash::Invocation`) — tool, args, kwargs, raw string.
     # - `conversation` (`Conversation`) — the active conversation record.
     # - `authenticated` (Boolean) — whether the request was authenticated.
     #
@@ -44,7 +44,7 @@ module Pito
     #
     # ## `inherited` reset semantics
     #
-    # `Handler.inherited` clears `@verb`, `@description_key`, and all grammar ivars on
+    # `Handler.inherited` clears `@tool`, `@description_key`, and all grammar ivars on
     # every subclass so that class-level DSL assignments in one handler never bleed into
     # another, even when both inherit from the same base.
     class Handler
@@ -76,18 +76,18 @@ module Pito
         Pito::Slash::Result::Ok.new(events: [
           {
             kind:    :system,
-            payload: { text: "No --help defined for /#{self.class.verb}. Try /help for the command list." }
+            payload: { text: "No --help defined for /#{self.class.tool}. Try /help for the command list." }
           }
         ])
       end
 
       class << self
-        def verb
-          @verb or raise NotImplementedError, "#{name} must define self.verb"
+        def tool
+          @tool or raise NotImplementedError, "#{name} must define self.tool"
         end
 
-        def verb=(value)
-          @verb = value
+        def tool=(value)
+          @tool = value
         end
 
         def description_key
@@ -112,7 +112,7 @@ module Pito
 
         def inherited(subclass)
           super
-          subclass.instance_variable_set(:@verb, nil)
+          subclass.instance_variable_set(:@tool, nil)
           subclass.instance_variable_set(:@description_key, nil)
           subclass.instance_variable_set(:@validates_own_arity, false)
           subclass.reset_grammar_ivars!

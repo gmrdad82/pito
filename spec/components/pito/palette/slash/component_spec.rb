@@ -6,16 +6,16 @@ RSpec.describe Pito::Palette::Slash::Component do
   # Commands use description_key which maps to i18n translations.
   # Keys from config/locales/pito/palette/en.yml (pito.palette.slash.descriptions.*)
   let(:cmd_login) do
-    { verb: "login", description_key: "pito.palette.slash.descriptions.login" }
+    { tool: "login", description_key: "pito.palette.slash.descriptions.login" }
   end
   let(:cmd_channels) do
-    { verb: "channels", description_key: "pito.palette.slash.descriptions.channels" }
+    { tool: "channels", description_key: "pito.palette.slash.descriptions.channels" }
   end
   let(:cmd_videos) do
-    { verb: "videos", description_key: "pito.palette.slash.descriptions.videos" }
+    { tool: "videos", description_key: "pito.palette.slash.descriptions.videos" }
   end
   let(:cmd_help) do
-    { verb: "help", description_key: "pito.palette.slash.descriptions.help" }
+    { tool: "help", description_key: "pito.palette.slash.descriptions.help" }
   end
 
   # ──────────────────────────────────────────
@@ -85,7 +85,7 @@ RSpec.describe Pito::Palette::Slash::Component do
   describe "with a single command" do
     let(:node) { render_inline(described_class.new(commands: [ cmd_login ])) }
 
-    it "renders the verb prefixed with /" do
+    it "renders the tool prefixed with /" do
       expect(node.css("span.text-fg").map(&:text)).to include(include("/login"))
     end
 
@@ -106,11 +106,11 @@ RSpec.describe Pito::Palette::Slash::Component do
     let(:commands) { [ cmd_login, cmd_channels, cmd_videos ] }
     let(:node) { render_inline(described_class.new(commands: commands, selected_index: 0)) }
 
-    it "renders all command verbs" do
-      verbs = node.css("span.text-fg").map(&:text)
-      expect(verbs).to include(include("/login"))
-      expect(verbs).to include(include("/channels"))
-      expect(verbs).to include(include("/videos"))
+    it "renders all command tools" do
+      tools = node.css("span.text-fg").map(&:text)
+      expect(tools).to include(include("/login"))
+      expect(tools).to include(include("/channels"))
+      expect(tools).to include(include("/videos"))
     end
 
     it "renders all descriptions" do
@@ -165,13 +165,13 @@ RSpec.describe Pito::Palette::Slash::Component do
   end
 
   # ──────────────────────────────────────────
-  # Verb column fixed width
+  # Tool column fixed width
   # ──────────────────────────────────────────
-  describe "verb span formatting" do
-    it "renders verb spans with fixed width style" do
+  describe "tool span formatting" do
+    it "renders tool spans with fixed width style" do
       node = render_inline(described_class.new(commands: [ cmd_login ]))
-      verb_spans = node.css("span.text-fg[style*='width: 16ch']")
-      expect(verb_spans.first).not_to be_nil
+      tool_spans = node.css("span.text-fg[style*='width: 16ch']")
+      expect(tool_spans.first).not_to be_nil
     end
   end
 
@@ -179,7 +179,7 @@ RSpec.describe Pito::Palette::Slash::Component do
   # Various typed values (stored but not rendered directly)
   # ──────────────────────────────────────────
   describe "typed parameter" do
-    it "renders without error when typed is a partial verb" do
+    it "renders without error when typed is a partial tool" do
       node = render_inline(
         described_class.new(commands: [ cmd_login ], typed: "/log")
       )

@@ -9,7 +9,7 @@ require "rails_helper"
 # We invoke the handler directly (bypassing the dispatcher) so every branch is
 # exercised without auth-interception or routing noise.
 #
-# Branches (source: app/services/pito/slash/handlers/games.rb #call):
+# Branches (source: lib/pito/slash/handlers/games.rb #call):
 #
 #   1. help?                              → show_help (man-page, html: true)
 #   2. args.first blank / missing         → usage_hint (Pito::Copy text)
@@ -30,7 +30,7 @@ RSpec.describe "Dispatch matrix — /games (recognition, DB mocked)", type: :dis
   # exercise every branch without routing concerns or auth interception.
   def call_handler(args: [], kwargs: {}, raw: nil, authenticated: true)
     invocation = Pito::Slash::Invocation.new(
-      verb:   :games,
+      tool:   :games,
       args:   args,
       kwargs: kwargs,
       raw:    raw || [ "/games", *args ].join(" ")
@@ -43,7 +43,7 @@ RSpec.describe "Dispatch matrix — /games (recognition, DB mocked)", type: :dis
   # ═══════════════════════════════════════════════════════════════════════════
   describe "grammar recognition" do
     it "/games resolves to verb :games on the :slash stack (known)" do
-      expect(parsed_intent("/games")).to include(stack: :slash, verb: :games, known: true)
+      expect(parsed_intent("/games")).to include(stack: :slash, tool: :games, known: true)
     end
 
     it "/games is gated as :authenticated_only" do
@@ -51,23 +51,23 @@ RSpec.describe "Dispatch matrix — /games (recognition, DB mocked)", type: :dis
     end
 
     it "/games import resolves as :games (subcommand is a positional arg, not a separate verb)" do
-      expect(parsed_intent("/games import")).to include(stack: :slash, verb: :games, known: true)
+      expect(parsed_intent("/games import")).to include(stack: :slash, tool: :games, known: true)
     end
 
     it "/games import <single-word title> resolves as :games" do
-      expect(parsed_intent("/games import Celeste")).to include(stack: :slash, verb: :games, known: true)
+      expect(parsed_intent("/games import Celeste")).to include(stack: :slash, tool: :games, known: true)
     end
 
     it "/games import <multi-word title> resolves as :games" do
-      expect(parsed_intent("/games import The Witcher 3")).to include(stack: :slash, verb: :games, known: true)
+      expect(parsed_intent("/games import The Witcher 3")).to include(stack: :slash, tool: :games, known: true)
     end
 
     it "/games --help resolves as :games" do
-      expect(parsed_intent("/games --help")).to include(stack: :slash, verb: :games, known: true)
+      expect(parsed_intent("/games --help")).to include(stack: :slash, tool: :games, known: true)
     end
 
     it "/games <unknown-subcommand> resolves as :games (handler routes, not grammar)" do
-      expect(parsed_intent("/games frobnicate")).to include(stack: :slash, verb: :games, known: true)
+      expect(parsed_intent("/games frobnicate")).to include(stack: :slash, tool: :games, known: true)
     end
   end
 

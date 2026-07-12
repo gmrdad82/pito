@@ -1,0 +1,211 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe Pito::Chat::Handlers::Import do
+  def handler_for(raw = "import", channel: nil)
+    described_class.new(
+      message: Pito::Chat::Message.new(
+        tool: :import,
+        body_tokens: [],
+        kind: :new_turn,
+        raw: raw
+      ),
+      conversation: Conversation.singleton,
+      channel:      channel
+    )
+  end
+
+  # ── #11: games are the only importable thing — `import <title>` and bare
+  #    `import` open the IGDB game-import sidebar; only `import videos` is sync. ──
+
+  it "opens the empty import sidebar for bare `import`" do
+    result = handler_for.call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    payload = result.events.first[:payload]
+    expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+    expect((payload[:prefill] || payload["prefill"]).to_s).to be_empty
+  end
+
+  it "treats `import <title>` (no noun) as a game import with the title prefilled" do
+    result = handler_for("import something random").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    payload = result.events.first[:payload]
+    expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+    expect((payload[:prefill] || payload["prefill"]).to_s).to eq("something random")
+  end
+
+  it "#11: `import tekken` prefills the same as `import game tekken`" do
+    bare = handler_for("import tekken").call.events.first[:payload]
+    full = handler_for("import game tekken").call.events.first[:payload]
+    expect((bare[:prefill] || bare["prefill"]).to_s).to eq("tekken")
+    expect((full[:prefill] || full["prefill"]).to_s).to eq("tekken")
+  end
+
+  # ── import game / import games ────────────────────────────────────────────────
+
+  context "import game (sidebar path)" do
+    it "returns Result::Ok for 'import game'" do
+      result = handler_for("import game").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+    end
+
+    it "emits a system event with sidebar_open: 'games_import'" do
+      event = handler_for("import game").call.events.first
+      payload = event[:payload]
+      expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+    end
+
+    it "sets prefill to empty string when no title given" do
+      event = handler_for("import game").call.events.first
+      payload = event[:payload]
+      prefill = payload[:prefill] || payload["prefill"]
+      expect(prefill.to_s).to be_empty
+    end
+
+    it "sets prefill to the title when a title is given" do
+      event = handler_for("import game Hollow Knight").call.events.first
+      payload = event[:payload]
+      prefill = payload[:prefill] || payload["prefill"]
+      expect(prefill).to eq("Hollow Knight")
+    end
+
+    it "handles 'import games' (plural) with a title" do
+      event = handler_for("import games Dead Cells").call.events.first
+      payload = event[:payload]
+      prefill = payload[:prefill] || payload["prefill"]
+      expect(prefill).to eq("Dead Cells")
+    end
+  end
+
+  # ── import videos — @all scope ────────────────────────────────────────────────
+
+  context "import videos" do
+    let!(:connection) { create(:youtube_connection) }
+    let!(:channel)    { create(:channel, handle: "@pito", youtube_connection: connection) }
+
+    it "emits the sync_videos confirmation for bare 'import videos' (true alias)" do
+      result = handler_for("import videos").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["command"]).to eq("sync_videos")
+    end
+
+    it "carries an empty channel_ids array for @all scope" do
+      payload = handler_for("import videos", channel: "@all").call.events.first[:payload]
+      expect(payload["channel_ids"]).to eq([])
+      expect(payload["scope_label"]).to eq("all channels")
+    end
+
+    it "accepts the canonical short noun 'import vids'" do
+      event = handler_for("import vids").call.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["command"]).to eq("sync_videos")
+    end
+
+    it "accepts the singular short noun 'import vid'" do
+      event = handler_for("import vid").call.events.first
+      expect(event[:payload]["command"]).to eq("sync_videos")
+    end
+
+    it "scopes to the specific shift+tab channel" do
+      payload = handler_for("import videos", channel: "@pito").call.events.first[:payload]
+      expect(payload["channel_ids"]).to eq([ channel.id ])
+    end
+
+    it "stamps the payload as follow-up-able" do
+      payload = handler_for("import videos").call.events.first[:payload]
+      expect(Pito::FollowUp.followupable?(payload)).to be(true)
+      expect(payload["reply_target"]).to eq("confirmation")
+    end
+
+    it "returns a system error event for unknown shift+tab handle" do
+      result = handler_for("import videos", channel: "@unknown_xyz").call
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    # ── for @handle override ──────────────────────────────────────────────────
+
+    context "for @handle override" do
+      it "overrides shift+tab @all scope with the for-handle channel" do
+        payload = handler_for("import videos for @pito", channel: "@all").call.events.first[:payload]
+        expect(payload["channel_ids"]).to eq([ channel.id ])
+      end
+
+      it "overrides a different shift+tab channel with the for-handle channel" do
+        other_connection = create(:youtube_connection)
+        other = create(:channel, handle: "@other", youtube_connection: other_connection)
+        payload = handler_for("import videos for @pito", channel: "@other").call.events.first[:payload]
+        expect(payload["channel_ids"]).to eq([ channel.id ])
+      end
+
+      it "scopes correctly with no shift+tab channel (blank), using for @handle" do
+        payload = handler_for("import videos for @pito").call.events.first[:payload]
+        expect(payload["channel_ids"]).to eq([ channel.id ])
+      end
+
+      it "returns a system error event for an unknown for-handle" do
+        result = handler_for("import videos for @nobody", channel: "@all").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:kind]).to eq(:system)
+      end
+    end
+  end
+
+  # ── Fuzzy noun correction ─────────────────────────────────────────────────────
+
+  describe "fuzzy import noun detection" do
+    context "'import gamr' — fuzzy match to 'game' (dist 1, len 4)" do
+      # "gamr" (4 chars, threshold 1): dist("gamr","game") = 1 (r→e)
+      it "returns Result::Ok" do
+        result = handler_for("import gamr").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "prepends a correction note as the first event" do
+        result = handler_for("import gamr").call
+        note = result.events.first
+        expect(note[:kind]).to eq(:system)
+        text = note[:payload]["text"].to_s
+        expect(text).to include("gamr")
+        expect(text).to include("game")
+      end
+
+      it "emits the sidebar_open event as the second event" do
+        result = handler_for("import gamr").call
+        sidebar_event = result.events[1]
+        payload = sidebar_event[:payload]
+        expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+      end
+    end
+
+    context "'import gamr kirby' — fuzzy noun, free-text title untouched" do
+      # The typo noun 'gamr' is stripped; 'kirby' is left as the title.
+      it "prefills the sidebar with 'kirby'" do
+        result = handler_for("import gamr kirby").call
+        sidebar_event = result.events[1]
+        payload = sidebar_event[:payload]
+        prefill = payload[:prefill] || payload["prefill"]
+        expect(prefill).to eq("kirby")
+      end
+
+      it "prepends a correction note" do
+        result = handler_for("import gamr kirby").call
+        note = result.events.first
+        text = note[:payload]["text"].to_s
+        expect(text).to include("gamr")
+      end
+    end
+
+    context "'import something totally random' — no noun → game import (#11)" do
+      it "opens the game-import sidebar with the whole phrase as the prefill" do
+        result = handler_for("import something totally random").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        payload = result.events.first[:payload]
+        expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+        expect((payload[:prefill] || payload["prefill"]).to_s).to eq("something totally random")
+      end
+    end
+  end
+end

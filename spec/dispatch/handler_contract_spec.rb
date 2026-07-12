@@ -4,14 +4,14 @@ require "rails_helper"
 
 # The uniform dispatch contract (plan-0.9.5 T8.10) — the add-a-verb foundation.
 #
-# EVERY chat verb's `chat.dispatch` class in config/pito/verbs.yml must answer
+# EVERY chat verb's `chat.dispatch` class in config/pito/tools.yml must answer
 # the single contract the Router invokes: `call(kwargs:, context:) -> Result`.
 # When this holds, a new verb needs only (1) a config entry naming its dispatch
 # class and (2) a Pito::Chat::Handler subclass — ZERO Router edits (that proof
 # is T8.12b; this spec pins the property it relies on).
 RSpec.describe "chat verb dispatch contract", type: :dispatch do
   Pito::Dispatch::Config.reload!
-  CHAT_DISPATCH_ROWS = Pito::Dispatch::Config.data[:verbs].filter_map do |verb, body|
+  CHAT_DISPATCH_ROWS = Pito::Dispatch::Config.data[:tools].filter_map do |verb, body|
     dispatch = body.dig(:chat, :dispatch)
     { verb:, class_string: dispatch } if dispatch.is_a?(String)
   end.freeze

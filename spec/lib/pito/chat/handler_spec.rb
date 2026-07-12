@@ -6,7 +6,7 @@ RSpec.describe Pito::Chat::Handler do
   # A throwaway concrete subclass — the base class is abstract.
   let(:handler_class) do
     Class.new(described_class) do
-      self.verb = :test
+      self.tool = :test
       self.description_key = "pito.chat.test.descriptions.test"
       def call = Pito::Chat::Result::Ok.new(events: [])
     end

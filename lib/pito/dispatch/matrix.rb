@@ -2,7 +2,7 @@
 
 module Pito
   module Dispatch
-    # Pure Config-reader that derives the reply-availability matrix from verbs.yml.
+    # Pure Config-reader that derives the reply-availability matrix from tools.yml.
     #
     # Memoized off Config.data; call reload! (after Config.reload!) to invalidate.
     # Wired in config/initializers/pito_dispatch_config.rb so both caches clear
@@ -11,31 +11,31 @@ module Pito
     # Public API:
     #   Matrix.targets                            # => Array<String> all reply_target ids
     #   Matrix.actions_for(target_id)             # => Array<String> canonical tokens +
-    #                                             #    verb-level aliases + per-target aliases
+    #                                             #    tool-level aliases + per-target aliases
     #                                             #    + universal reply tokens
     #   Matrix.mode_for(target_id, action: nil)   # => :append | :mutate | nil
-    #   Matrix.verb_for(action)                   # => String (canonical) | nil
+    #   Matrix.tool_for(action)                   # => String (canonical) | nil
     #   Matrix.universal_tokens                   # => Array<String>
     #   Matrix.reload!                            # clears memoization
     module Matrix
       module_function
 
-      # All reply_target ids declared across every verb's reply.targets in verbs.yml.
+      # All reply_target ids declared across every tool's reply.targets in tools.yml.
       def targets
         idx[:targets]
       end
 
-      # Every action token available on target_id: canonical verb names, verb-level
+      # Every action token available on target_id: canonical tool names, tool-level
       # aliases, per-target aliases (e.g. new → [create] on resume_missing), and the
       # full universal reply set (share / revoke / unshare / help). Tokens are
-      # deduplicated and in a stable order (verbs first, universals last).
+      # deduplicated and in a stable order (tools first, universals last).
       # Returns [] for an unknown target.
       def actions_for(target_id)
         idx[:actions][target_id.to_s] || []
       end
 
       # All universal reply tokens: canonical names + aliases from universal_reply.
-      # For the current verbs.yml: share, revoke, unshare, help.
+      # For the current tools.yml: share, revoke, unshare, help.
       def universal_tokens
         idx[:universal_tokens]
       end
@@ -43,14 +43,14 @@ module Pito
       # Mode (:append or :mutate) for action on target_id; alias-aware.
       #
       # * action nil  → derived "base mode" for the target:
-      #                 :mutate when ALL verb entries on the target are :mutate,
+      #                 :mutate when ALL tool entries on the target are :mutate,
       #                 :append otherwise. Matches the DSL handler's class-level mode.
       # * universal   → always :append (regardless of target).
-      # * known alias → resolves per-target alias first, then global verb alias.
+      # * known alias → resolves per-target alias first, then global tool alias.
       # * unknown     → the target's BASE mode (mirrors the old DSL's
       #                 mode_for_action fallback; controller routing depends on it).
       #
-      # Returns nil when target_id is not in verbs.yml.
+      # Returns nil when target_id is not in tools.yml.
       def mode_for(target_id, action: nil)
         t = target_id.to_s
         return nil unless idx[:targets].include?(t)
@@ -60,15 +60,15 @@ module Pito
         else
           a = action.to_s.downcase
 
-          # A token the target itself declares (canonical verb or per-target
-          # alias) always resolves to the verb's declared mode — verb config wins
+          # A token the target itself declares (canonical tool or per-target
+          # alias) always resolves to the tool's declared mode — tool config wins
           # over the universal set, so a universal token can never override a
-          # verb's own declaration on its target.
-          canonical = resolve_verb_for(t, a)
-          declared  = canonical && idx.dig(:verb_modes, t, canonical)
+          # tool's own declaration on its target.
+          canonical = resolve_tool_for(t, a)
+          declared  = canonical && idx.dig(:tool_modes, t, canonical)
           return declared if declared
 
-          # Universal reply verbs are :append, unless this target is in the verb's except: set.
+          # Universal reply tools are :append, unless this target is in the tool's except: set.
           umode = idx[:universal_modes][a]
           if umode
             excepted = idx[:universal_excepts][a]
@@ -83,16 +83,16 @@ module Pito
         end
       end
 
-      # Returns the canonical verb name for an action token by scanning verb-level
+      # Returns the canonical tool name for an action token by scanning tool-level
       # and universal_reply aliases. Does NOT resolve per-target aliases (those are
       # target-scoped; use mode_for for that resolution).
       # Returns nil for unknown tokens.
-      def verb_for(action)
-        idx[:verb_index][action.to_s.downcase]
+      def tool_for(action)
+        idx[:tool_index][action.to_s.downcase]
       end
 
       # Clears memoization. Must be called after Config.reload! to keep the matrix
-      # consistent with the freshly-loaded verbs.yml document.
+      # consistent with the freshly-loaded tools.yml document.
       def reload!
         @idx = nil
       end
@@ -110,12 +110,12 @@ module Pito
         targets              = []         # Array<String> — all reply_target ids
         actions              = {}         # target_id => Array<String>
         base_mode            = {}         # target_id => :append | :mutate
-        verb_modes           = {}         # target_id => { canonical_verb => :symbol }
-        verb_index           = {}         # token => canonical_verb (global, verb-level)
-        per_target_alias_idx = {}         # target_id => { alias_token => canonical_verb }
+        tool_modes           = {}         # target_id => { canonical_tool => :symbol }
+        tool_index           = {}         # token => canonical_tool (global, tool-level)
+        per_target_alias_idx = {}         # target_id => { alias_token => canonical_tool }
 
-        # Step 1 — global verb-level alias index (top-level verbs + universal_reply).
-        build_verb_alias_index(data, verb_index)
+        # Step 1 — global tool-level alias index (top-level tools + universal_reply).
+        build_tool_alias_index(data, tool_index)
 
         # Step 2 — universal reply tokens and their modes.
         universal_tokens  = []
@@ -140,25 +140,25 @@ module Pito
         end
         universal_tokens = universal_tokens.uniq.freeze
 
-        # Step 3 — scan all verbs' reply targets.
-        (data[:verbs] || {}).each do |vname, vbody|
+        # Step 3 — scan all tools' reply targets.
+        (data[:tools] || {}).each do |vname, vbody|
           next unless vbody.is_a?(Hash) && vbody[:reply]
 
           canonical    = vname.to_s
-          # Only the canonical verb name populates actions_for. Verb-level aliases
+          # Only the canonical tool name populates actions_for. Tool-level aliases
           # are chat-context synonyms (e.g. analyze→analytics/stats, list→ls) and
           # must NOT appear as reply-target action tokens — they would pollute the
           # suggestions palette with confusing entries. Aliases that are meaningful
           # in reply context (del/rm, pub, order) are declared as per-target aliases
-          # on the specific reply.targets entries in verbs.yml.
-          verb_tokens  = [ canonical ]
+          # on the specific reply.targets entries in tools.yml.
+          tool_tokens  = [ canonical ]
 
           (vbody.dig(:reply, :targets) || {}).each do |target_sym, target_body|
             tid  = target_sym.to_s
             mode = target_body[:mode]&.to_sym || :append
 
             targets << tid unless targets.include?(tid)
-            (verb_modes[tid] ||= {})[canonical] = mode
+            (tool_modes[tid] ||= {})[canonical] = mode
 
             # Per-target aliases (e.g. new → resume_missing with aliases: [create]).
             per_target_aliases = Array(target_body[:aliases]).map(&:to_s)
@@ -166,7 +166,7 @@ module Pito
               (per_target_alias_idx[tid] ||= {})[a] = canonical
             end
 
-            (actions[tid] ||= []).concat(verb_tokens + per_target_aliases)
+            (actions[tid] ||= []).concat(tool_tokens + per_target_aliases)
           end
         end
 
@@ -177,8 +177,8 @@ module Pito
           injectable    = universal_tokens.reject { |tok| universal_excepts[tok]&.include?(tid) }
           actions[tid]  = specific.concat(injectable).uniq.freeze
 
-          tmodes = (verb_modes[tid] || {}).values
-          # :mutate iff every verb mode for this target is :mutate AND there is
+          tmodes = (tool_modes[tid] || {}).values
+          # :mutate iff every tool mode for this target is :mutate AND there is
           # at least one entry. Mixed or empty → :append.
           base_mode[tid] = (tmodes.any? && tmodes.all? { |m| m == :mutate }) ? :mutate : :append
         end
@@ -187,8 +187,8 @@ module Pito
           targets:               targets.freeze,
           actions:               actions.freeze,
           base_mode:             base_mode.freeze,
-          verb_modes:            verb_modes.transform_values(&:freeze).freeze,
-          verb_index:            verb_index.freeze,
+          tool_modes:            tool_modes.transform_values(&:freeze).freeze,
+          tool_index:            tool_index.freeze,
           per_target_alias_idx:  per_target_alias_idx.transform_values(&:freeze).freeze,
           universal_tokens:      universal_tokens,
           universal_modes:       universal_modes.freeze,
@@ -196,29 +196,29 @@ module Pito
         }.freeze
       end
 
-      def build_verb_alias_index(data, verb_index)
-        (data[:verbs] || {}).each do |vname, vbody|
+      def build_tool_alias_index(data, tool_index)
+        (data[:tools] || {}).each do |vname, vbody|
           canonical = vname.to_s
-          verb_index[canonical] = canonical
+          tool_index[canonical] = canonical
           next unless vbody.is_a?(Hash)
-          Array(vbody[:aliases]).each { |a| verb_index[a.to_s] = canonical }
+          Array(vbody[:aliases]).each { |a| tool_index[a.to_s] = canonical }
         end
 
         (data[:universal_reply] || {}).each do |vname, vbody|
           canonical = vname.to_s
-          verb_index[canonical] = canonical
+          tool_index[canonical] = canonical
           next unless vbody.is_a?(Hash)
-          Array(vbody[:aliases]).each { |a| verb_index[a.to_s] = canonical }
+          Array(vbody[:aliases]).each { |a| tool_index[a.to_s] = canonical }
         end
       end
 
-      def resolve_verb_for(target_id, action_token)
+      def resolve_tool_for(target_id, action_token)
         # Per-target aliases take precedence (e.g. "create" → "new" on resume_missing).
         per_target = idx.dig(:per_target_alias_idx, target_id, action_token)
         return per_target if per_target
 
-        # Fall back to the global verb/alias index.
-        idx[:verb_index][action_token]
+        # Fall back to the global tool/alias index.
+        idx[:tool_index][action_token]
       end
     end
   end

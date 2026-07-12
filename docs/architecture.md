@@ -80,12 +80,14 @@ A second non-browser surface: an AI chat client (claude.ai, ChatGPT, any MCP
 client) connects over the Model Context Protocol and READS PITO. Strictly
 read-only, OAuth-gated, and isolated in its own container.
 
-- **Ontology is config.** Every tool is declared ONCE in `config/pito/verbs.yml`
-  — a per-verb `mcp:` block promotes a read-only chat verb to a tool, and a
-  top-level `mcp_readers:` block declares the two verb-less readers
-  (`pito_conversations`, `pito_messages`). No Ruby tool tables. `Pito::Dispatch::
-Schema` validates the blocks (read-only allowlist, unique tool names, template
-  placeholders ⊆ params); the add-a-tool proof pins the config-only contract.
+- **Ontology is config.** Every tool (dispatch "tools", known as verbs pre-2.0;
+  distinct from MCP tools) is declared ONCE in `config/pito/tools.yml`
+  — a per-tool `mcp:` block promotes a read-only chat tool to an MCP tool, and a
+  top-level `mcp_readers:` block declares the two readers with no backing
+  dispatch tool (`pito_conversations`, `pito_messages`). No Ruby tool tables.
+  `Pito::Dispatch::Schema` validates the blocks (read-only allowlist, unique
+  tool names, template placeholders ⊆ params); the add-a-tool proof pins the
+  config-only contract.
 - **`Pito::Mcp::Registry`** projects those blocks into the MCP `tools/list` JSON
   (name + description + JSON-Schema `inputSchema`).
 - **`Pito::Mcp::Executor`** builds the chat grammar string from a tool call's
@@ -124,7 +126,7 @@ Schema` validates the blocks (read-only allowlist, unique tool names, template
 
 ## AI assistant (2.0.0)
 
-The `ai` chat verb runs an agentic loop against a configurable LLM provider.
+The `ai` chat tool runs an agentic loop against a configurable LLM provider.
 The AI reads pito through its own tools and NEVER writes — it suggests commands
 the owner runs himself.
 
@@ -162,7 +164,7 @@ the owner runs himself.
   (the model never supplies URLs), charts render through the kwargs-pure braille
   visualizers.
 - **Suggestions + apply.** An answer carrying suggestion blocks gets a reply
-  handle; `#<handle> apply [n]` (reply verb `apply`, target `ai_message`) runs
+  handle; `#<handle> apply [n]` (reply tool `apply`, target `ai_message`) runs
   suggestion n through the normal pipeline — its own confirmations still fire.
   The source message stays live for further applies.
 - **The AI thread accent.** `data-accent="ai"` (purple→pito-blue gradient) on
@@ -222,8 +224,8 @@ Inside `ChatDispatchJob`, the input is routed by its shape:
 - `turn.hashtag?` (leading `#`) → `Pito::Hashtag::Dispatcher`
 - otherwise → `Pito::Dispatch::Router` (natural language)
 
-**Config-driven dispatch (0.9.5).** Every verb — chat, slash, and hashtag-reply
-— is declared ONCE in `config/pito/verbs.yml` (the verb ontology): aliases,
+**Config-driven dispatch (0.9.5).** Every tool — chat, slash, and hashtag-reply
+— is declared ONCE in `config/pito/tools.yml` (the tool ontology): aliases,
 slots/kwargs with named resolver paths (`lib/pito/dispatch/resolvers.rb`),
 segments with named guard predicates, per-target reply availability + modes,
 the `universal_reply:` set, auth tiers, page sizes, and `dispatch:` targets.
@@ -232,11 +234,11 @@ validates every key and reference at spec time (unknown keys are rejected with
 did-you-mean hints — see `spec/dispatch/schema_integrity_spec.rb`);
 `Pito::Dispatch::Matrix` derives the reply matrix; `Pito::Grammar::ConfigSource`
 builds the recognition Specs and vocabularies; and `Pito::Dispatch::Router`
-executes chat and reply verbs through the uniform handler contract
-`call(kwargs:, context:) → Result`. There is no Ruby verb table, no per-handler
-availability DSL, and no verb→handler conditional: adding a verb is a YAML
+executes chat and reply tools through the uniform handler contract
+`call(kwargs:, context:) → Result`. There is no Ruby tool table, no per-handler
+availability DSL, and no tool→handler conditional: adding a tool is a YAML
 entry plus a handler class (proven end-to-end by
-`spec/dispatch/add_a_verb_proof_spec.rb`); `spec/dispatch/help_sync_spec.rb`
+`spec/dispatch/add_a_tool_proof_spec.rb`); `spec/dispatch/help_sync_spec.rb`
 fails CI when help copy drifts from the config.
 
 The job runs the handler, then hands the result events to
@@ -249,13 +251,13 @@ card keeps its own indicator spinning until `AnalyticsFillJob` fills it and
 resolves just that one. All output is delivered via Turbo Stream broadcasts over
 Action Cable.
 
-`#<handle> <verb> <rest>` replies to an addressable event are intercepted
+`#<handle> <tool> <rest>` replies to an addressable event are intercepted
 **before** async dispatch by `Pito::FollowUp::Router`; availability and modes
-come from the verb's `reply:` branch in verbs.yml (via `Dispatch::Matrix`),
+come from the tool's `reply:` branch in tools.yml (via `Dispatch::Matrix`),
 kwarg/ref extraction from its declared resolver paths (via
 `Dispatch::ReplyBinding`), and execution runs through the SAME
-`Pito::Dispatch::Router` via `Pito::FollowUp::VerbDelegator` (reply-specific
-`call` bodies remain under `app/services/pito/follow_up/handlers/`).
+`Pito::Dispatch::Router` via `Pito::FollowUp::ToolDelegator` (reply-specific
+`call` bodies remain under `lib/pito/follow_up/handlers/`).
 
 ### Broadcast pipeline
 
@@ -267,11 +269,11 @@ matching ViewComponent, and broadcasts a Turbo Stream `append` to
 ### Slash system (`Pito::Slash::*`)
 
 - Infrastructure under `lib/pito/slash/`.
-- Handlers under `app/services/pito/slash/handlers/`.
+- Handlers under `lib/pito/slash/handlers/`.
 - Every handler inherits `Pito::Slash::Handler`, declares `self.verb`, and
   returns a `Result` (`Ok` / `Error` / `NeedsConfirmation`).
 - `Pito::Slash::Registry` auto-discovers and registers handlers at boot.
-- Verbs: `config`, `themes`, `games`, `disconnect`, `notifs`, `help`, and
+- Tools: `config`, `themes`, `games`, `disconnect`, `notifs`, `help`, and
   **`jobs`** — the operator's window into SolidQueue (`status` / `requeue` /
   `run` / `pause` / `resume`), delegating to `Pito::Jobs::{Status,RequeueFailed,
 RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
@@ -279,8 +281,8 @@ RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
 ### Chat system (`Pito::Chat::*`)
 
 - Infrastructure under `lib/pito/chat/`.
-- Handlers under `app/services/pito/chat/handlers/` — one subclass per verb, each
-  declaring `self.verb`. Verbs: `list`, `show`, `import`, `sync`, `delete`,
+- Handlers under `lib/pito/chat/handlers/` — one subclass per tool, each
+  declaring `self.verb`. Tools: `list`, `show`, `import`, `sync`, `delete`,
   `reindex`, `link`, `unlink`, `publish`, `unlist`, `schedule`, `footage`,
   `platform` (plus internal `help` / `unknown`). Nouns `vids` / `subs` are
   canonical, with `videos` / `subscribers` accepted as aliases.
@@ -369,6 +371,34 @@ in place; `history.pushState` sets the `/chat/:uuid` URL without a page reload.
 - **Domain layer**: `Channel::*`, `Video::*`, `Game::*`, `Footage::*`. Each owns
   its external API integration (YouTube, IGDB), indexers, and services.
 - **`Tui::*`** — panel primitive components.
+
+## Unified layout (2.0.0 consolidation)
+
+One rule draws the tree: **`lib/` is the chat-OS core — `app/` is the Rails
+surfaces plus the YouTube/games adapter.** The 2.0.0 consolidation moved every
+core mechanism out of `app/services` so the future extraction of a `pito-core`
+engine is a `git mv`, not a rewrite (gem extraction is deliberately deferred
+until a second source exists).
+
+- **`lib/pito/`** — the chat OS: dispatch (router/schema/config/matrix/
+  finalizer), grammar + lex + the three parsers (chat/hashtag/slash) and their
+  handlers, stream (broadcaster/renderer/caches), follow_up, suggestions,
+  palettes, copy (the dictionary engine), message_builder, themes, share,
+  confirmation, notifications (webhook mechanism), formatter and the other
+  leaf utilities, mcp. Knows nothing about YouTube or games.
+- **`lib/ai/`** — the AI layer: provider registry, model catalog, wires,
+  client, toolset/executor, history, blocks, content registry. Chat-OS-grade;
+  `Ai::` namespace.
+- **`app/services/`** — the adapter/domain: `channel/`, `game/`, `video/`,
+  `google/`, `voyage/`, `conversation/`, and the domain-flavored
+  `pito/{analytics, auth, games, achievements, recommendation, schedule,
+  search, stats, sync, showcase, credentials}`.
+- **`app/{components,controllers,jobs,models,views}`** — Rails surfaces;
+  `config/pito/` — the ontologies (`tools.yml`, `content.yml`,
+  `ai_providers.yml`).
+- Specs mirror sources: `spec/lib/**` ↔ `lib/**`, `spec/services/**` ↔
+  `app/services/**`. Both roots are zeitwerk-equivalent
+  (`config.autoload_lib`), so constants never moved — only files did.
 
 ## Game release-date representation
 

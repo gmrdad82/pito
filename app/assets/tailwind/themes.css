@@ -18,6 +18,8 @@
   --accent-orange: #ff9e64;
   --accent-red: #f7768e;
   --brand-pito: #5170ff;
+  --comet-a: #9b8dff;
+  --comet-b: #1f8eec;
 }
 
 [data-theme="ayu-dark"] {
@@ -37,6 +39,8 @@
   --accent-orange: #ff8f40;
   --accent-red: #f07178;
   --brand-pito: #5170ff;
+  --comet-a: #a76ddc;
+  --comet-b: #536fd6;
 }
 
 [data-theme="ayu-light"] {
@@ -56,6 +60,8 @@
   --accent-orange: #fa8d3e;
   --accent-red: #f07171;
   --brand-pito: #5170ff;
+  --comet-a: #7d49ab;
+  --comet-b: #5973d1;
 }
 
 [data-theme="ayu-mirage"] {
@@ -75,6 +81,8 @@
   --accent-orange: #ffad66;
   --accent-red: #f28779;
   --brand-pito: #5170ff;
+  --comet-a: #90a4ff;
+  --comet-b: #00a0e2;
 }
 
 [data-theme="catppuccin-latte"] {
@@ -94,6 +102,8 @@
   --accent-orange: #fe640b;
   --accent-red: #d20f39;
   --brand-pito: #5170ff;
+  --comet-a: #743ea2;
+  --comet-b: #4f68ca;
 }
 
 [data-theme="catppuccin-mocha"] {
@@ -113,6 +123,8 @@
   --accent-orange: #fab387;
   --accent-red: #f38ba8;
   --brand-pito: #5170ff;
+  --comet-a: #a592ff;
+  --comet-b: #3090f8;
 }
 
 [data-theme="dracula"] {
@@ -132,6 +144,8 @@
   --accent-orange: #ffb86c;
   --accent-red: #ff5555;
   --brand-pito: #5170ff;
+  --comet-a: #aaa8ff;
+  --comet-b: #2ca3ff;
 }
 
 [data-theme="github-dark"] {
@@ -151,6 +165,8 @@
   --accent-orange: #f0883e;
   --accent-red: #ff7b72;
   --brand-pito: #5170ff;
+  --comet-a: #ab71e0;
+  --comet-b: #5772da;
 }
 
 [data-theme="github-light"] {
@@ -170,6 +186,8 @@
   --accent-orange: #bc4c00;
   --accent-red: #cf222e;
   --brand-pito: #5170ff;
+  --comet-a: #804cae;
+  --comet-b: #5b76d4;
 }
 
 [data-theme="gruvbox-dark"] {
@@ -189,6 +207,8 @@
   --accent-orange: #fe8019;
   --accent-red: #fb4934;
   --brand-pito: #5170ff;
+  --comet-a: #c894fc;
+  --comet-b: #7693f5;
 }
 
 [data-theme="gruvbox-light"] {
@@ -208,6 +228,8 @@
   --accent-orange: #d65d0e;
   --accent-red: #cc241d;
   --brand-pito: #5170ff;
+  --comet-a: #685e00;
+  --comet-b: #a05f00;
 }
 
 [data-theme="nord"] {
@@ -227,6 +249,8 @@
   --accent-orange: #d08770;
   --accent-red: #bf616a;
   --brand-pito: #5170ff;
+  --comet-a: #a7bcff;
+  --comet-b: #00b7f9;
 }
 
 [data-theme="one-dark"] {
@@ -246,6 +270,8 @@
   --accent-orange: #d19a66;
   --accent-red: #e06c75;
   --brand-pito: #5170ff;
+  --comet-a: #cc9aff;
+  --comet-b: #7997ff;
 }
 
 [data-theme="one-light"] {
@@ -265,6 +291,8 @@
   --accent-orange: #986801;
   --accent-red: #e45649;
   --brand-pito: #5170ff;
+  --comet-a: #7b48a9;
+  --comet-b: #5772cf;
 }
 
 [data-theme="solarized-dark"] {
@@ -284,6 +312,8 @@
   --accent-orange: #cb4b16;
   --accent-red: #dc322f;
   --brand-pito: #5170ff;
+  --comet-a: #00bef1;
+  --comet-b: #00aea6;
 }
 
 [data-theme="solarized-light"] {
@@ -303,6 +333,8 @@
   --accent-orange: #cb4b16;
   --accent-red: #dc322f;
   --brand-pito: #5170ff;
+  --comet-a: #736100;
+  --comet-b: #ad5f00;
 }
 
 [data-theme="synthwave"] {
@@ -322,6 +354,8 @@
   --accent-orange: #ff8c42;
   --accent-red: #ff2e63;
   --brand-pito: #5170ff;
+  --comet-a: #b967ff;
+  --comet-b: #5170ff;
 }
 
 [data-theme="tokyo-night"] {
@@ -341,6 +375,8 @@
   --accent-orange: #ff9e64;
   --accent-red: #f7768e;
   --brand-pito: #5170ff;
+  --comet-a: #9b8dff;
+  --comet-b: #1f8eec;
 }
 
 [data-theme="tomorrow"] {
@@ -360,6 +396,8 @@
   --accent-orange: #f5871f;
   --accent-red: #c82829;
   --brand-pito: #5170ff;
+  --comet-a: #804cae;
+  --comet-b: #5b76d4;
 }
 
 [data-theme="tomorrow-night"] {
@@ -379,4 +417,6 @@
   --accent-orange: #de935f;
   --accent-red: #cc6666;
   --brand-pito: #5170ff;
+  --comet-a: #bd87f1;
+  --comet-b: #6a87ea;
 }

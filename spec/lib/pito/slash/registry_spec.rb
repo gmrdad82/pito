@@ -3,7 +3,7 @@
 require "rails_helper"
 
 class RegistryTestHandler < Pito::Slash::Handler
-  self.verb = :testcmd
+  self.tool = :testcmd
   self.description_key = "pito.slash.help.descriptions.testcmd"
 
   def call

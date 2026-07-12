@@ -2,39 +2,39 @@
 
 require "rails_helper"
 
-# v1.6 unified grammar — the HELP-COMPLETENESS guard (U3/U4). Every chat verb, at
+# v1.6 unified grammar — the HELP-COMPLETENESS guard (U3/U4). Every chat tool, at
 # every noun level `--help` can be typed at, must render a real man page — and the
-# `CommandHelp::VERB_NOUNS` routing table must not drift from the actual config
-# verbs (a stale entry for a retired verb renders nil, silently breaking that
-# verb's `--help`; that is exactly how `linked-game`/`linked-videos` rotted).
+# `CommandHelp::tool_nouns` routing table must not drift from the actual config
+# tools (a stale entry for a retired tool renders nil, silently breaking that
+# tool's `--help`; that is exactly how `linked-game`/`linked-videos` rotted).
 #
 # The guard is BIDIRECTIONAL — both the copy→config and the config→copy edges are
 # pinned, plus the page CONTENT (not just its wrapper):
-#   (1) NO ORPHAN — every copy-derived VERB_NOUNS key is a real verb in verbs.yml.
-#   (2) NO UNRENDERED DISPATCH VERB (reverse) — every verb that carries a
+#   (1) NO ORPHAN — every copy-derived tool_nouns key is a real tool in tools.yml.
+#   (2) NO UNRENDERED DISPATCH TOOL (reverse) — every tool that carries a
 #       `chat.dispatch` renders a usage-bearing man page, save a maintained,
 #       explicit NO_HELP_PAGE exclusion list. This is the edge the old guard
-#       missed: a NEW dispatch verb with no `pito.chat_help` copy renders nothing
+#       missed: a NEW dispatch tool with no `pito.chat_help` copy renders nothing
 #       yet used to pass green; likewise deleting a whole page dropped it silently.
-#   (3) SHIPPED NOUN FORMS (reverse) — a literal SHIPPED_VERB_NOUNS snapshot,
+#   (3) SHIPPED NOUN FORMS (reverse) — a literal SHIPPED_TOOL_NOUNS snapshot,
 #       asserted as a SUBSET of the live derived table, so DELETING or RENAMING an
-#       existing `pito.chat_help.<verb>.<noun>` sub-hash fails loudly (adding forms
+#       existing `pito.chat_help.<tool>.<noun>` sub-hash fails loudly (adding forms
 #       stays free).
-#   (4) CONTENT — every verb-level and noun-level page's body must carry its own
+#   (4) CONTENT — every tool-level and noun-level page's body must carry its own
 #       `usage` copy (html-escaped as ManPage renders it), so a blank / wrong /
 #       mis-keyed page can't pass as "rendered". The list drill-down
 #       (games/vids/channels + index) is anchored the same way.
 # So the routing (alias normalisation, ref-skipping) can never silently regress, a
-# retired verb can never linger in the table, and a new verb can never ship with a
+# retired tool can never linger in the table, and a new tool can never ship with a
 # dead `--help`.
 RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
   CH   = Pito::MessageBuilder::CommandHelp
-  VN   = Pito::MessageBuilder::CommandHelp.verb_nouns
-  CONF = Pito::Dispatch::Config.data.fetch(:verbs)
+  VN   = Pito::MessageBuilder::CommandHelp.tool_nouns
+  CONF = Pito::Dispatch::Config.data.fetch(:tools)
 
-  # Verbs that declare a `chat.dispatch` in verbs.yml yet DELIBERATELY render no
-  # CommandHelp man page. Maintained by hand — a new dispatch verb that renders
-  # nothing must either grow a `pito.chat_help.<verb>` page or be listed here with
+  # Tools that declare a `chat.dispatch` in tools.yml yet DELIBERATELY render no
+  # CommandHelp man page. Maintained by hand — a new dispatch tool that renders
+  # nothing must either grow a `pito.chat_help.<tool>` page or be listed here with
   # a reason (derived factually from Config + CommandHelp, not guessed).
   NO_HELP_PAGE = %i[
     greet
@@ -46,14 +46,14 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
   # help     — `help --help` is the router's easter-egg nonsense page, not a man page
   #            (lib/pito/dispatch/router.rb#help_page).
 
-  # The SHIPPED help surface — the verb→noun forms that render a man page today.
+  # The SHIPPED help surface — the tool→noun forms that render a man page today.
   # An explicit literal snapshot (NOT derived) asserted as a SUBSET of the live
-  # `CommandHelp.verb_nouns`: ADDING a form is free, but DELETING or RENAMING an
-  # existing `pito.chat_help.<verb>.<noun>` sub-hash drops it out of the derived
+  # `CommandHelp.tool_nouns`: ADDING a form is free, but DELETING or RENAMING an
+  # existing `pito.chat_help.<tool>.<noun>` sub-hash drops it out of the derived
   # table and fails here — exactly the silent copy drift (linked-game/linked-videos)
   # this guard exists to catch. Extend this table when you add a noun form; a
   # removal here must be deliberate.
-  SHIPPED_VERB_NOUNS = {
+  SHIPPED_TOOL_NOUNS = {
     analyze:       %i[channel vid game],
     "at-a-glance": %i[channel vid game],
     breakdowns:    %i[channel vid game],
@@ -92,47 +92,47 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
       page["body"].to_s.include?(ERB::Util.html_escape(usage))
   end
 
-  # The verb-level usage copy (`pito.chat_help.<verb>.usage`). For single-noun
-  # verbs the verb-level page renders the one noun page, whose usage copy equals
-  # the verb-level line by construction — so this anchor holds either way.
-  def verb_usage(verb)
-    Pito::Copy.render_soft("pito.chat_help.#{verb}.usage")
+  # The tool-level usage copy (`pito.chat_help.<tool>.usage`). For single-noun
+  # tools the tool-level page renders the one noun page, whose usage copy equals
+  # the tool-level line by construction — so this anchor holds either way.
+  def tool_usage(tool)
+    Pito::Copy.render_soft("pito.chat_help.#{tool}.usage")
   end
 
-  # The noun-page usage copy (`pito.chat_help.<verb>.<noun>.usage`).
-  def noun_usage(verb, noun)
-    data = Pito::Copy.subtree("pito.chat_help.#{verb}.#{noun}")
+  # The noun-page usage copy (`pito.chat_help.<tool>.<noun>.usage`).
+  def noun_usage(tool, noun)
+    data = Pito::Copy.subtree("pito.chat_help.#{tool}.#{noun}")
     (data && (data[:usage] || data["usage"])).to_s
   end
 
   describe "no orphan routing entries" do
-    it "every VERB_NOUNS key is a real verb declared in verbs.yml" do
-      orphans = VN.keys.reject { |verb| CONF.key?(verb) }
-      expect(orphans).to be_empty, "VERB_NOUNS names verbs absent from verbs.yml: #{orphans.inspect}"
+    it "every tool_nouns key is a real tool declared in tools.yml" do
+      orphans = VN.keys.reject { |tool| CONF.key?(tool) }
+      expect(orphans).to be_empty, "tool_nouns names tools absent from tools.yml: #{orphans.inspect}"
     end
   end
 
-  # Reverse edge (F14/F16): every verb with a `chat.dispatch` must render a real
+  # Reverse edge (F14/F16): every tool with a `chat.dispatch` must render a real
   # man page, save the maintained NO_HELP_PAGE gaps — closes the hole where a new
-  # dispatch verb with no help copy, or a whole deleted page, passed green.
-  describe "no unrendered dispatch verb (reverse guard)" do
-    dispatch_verbs = CONF.select { |_verb, cfg| cfg.is_a?(Hash) && cfg.dig(:chat, :dispatch) }.keys
+  # dispatch tool with no help copy, or a whole deleted page, passed green.
+  describe "no unrendered dispatch tool (reverse guard)" do
+    dispatch_tools = CONF.select { |_tool, cfg| cfg.is_a?(Hash) && cfg.dig(:chat, :dispatch) }.keys
 
-    it "the exclusion list names only real dispatch verbs (no stale entries)" do
-      stale = NO_HELP_PAGE - dispatch_verbs
-      expect(stale).to be_empty, "NO_HELP_PAGE names non-dispatch verbs: #{stale.inspect}"
+    it "the exclusion list names only real dispatch tools (no stale entries)" do
+      stale = NO_HELP_PAGE - dispatch_tools
+      expect(stale).to be_empty, "NO_HELP_PAGE names non-dispatch tools: #{stale.inspect}"
     end
 
-    (dispatch_verbs - NO_HELP_PAGE).each do |verb|
-      it "#{verb} (chat.dispatch) renders a man page carrying its usage" do
-        expect(renders_usage?(CH.call(verb), verb_usage(verb))).to be(true),
-          "#{verb} has a chat.dispatch but `--help` rendered no usage-bearing page"
+    (dispatch_tools - NO_HELP_PAGE).each do |tool|
+      it "#{tool} (chat.dispatch) renders a man page carrying its usage" do
+        expect(renders_usage?(CH.call(tool), tool_usage(tool))).to be(true),
+          "#{tool} has a chat.dispatch but `--help` rendered no usage-bearing page"
       end
     end
 
-    NO_HELP_PAGE.each do |verb|
-      it "#{verb} is a deliberate no-help-page exclusion (renders nil)" do
-        expect(CH.call(verb)).to be_nil, "#{verb} now renders a page — remove it from NO_HELP_PAGE"
+    NO_HELP_PAGE.each do |tool|
+      it "#{tool} is a deliberate no-help-page exclusion (renders nil)" do
+        expect(CH.call(tool)).to be_nil, "#{tool} now renders a page — remove it from NO_HELP_PAGE"
       end
     end
   end
@@ -140,32 +140,32 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
   # Reverse edge: the shipped noun forms must survive. The literal snapshot is a
   # subset of the derived table, so a deleted/renamed noun page reddens this.
   describe "shipped noun forms (reverse guard)" do
-    it "every shipped verb still exists in the derived table" do
-      missing = SHIPPED_VERB_NOUNS.keys - VN.keys
+    it "every shipped tool still exists in the derived table" do
+      missing = SHIPPED_TOOL_NOUNS.keys - VN.keys
       expect(missing).to be_empty,
-        "shipped verbs no longer in CommandHelp.verb_nouns (copy deleted?): #{missing.inspect}"
+        "shipped tools no longer in CommandHelp.tool_nouns (copy deleted?): #{missing.inspect}"
     end
 
-    SHIPPED_VERB_NOUNS.each do |verb, nouns|
-      it "#{verb} still ships its #{nouns.inspect} noun form(s)" do
-        dropped = nouns - (VN[verb] || [])
+    SHIPPED_TOOL_NOUNS.each do |tool, nouns|
+      it "#{tool} still ships its #{nouns.inspect} noun form(s)" do
+        dropped = nouns - (VN[tool] || [])
         expect(dropped).to be_empty,
-          "#{verb} lost shipped noun form(s) #{dropped.inspect} — a removal must be deliberate"
+          "#{tool} lost shipped noun form(s) #{dropped.inspect} — a removal must be deliberate"
       end
     end
   end
 
-  VN.each do |verb, nouns|
-    describe "#{verb} --help" do
-      it "renders a verb-level man page carrying its usage" do
-        expect(renders_usage?(CH.call(verb), verb_usage(verb))).to be(true),
-          "#{verb} --help rendered no usage-bearing page"
+  VN.each do |tool, nouns|
+    describe "#{tool} --help" do
+      it "renders a tool-level man page carrying its usage" do
+        expect(renders_usage?(CH.call(tool), tool_usage(tool))).to be(true),
+          "#{tool} --help rendered no usage-bearing page"
       end
 
       nouns.each do |noun|
-        it "renders the #{verb} #{noun} noun page carrying its usage" do
-          expect(renders_usage?(CH.call(verb, noun: noun), noun_usage(verb, noun))).to be(true),
-            "#{verb} #{noun} --help rendered no usage-bearing page"
+        it "renders the #{tool} #{noun} noun page carrying its usage" do
+          expect(renders_usage?(CH.call(tool, noun: noun), noun_usage(tool, noun))).to be(true),
+            "#{tool} #{noun} --help rendered no usage-bearing page"
         end
       end
     end
@@ -173,7 +173,7 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
 
   describe "list drill-down" do
     it "renders the bare `list --help` index carrying its usage" do
-      expect(renders_usage?(CH.call(:list), verb_usage(:list))).to be(true)
+      expect(renders_usage?(CH.call(:list), tool_usage(:list))).to be(true)
     end
 
     # The per-noun ListHelp builders own their usage copy under `pito.copy.list.*`.
@@ -188,22 +188,22 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
     end
   end
 
-  # Usage-only verbs (a `pito.chat_help.<verb>.usage` line, no noun pages — e.g.
+  # Usage-only tools (a `pito.chat_help.<tool>.usage` line, no noun pages — e.g.
   # search) still render a man page rather than falling through to nil.
-  describe "usage-only verbs" do
+  describe "usage-only tools" do
     subtree = I18n.t("pito.chat_help")
-    usage_only = subtree.select do |verb, body|
-      verb != :list && body.is_a?(Hash) && body.key?(:usage) &&
+    usage_only = subtree.select do |tool, body|
+      tool != :list && body.is_a?(Hash) && body.key?(:usage) &&
         body.keys.none? { |k| k != :usage && body[k].is_a?(Hash) }
     end.keys
 
-    it "there is at least one usage-only verb to guard (search)" do
+    it "there is at least one usage-only tool to guard (search)" do
       expect(usage_only).to include(:search)
     end
 
-    usage_only.each do |verb|
-      it "renders `#{verb} --help` carrying its usage" do
-        expect(renders_usage?(CH.call(verb), verb_usage(verb))).to be(true)
+    usage_only.each do |tool|
+      it "renders `#{tool} --help` carrying its usage" do
+        expect(renders_usage?(CH.call(tool), tool_usage(tool))).to be(true)
       end
     end
   end

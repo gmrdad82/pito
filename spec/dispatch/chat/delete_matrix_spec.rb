@@ -8,7 +8,7 @@ require "rails_helper"
 # UNDERSTANDS from a raw input, not data persistence. All DB lookups are stubbed
 # so the handler resolves records without touching the database.
 #
-# Subject:  Pito::Chat::Handlers::Delete  (app/services/pito/chat/handlers/delete.rb)
+# Subject:  Pito::Chat::Handlers::Delete  (lib/pito/chat/handlers/delete.rb)
 # Aliases:  `rm`, `del` (canonical: :delete — verified by chat_recognition_spec)
 # Resolver: id_only_resolution! — title (ILIKE) lookups are intentionally disabled.
 #
@@ -41,7 +41,7 @@ RSpec.describe "Dispatch matrix — delete (recognition, DB mocked)", type: :dis
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :delete,
+      tool:        :delete,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -303,7 +303,7 @@ RSpec.describe "Dispatch matrix — delete (recognition, DB mocked)", type: :dis
       end
 
       # `#<handle> del` reply — the action word reaches the handler in `rest`
-      # (already delegated to :delete by verb_delegator; see registry block below).
+      # (already delegated to :delete by tool_delegator; see registry block below).
       # In detail context the entity id comes from the payload, so the path is
       # identical to `delete`/`rm` and must still emit video_delete.
       it "del reply (rest: 'del') → :confirmation, command: 'video_delete'" do
@@ -407,7 +407,7 @@ RSpec.describe "Dispatch matrix — delete (recognition, DB mocked)", type: :dis
 
   # ── Follow-up registry — `del` is an allowed action on every delete target ────
   #
-  # The follow-up delegator (Pito::FollowUp::VerbDelegator) only routes a reply's
+  # The follow-up delegator (Pito::FollowUp::ToolDelegator) only routes a reply's
   # action word when it appears in Registry.actions_for(reply_target). For `del`
   # to reach the Delete handler from a reply, it MUST be declared on each target
   # alongside the existing "delete" / "rm".

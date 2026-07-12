@@ -35,7 +35,7 @@ RSpec.describe "Dispatch matrix — /help (recognition, zero DB)", type: :dispat
   # --help intercept so we can assert the handler's own auth-branching logic.
   # The handler never uses `conversation` in any path, so nil is safe.
   def build_handler(raw: "/help", authenticated: true)
-    invocation = Pito::Slash::Invocation.new(verb: :help, args: [], kwargs: {}, raw:)
+    invocation = Pito::Slash::Invocation.new(tool: :help, args: [], kwargs: {}, raw:)
     Pito::Slash::Handlers::Help.new(invocation:, conversation: nil, authenticated:)
   end
 
@@ -50,7 +50,7 @@ RSpec.describe "Dispatch matrix — /help (recognition, zero DB)", type: :dispat
     it "/help → stack :slash, verb :help, known: true" do
       intent = parsed_intent("/help")
       expect(intent[:stack]).to eq(:slash)
-      expect(intent[:verb]).to eq(:help)
+      expect(intent[:tool]).to eq(:help)
       expect(intent[:known]).to be(true)
     end
 
@@ -63,7 +63,7 @@ RSpec.describe "Dispatch matrix — /help (recognition, zero DB)", type: :dispat
       it "#{variant} → verb :help, auth :any, known: true (parser downcases)" do
         intent = parsed_intent(variant)
         expect(intent[:stack]).to eq(:slash)
-        expect(intent[:verb]).to eq(:help)
+        expect(intent[:tool]).to eq(:help)
         expect(intent[:auth]).to eq(:any)
         expect(intent[:known]).to be(true)
       end
@@ -188,7 +188,7 @@ RSpec.describe "Dispatch matrix — /help (recognition, zero DB)", type: :dispat
       # When called directly with --help in raw, the handler still follows the
       # authenticated branch (NOT show_help). The --help intercept lives solely
       # in the Dispatcher. This verifies the invariant.
-      inv = Pito::Slash::Invocation.new(verb: :help, args: [], kwargs: {}, raw: "/help --help")
+      inv = Pito::Slash::Invocation.new(tool: :help, args: [], kwargs: {}, raw: "/help --help")
       handler = Pito::Slash::Handlers::Help.new(invocation: inv, conversation: nil, authenticated: false)
       result = handler.call
       # Should return restricted_help, NOT the nonsense man-page.

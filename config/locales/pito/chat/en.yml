@@ -100,12 +100,12 @@ en:
           shinies: "Show achievement tracks and obtained shinies for a game, vid, or channel"
         needs_ref: "Which game, vid, or channel? Try `shinies game <id>`, `shinies vid <id>`, or `shinies channel @handle`."
       linked:
-        # The keyed `linked` verb needs a noun to name which linked view (the noun
+        # The keyed `linked` tool needs a noun to name which linked view (the noun
         # picks the segment; the id is the OTHER entity's).
         needs_noun: "Which linked view? `linked game <vid-id>` shows a vid's linked game; `linked vids <game-id>` lists a game's linked vids."
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
-        verb_not_implemented: "The chat verb %{verb} isn't wired yet."
+        tool_not_implemented: "The chat command %{tool} isn't wired yet."
         misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
         cannot_list: "Can't list %{noun} yet. Try: list games, list channels, or list vids."
       conversations:

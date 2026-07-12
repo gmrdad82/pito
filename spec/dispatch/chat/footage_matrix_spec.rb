@@ -9,7 +9,7 @@ require "rails_helper"
 # stubbed so the handler resolves records without touching the database.
 #
 # Subject: Pito::Chat::Handlers::Footage
-#          (app/services/pito/chat/handlers/footage.rb)
+#          (lib/pito/chat/handlers/footage.rb)
 #
 # Dispatch branches (based on the first token after stripping "footage "):
 #   "update" subcommand, free chat (no follow-up) → the typed setter form is

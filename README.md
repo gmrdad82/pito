@@ -155,14 +155,31 @@ keyboard navigation. The features above aren't buried in menus; you _type_ them.
 PITO is best _seen_ — it moves. Animated walkthroughs land here as I record them; for
 now, the captions mark the spot.
 
-### 1. One chatbox — that's the entire app
+### 1. An assistant that lives in your library
+
+<p align="center"><img src="docs/media/mkt-ai.gif" width="760" alt="@ai comparing channels — a real table, a braille bar chart, and the model's cost receipt"></p>
+
+**`@ai`** — ask in plain words ("compare my channels, chart the split") and the
+assistant reads your library through PITO's own read-only tools, then answers in
+PITO's native voice: real tables, braille charts, score bars — streaming in block
+by block. Bring any model with your own key (that answer came from a free one);
+every reply is signed with the model's name and its reported cost, and the web
+stays out of it unless you pass `--web`.
+
+<p align="center"><img src="docs/media/mkt-mcp.png" width="760" alt="The PITO OAuth consent screen, approving a new MCP client with a TOTP code"></p>
+
+And the same library speaks **MCP** — Claude on your phone, ChatGPT, or any MCP
+client can read your channels, vids, games, and analytics from wherever you are.
+Read-only, gated by a consent screen and your TOTP ([setup](#connect-an-ai-chat-mcp)).
+
+### 2. One chatbox — that's the entire app
 
 <p align="center"><img src="docs/media/01-chat.gif" width="760" alt="PITO — one chatbox demo"></p>
 
 No menus, no forty-tab settings labyrinth. You type, PITO answers — a terminal-style
 chat with keyboard-first UI/UX that gets out of your way and stays out of it.
 
-### 2. Ask in plain language, get your data at a glance
+### 3. Ask in plain language, get your data at a glance
 
 <p align="center"><img src="docs/media/02-language.gif" width="760" alt="PITO — plain-language query demo"></p>
 
@@ -170,7 +187,7 @@ Type the way you think. PITO reads a little natural language, so `list vids`,
 `show game`, or a quick question gets you your numbers without hunting through
 dashboards.
 
-### 3. Smart linkage: games ↔ videos ↔ channels
+### 4. Smart linkage: games ↔ videos ↔ channels
 
 <p align="center"><img src="docs/media/03-linkage.gif" width="760" alt="PITO — game/video/channel linkage demo"></p>
 
@@ -178,14 +195,14 @@ Explicitly `link` a video to a game and PITO builds the graph: which games you c
 which channels they fit, and — via Voyage embeddings — the similar games and best-fit
 channels you hadn't thought of. It never guesses from titles; the links are yours.
 
-### 4. A scheduling helper that finds your open slots
+### 5. A scheduling helper that finds your open slots
 
 <p align="center"><img src="docs/media/04-schedule.gif" width="760" alt="PITO — scheduling helper demo"></p>
 
 `schedule <id> slate` lays out what's already on the calendar across every channel, so
 you spread releases instead of stacking them and never quietly double-book a day.
 
-### 5. Themes for every desire
+### 6. Themes for every desire
 
 <p align="center"><img src="docs/media/05-themes.gif" width="760" alt="PITO — live theme switching demo"></p>
 
@@ -193,23 +210,13 @@ you spread releases instead of stacking them and never quietly double-book a day
 `/themes` and remembered per your taste. Don't love one? The tokens are right there to
 tune.
 
-### 6. Zero infra cost — guides for every step, $0
+### 7. Free, yours, and built to grow — $0
 
-It runs on a machine you already own, on free, open tooling. The walkthroughs below get
-you from nothing to running for **exactly €0** — no servers to rent, no subscription, no
-"starter plan."
-
-### 7. Free, and built to grow
-
-Free today and expandable tomorrow: richer natural-language understanding, deeper
-analytics, and MCP integrations are on the cards. No feature is going to vanish behind
-a paywall later.
-
-### 8. Built by a pro, for himself — no corporate agenda
-
-Two decades of Rails, built for an actual creator's daily workflow — not a growth team's
-OKRs. No dark patterns, no upsell nags, no telemetry phoning home. Best from the best,
-shipped because it had to exist.
+It runs on a machine you already own, on free, open tooling — the walkthroughs
+below get you from nothing to running for **exactly €0**. Built by a 20-year
+Rails engineer for his own channels, not a growth team's OKRs: no dark patterns,
+no telemetry, no paywall creeping in later. What's coming next — richer language,
+deeper analytics, more MCP — lands free too.
 
 ### Everything you can type
 

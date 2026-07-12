@@ -17,10 +17,10 @@ require "rails_helper"
 # follows this priority order (lib/pito/slash/dispatcher.rb):
 #   1. parse  → Result::Error if parse fails (unreachable for valid input)
 #   2. help_requested? → HelpBuilder  (fires BEFORE handler lookup)
-#   3. handler_class lookup → nil → Result::Error(:unknown_verb)
+#   3. handler_class lookup → nil → Result::Error(:unknown_tool)
 #
 # NOTE: The arity guard lives AFTER the handler lookup and is therefore
-# NEVER reached for /logout. Extra positional args produce :unknown_verb,
+# NEVER reached for /logout. Extra positional args produce :unknown_tool,
 # NOT :too_many_args.
 RSpec.describe "Dispatch matrix — logout (recognition, DB mocked)", type: :dispatch do
   let(:conversation) { double("conversation") }
@@ -47,7 +47,7 @@ RSpec.describe "Dispatch matrix — logout (recognition, DB mocked)", type: :dis
       it "#{input.inspect} → stack :slash, verb :logout, known: true" do
         intent = parsed_intent(input)
         expect(intent[:stack]).to eq(:slash)
-        expect(intent[:verb]).to eq(:logout)
+        expect(intent[:tool]).to eq(:logout)
         expect(intent[:known]).to be(true)
       end
     end
@@ -57,7 +57,7 @@ RSpec.describe "Dispatch matrix — logout (recognition, DB mocked)", type: :dis
       it "#{input.inspect} (alias) → verb :logout, known: true" do
         intent = parsed_intent(input)
         expect(intent[:stack]).to eq(:slash)
-        expect(intent[:verb]).to eq(:logout)
+        expect(intent[:tool]).to eq(:logout)
         expect(intent[:known]).to be(true)
       end
     end
@@ -81,13 +81,13 @@ RSpec.describe "Dispatch matrix — logout (recognition, DB mocked)", type: :dis
   end
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 1. Dispatcher — handler-less: always returns unknown_verb
+  # 1. Dispatcher — handler-less: always returns unknown_tool
   #
   # No handler class is registered for :logout, so the Dispatcher returns
-  # Result::Error(:unknown_verb) for every non-help input. The arity guard
+  # Result::Error(:unknown_tool) for every non-help input. The arity guard
   # is bypassed (it is unreachable without a handler class).
   # ═══════════════════════════════════════════════════════════════════════════
-  describe "dispatcher — handler-less (unknown_verb)" do
+  describe "dispatcher — handler-less (unknown_tool)" do
     {
       "bare verb"           => "/logout",
       "trailing spaces"     => "/logout   ",
@@ -99,29 +99,29 @@ RSpec.describe "Dispatch matrix — logout (recognition, DB mocked)", type: :dis
           expect(dispatch(raw)).to be_a(Pito::Slash::Result::Error)
         end
 
-        it "message_key is 'pito.slash.errors.unknown_verb'" do
-          expect(dispatch(raw).message_key).to eq("pito.slash.errors.unknown_verb")
+        it "message_key is 'pito.slash.errors.unknown_tool'" do
+          expect(dispatch(raw).message_key).to eq("pito.slash.errors.unknown_tool")
         end
 
-        it "message_args includes verb: :logout" do
-          expect(dispatch(raw).message_args[:verb]).to eq(:logout)
+        it "message_args includes tool: :logout" do
+          expect(dispatch(raw).message_args[:tool]).to eq(:logout)
         end
       end
     end
   end
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 2. Extra args → unknown_verb, NOT too_many_args
+  # 2. Extra args → unknown_tool, NOT too_many_args
   #
   # The arity guard (pito.slash.errors.too_many_args) is only reached after a
   # successful handler class lookup. Since /logout has no handler class, extra
-  # positional args fall through to the unknown_verb branch instead.
+  # positional args fall through to the unknown_tool branch instead.
   # ═══════════════════════════════════════════════════════════════════════════
-  describe "extra args → unknown_verb (arity guard not applicable)" do
-    it "/logout foo → Result::Error with unknown_verb (not too_many_args)" do
+  describe "extra args → unknown_tool (arity guard not applicable)" do
+    it "/logout foo → Result::Error with unknown_tool (not too_many_args)" do
       result = dispatch("/logout foo")
       expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
+      expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
     end
 
     it "/logout foo → message_key is NOT too_many_args" do

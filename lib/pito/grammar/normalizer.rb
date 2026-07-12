@@ -5,7 +5,7 @@ module Pito
     # Normalizer: converts a raw token stream into a Match (or Array<Match>).
     #
     # call      — single-op normalization
-    # call_ops  — splits on verb boundaries, returns Array<Match>
+    # call_ops  — splits on tool boundaries, returns Array<Match>
     class Normalizer
       # ── Public API ─────────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ module Pito
         new(namespace:, context:).normalize(tokens)
       end
 
-      # Splits token stream on verb boundaries and normalises each segment.
+      # Splits token stream on tool boundaries and normalises each segment.
       # @return [Array<Pito::Grammar::Match>]
       def self.call_ops(tokens, namespace:, context: nil)
         new(namespace:, context:).split_and_normalize(tokens)
@@ -37,12 +37,12 @@ module Pito
       def normalize(tokens)
         content = meaningful_tokens(tokens)
 
-        # Step 1: verb resolution — first :word token
-        verb_tok = content.shift
-        return no_match(content) unless verb_tok&.type == :word
+        # Step 1: tool resolution — first :word token
+        tool_tok = content.shift
+        return no_match(content) unless tool_tok&.type == :word
 
-        spec = Registry.specs_for_alias(namespace: @namespace, token: verb_tok.value.downcase.to_sym)
-        return no_match([ verb_tok, *content ]) unless spec
+        spec = Registry.specs_for_alias(namespace: @namespace, token: tool_tok.value.downcase.to_sym)
+        return no_match([ tool_tok, *content ]) unless spec
 
         process(spec, content)
       end
@@ -76,7 +76,7 @@ module Pito
       # ── Segment splitting for call_ops ──────────────────────────────────────
 
       # Splits content tokens (already meaningful) into segments, each starting
-      # with a verb token.  The very first token is always the verb of segment 0.
+      # with a tool token.  The very first token is always the tool of segment 0.
       def split_into_segments(content)
         return [ content ] if content.empty?
 
@@ -89,7 +89,7 @@ module Pito
             current_seg << tok
           elsif tok.type == :word &&
                 Registry.specs_for_alias(namespace: @namespace, token: tok.value.downcase.to_sym)
-            # This word resolves as a verb — start a new segment.
+            # This word resolves as a tool — start a new segment.
             # Drop a trailing `and` / connective from previous segment.
             current_seg.pop if trailing_connective?(current_seg.last)
             segments << current_seg
@@ -109,15 +109,15 @@ module Pito
         vocab&.resolve(tok.value.downcase) ? true : false
       end
 
-      # Normalize a pre-split segment (first token must be the verb).
+      # Normalize a pre-split segment (first token must be the tool).
       def normalize_segment(seg)
         # Clone so we can shift safely
         toks = seg.dup
-        verb_tok = toks.shift
-        return no_match([]) unless verb_tok&.type == :word
+        tool_tok = toks.shift
+        return no_match([]) unless tool_tok&.type == :word
 
-        spec = Registry.specs_for_alias(namespace: @namespace, token: verb_tok.value.downcase.to_sym)
-        return no_match([ verb_tok, *toks ]) unless spec
+        spec = Registry.specs_for_alias(namespace: @namespace, token: tool_tok.value.downcase.to_sym)
+        return no_match([ tool_tok, *toks ]) unless spec
 
         process(spec, toks)
       end

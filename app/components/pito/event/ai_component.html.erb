@@ -1,10 +1,11 @@
-<%= render(Pito::Segment::Component.new(accent: :ai, content_class: pending? ? nil : "pito-ai-surface", background: pending? ? "var(--bg-surface)" : nil, msg_bg: "var(--bg-surface)", id: dom_id, scrollback_message: true)) do %>
+<%= render(Pito::Segment::Component.new(accent: pending? ? :surface : :ai, content_class: pending? ? nil : "pito-ai-surface", msg_bg: "var(--bg-surface)", id: dom_id, scrollback_message: true)) do %>
   <% if pending? %>
-    <%# The loop is running — the tile wears the plain :system dress (no purple
-        surface) until the answer lands. The slot opens with a witty handshake
-        line (the model takes a beat before its first tool call), then the
-        Broadcaster narrates each tool read; both shimmer like the Thinking
-        block. %>
+    <%# The loop is running — the tile wears the FULL :system dress (surface
+        bar, transparent background) and only promotes to the AI chrome when
+        the answer lands. The slot opens with a witty handshake line (the
+        model takes a beat before its first tool call), then the Broadcaster
+        narrates each tool read; both shimmer like the Thinking block. %>
+    <div id="<%= blocks_slot_id %>" class="flex flex-col gap-2"></div>
     <div id="<%= status_slot_id %>" class="text-fg-faded pito-network-shimmer"><%= handshake_line %></div>
   <% else %>
     <%# The bottom padding keeps the last line clear of the ✨ badge (which
@@ -26,7 +27,10 @@
       <%# The established meta footer — shimmer #handle + the clickable shift+r
           reply affordance, exactly like every other repliable message. %>
       <%= render(Pito::Event::MetaLineComponent.new(handle: reply_handle)) %>
-      <%= render(Pito::Event::Ai::ModelBadgeComponent.new(model: model)) %>
+      <%= render(Pito::Event::Ai::ModelBadgeComponent.new(
+            model: model,
+            cost_amount: @payload[:cost_amount], cost_currency: @payload[:cost_currency]
+          )) %>
     </div>
   <% end %>
 <% end %>

@@ -61,9 +61,10 @@
      the INVERSE of action (purple base + pito-blue band). */
   --shimmer-network-base: var(--accent-purple);
   --shimmer-network-band: var(--brand-pito);
-  /* subject + reference — fg-coloured text with a blue→purple band (was
-     orange→yellow; the brand pair reads on light AND dark themes). The
-     TEXT color stays fg — only the sweep band changed. */
+  /* subject + reference — fg-family DEFAULTS. Both families now override
+     base AND band in-class with pairs mathematically DERIVED from their own
+     base (oklch relative color), so the sweep tracks every theme's palette;
+     these root values are the fallback only. */
   --shimmer-fg-base:   var(--fg-default);
   --shimmer-fg-band-a: var(--brand-pito);
   --shimmer-fg-band-b: var(--accent-purple);
@@ -135,6 +136,15 @@ html {
      window never scrolls — reserving a gutter just left a permanent ~6px dead
      strip down the right edge (most visible on full-bleed elements like the
      dev banner). Inner scroll lives in #pito-scrollback, which hides its bar. */
+  /* Kill the BROWSER's pull-down-to-refresh (Chrome/Brave arm it even on
+     non-scrolling pages): the chat's one refresh gesture is pito's own
+     bottom pull-up (owner-locked) — a stray downward drag does nothing. */
+  overscroll-behavior-y: none;
+}
+
+body {
+  /* Chrome consults body too — both roots opt out (see html above). */
+  overscroll-behavior-y: none;
 }
 
 /* ── Cursor component ───────────────────────────────────────── */
@@ -485,35 +495,36 @@ html {
   }
 }
 
-/* ── Mini-status "me" shimmer ──
-   The authenticated `■ nickname` in the mini status bar wears the house
-   green↔yellow sweep — the SAME recipe as .pito-trend-number--up (yellow is
-   the documented contrast band that pops against green), on the shared
-   angle/speed tokens. Scoped to this one spot by design (owner: "only for
-   this place in the mini status bar"); the @version suffix stays dim. The
-   gradient paints the ■ glyph too via background-clip: text. */
-.pito-me-shimmer {
-  color: var(--accent-green);
-  /* The band joined the house blue→purple gradient — green base,
-     brand band, same width as the fg shimmers. */
-  background-image: linear-gradient(
-    var(--pito-shimmer-angle),
-    var(--accent-green) 0%,
-    var(--accent-green) 36%,
-    var(--shimmer-fg-band-a) 44%,
-    var(--shimmer-fg-band-b) 56%,
-    var(--accent-green) 64%,
-    var(--accent-green) 100%
-  );
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* LONGHANDS, never the `animation` shorthand — see .pito-trend-number--up. */
-  animation-name: pito-action-shimmer-sweep;
-  animation-duration: var(--pito-shimmer-speed);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+/* The connection dot — Lucide icons per state (lock/cable/plug-zap), toggled
+   by data-state; pito--cable-health owns the live flips. Idle is STATIC (the
+   breath was purged, owner 2026-07-12): the only motion is the SPARK — a
+   pathLength-normalized duplicate of the cable's long run whose dash races
+   the stroke end-to-end once per incoming cable message. Spark color is
+   var(--fg-default) by owner absolution: maximum luminance contrast against
+   the green cable in dark AND light themes. */
+.pito-conn-dot {
+  display: inline-flex;
+  align-items: center;
+}
+.pito-conn-dot .pito-conn-icon { display: none; }
+.pito-conn-icon--lock { display: inline !important; }
+.pito-conn-dot[data-state="connected"] .pito-conn-icon--cable { display: inline; }
+.pito-conn-dot[data-state="connecting"] .pito-conn-icon--plug { display: inline; }
+
+.pito-cable-spark {
+  opacity: 0;
+  stroke: var(--fg-default);
+  stroke-width: 2.6;
+  stroke-dasharray: 16 100;
+  stroke-dashoffset: 116;
+}
+.pito-cable-active .pito-cable-spark {
+  opacity: 1;
+  animation: pito-cable-spark-run 0.55s linear 1;
+}
+@keyframes pito-cable-spark-run {
+  from { stroke-dashoffset: 116; }
+  to   { stroke-dashoffset: -16; }
 }
 
 .pito-trend-number--down {
@@ -640,16 +651,32 @@ html {
    (no shimmer); the class is the stable hook the chat-form
    controller targets to update a cycled scope value. Colour inherits the
    surrounding context (meta line dim, list cell default) — no override. */
-.pito-token { /* hook only — plain, inherits colour */ }
+.pito-token {
+  /* Identifier/REFERENCE tokens (@handle, #id, scope chips) — cyan base
+     (owner: references read cyan app-wide); still no shimmer of their own. */
+  color: var(--accent-cyan);
+}
 
-/* ── Identifier shimmer (Pito::Shimmer::TokenComponent) ── RESERVED, UNUSED ──
-   Defined but no longer applied: the reference band stays in the
-   stylesheet for future reuse. Slow diagonal fg→YELLOW shimmer.
+/* ── Reference shimmer (Pito::Shimmer::TokenComponent, shimmer: true) ──
+   Worn by the AI text blocks' semantic [ref] tokens (decorative @handle /
+   #id / scope-chip identifiers stay PLAIN .pito-token per owner 17.4).
    Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-reference-shimmer {
-  /* The band is a GRADIENT — band-a (pito blue) grading into band-b
-     (purple) inside one sweep, and WIDER than the old single-color 6% slice
-     (44–56%) so it actually reads while moving. Same for subject below. */
+  /* REFERENCE tokens rest on CYAN; the sweeping pair is DERIVED from that
+     cyan (oklch relative color: lightened, chroma-boosted, hue rotated
+     toward the violet pole) so the pair tracks each theme's own cyan and
+     reads on all 18 themes. min() caps lightness so light themes don't
+     blow out to white. */
+  --shimmer-fg-base: var(--accent-cyan);
+  --shimmer-fg-band-a: oklch(
+    from var(--accent-cyan) calc(min(l + 0.1, 0.94)) calc(c * 1.15) calc(h + 40)
+  );
+  --shimmer-fg-band-b: oklch(
+    from var(--accent-cyan) calc(min(l + 0.18, 0.96)) calc(c * 1.3) calc(h + 80)
+  );
+  /* The band is a GRADIENT — band-a grading into band-b inside one sweep,
+     WIDER than the old single-color 6% slice (44–56%) so it actually reads
+     while moving. Same for subject below. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
     var(--shimmer-fg-base) 0%,
@@ -680,8 +707,20 @@ html {
    the other fg-band families (reference = the YELLOW counterpart).
    Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-subject-shimmer {
-  /* Same blue→purple gradient band as the reference shimmer — one
-     family, one band (the old per-variant single colors read as "only blue"). */
+  /* SUBJECT tokens rest on PINK — the palette has no --accent-pink, so it
+     is synthesized theme-aware exactly like the footage bar's insanity end:
+     color-mix(in oklch, red, purple) lands on each theme's own magenta.
+     The sweeping pair is DERIVED from that pink (oklch relative color),
+     rotated toward the violet pole — the mirror of the reference pair's
+     lean, so the two families gleam through the same middle from opposite
+     sides. */
+  --shimmer-fg-base: color-mix(in oklch, var(--accent-red), var(--accent-purple));
+  --shimmer-fg-band-a: oklch(
+    from var(--shimmer-fg-base) calc(min(l + 0.1, 0.94)) calc(c * 1.15) calc(h - 40)
+  );
+  --shimmer-fg-band-b: oklch(
+    from var(--shimmer-fg-base) calc(min(l + 0.18, 0.96)) calc(c * 1.3) calc(h - 80)
+  );
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
     var(--shimmer-fg-base) 0%,
@@ -795,86 +834,86 @@ html {
 .pito-loading-dots--d4 .dot { animation-delay: -1.14s; }
 
 @keyframes pito-c1 {
-  0%             { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  15.74%         { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  31.48%         { background: var(--brand-pito);    opacity: .4; }
-  47.22%         { background: var(--brand-pito);    opacity: .15; }
-  95.87%         { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  96.875%, 100%  { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
+  0%             { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  15.74%         { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  31.48%         { background: var(--comet-b);    opacity: .4; }
+  47.22%         { background: var(--comet-b);    opacity: .15; }
+  95.87%         { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  96.875%, 100%  { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
 }
 @keyframes pito-c2 {
-  0%               { background: var(--brand-pito);    opacity: .15; }
-  8.375%           { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  9.375%           { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  25.115%          { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  40.855%          { background: var(--brand-pito);    opacity: .4; }
-  56.595%, 92.75%  { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  93.75%           { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  99%              { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  100%             { background: var(--brand-pito);    opacity: .15; }
+  0%               { background: var(--comet-b);    opacity: .15; }
+  8.375%           { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  9.375%           { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  25.115%          { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  40.855%          { background: var(--comet-b);    opacity: .4; }
+  56.595%, 92.75%  { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  93.75%           { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  99%              { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  100%             { background: var(--comet-b);    opacity: .15; }
 }
 @keyframes pito-c3 {
-  0%               { background: var(--brand-pito);    opacity: .15; }
-  17.75%           { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  18.75%           { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  34.49%           { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  50.23%           { background: var(--brand-pito);    opacity: .4; }
-  65.97%, 89.625%  { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  90.625%          { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  95.875%          { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  100%             { background: var(--brand-pito);    opacity: .15; }
+  0%               { background: var(--comet-b);    opacity: .15; }
+  17.75%           { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  18.75%           { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  34.49%           { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  50.23%           { background: var(--comet-b);    opacity: .4; }
+  65.97%, 89.625%  { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  90.625%          { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  95.875%          { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  100%             { background: var(--comet-b);    opacity: .15; }
 }
 @keyframes pito-c4 {
-  0%               { background: var(--brand-pito);    opacity: .15; }
-  27.125%          { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  28.125%          { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  43.865%          { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  59.605%          { background: var(--brand-pito);    opacity: .4; }
-  75.345%, 86.5%   { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  87.5%            { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  92.75%           { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  98%              { background: var(--brand-pito);    opacity: .4; }
-  100%             { background: var(--brand-pito);    opacity: .15; }
+  0%               { background: var(--comet-b);    opacity: .15; }
+  27.125%          { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  28.125%          { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  43.865%          { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  59.605%          { background: var(--comet-b);    opacity: .4; }
+  75.345%, 86.5%   { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  87.5%            { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  92.75%           { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  98%              { background: var(--comet-b);    opacity: .4; }
+  100%             { background: var(--comet-b);    opacity: .15; }
 }
 @keyframes pito-c5 {
-  0%               { background: var(--brand-pito);    opacity: .15; }
-  36.5%            { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  37.5%            { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  53.24%           { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  68.98%           { background: var(--brand-pito);    opacity: .4; }
-  83.375%          { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  84.375%          { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  89.625%          { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  94.875%          { background: var(--brand-pito);    opacity: .4; }
-  100%             { background: var(--brand-pito);    opacity: .15; }
+  0%               { background: var(--comet-b);    opacity: .15; }
+  36.5%            { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  37.5%            { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  53.24%           { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  68.98%           { background: var(--comet-b);    opacity: .4; }
+  83.375%          { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  84.375%          { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  89.625%          { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  94.875%          { background: var(--comet-b);    opacity: .4; }
+  100%             { background: var(--comet-b);    opacity: .15; }
 }
 @keyframes pito-c6 {
-  0%, 45.875%      { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  46.875%          { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  62.615%          { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  78.355%          { background: var(--brand-pito);    opacity: .4; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  81.25%           { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  86.5%            { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  91.75%           { background: var(--brand-pito);    opacity: .4; }
-  97%, 100%        { background: var(--brand-pito);    opacity: .15; }
+  0%, 45.875%      { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  46.875%          { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  62.615%          { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  78.355%          { background: var(--comet-b);    opacity: .4; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  81.25%           { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  86.5%            { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  91.75%           { background: var(--comet-b);    opacity: .4; }
+  97%, 100%        { background: var(--comet-b);    opacity: .15; }
 }
 @keyframes pito-c7 {
-  0%, 55.25%       { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  56.25%           { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  71.99%           { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  77.125%          { background: var(--accent-purple); opacity: .8; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  78.125%          { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  83.375%          { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  88.625%          { background: var(--brand-pito);    opacity: .4; }
-  93.875%, 100%    { background: var(--brand-pito);    opacity: .15; }
+  0%, 55.25%       { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  56.25%           { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  71.99%           { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  77.125%          { background: var(--comet-a); opacity: .8; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  78.125%          { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  83.375%          { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  88.625%          { background: var(--comet-b);    opacity: .4; }
+  93.875%, 100%    { background: var(--comet-b);    opacity: .15; }
 }
 @keyframes pito-c8 {
-  0%, 64.625%      { background: var(--brand-pito);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
-  65.625%          { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  75%              { background: var(--accent-purple); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--accent-purple); z-index: 5; }
-  80.25%           { background: var(--accent-purple); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
-  85.5%            { background: var(--brand-pito);    opacity: .4; }
-  90.75%, 100%     { background: var(--brand-pito);    opacity: .15; }
+  0%, 64.625%      { background: var(--comet-b);    opacity: .15; transform: scale(1); box-shadow: 0 0 0 transparent; }
+  65.625%          { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  75%              { background: var(--comet-a); opacity: 1;  transform: scale(1.5); box-shadow: 0 0 8px var(--comet-a); z-index: 5; }
+  80.25%           { background: var(--comet-a); opacity: .6; transform: scale(1); box-shadow: 0 0 0 transparent; z-index: 1; }
+  85.5%            { background: var(--comet-b);    opacity: .4; }
+  90.75%, 100%     { background: var(--comet-b);    opacity: .15; }
 }
 /* ── Command palette selected item ──────────────────────────── */
 
@@ -920,24 +959,56 @@ html {
    pito-blue every ~10 rows) that DRIFTS vertically — a slow shimmer shared
    by the bar and the message surface. */
 .pito-segment__bar[data-accent="ai"] {
+  /* SHIMMER, not a drift: purple base with a pito-blue BAND sweeping top→
+     bottom. The band is sized/positioned in percentages, so one sweep always
+     traverses the full element in the same period — a tall message bar moves
+     fast, the one-line chatbox bar moves slow, and the pulse reads constant
+     everywhere. */
+  background-color: var(--accent-purple);
   background-image: linear-gradient(
     to bottom,
-    var(--accent-purple) 0%,
+    transparent 0%,
     var(--brand-pito) 50%,
-    var(--accent-purple) 100%
+    transparent 100%
   );
-  /* PERCENTAGE tile: the gradient spans 3× the BAR's own height, and the
-     ping-pong below slides it by 2× that height per cycle — so the sweep's
-     speed scales with the element (a one-line chatbox bar flows briskly, a
-     tall message bar flows at its own statelier pace) and the full
-     purple→blue ramp is always visible inside the bar, whatever its size. */
-  background-size: 100% 300%;
-  animation: pito-ai-bar-flow 4s linear infinite alternate;
+  background-size: 100% 45%;
+  background-repeat: no-repeat;
+  animation: pito-ai-bar-shimmer 2.2s linear infinite;
 }
 
-@keyframes pito-ai-bar-flow {
-  from { background-position-y: 0%; }
-  to   { background-position-y: 100%; }
+@keyframes pito-ai-bar-shimmer {
+  from { background-position-y: -80%; }
+  to   { background-position-y: 180%; }
+}
+
+/* THE AI sparkle (Pito::Ai::BadgeComponent) — sidebar AI-thread rows AND the
+   ✨ model chip render this one badge: the Lucide sparkles as a MASK over a
+   shimmering fill, the AI accent bar's exact pair (purple base, pito-blue
+   band) sweeping on the GLOBAL shimmer angle/speed tokens. 14px square +
+   self-centered so a 14px row is never disturbed; masked-off pixels are
+   transparent, so only the glyph paints. LONGHANDS, never the `animation`
+   shorthand — see .pito-trend-number--up. */
+.pito-ai-badge {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  align-self: center;
+  background-image: linear-gradient(
+    var(--pito-shimmer-angle),
+    var(--accent-purple) 0%,
+    var(--accent-purple) 36%,
+    var(--brand-pito) 50%,
+    var(--accent-purple) 64%,
+    var(--accent-purple) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z'/%3E%3Cpath d='M20 3v4'/%3E%3Cpath d='M22 5h-4'/%3E%3Cpath d='M4 17v2'/%3E%3Cpath d='M5 18H3'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z'/%3E%3Cpath d='M20 3v4'/%3E%3Cpath d='M22 5h-4'/%3E%3Cpath d='M4 17v2'/%3E%3Cpath d='M5 18H3'/%3E%3C/svg%3E") center / contain no-repeat;
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 /* The :ai message surface — STATIC pure purple at whisper volume (no motion;
@@ -945,7 +1016,7 @@ html {
    Lives on :root (where data-theme sits) so the mix follows the active theme;
    chips keep an opaque --pito-msg-bg via Segment's msg_bg. */
 :root {
-  --pito-ai-surface: color-mix(in srgb, var(--accent-purple) 18%, var(--bg-surface));
+  --pito-ai-surface: color-mix(in srgb, var(--brand-pito) 18%, var(--bg-surface));
 }
 
 .pito-ai-surface {
@@ -958,6 +1029,9 @@ html {
    The translucent root-colored chip keeps the name readable on every theme's
    surface without pretending to be content. */
 .pito-ai-model-badge {
+  /* Chrome, not content — the ✨ model/cost receipt stays out of copies. */
+  -webkit-user-select: none;
+  user-select: none;
   position: absolute;
   right: 0;
   bottom: 0;
@@ -965,15 +1039,25 @@ html {
   align-items: center;
   gap: 4px;
   padding: 1px 5px;
-  background: color-mix(in srgb, var(--bg-root) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-root) 42%, transparent);
   color: var(--fg-dim);
   pointer-events: none;
 }
 
 /* The /config ai picker's scrolling body — viewport-capped like the Ctrl+K
-   palette list, as a class (no inline style). */
+   palette list, as a class (no inline style). overscroll containment stops
+   a modal list's scroll from chaining into the conversation behind it. */
 .pito-ai-picker__list {
   max-height: min(62vh, 460px);
+  overscroll-behavior: contain;
+}
+
+/* MODAL SCROLL LOCK (owner): while the /config ai picker is mounted or the
+   Ctrl+K palette is visible, the conversation behind them must not scroll —
+   only the modal's own list does. Pure CSS via :has(), no lifecycle JS. */
+body:has(#pito-ai-picker) #pito-scrollback,
+body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
+  overflow: hidden;
 }
 
 .pito-segment__gap {
@@ -1051,11 +1135,19 @@ html {
   display: flex;
   align-items: center;
   margin-top: 6px;
+  /* Chrome, not content — like the timestamp prefix: the reply handle +
+     shift+r hint never ride along in a select-all/copy (owner, 08:0x). */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* "HH:MM " timestamp leading a message's first line. No middot separator. */
+/* "HH:MM " timestamp leading a message's first line. No middot separator.
+   user-select: none — the timestamp is CHROME, not content: select-all on a
+   message (and any drag) copies the words, never the clock (owner, 07:5x). */
 .pito-timestamp-prefix {
   white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ── Thinking indicator ─────────────────────────────────────── */
@@ -2970,13 +3062,11 @@ html {
   );
 }
 
-/* Glance sparkline (Visualizers::Sparkline): NO health gradient — a FLAT
-   fg-default base under the shared pito-blue chart-viz shimmer. Override the
-   --pito-health var the row layers over, so the band stays and the base is one
-   calm colour (owner: "color = fg-default, no gradient on this for now"). */
-.pito-metric--sparkline .pito-metric__plot {
-  --pito-health: linear-gradient(var(--fg-default), var(--fg-default));
-}
+/* Glance sparkline (Visualizers::Sparkline): wears the SAME health ramp as
+   the area chart (the old flat fg-default override was the owner's "no
+   gradient for now" — retired: "add color/life to Sparklines, look how
+   alive the Area charts are"). No override needed — the plot inherits
+   --pito-health with the 100% green anchor. */
 
 /* Each braille row: the pito-blue shimmer band (swept @property stops, the SAME
    .pito-bar-shimmer recipe as score/ttb) layered OVER the health ramp, both
@@ -3110,11 +3200,14 @@ html {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-/* x-ticks: a 7-col grid so each Mo…Su label centres under its bar (the generic
-   __xticks space-between would push the first/last to the edges). */
+/* x-ticks: a grid so each label centres under its bar (the generic __xticks
+   space-between would push the first/last to the edges). Tracks default to the
+   7-weekday preset; a non-preset bar count emits --pito-heatmap-xtick-cols
+   inline (one fr per bar, proportional to its cell width) so labels stay
+   centred even when the remainder makes bars unequal. */
 .pito-heatmap__xticks {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: var(--pito-heatmap-xtick-cols, repeat(7, 1fr));
   text-align: center;
 }
 /* Reveal: each bar wipes in bottom→up under .is-revealing (fail-open — with no JS
@@ -3254,12 +3347,19 @@ html {
    from the parent .pito-metric__brow) so the diagonal reads true across the
    whole canvas — identical fix to the area chart and heart. */
 .pito-metric__brow .pito-bar-fill {
-  /* Filled cells get a saturation-forward lift over the raw theme accent
-     (owner benchmark: the ScoreBar's punch vs the washed-out braille
-     canvas). Derived from the token via relative oklch (+40% chroma, +8% L)
-     so every theme keeps its own hue, exactly like the ScoreBar's
-     color-mix derivation. */
-  --bar-color-vivid: oklch(from var(--bar-color) calc(l * 1.08) calc(c * 1.4) h);
+  /* Filled cells land in the HEATMAP's vibrancy band (owner benchmark round
+     3: red/green bars passed, blue/purple/cyan read flat — multiplying l/c
+     preserves each token's weakness, so brand-pito blue stayed dark and
+     hue-close to dark-violet backgrounds). Instead every fill is CLAMPED
+     into one neon window: lightness forced to 0.72–0.86 and chroma floored
+     at 0.17, hue untouched — so all five bars punch equally, whichever
+     accents the theme deals. */
+  --bar-color-vivid: oklch(
+    from var(--bar-color)
+    clamp(0.72, calc(l * 1.12), 0.86)
+    max(calc(c * 1.6), 0.17)
+    h
+  );
   background-image:
     linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
@@ -3277,14 +3377,14 @@ html {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-/* The dim remainder (above or beyond the bar fill) — hollow treatment,
-   faded FURTHER than the heart's 0.45 so the vivid fill pops against it
-   (contrast pass: fade the faded, saturate the filled). The vivid
-   custom property must not leak into the remainder — reset to the flat
-   token so outline cells stay muted. */
+/* The dim remainder (above or beyond the bar fill) — hollow treatment: the
+   flat token at 0.4 (raised from 0.25 on the owner's second pass — at 0.25
+   a 0% bar's whole row sank into the dotted paper; 0.4 keeps each bar's HUE
+   readable while the vivid fill still clearly pops). The vivid custom
+   property must not leak into the remainder — reset to the flat token. */
 .pito-metric__brow .pito-bar-fill.is-outline {
   --bar-color-vivid: var(--bar-color);
-  opacity: 0.25;
+  opacity: 0.4;
 }
 
 /* Constrain the bar chart to the plot's intrinsic width (the `white-space: pre`

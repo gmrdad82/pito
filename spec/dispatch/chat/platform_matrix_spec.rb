@@ -5,8 +5,8 @@ require "rails_helper"
 # ── Dispatch matrix: `platform` (recognition only, DB mocked) ──────────────────
 #
 # Subject:  Pito::Chat::Handlers::Platform
-# File:     app/services/pito/chat/handlers/platform.rb
-# Vocab:    Pito::Games::PlatformInput (app/services/pito/game/platform_input.rb)
+# File:     lib/pito/chat/handlers/platform.rb
+# Vocab:    Pito::Games::PlatformInput (app/services/pito/games/platform_input.rb)
 # Resolver: id_only_resolution! — ILIKE title lookup intentionally disabled.
 #
 # ── Behavior change ───────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ RSpec.describe "Dispatch matrix — platform (recognition, DB mocked)", type: :d
   # The raw string must start with "platform" (the verb word the handler strips).
   def call(raw, follow_up: nil)
     msg = Pito::Chat::Message.new(
-      verb:        :platform,
+      tool:        :platform,
       body_tokens: [],
       kind:        :new_turn,
       raw:         raw
@@ -83,7 +83,7 @@ RSpec.describe "Dispatch matrix — platform (recognition, DB mocked)", type: :d
 
   # Follow-up detail context: game comes from card payload; rest is everything
   # AFTER the verb word (e.g. "ps5" or "set ps5" — NOT "platform ps5").
-  # This mirrors what VerbDelegator passes: it strips the leading verb token.
+  # This mirrors what ToolDelegator passes: it strips the leading verb token.
   def detail_ctx(rest, game_id: PLAT_GAME_ID)
     source = instance_double(
       Event,
@@ -144,7 +144,7 @@ RSpec.describe "Dispatch matrix — platform (recognition, DB mocked)", type: :d
   # ── ⑨ Follow-up detail context ───────────────────────────────────────────────
   #
   # Game comes from the card's game_id payload key; follow_up.rest is the text
-  # typed AFTER the verb word (stripped by VerbDelegator). Subcommand peel still
+  # typed AFTER the verb word (stripped by ToolDelegator). Subcommand peel still
   # applies to rest before treating the whole remainder as the platform name.
 
   describe "⑨ follow-up detail context (game from card; rest = platform name)" do

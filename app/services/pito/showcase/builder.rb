@@ -6,7 +6,7 @@ module Pito
     #
     # Rule-based + deterministic — no Voyage. Called after every completed turn
     # and when a new conversation is seeded. Returns an ordered Array of
-    # matrix-valid chat-verb command strings using REAL DB ids.
+    # matrix-valid chat-tool command strings using REAL DB ids.
     #
     # Context is derived from the last COMPLETED turn's events' payloads
     # (which carry game_id / game_ids / video_id / video_ids / channel_id /
