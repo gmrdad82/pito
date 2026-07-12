@@ -14,9 +14,14 @@ module Pito
       #            #id, #title, #channel).
       class Component < ViewComponent::Base
         # @param videos [Array<Video>]
-        def initialize(videos:)
-          @videos = videos
+        # @param next_cursor [String, nil] opaque keyset token (Video.picker_page)
+        #   — nil renders no pager (the whole library fit one page).
+        def initialize(videos:, next_cursor: nil)
+          @videos      = videos
+          @next_cursor = next_cursor
         end
+
+        attr_reader :next_cursor
 
         def empty?
           @videos.empty?

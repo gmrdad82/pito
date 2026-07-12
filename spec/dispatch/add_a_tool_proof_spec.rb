@@ -4,202 +4,218 @@ require "rails_helper"
 require_relative "../support/dispatch_config_injection"
 
 # ============================================================================
-# THE ADD-A-TOOL PROOF  (G130 — the MCP analog of the add-a-verb proof)
+# THE ADD-A-DISPATCH-TOOL PROOF  (plan-0.9.5 T8.12b — the P3 acceptance criterion)
 # ============================================================================
-# The owner's config-only contract, extended to MCP: a new read-only TOOL is a
-# verbs.yml `mcp:` block (or an `mcp_readers:` entry) and NOTHING ELSE — no Ruby
-# verb→tool table, no Registry edit, no endpoint edit. This file proves it.
+# Proves that ADDING A DISPATCH TOOL is config-only. Owner's requirement,
+# verbatim: "the foundation of being able to add future verbs from the YAML
+# config without touching dispatcher, router, etc. We'll implement stuff like
+# builder ofc." (What was then called a verb is now a tool — the ontology entry.)
 #
-# It invents a brand-new synthetic verb `almanac` carrying an `mcp:` block, plus a
-# standalone `mcp_readers:` entry `pito_almanac_log`, injected as YAML through the
-# test-only DispatchConfigInjection seam. With ZERO production edits it then proves:
+# This file PROVES that claim end-to-end. It introduces a brand-new synthetic
+# tool — `ping` (alias `pong`) — built out of NOTHING BUT:
 #
-#   1. SCHEMA    — Pito::Dispatch::Schema accepts the injected document.
-#   2. TOOLS/LIST — Pito::Mcp::Registry surfaces both the verb-backed tool and the
-#                   reader, with a correct JSON-Schema inputSchema derived from params.
-#   3. EXECUTION — the tool's `input` grammar template builds a string the REAL
-#                  Pito::Dispatch::Router recognizes as the `almanac` verb and runs
-#                  its handler. (T2.2 will prove the Executor BUILDS that string from
-#                  a `pito_almanac(topic:)` tool call and calls this same Router path.)
-#   4. THE POINT — Registry / Router / Schema are the unmodified shipped code.
+#   1. a schema-valid config entry (injected as YAML into Pito::Dispatch::Config
+#      through the test-only DispatchConfigInjection seam — see
+#      spec/support/dispatch_config_injection.rb): a chat branch with one enum
+#      slot over a tiny inline vocabulary, a dispatch class, a description key,
+#      and a reply branch on the REAL `game_list` target (mode: append + a
+#      `ref` resolver);
+#   2. a fixture handler class (Pito::DispatchProof::PingHandler, below) that
+#      answers the uniform dispatch contract call(kwargs:, context:) → Result::Ok
+#      — the "we'll implement the builder ofc" part;
+#   3. I18n test translations for its copy key.
 #
-# A real new tool over an EXISTING read verb needs zero Ruby at all; this proof
-# invents a whole verb, so it also adds one fixture handler — exactly as the
-# add-a-verb proof does.
+# It then exercises SCHEMA, RECOGNITION, PALETTE, DISPATCH and REPLY through the
+# PUBLIC ENTRY POINTS ONLY. Every one of those paths runs against UNMODIFIED
+# router / matrix / schema / engine / reply-binding / delegator code — this file
+# adds a spec plus a test-support helper and NOTHING under lib/ or app/. "THE
+# POINT" example group asserts that structurally, via each class's real
+# source_location.
 
-# ── The fixture handler — a plain read-only Pito::Chat::Handler subclass, reachable
-# ONLY through the injected config's chat.dispatch. Writes nothing (MCP is read-only).
+# ── The fixture handler — the only hand-written code a tool author adds (besides
+# the YAML). A plain Pito::Chat::Handler subclass: the base class supplies the
+# uniform class-level call(kwargs:, context:) for free (lib/pito/chat/handler.rb).
+# Deliberately NOT namespaced under Pito::Chat::Handlers, so no registry or
+# handler sweep ever picks it up — it is reachable ONLY because the injected
+# config's `chat.dispatch` points at it.
 module Pito
   module DispatchProof
-    class AlmanacHandler < Pito::Chat::Handler
-      self.verb            = :almanac
-      self.description_key = "pito.chat.almanac.descriptions.almanac"
+    class PingHandler < Pito::Chat::Handler
+      self.tool            = :ping
+      self.description_key = "pito.chat.ping.descriptions.ping"
 
       def call
-        topic = message.body_tokens.map { |t| t.value.to_s.downcase }.first
+        # Typed path: the mood enum token flows in via the parsed message.
+        # Reply path: the row ref (a ::Game) bound by ReplyBinding arrives in kwargs.
+        mood = message.body_tokens.map { |t| t.value.to_s.downcase }.first
         Pito::Chat::Result::Ok.new(events: [ {
           kind:    :system,
-          payload: { "text" => "Almanac for #{topic}.", proof: :almanac, topic: }
+          payload: { proof: :ping, mood:, ref_id: kwargs[:ref]&.id }
         } ])
       end
     end
   end
 end
 
-RSpec.describe "the add-a-tool proof (G130)", type: :dispatch do
-  # ── the synthetic verb + its mcp block, authored purely as YAML config ──────────
-  ALMANAC_VERB_YAML = <<~YAML
-    almanac:
-      aliases: [almanacs]
-      description: pito.chat.almanac.descriptions.almanac
+RSpec.describe "the add-a-dispatch-tool proof (T8.12b)", type: :dispatch do
+  # ── the synthetic tool, authored purely as YAML config ──────────────────────
+  PING_TOOL_YAML = <<~YAML
+    ping:
+      aliases: [pong]
+      description: pito.chat.ping.descriptions.ping
       auth: session
       chat:
-        dispatch: DispatchProof::AlmanacHandler
+        dispatch: DispatchProof::PingHandler
         slots:
-          - name: topic
+          - name: mood
             kind: enum
-            source: almanac_topics
+            source: ping_moods
             optional: true
-      mcp:
-        tool: pito_almanac
-        description: "Read the almanac for a topic (proof tool)."
-        read_only: true
-        params:
-          topic:  { type: string, enum: [weather, tides], required: true }
-          detail: { type: array,  items: string, required: false, hint: "extra sections" }
-        input: "almanac %{topic}"
-        input_suffixes:
-          detail: " with %{values}"
+      reply:
+        targets:
+          game_list:
+            mode: append
+            ref: { resolver: id_among_rows }
   YAML
 
-  ALMANAC_VOCAB_YAML = <<~YAML
-    almanac_topics:
-      members: [weather, tides]
+  # Members intentionally OUT of alphabetical order — the palette must sort them.
+  PING_VOCAB_YAML = <<~YAML
+    ping_moods:
+      members: [zoom, zap, zip]
   YAML
 
-  # A standalone reader tool with no backing verb.
-  ALMANAC_READER_YAML = <<~YAML
-    pito_almanac_log:
-      tool: pito_almanac_log
-      description: "Read the almanac request log (proof reader)."
-      read_only: true
-      params:
-        limit: { type: integer, required: false, hint: "how many entries" }
-  YAML
+  SORTED_MOODS = %w[zap zip zoom].freeze
 
   let(:conversation) { Conversation.singleton }
 
   before do
     I18n.backend.store_translations(
-      :en, pito: { chat: { almanac: { descriptions: { almanac: "Almanac — the proof tool verb." } } } }
+      :en, pito: { chat: { ping: { descriptions: { ping: "Ping — the proof tool." } } } }
     )
-    inject_dispatch_config!(
-      verbs:       ALMANAC_VERB_YAML,
-      vocabularies: ALMANAC_VOCAB_YAML,
-      mcp_readers: ALMANAC_READER_YAML
-    )
+    inject_dispatch_config!(verbs: PING_TOOL_YAML, vocabularies: PING_VOCAB_YAML)
   end
 
   after { restore_dispatch_config! }
 
+  # Runs the real Lex → sanitize → Parser path (exactly what Router#parse does).
   def parse(input)
     tokens = Pito::Lex::KeywordSanitizer.call(Pito::Lex::Lexer.call(input))
     Pito::Chat::Parser.call(tokens, raw: input, conversation:)
   end
 
-  # ── 1. SCHEMA — the injected document (verb mcp block + reader) is well-formed ──
+  # ── 1. SCHEMA — the injected document is well-formed ────────────────────────
   describe "schema integrity" do
     it "Pito::Dispatch::Schema.validate accepts the injected document (0 errors)" do
       expect(Pito::Dispatch::Schema.validate(injected_dispatch_document)).to eq([])
     end
-  end
 
-  # ── 2. TOOLS/LIST — the Registry surfaces the new tools with ZERO Ruby edits ────
-  describe "tools/list (Pito::Mcp::Registry, config-only)" do
-    it "surfaces the verb-backed tool pito_almanac" do
-      expect(Pito::Mcp::Registry.tool_names).to include("pito_almanac")
+    it "introduces no alias collisions (ping / pong are unique tokens)" do
+      expect(Pito::Dispatch::Schema.alias_collisions(injected_dispatch_document)).to eq([])
     end
 
-    it "surfaces the standalone reader pito_almanac_log" do
-      expect(Pito::Mcp::Registry.tool_names).to include("pito_almanac_log")
-    end
-
-    it "derives the tool's JSON-Schema inputSchema from its params" do
-      tool = Pito::Mcp::Registry.tools.find { |t| t[:name] == "pito_almanac" }
-
-      expect(tool[:description]).to match(/almanac/i)
-      expect(tool[:inputSchema]).to include("type" => "object", "additionalProperties" => false)
-      expect(tool[:inputSchema]["required"]).to eq(%w[topic])
-      expect(tool[:inputSchema]["properties"]["topic"])
-        .to include("type" => "string", "enum" => %w[weather tides])
-      expect(tool[:inputSchema]["properties"]["detail"])
-        .to include("type" => "array", "items" => { "type" => "string" })
-    end
-
-    it "returns the full verb descriptor (kind, backing verb, input template)" do
-      d = Pito::Mcp::Registry.tool("pito_almanac")
-      expect(d).to include(kind: :verb, verb: "almanac", input: "almanac %{topic}")
-      expect(d[:input_suffixes]).to eq(detail: " with %{values}")
-    end
-
-    it "returns a reader descriptor with no backing verb" do
-      d = Pito::Mcp::Registry.tool("pito_almanac_log")
-      expect(d).to include(kind: :reader, verb: nil, input: nil)
-      expect(d[:params]).to have_key(:limit)
+    it "the ping tool reads back through the public Config.tool API" do
+      expect(Pito::Dispatch::Config.tool(:ping).dig(:chat, :dispatch)).to eq("DispatchProof::PingHandler")
     end
   end
 
-  # ── 3. EXECUTION — the built grammar routes through the REAL Router ─────────────
-  # T2.2 (Executor) will prove `pito_almanac(topic: "weather")` BUILDS "almanac
-  # weather" from `input`/`input_suffixes`; here we prove that string dispatches.
-  describe "execution (the tool's grammar template dispatches)" do
-    it "the input template, once filled, parses as the almanac verb" do
-      expect(parse("almanac weather").verb).to eq(:almanac)
+  # ── 2. RECOGNITION — tool + alias parse as :ping (Lex/parse path) ────────────
+  describe "recognition" do
+    it "parses the canonical tool as a :new_turn for :ping" do
+      msg = parse("ping zap")
+      expect(msg.kind).to eq(:new_turn)
+      expect(msg.tool).to eq(:ping)
     end
 
-    it "Router.call runs the almanac handler for the tool's input string" do
-      result = Pito::Dispatch::Router.call(input: "almanac weather", conversation:)
+    it "canonicalises the alias pong → ping" do
+      expect(parse("pong zap").tool).to eq(:ping)
+    end
+  end
+
+  # ── 3. PALETTE — the tool + its slot members surface ────────────────────────
+  describe "palette" do
+    it "lists ping in the chat verb-stage completions, carrying its enum slot" do
+      chat  = Pito::Suggestions::Catalog.to_h(authenticated: true)[:chat]
+      entry = chat.find { |e| e[:name] == "ping" }
+
+      expect(entry).to be_present
+      expect(entry[:slots]).to include({ name: "mood", source: "ping_moods" })
+    end
+
+    it "autosuggests the slot's members alphabetically after 'ping '" do
+      result = Pito::Suggestions::Engine.call(input: "ping ", cursor: 5, authenticated: true)
+
+      expect(result[:menu_items].map { |i| i[:label] }).to eq(SORTED_MOODS)
+    end
+  end
+
+  # ── 4. DISPATCH — Router runs the fixture handler end-to-end ─────────────────
+  describe "dispatch (typed free-chat)" do
+    it "routes 'ping zap' to the fixture handler and returns its Result::Ok" do
+      result = Pito::Dispatch::Router.call(input: "ping zap", conversation:)
 
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload][:proof]).to eq(:almanac)
-      expect(result.events.first[:payload][:topic]).to eq("weather")
+      payload = result.events.first[:payload]
+      expect(payload[:proof]).to eq(:ping)
+      expect(payload[:mood]).to eq("zap") # the slot value reached the handler
     end
 
-    it "an input_suffix clause also dispatches (almanac weather with tides)" do
-      expect(parse("almanac weather with tides").verb).to eq(:almanac)
-    end
+    it "dispatches through the alias too (pong → ping)" do
+      result = Pito::Dispatch::Router.call(input: "pong zip", conversation:)
 
-    # T1.4b — the Executor BUILDS the grammar from a tool call and routes it, with
-    # ZERO Ruby edits (the injected config drives the whole path).
-    it "the Executor builds 'almanac weather' from a pito_almanac call and runs the handler" do
-      result = Pito::Mcp::Executor.call(tool: "pito_almanac", arguments: { "topic" => "weather" })
-      expect(result).to be_a(Pito::Mcp::Executor::Result)
-      expect(result.is_error).to be(false)
-      expect(result.text).to include("Almanac for weather.")
-    end
-
-    it "the Executor appends an input_suffix from an array argument (detail: [tides])" do
-      expect(Pito::Mcp::Executor.build_input(
-        Pito::Mcp::Registry.tool("pito_almanac"),
-        { "topic" => "weather", "detail" => [ "tides" ] }
-      )).to eq("almanac weather with tides")
+      expect(result.events.first[:payload][:mood]).to eq("zip")
     end
   end
 
-  # ── 4. THE POINT — every path above ran against UNMODIFIED production code ──────
+  # ── 5. REPLY — ping is a config-driven action on the real game_list target ───
+  describe "reply (declared on game_list)" do
+    let!(:game) { create(:game) }
+    let(:source_event) { instance_double(Event, payload: { "reply_target" => "game_list" }) }
+
+    it "Pito::Dispatch::Matrix.actions_for(game_list) includes ping" do
+      expect(Pito::Dispatch::Matrix.actions_for("game_list")).to include("ping")
+    end
+
+    it "FollowUp::Registry.actions_for (Matrix-derived) exposes ping to the reply gate" do
+      expect(Pito::FollowUp::Registry.actions_for("game_list")).to include("ping")
+    end
+
+    it "ToolDelegator executes ping through the SAME Router path, binding the row ref" do
+      result = Pito::FollowUp::ToolDelegator.call(
+        source_event:, rest: "ping #{game.id}", conversation:
+      )
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      payload = result.events.first[:payload]
+      expect(payload[:proof]).to eq(:ping)
+      expect(payload[:ref_id]).to eq(game.id) # kwargs[:ref] resolved by id_among_rows
+    end
+  end
+
+  # ── 6. THE POINT — every path above ran against UNMODIFIED production code ───
+  #
+  # The dispatch machinery this proof exercised is the real code shipped under
+  # lib/ and app/: this file monkeypatches NONE of it. Proven structurally — each
+  # class's live entry method resolves to its production source file, never this
+  # spec. The only new artefacts are this spec + the config-injection support
+  # helper (both test-only) and the fixture handler defined above. A future tool
+  # therefore needs exactly: a YAML entry + a handler class. Zero dispatcher edits.
   describe "THE POINT — zero production code was touched" do
     {
-      "lib/pito/mcp/registry.rb"    => [ Pito::Mcp::Registry, :tools ],
-      "lib/pito/dispatch/router.rb" => [ Pito::Dispatch::Router, :call ],
-      "lib/pito/dispatch/schema.rb" => [ Pito::Dispatch::Schema, :validate ]
+      "lib/pito/dispatch/router.rb"                   => [ Pito::Dispatch::Router, :call ],
+      "lib/pito/dispatch/matrix.rb"                   => [ Pito::Dispatch::Matrix, :actions_for ],
+      "lib/pito/dispatch/schema.rb"                   => [ Pito::Dispatch::Schema, :validate ],
+      "lib/pito/dispatch/reply_binding.rb"            => [ Pito::Dispatch::ReplyBinding, :bind ],
+      "lib/pito/suggestions/engine.rb"                => [ Pito::Suggestions::Engine, :call ],
+      "lib/pito/follow_up/tool_delegator.rb"          => [ Pito::FollowUp::ToolDelegator, :call ]
     }.each do |relative_path, (mod, meth)|
       it "#{relative_path} is the real, unmodified implementation" do
-        expect(mod.method(meth).source_location.first).to end_with(relative_path)
+        source = mod.method(meth).source_location.first
+        expect(source).to end_with(relative_path)
       end
     end
 
     it "the ONLY hand-written code the new tool needed is the fixture handler (in this spec)" do
-      source = Pito::DispatchProof::AlmanacHandler.instance_method(:call).source_location.first
+      source = Pito::DispatchProof::PingHandler.instance_method(:call).source_location.first
       expect(source).to end_with("spec/dispatch/add_a_tool_proof_spec.rb")
     end
   end

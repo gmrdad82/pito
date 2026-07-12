@@ -87,12 +87,12 @@ RSpec.describe "Chat requests", type: :request do
         expect(response).to have_http_status(:no_content)
       end
 
-      it "creates an error Event with the unknown_verb message_key after the job runs" do
+      it "creates an error Event with the unknown_tool message_key after the job runs" do
         perform_enqueued_jobs { post "/chat", params: params }
         turn = Turn.last
         error_event = turn.events.find { |e| e.kind == "error" }
         expect(error_event).to be_present
-        expect(error_event.payload["message_key"]).to eq("pito.slash.errors.unknown_verb")
+        expect(error_event.payload["message_key"]).to eq("pito.slash.errors.unknown_tool")
       end
     end
 

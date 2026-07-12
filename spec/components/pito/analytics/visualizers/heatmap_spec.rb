@@ -62,4 +62,65 @@ RSpec.describe Pito::Analytics::Visualizers::Heatmap, type: :component do
     buckets = node.css(".pito-heatmap__bar").map { |b| b["class"][/pito-shimmer-d\d+/] }
     expect(buckets.uniq.size).to eq(1)
   end
+
+  describe "generic N-column geometry (the weekday form is just the preset)" do
+    let(:cols) { Pito::Analytics::Visualizers::Base::COLS }
+
+    it "renders N bars with matching labels, each wider than a weekday bar" do
+      three = render_inline(described_class.new(values: [ 1, 2, 3 ], caption: "", labels: %w[q1 q2 q3]))
+      bars = three.css(".pito-heatmap__bar")
+      expect(bars.size).to eq(3)
+      # COLS split 3 ways: every bar 14 cells wide vs the preset's 6.
+      expect(bars.map { |b| b.text.split("\n").first.length }).to all(eq(cols / 3))
+      expect(three.css(".pito-heatmap__xticks span").map(&:text)).to eq(%w[q1 q2 q3])
+    end
+
+    it "still spans the full canvas for a non-divisor N (remainder to the leftmost bars)" do
+      five = render_inline(described_class.new(values: [ 1, 2, 3, 4, 5 ], caption: "", labels: %w[a b c d e]))
+      widths = five.css(".pito-heatmap__bar").map { |b| b.text.split("\n").first.length }
+      expect(widths).to eq([ 9, 9, 8, 8, 8 ]) # 42 = 9+9+8+8+8
+      expect(widths.sum).to eq(cols)
+      expect(five.at_css(".pito-heatmap__bars")["style"]).to include("--pito-plot-w: #{cols}ch")
+    end
+
+    it "centres non-preset labels per-bar via proportional fr tracks (preset emits none)" do
+      five = render_inline(described_class.new(values: [ 1, 2, 3, 4, 5 ], caption: "", labels: %w[a b c d e]))
+      expect(five.at_css(".pito-heatmap__xticks")["style"]).to include("--pito-heatmap-xtick-cols: 9fr 9fr 8fr 8fr 8fr")
+      # The 7-weekday preset keeps its stylesheet tracks — no inline override.
+      expect(node.at_css(".pito-heatmap__xticks")["style"]).to be_nil
+    end
+
+    it "omits the x-tick row when labels are omitted for a non-weekday N" do
+      bare = render_inline(described_class.new(values: [ 1, 2, 3 ], caption: ""))
+      expect(bare.css(".pito-heatmap__bar").size).to eq(3)
+      expect(bare.at_css(".pito-heatmap__xticks")).to be_nil
+    end
+
+    it "accepts the width cap exactly: COLS one-cell bars" do
+      maxed = render_inline(described_class.new(values: (1..cols).to_a, caption: "", labels: (1..cols).map(&:to_s)))
+      widths = maxed.css(".pito-heatmap__bar").map { |b| b.text.split("\n").first.length }
+      expect(widths).to eq(Array.new(cols, 1))
+    end
+
+    it "refuses N above the width cap (a bar can't shrink below one cell) → no-data weekday canvas" do
+      over = render_inline(described_class.new(values: (0..cols).to_a, caption: ""))
+      expect(over.css(".pito-heatmap__bar").size).to eq(7)
+      expect(over.css(".pito-heatmap__xticks span").map(&:text)).to eq(%w[Mo Tu We Th Fr Sa Su])
+      heats = over.css(".pito-heatmap__bar").map { |b| b["style"][/--pito-heat: ([0-9.]+)/, 1].to_f }
+      expect(heats).to all(eq(0.5))
+    end
+
+    it "refuses N=1 (nothing to compare) → no-data weekday canvas" do
+      one = render_inline(described_class.new(values: [ 5 ], caption: "", labels: %w[x]))
+      expect(one.css(".pito-heatmap__bar").size).to eq(7)
+      expect(one.css(".pito-heatmap__xticks span").map(&:text)).to eq(%w[Mo Tu We Th Fr Sa Su])
+    end
+
+    it "refuses a labels/values length mismatch → no-data weekday canvas" do
+      mismatch = render_inline(described_class.new(values: [ 1, 2, 3 ], caption: "", labels: %w[a b]))
+      expect(mismatch.css(".pito-heatmap__bar").size).to eq(7)
+      heats = mismatch.css(".pito-heatmap__bar").map { |b| b["style"][/--pito-heat: ([0-9.]+)/, 1].to_f }
+      expect(heats).to all(eq(0.5))
+    end
+  end
 end

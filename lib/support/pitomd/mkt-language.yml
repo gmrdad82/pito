@@ -1,5 +1,5 @@
 # Slide 1 — "PITO speaks human" (long GIF): three commands typed in chunks with
-# an explicit full-verb+kwargs frame each, thinking + message bursts. Frames
+# an explicit full-tool+kwargs frame each, thinking + message bursts. Frames
 # stay on disk for the keep-every-Nth optimization pass.
 name: mkt-language
 base_url: https://dev.pitomd.com

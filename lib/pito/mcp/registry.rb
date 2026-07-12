@@ -2,23 +2,23 @@
 
 module Pito
   module Mcp
-    # The MCP tool ontology, read from the SAME config/pito/verbs.yml the chat
-    # dispatcher uses (verbs.yml is the ONLY place a tool is declared
-    # — no Ruby verb→tool table). Two sources, one registry:
+    # The MCP tool ontology, read from the SAME config/pito/tools.yml the chat
+    # dispatcher uses (tools.yml is the ONLY place a tool is declared
+    # — no Ruby chat-tool→MCP-tool table). Two sources, one registry:
     #
-    #   * per-verb `mcp:` blocks — a READ-ONLY chat verb promoted to a tool. The
+    #   * per-tool `mcp:` blocks — a READ-ONLY chat tool promoted to a tool. The
     #     Executor builds a grammar string from `input` + `input_suffixes` and
     #     routes it through Pito::Dispatch::Router.
-    #   * top-level `mcp_readers:` — tools with no backing verb (pito_conversations
+    #   * top-level `mcp_readers:` — tools with no backing chat tool (pito_conversations
     #     / pito_messages); they SELECT persisted rows, no dispatch.
     #
     # `tools` is the MCP `tools/list` payload (name + description + JSON-Schema
     # `inputSchema` derived from `params`). `tool(name)` returns the full internal
-    # descriptor the Executor consumes (kind, backing verb, input template, params).
+    # descriptor the Executor consumes (kind, backing chat tool, input template, params).
     #
     # Nothing here persists, enqueues, or mutates — it is a pure projection of the
     # frozen config document, recomputed each call so it always mirrors the current
-    # verbs.yml (Config.data is memoized + reload!-cleared in dev/tests, so the
+    # tools.yml (Config.data is memoized + reload!-cleared in dev/tests, so the
     # add-a-tool proof can inject a synthetic tool and see it here).
     module Registry
       module_function
@@ -26,7 +26,7 @@ module Pito
       # MCP tools/list — [{ name:, description:, inputSchema:, annotations: }],
       # name-sorted for a stable wire order (the TOOL MATRIX pins this against the
       # declarations). `readOnlyHint` mirrors each tool's REQUIRED `read_only:`
-      # config flag — no write verb is ever exposed, but the analytics tools warm
+      # config flag — no write-capable tool is ever exposed, but the analytics tools warm
       # a persistent cache / may call the YouTube API on a cold read, so they
       # declare false and a strict client may confirm before calling them.
       def tools
@@ -46,19 +46,19 @@ module Pito
         descriptors[name.to_s]
       end
 
-      # Every declared tool name (verb tools + readers), name-sorted.
+      # Every declared tool name (chat-tool-backed tools + readers), name-sorted.
       def tool_names
         descriptors.keys
       end
 
       # ── internals ──────────────────────────────────────────────────────────────
 
-      # name(String) → descriptor Hash, merged from the verb `mcp:` blocks and the
+      # name(String) → descriptor Hash, merged from the tool `mcp:` blocks and the
       # top-level `mcp_readers:`. Cheap (a map over ~13 entries); recomputed each
       # call so it tracks Config.reload!.
       def descriptors
         data    = Pito::Dispatch::Config.data
-        verbs   = data.fetch(:verbs, {})
+        verbs   = data.fetch(:tools, {})
         readers = data.fetch(:mcp_readers, {})
         out     = {}
 
@@ -96,7 +96,7 @@ module Pito
 
       # JSON-Schema object for a tool's params (MCP `inputSchema`). No params → a
       # valid no-arg object. `additionalProperties: false` so a client can't smuggle
-      # extra keys past the grammar builder. `verb` is the backing chat verb (nil for
+      # extra keys past the grammar builder. `verb` is the backing chat tool (nil for
       # readers) — used to resolve any `capability:` param against the right grammar.
       def input_schema(params, verb = nil)
         nouns      = capability_nouns(params)

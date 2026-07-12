@@ -9,7 +9,7 @@ require "rails_helper"
 # so the handler resolves records without touching the database.
 #
 # Subject: Pito::Chat::Handlers::Import
-#          (app/services/pito/chat/handlers/import.rb)
+#          (lib/pito/chat/handlers/import.rb)
 #
 # Three dispatch branches (evaluated in order):
 #

@@ -10,7 +10,7 @@
     <% end %>
     <% sidebar.with_body do %>
       <%= render(Pito::Sidebar::Videos::Component.new(
-            videos: videos
+            videos: videos, next_cursor: next_cursor
           )) %>
     <% end %>
   <% end %>

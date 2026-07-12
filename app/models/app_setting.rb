@@ -93,6 +93,7 @@ class AppSetting < ApplicationRecord
     set(GOOGLE_API_KEY_KEY, key)
   end
 
+
   def self.igdb_client_id
     get(IGDB_CLIENT_ID_KEY)
   end
@@ -225,23 +226,6 @@ class AppSetting < ApplicationRecord
 
   def self.theme=(slug)
     set(THEME_KEY, slug.to_s)
-  end
-
-  # ── Nickname ───────────────────────────────────────────────────────────────
-  #
-  # Stored as a plain key/value row ("nickname"). Displayed in the mini-status
-  # bar when the owner is authenticated. Defaults to "gmrdad82" when no row
-  # has been stored — callers never need a `|| "gmrdad82"` fallback.
-
-  NICKNAME_KEY     = "nickname"
-  NICKNAME_DEFAULT = "gmrdad82"
-
-  def self.nickname
-    get(NICKNAME_KEY).presence || NICKNAME_DEFAULT
-  end
-
-  def self.nickname=(value)
-    set(NICKNAME_KEY, value.to_s)
   end
 
   # ── Time zone ──────────────────────────────────────────────────────────────

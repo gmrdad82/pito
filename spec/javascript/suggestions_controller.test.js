@@ -17,11 +17,16 @@
 //     - Escape closes without inserting
 //     - ignores event when unauthenticated or empty handles
 //   Fetched palettes:
-//     - hashtag reply-verb palette render (stage:"verb" fetch)
-//     - slash /config arg-stage palette render (stage:"verb" fetch)
+//     - hashtag reply-verb palette render (stage:"tool" fetch)
+//     - slash /config arg-stage palette render (stage:"tool" fetch)
 //   Tab accepts / Enter submits (owner 2026-07-09):
 //     - whenever a palette is open, Tab accepts the highlighted row and Enter
 //       ALWAYS submits the typed value verbatim (never accepts)
+//   Children drill-down (/config namespace picker):
+//     - Tab on a row with non-empty `children` expands in place (no insert)
+//     - Tab again on a child inserts its `insert` and closes (normal accept)
+//     - Enter while children are displayed still just submits verbatim
+//     - a `children: []` row behaves like a plain row (insert-and-close)
 //   Stage classifiers:
 //     - _isHashtagReplyVerbStage
 //   Misc:
@@ -376,22 +381,22 @@ describe("pito--suggestions controller", () => {
     })
   })
 
-  // ── Hashtag reply-verb palette (stage:"verb" fetch) ──────────────────────
+  // ── Hashtag reply-verb palette (stage:"tool" fetch) ──────────────────────
   //
   // Regression: typing `#<handle> ` for a follow-up-able message lands at the
   // reply-VERB stage. Even though a space follows the handle (which trips the
-  // arg-stage space heuristic), the engine tags the response stage:"verb" and the
+  // arg-stage space heuristic), the engine tags the response stage:"tool" and the
   // controller must render the WHOLE allowed-verb list as a selectable palette —
   // not just menu_items[0] as a single inline ghost. This is the bug fix.
 
-  describe("hashtag reply-verb palette (stage:'verb' fetch)", () => {
+  describe("hashtag reply-verb palette (stage:'tool' fetch)", () => {
     let ctrl
 
     const VERB_RESPONSE = () => ({
       ok: true,
       json: async () => ({
         mode: "hashtag",
-        stage: "verb",
+        stage: "tool",
         menu_items: [
           { label: "show",     insert: "show ",     description: "" },
           { label: "with",     insert: "with ",     description: "" },
@@ -462,7 +467,7 @@ describe("pito--suggestions controller", () => {
         ok: true,
         json: async () => ({
           mode: "hashtag",
-          stage: "verb",
+          stage: "tool",
           menu_items: [
             { label: "with",    insert: "with ",    description: "" },
             { label: "without", insert: "without ", description: "" },
@@ -493,21 +498,21 @@ describe("pito--suggestions controller", () => {
     })
   })
 
-  // ── Slash /config arg-stage palette (stage:"verb" fetch) ─────────────────
+  // ── Slash /config arg-stage palette (stage:"tool" fetch) ─────────────────
   //
   // Restoration: typing `/config ` (and `/config <provider> `) lands at the slash
   // ARG stage (a space follows the verb, tripping _isArgStage) — but the engine
-  // tags the response stage:"verb" so the client must render the provider/key
+  // tags the response stage:"tool" so the client must render the provider/key
   // list as a browsable PALETTE, not just the top hit as a single inline ghost.
 
-  describe("slash /config arg-stage palette (stage:'verb' fetch)", () => {
+  describe("slash /config arg-stage palette (stage:'tool' fetch)", () => {
     let ctrl
 
     const CONFIG_PROVIDERS = () => ({
       ok: true,
       json: async () => ({
         mode: "slash",
-        stage: "verb",
+        stage: "tool",
         menu_items: [
           { label: "google",  insert: "google ",  description: "" },
           { label: "voyage",  insert: "voyage ",  description: "" },
@@ -576,8 +581,121 @@ describe("pito--suggestions controller", () => {
       textarea.value = "/config google"
       textarea.selectionStart = textarea.selectionEnd = 14
       await ctrl._fetchArgSuggestions("/config google", 14)
-      // stage:"verb" came back, but no trailing space → palette must stay hidden
+      // stage:"tool" came back, but no trailing space → palette must stay hidden
       // so Enter submits the bare command.
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+  })
+
+  // ── Children drill-down (/config namespace picker) ──────────────────────
+  //
+  // A fetched palette row can carry a non-empty `children` array (e.g. a
+  // /config namespace picker: "sources" expands into "google"/"igdb"/…). Tab
+  // on such a row does NOT insert anything — it expands in place, re-rendering
+  // the palette with the children as the new rows (highlight reset to the
+  // first child). Children are plain rows, accepted exactly like top-level
+  // rows. Enter never accepts — it always submits verbatim, even while
+  // children are displayed. A `children: []` row behaves like a plain row
+  // (falls through to insert-and-close), byte-identical to before this
+  // contract.
+
+  describe("children drill-down", () => {
+    let ctrl
+
+    const DRILLDOWN_RESPONSE = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "slash",
+        stage: "tool",
+        menu_items: [
+          {
+            label: "sources",
+            insert: "",
+            description: "google · igdb · voyage",
+            children: [
+              { label: "google", insert: "google ", description: "" },
+              { label: "igdb",   insert: "igdb ",   description: "" },
+            ],
+          },
+          { label: "webhook", insert: "webhook ", description: "" },
+        ],
+        ghost: { complete_current: "", next_hint: "" },
+      }),
+    })
+
+    const EMPTY_CHILDREN_RESPONSE = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "slash",
+        stage: "tool",
+        menu_items: [
+          { label: "plain", insert: "plain ", description: "", children: [] },
+        ],
+        ghost: { complete_current: "", next_hint: "" },
+      }),
+    })
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "slash"
+    })
+
+    it("Tab on a row with children re-renders the palette with the child labels, highlight on the first child, and inserts nothing", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(DRILLDOWN_RESPONSE()))
+      textarea.value = "/config "
+      textarea.selectionStart = textarea.selectionEnd = 8
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      // Top-level palette: "sources" (idx 0) is selected by default.
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
+
+      const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
+      expect(labels).toEqual(["google", "igdb"])
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows[0].classList.contains("is-selected")).toBe(true)
+      expect(palette.classList.contains("hidden")).toBe(false)
+      expect(textarea.value).toBe("/config ")
+    })
+
+    it("Tab again on the highlighted child inserts its `insert` and closes the palette", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(DRILLDOWN_RESPONSE()))
+      textarea.value = "/config "
+      textarea.selectionStart = textarea.selectionEnd = 8
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })) // expand
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })) // accept "google"
+
+      expect(textarea.value).toBe("/config google ")
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("Enter while children are displayed submits the typed input verbatim (no accept)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(DRILLDOWN_RESPONSE()))
+      textarea.value = "/config "
+      textarea.selectionStart = textarea.selectionEnd = 8
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })) // expand into children
+
+      const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+      ctrl.handleKeydown(ev)
+
+      expect(ev.defaultPrevented).toBe(false)   // falls through → chat-form submits
+      expect(textarea.value).toBe("/config ")   // untouched — no accept
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("a fetched row with children: [] behaves like a plain row — Tab inserts its `insert`", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(EMPTY_CHILDREN_RESPONSE()))
+      textarea.value = "/config "
+      textarea.selectionStart = textarea.selectionEnd = 8
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))
+
+      expect(textarea.value).toBe("/config plain ")
       expect(palette.classList.contains("hidden")).toBe(true)
     })
   })
@@ -667,18 +785,18 @@ describe("pito--suggestions controller", () => {
   // ── Hashtag reply-ARG palette (G26.5) ────────────────────────────────────
   //
   // Regression: `#<handle> with ` fetched the column menu (the engine tags it
-  // stage:"verb") but the stage:"verb" render gate only covered the reply-VERB
+  // stage:"tool") but the stage:"tool" render gate only covered the reply-VERB
   // and /config positions — the fetched items were discarded and the palette
   // never opened for reply ARGUMENTS (columns, sort keys, metrics, row ids).
 
-  describe("hashtag reply-ARG palette (stage:'verb' fetch at a fresh arg token)", () => {
+  describe("hashtag reply-ARG palette (stage:'tool' fetch at a fresh arg token)", () => {
     let ctrl
 
     const ARG_RESPONSE = () => ({
       ok: true,
       json: async () => ({
         mode: "hashtag",
-        stage: "verb",
+        stage: "tool",
         menu_items: [
           { label: "category", insert: "category ", description: "" },
           { label: "duration", insert: "duration ", description: "" },
@@ -722,18 +840,18 @@ describe("pito--suggestions controller", () => {
 
   // ── FREE-mode chat-verb argument palette (G31) ───────────────────────────
   //
-  // Regression: `list ` (free input) fetched the noun menu (stage:"verb":
+  // Regression: `list ` (free input) fetched the noun menu (stage:"tool":
   // channels/games/vids) but no gate rendered free-mode items — discarded,
   // palette never opened for chat verbs' arguments.
 
-  describe("free-mode chat-verb argument palette (stage:'verb' fetch)", () => {
+  describe("free-mode chat-verb argument palette (stage:'tool' fetch)", () => {
     let ctrl
 
     const FREE_RESPONSE = () => ({
       ok: true,
       json: async () => ({
         mode: "free",
-        stage: "verb",
+        stage: "tool",
         menu_items: [
           { label: "channels", insert: "channels ", description: "" },
           { label: "games",    insert: "games ",    description: "" },
@@ -789,7 +907,7 @@ describe("pito--suggestions controller", () => {
       ok: true,
       json: async () => ({
         mode: "free",
-        stage: "verb",
+        stage: "tool",
         menu_items: [
           { label: "link", insert: "link ", description: "" },
           { label: "list", insert: "list ", description: "" },

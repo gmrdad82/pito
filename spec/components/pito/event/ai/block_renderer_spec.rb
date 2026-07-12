@@ -54,6 +54,17 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
       expect(node.text).not_to include("**", "[cyan]")
     end
 
+    it "renders semantic [subject]/[ref] tokens in the house shimmer/token style" do
+      node = render_block({ "type" => "text",
+                            "text" => "Play [subject]Elden Ring[/subject] — see [ref]#12[/ref]." })
+
+      subject = node.css("span.pito-subject-shimmer")
+      expect(subject.text).to eq("Elden Ring")
+      token = node.css("span.pito-reference-shimmer")
+      expect(token.text).to eq("#12")
+      expect(node.text).not_to include("[subject]", "[ref]")
+    end
+
     it "unwraps a color tag outside the allowed palette to plain text" do
       node = render_block({ "type" => "text", "text" => "[purple]nope[/purple]" })
       expect(node.text).to include("nope")
@@ -68,7 +79,7 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
     end
 
     it "renders the timestamp prefix INLINE inside the text flow when given one" do
-      node = render_inline(described_class.component_for(block, timestamp: Time.zone.parse("2026-07-11 05:22")))
+      node = render_inline(described_class.component_for(block, timestamp: Time.current.change(hour: 5, min: 22)))
       prefix = node.css("div.whitespace-pre-wrap .pito-timestamp-prefix")
       expect(prefix).not_to be_empty
       expect(node.text).to start_with("05:22 Hello")
@@ -103,6 +114,16 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
 
       cells = node.css(".pito-data-grid > span")
       expect(cells.map(&:text)).to eq([ "Col A", "Col B", "1", "2" ])
+    end
+
+    it "right-aligns numeric columns — header included — and leaves prose columns alone" do
+      block = { "type" => "table", "header" => [ "Channel", "Subs", "Views" ],
+                "rows" => [ [ "Main", "2.2K", "7,709" ], [ "Hard", "3", "93%" ] ] }
+      node  = render_block(block)
+      cells = node.css(".pito-data-grid > span")
+
+      aligned = cells.select { |c| c["class"].to_s.include?("text-right") }.map(&:text)
+      expect(aligned).to contain_exactly("Subs", "Views", "2.2K", "7,709", "3", "93%")
     end
   end
 
@@ -173,13 +194,39 @@ RSpec.describe Pito::Event::Ai::BlockRenderer, type: :component do
       end
     end
 
-    context "viz=heatmap with 7 values" do
+    context "viz=bar bucket colors" do
+      it "assigns each bucket its own hue from the house ramp" do
+        block = { "type" => "chart", "viz" => "bar", "data" => { "bars" => [
+          { "label" => "A", "pct" => 50.0 }, { "label" => "B", "pct" => 30.0 }, { "label" => "C", "pct" => 20.0 }
+        ] } }
+        html = render_inline(described_class.component_for(
+          Ai::Blocks.normalize([ block ], conversation: nil).first
+        )).to_html
+        expect(html).to include("var(--accent-green)", "var(--accent-cyan)", "var(--brand-pito)")
+      end
+    end
+
+    context "viz=heatmap with 7 values and no labels" do
       let(:block) { { "type" => "chart", "viz" => "heatmap", "values" => [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0 ] } }
 
-      it "renders 7 weekday bars" do
+      it "renders 7 bars with the weekday preset ticks" do
         node = render_block(block)
         expect(node.css(".pito-metric--heatmap")).not_to be_empty
         expect(node.css(".pito-heatmap__bar").size).to eq(7)
+        expect(node.css(".pito-heatmap__xticks span").map(&:text)).to eq(%w[Mo Tu We Th Fr Sa Su])
+      end
+    end
+
+    context "viz=heatmap with labelled values" do
+      let(:block) do
+        { "type" => "chart", "viz" => "heatmap",
+          "values" => [ 1.0, 2.0, 3.0 ], "labels" => %w[Q1 Q2 Q3] }
+      end
+
+      it "renders one bar per value with the labels as x-ticks" do
+        node = render_block(block)
+        expect(node.css(".pito-heatmap__bar").size).to eq(3)
+        expect(node.css(".pito-heatmap__xticks span").map(&:text)).to eq(%w[Q1 Q2 Q3])
       end
     end
 

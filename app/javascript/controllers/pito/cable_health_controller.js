@@ -28,11 +28,50 @@ export default class extends Controller {
     this.hiddenAt = null
     this.#bindVisibility()
     this.#watchCableReconnect()
+    this.#watchConnectionDot()
   }
 
   disconnect() {
     this.visibilityAbort?.abort()
     this.reconnectObserver?.disconnect()
+    this.dotObserver?.disconnect()
+    document.removeEventListener("turbo:before-stream-render", this.onCableActivity)
+  }
+
+  // ── The connection dot (owner state machine, 2026-07-12) ────────────────────
+  //
+  // #pito-conn-dot renders the plug-zap icon (orange, connecting) for an
+  // authenticated user; this flips data-state to "connected" (the green cable
+  // icon) while any cable stream reports `connected`, back on a drop, and
+  // fires the one-shot SPARK (a dash racing the cable's stroke) per cable
+  // activity. Idle = static. Unauthenticated dots are the red lock and never
+  // wired here (data-authenticated=false).
+
+  #watchConnectionDot() {
+    const dot = document.getElementById("pito-conn-dot")
+    if (!dot || dot.dataset.authenticated !== "true") return
+
+    const paint = () => {
+      const connected = [...document.querySelectorAll("turbo-cable-stream-source")]
+        .some((s) => s.hasAttribute("connected"))
+      // The icons swap via CSS on this attribute: cable/green when connected,
+      // plug-zap/orange while connecting or dropped.
+      dot.dataset.state = connected ? "connected" : "connecting"
+    }
+    paint()
+
+    this.dotObserver = new MutationObserver(paint)
+    document.querySelectorAll("turbo-cable-stream-source").forEach((s) =>
+      this.dotObserver.observe(s, { attributes: true, attributeFilter: ["connected"] }),
+    )
+
+    this.onCableActivity = () => {
+      dot.classList.remove("pito-cable-active")
+      void dot.offsetWidth // restart the spark for back-to-back activity
+      dot.classList.add("pito-cable-active")
+    }
+    document.addEventListener("turbo:before-stream-render", this.onCableActivity)
+    dot.addEventListener("animationend", () => dot.classList.remove("pito-cable-active"))
   }
 
   // ── The refresh nudge ──────────────────────────────────────────────────────

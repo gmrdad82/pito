@@ -46,10 +46,10 @@ module Pito
     #   When a grammar block was declared AND the handler defines a command name:
     #     → full Spec with all declared slots, aliases, auth, and description_key.
     #   When no grammar block was declared:
-    #     → slash handlers that define both verb AND description_key get a bare Spec
+    #     → slash handlers that define both tool AND description_key get a bare Spec
     #       (slots: []) so they still appear in the autocomplete menu.
     #     → chat/hashtag handlers with nothing declared → nil.
-    #   When the handler returns nil from verb/handle → nil (abstract base classes).
+    #   When the handler returns nil from tool/handle → nil (abstract base classes).
     #
     # INHERITANCE SAFETY
     #   reset_grammar_ivars! is called from each base class's `inherited` hook so
@@ -153,12 +153,12 @@ module Pito
       #
       # Resolution rules:
       #   - namespace  : derived from the enclosing module of the class
-      #   - name       : `verb` for slash/chat, `handle` for hashtag
+      #   - name       : `tool` for slash and chat, `handle` for hashtag
       #   - description_key: DSL override > handler's own description_key > nil
       #
       # When a grammar block was declared AND name is present → full Spec.
       # When nothing was declared:
-      #   - slash handlers with both verb AND description_key → bare Spec (slots: [])
+      #   - slash handlers with both tool AND description_key → bare Spec (slots: [])
       #   - chat/hashtag with nothing declared → nil
       # When name is nil → nil.
       def grammar_spec
@@ -183,7 +183,7 @@ module Pito
             auth:            @_grammar_auth || :any
           )
         elsif ns == :slash
-          # Bare spec only for slash handlers that have both verb and description_key.
+          # Bare spec only for slash handlers that have both tool and description_key.
           return nil unless desc_key
 
           Pito::Grammar::Spec.new(
@@ -230,10 +230,14 @@ module Pito
       end
 
       # Retrieve the canonical command name symbol.
-      # Slash/Chat use `verb`; Hashtag uses `handle`.
+      # Slash and Chat use `tool`; Hashtag uses `handle`.
       def _grammar_command_name
         ns = _grammar_namespace
-        method_name = ns == :hashtag ? :handle : :verb
+        method_name =
+          case ns
+          when :hashtag then :handle
+          else               :tool
+          end
         return nil unless respond_to?(method_name)
 
         begin

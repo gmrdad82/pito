@@ -1,0 +1,11 @@
+# `show game 12` — the single-game detail card.
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-show-game-12
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "show game 12"
+  - sleep: 6
+  - shot: show-game-12.png

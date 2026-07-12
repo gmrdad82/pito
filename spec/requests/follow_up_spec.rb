@@ -41,7 +41,7 @@ RSpec.describe "Follow-up engine — controller routing", type: :request do
     Pito::FollowUp::Registry.register(ControllerSpecFakeMutate)
     Pito::FollowUp::Registry.register(ControllerSpecFakeAppend)
 
-    # Fake targets are not in verbs.yml — stub their modes at the Matrix seam
+    # Fake targets are not in tools.yml — stub their modes at the Matrix seam
     # (the availability DSL is gone; T8.4 established this pattern).
     allow(Pito::Dispatch::Matrix).to receive(:mode_for).and_call_original
     allow(Pito::Dispatch::Matrix).to receive(:mode_for)

@@ -2,9 +2,12 @@
 
 # GET /notifications → loads recent notifications and renders the sidebar
 # overlay (Turbo Stream updating #pito-sidebar), mirroring how /resume works.
+# GET /notifications.json → the same keyset page as data, for non-browser
+# clients (pito-tui).
 #
 # Auth gating: inherits Sessions::AuthConcern from ApplicationController.
-# No allow_anonymous — unauthenticated requests are redirected to root.
+# No allow_anonymous — unauthenticated requests are redirected to root (HTML)
+# or get an explicit 401 (JSON).
 class NotificationsController < ApplicationController
   # Bare (`?after` absent) → full panel into #pito-sidebar (first PAGE_SIZE rows
   # + a pager sentinel). Paginated (`?after=<opaque cursor>`) → a Turbo Stream
@@ -17,6 +20,24 @@ class NotificationsController < ApplicationController
     respond_to do |format|
       format.turbo_stream { render "notifications/index" }
       format.html         { redirect_to root_path }
+
+      # The notifications panel for non-browser clients (pito-tui): the same
+      # keyset page the turbo-stream branch renders, as data. `limit` is
+      # accepted but ignored — page size stays the server's PAGE_SIZE. Auth is
+      # enforced by the concern (anonymous JSON → 401 before this runs).
+      format.json do
+        render json: {
+          rows: @notifications.map { |n|
+            {
+              id:         n.id,
+              message:    n.message,
+              read:       n.read?,
+              created_at: n.created_at.iso8601
+            }
+          },
+          next_cursor: @next_cursor
+        }
+      end
     end
   end
 

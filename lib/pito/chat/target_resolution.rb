@@ -2,11 +2,11 @@
 
 module Pito
   module Chat
-    # Context-aware target resolution shared by verb handlers.
+    # Context-aware target resolution shared by tool handlers.
     #
-    # A verb like `show`/`delete`/`reindex` acts on one game or video. It can be
+    # A tool like `show`/`delete`/`reindex` acts on one game or video. It can be
     # reached three ways; `resolve_target` returns the SAME kind of record for all
-    # three so the verb body stays identical:
+    # three so the tool body stays identical:
     #
     #   * free-chat (`show game 5`)        → the TYPED ref (id `#N`/`N` or title),
     #                                        parsed from `message.raw`.
@@ -16,12 +16,12 @@ module Pito
     #                                        source list's rows (id/title), so a row
     #                                        that isn't in THAT list doesn't match.
     #
-    # Mixed into `Pito::Chat::Handler`, so every verb handler has it. Callers pass
+    # Mixed into `Pito::Chat::Handler`, so every tool handler has it. Callers pass
     # the model class, the detail payload id key, and the noun filler words:
     #
     #   resolve_target(::Game, id_key: :game_id, noun_fillers: %w[game games])
     #
-    # Per-verb opt-in: call `id_only_resolution!` in a handler subclass to restrict
+    # Per-tool opt-in: call `id_only_resolution!` in a handler subclass to restrict
     # `find_by_ref` to numeric ids only (strips a leading `#`, then requires digits).
     # Title (ILIKE) lookup is skipped entirely. Default is id-and-title.
     #
@@ -65,9 +65,9 @@ module Pito
         follow_up.source_event.payload.to_h.with_indifferent_access[:reply_target].to_s.presence
       end
 
-      # True when a verb that handles BOTH game + video should take the video
+      # True when a tool that handles BOTH game + video should take the video
       # branch. In a follow-up reply the entity type is fixed by the source event's
-      # `reply_target` (video_list / video_detail) — the reconstructed `<verb>
+      # `reply_target` (video_list / video_detail) — the reconstructed `<tool>
       # <rest>` carries no noun. In free chat it's the noun word the user typed.
       # Scans only PRE-CLAUSE tokens (before with/only/without/full) so a segment
       # name inside the clause never ghost-triggers the branch — the
@@ -93,7 +93,7 @@ module Pito
         strip_noun(resolution_rest, noun_fillers)
       end
 
-      # The raw text reference extraction reads. Verbs whose grammar appends
+      # The raw text reference extraction reads. Tools whose grammar appends
       # trailing clauses AFTER the reference (segment selection on `show`:
       # `show game 5 full`) override these to return the input
       # with those clauses stripped, so `find_by_ref` sees only the ref.
@@ -101,7 +101,7 @@ module Pito
         message.raw
       end
 
-      # Reply-mode sibling of +resolution_raw+ (the `<verb> <rest>` reply text).
+      # Reply-mode sibling of +resolution_raw+ (the `<tool> <rest>` reply text).
       def resolution_rest
         follow_up.rest
       end
@@ -154,7 +154,7 @@ module Pito
         end
       end
 
-      # Drop the verb word, then a leading noun filler — from raw chat input.
+      # Drop the tool word, then a leading noun filler — from raw chat input.
       def extract_ref_from(raw, noun_fillers)
         rest = raw.to_s.strip.sub(/\A\S+\s*/, "")
         strip_noun(rest, noun_fillers)

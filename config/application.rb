@@ -64,13 +64,13 @@ module Pito
     # the static public/404.html fallback.
     config.exceptions_app = routes
 
-    # Theme definition files (app/services/pito/themes/definitions/*.rb)
+    # Theme definition files (lib/pito/themes/definitions/*.rb)
     # intentionally define NO constant — each just calls Registry.register.
     # Zeitwerk cannot autoload/eager-load them (it would raise NameError).
     # The Registry requires them explicitly via Dir.glob, so telling Zeitwerk
     # to ignore the directory is the correct fix (Rails Guide §13.1).
     Rails.autoloaders.main.ignore(
-      Rails.root.join("app/services/pito/themes/definitions")
+      Rails.root.join("lib/pito/themes/definitions")
     )
   end
 end

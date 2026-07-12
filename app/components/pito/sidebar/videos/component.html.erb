@@ -20,13 +20,24 @@
     <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 60)) %>
   </p>
 
-  <%# Video rows container — swapped out by the debounced local search. %>
+  <%# Video rows container — swapped out by the debounced local search; also
+      the generic keyset pager's scope (scrolling the sentinel into view
+      appends the next 50 via GET /videos/picker). The stable inner id is the
+      append target. %>
   <div class="flex flex-col"
+       data-controller="pito--list-pager"
        data-pito--videos-nav-target="list">
     <% if empty? %>
       <p class="text-fg-dim py-2"><%= empty_state_text %></p>
     <% else %>
-      <%= render partial: "videos/picker_rows", locals: { videos: videos } %>
+      <div id="pito-videos-picker-rows" class="flex flex-col" data-pito--list-pager-target="list">
+        <%= render partial: "videos/picker_rows", locals: { videos: videos } %>
+      </div>
+      <% if next_cursor.present? %>
+        <%= render(Pito::ListPager::SentinelComponent.new(
+              next_url: videos_picker_path(after: next_cursor, format: :turbo_stream)
+            )) %>
+      <% end %>
     <% end %>
   </div>
 </div>

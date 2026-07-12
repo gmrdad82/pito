@@ -3,7 +3,7 @@
 module Pito
   module Mcp
     # Inline analytics compute for the read-only MCP surface. pito's analyze / glance
-    # / channel-distribution verbs emit a PENDING marker that a background job fills
+    # / channel-distribution tools emit a PENDING marker that a background job fills
     # over the cable — but MCP is pull-only and never runs those jobs, so a raw
     # Router Result would hand the caller an unfilled scaffold. This module detects
     # each pending family and computes the numbers SYNCHRONOUSLY via the SAME

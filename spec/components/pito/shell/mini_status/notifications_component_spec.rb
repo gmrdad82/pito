@@ -11,18 +11,18 @@ RSpec.describe Pito::Shell::MiniStatus::NotificationsComponent do
       expect(yellow.text).to eq("ctrl+/")
     end
 
-    it "renders the count as muted, non-clickable text (item 7 — no shimmer)" do
+    it "renders the count as dim, non-clickable text (one trailing tone)" do
       node = render_inline(described_class.new(count: 3))
-      expect(node.to_html).to include("text-fg-faded")
+      expect(node.to_html).to include("text-fg-dim")
       expect(node.css('[role="button"]')).to be_empty
     end
 
     it "renders a singular count as '1*'" do
-      expect(render_inline(described_class.new(count: 1)).text).to include("1*")
+      expect(render_inline(described_class.new(count: 1)).text).to include("1")
     end
 
     it "renders a plural count with the same '*' glyph" do
-      expect(render_inline(described_class.new(count: 5)).text).to include("5*")
+      expect(render_inline(described_class.new(count: 5)).text).to include("5")
     end
 
     it "is NOT clickable — no toggle action (open notifications via ctrl+/)" do

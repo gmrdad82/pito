@@ -9,7 +9,7 @@ class SuggestionsController < ApplicationController
     # The chatbox posts the conversation as `uuid` (matching the rest of the
     # app); accept `conversation` too for back-compat. Without this the engine
     # can't resolve a #handle to its follow-up target and falls back to the
-    # generic hashtag verbs (the "add subscribers" bug).
+    # generic hashtag tools (the "add subscribers" bug).
     uuid          = params[:uuid].presence || params[:conversation].presence
     conversation  = uuid ? Conversation.find_by(uuid: uuid) : nil
     authenticated = Current.session.present?

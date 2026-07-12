@@ -8,7 +8,7 @@ module Pito
       end
 
       # namespace       — Symbol, one of :slash, :chat, :hashtag
-      # name            — Symbol, the canonical command/verb name (e.g. :config, :list, :add)
+      # name            — Symbol, the canonical command/tool name (e.g. :config, :list, :add)
       # aliases         — Array of Symbol alternate names (defaults to [])
       # slots           — Array of Pito::Grammar::Slot (defaults to [])
       # description_key — String i18n key for help/autocomplete copy (nilable)

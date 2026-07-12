@@ -49,10 +49,10 @@ RSpec.describe Pito::Sidebar::Component do
       expect(node.css("aside")).not_to be_empty
     end
 
-    it "aside carries w-full and md:w-[480px] for mobile overlay / desktop push" do
+    it "aside fills its container (the layout shell owns the desktop width)" do
       aside_classes = node.css("aside").first["class"].split
       expect(aside_classes).to include("w-full")
-      expect(aside_classes).to include("md:w-[480px]")
+      expect(aside_classes).not_to include("md:w-[480px]")
     end
   end
 

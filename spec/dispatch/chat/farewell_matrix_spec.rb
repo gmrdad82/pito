@@ -33,7 +33,7 @@ RSpec.describe "Dispatch matrix — farewell (recognition, zero DB)", type: :dis
   end
 
   def farewell?(raw)
-    parse(raw).verb == :farewell
+    parse(raw).tool == :farewell
   end
 
   # ── 1. Canonical forms — every entry in FAREWELLS, unmodified ───────────────

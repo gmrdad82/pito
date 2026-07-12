@@ -8,7 +8,7 @@ require "rails_helper"
 # UNDERSTANDS from a raw input, not data persistence. All DB lookups and the
 # ViewComponent-rendering MessageBuilder are stubbed so nothing touches the DB.
 #
-# Subject:  Pito::Chat::Handlers::Shinies  (app/services/pito/chat/handlers/shinies.rb)
+# Subject:  Pito::Chat::Handlers::Shinies  (lib/pito/chat/handlers/shinies.rb)
 # Resolver: id_only_resolution! — ILIKE title lookups are intentionally disabled.
 #
 # ── Entity branches ───────────────────────────────────────────────────────────
@@ -33,11 +33,11 @@ require "rails_helper"
 #
 # ── Follow-up paths that declare shinies in Registry ─────────────────────────
 #
-#   video_detail → VerbDelegator → Shinies handler with video_detail reply_target
-#   video_list   → VerbDelegator → Shinies handler with video_list reply_target
-#   game_detail  → VerbDelegator → Shinies handler with game_detail reply_target
-#   game_list    → VerbDelegator → Shinies handler with game_list reply_target
-#   channel_list → ChannelList handler delegates directly to VerbDelegator
+#   video_detail → ToolDelegator → Shinies handler with video_detail reply_target
+#   video_list   → ToolDelegator → Shinies handler with video_list reply_target
+#   game_detail  → ToolDelegator → Shinies handler with game_detail reply_target
+#   game_list    → ToolDelegator → Shinies handler with game_list reply_target
+#   channel_list → ChannelList handler delegates directly to ToolDelegator
 #
 # Note: channel_detail only declares "visit" and "sync" — shinies is NOT a
 # follow-up action from channel_detail, so it is not tested here.
@@ -87,7 +87,7 @@ RSpec.describe "Dispatch matrix — shinies (recognition, DB mocked)", type: :di
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: i.positive?)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :shinies,
+      tool:        :shinies,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -387,7 +387,7 @@ RSpec.describe "Dispatch matrix — shinies (recognition, DB mocked)", type: :di
     end
 
     it "passes through even with non-empty rest (rest is ignored in detail context)" do
-      # VerbDelegator strips the verb; rest goes to FollowUpContext.rest which is
+      # ToolDelegator strips the verb; rest goes to FollowUpContext.rest which is
       # ignored when the payload's video_id takes precedence.
       result = call("shinies", follow_up: video_detail_ctx(rest: "ignored"))
       expect(result).to be_a(Pito::Chat::Result::Ok)

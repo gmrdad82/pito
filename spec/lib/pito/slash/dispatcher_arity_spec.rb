@@ -55,9 +55,9 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard", type: :service do
       expect(result.message_key).to eq("pito.slash.errors.too_many_args")
     end
 
-    it "too_many_args error interpolates the verb" do
+    it "too_many_args error interpolates the tool" do
       result = dispatch("/config google a b c")
-      expect(result.message_args[:verb]).to eq(:config)
+      expect(result.message_args[:tool]).to eq(:config)
     end
   end
 
@@ -106,7 +106,7 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard", type: :service do
   describe "/login" do
     it "accepts '/login 123456' without triggering the arity guard" do
       # /login has a :free slot → unbounded → guard never fires.
-      # The command has no handler (handler-less); dispatcher returns unknown_verb error.
+      # The command has no handler (handler-less); dispatcher returns unknown_tool error.
       # That's fine — we're testing the guard doesn't fire.
       result = dispatch("/login 123456")
       if result.is_a?(Pito::Slash::Result::Error)

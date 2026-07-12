@@ -8,18 +8,18 @@
 #
 #   1. SHAPE  — leading `/` → :slash, leading `#` → :hashtag, else → :chat
 #               (the `chat_controller` contract: `input.start_with?("/") ? :slash …`).
-#   2. VERB   — chat:    token → grammar spec (alias-aware) → canonical → handler class
+#   2. TOOL   — chat:    token → grammar spec (alias-aware) → canonical → handler class
 #               slash:   token → grammar spec (alias-aware) → name + auth
 #               hashtag: parse `#handle action rest` (target→handler is DB-bound, so
 #                        only the parse + per-target action gating are asserted here).
 #
 # Returned Hash (symbol keys), by stack:
-#   :chat    → { stack:, token:, verb:, handler:, known: }
-#   :slash   → { stack:, token:, verb:, auth:, known: }
+#   :chat    → { stack:, token:, tool:, handler:, known: }
+#   :slash   → { stack:, token:, tool:, auth:, known: }
 #   :hashtag → { stack:, handle:, action:, rest: }
 #
-# `known: false` means no grammar verb/spec matched — i.e. the input falls to the
-# unknown/natural-language path. Greeting/farewell are NL-detected (no verb token),
+# `known: false` means no grammar tool/spec matched — i.e. the input falls to the
+# unknown/natural-language path. Greeting/farewell are NL-detected (no tool token),
 # so they read as `known: false` here and are covered by their own handler specs.
 module DispatchIntent
   module_function
@@ -47,13 +47,13 @@ module DispatchIntent
     spec      = grammar_spec(:chat, token)
     canonical = spec&.name
     handler   = canonical && Pito::Chat::Registry.lookup(canonical)
-    { stack: :chat, token: token, verb: canonical, handler: handler, known: !handler.nil? }
+    { stack: :chat, token: token, tool: canonical, handler: handler, known: !handler.nil? }
   end
 
   def slash_intent(stripped)
     token = stripped.delete_prefix("/").split(/\s+/).first.to_s.downcase
     spec  = grammar_spec(:slash, token)
-    { stack: :slash, token: token, verb: spec&.name, auth: spec&.auth, known: !spec.nil? }
+    { stack: :slash, token: token, tool: spec&.name, auth: spec&.auth, known: !spec.nil? }
   end
 
   def hashtag_intent(stripped)

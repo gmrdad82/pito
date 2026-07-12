@@ -2,7 +2,7 @@
 
 module Pito
   module Dispatch
-    # Named predicate registry for segment emit_if guards declared in verbs.yml.
+    # Named predicate registry for segment emit_if guards declared in tools.yml.
     #
     # Each predicate is an arity-1 lambda(entity) → Boolean, keyed by the
     # snake_case name used in a segment's `emit_if:` field. Schema::PREDICATES

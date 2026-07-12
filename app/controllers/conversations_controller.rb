@@ -66,11 +66,20 @@ class ConversationsController < ApplicationController
                 pct:       Pito::Shell::ContextMeterComponent.pct(count),
                 count:     count,
                 threshold: Pito::Shell::ContextMeterComponent::THRESHOLD
+              },
+              # The shift+tab / shift+space cycler state (TUI seeds its
+              # cyclers from these; additive — older clients ignore them).
+              scope: {
+                channel: @conversation.scope_channel,
+                period:  @conversation.stats_period
               }
             },
-            # Mini-status data for non-browser clients — identity +
-            # unread notifications (the web reads these from the HTML shell).
-            me:            { handle: "@#{AppSetting.nickname}", name: AppSetting.nickname },
+            # The cycler's option set: @all first, then the connected
+            # channels' handles in stable alphabetical order.
+            channels: ([ "@all" ] + Channel.order(:handle).pluck(:handle)
+                                            .map { |h| h.start_with?("@") ? h : "@#{h}" }).uniq,
+            # Mini-status data for non-browser clients (the nickname/"me"
+            # concept was fat-cut 2026-07-12 — identity is the build tag now).
             notifications: { unread: Notification.unread.count },
             events: @events.map { |e| Pito::Stream::EventJson.call(e) }
           }
@@ -90,34 +99,51 @@ class ConversationsController < ApplicationController
   def resume
     respond_to do |format|
       format.turbo_stream do
-        render partial: "chat/resume_sidebar",
-               formats: [ :turbo_stream ],
-               locals:  {
-                 groups:       Conversation.recency_groups,
-                 current_uuid: params[:uuid].presence
-               }
+        # Paginated (`?after=<opaque cursor>`) → APPEND the next page's rows
+        # into the sidebar's more-container and REPLACE the pager sentinel —
+        # the same shape NotificationsController#index answers. Bare → the
+        # full panel (page 1 + sentinel).
+        if params[:after].present?
+          @page = Conversation.recency_page(after: params[:after])
+          @ai_uuids = ai_thread_uuids(@page[:older])
+          render "conversations/resume_append"
+        else
+          page = Conversation.recency_page
+          render partial: "chat/resume_sidebar",
+                 formats: [ :turbo_stream ],
+                 locals:  {
+                   groups:       page.slice(:recent, :older),
+                   next_cursor:  page[:next_cursor],
+                   current_uuid: params[:uuid].presence
+                 }
+        end
       end
 
       # The conversation picker for non-browser clients (pito-tui): the same
-      # recency groups the sidebar renders, as data. Auth is enforced by the
-      # concern (anonymous JSON → 401 before this runs).
+      # keyset-paged rows the sidebar renders, as data. Auth is enforced by
+      # the concern (anonymous JSON → 401 before this runs).
       format.json do
-        groups = Conversation.recency_groups.transform_values { |convs|
-          convs.map do |c|
-            {
-              uuid:             c.uuid,
-              title:            c.title,
-              display_name:     c.display_name,
-              last_activity_at: c.last_activity_at&.to_time&.iso8601
-            }
-          end
-        }
-        # Identity + unread ride beside the recency groups (additive —
-        # the TUI ignores unknown keys, so older clients are unaffected).
-        render json: groups.merge(
-          me:            { handle: "@#{AppSetting.nickname}", name: AppSetting.nickname },
-          notifications: { unread: Notification.unread.count }
-        )
+        if params[:after].present?
+          # Follow-up page — flat `rows:` (everything past page 1 is "older"
+          # by construction); me/notifications only ride on page 1.
+          page = Conversation.recency_page(after: params[:after])
+          ai_uuids = ai_thread_uuids(page[:older])
+          render json: {
+            rows:        page[:older].map { |c| conversation_json_row(c, ai_uuids) },
+            next_cursor: page[:next_cursor]
+          }
+        else
+          # Page 1 — same shape as before (recent/older + me/notifications),
+          # rows capped at SIDEBAR_PAGE_SIZE with a next_cursor for more.
+          page = Conversation.recency_page
+          ai_uuids = ai_thread_uuids(page[:recent] + page[:older])
+          render json: {
+            recent:        page[:recent].map { |c| conversation_json_row(c, ai_uuids) },
+            older:         page[:older].map { |c| conversation_json_row(c, ai_uuids) },
+            next_cursor:   page[:next_cursor],
+            notifications: { unread: Notification.unread.count }
+          }
+        end
       end
 
       format.html { redirect_to root_path }
@@ -176,6 +202,28 @@ class ConversationsController < ApplicationController
   end
 
   private
+
+  # Which of these conversations carry :ai messages — ONE query for the whole
+  # page, so appended rows wear the AI badge without a per-row EXISTS.
+  def ai_thread_uuids(conversations)
+    Conversation.joins(:events)
+                .where(uuid: conversations.map(&:uuid), events: { kind: "ai" })
+                .distinct.pluck(:uuid).to_set
+  end
+
+  # A /resume.json row: the same fields the sidebar shows, plus `ai:` —
+  # true when this conversation has an :ai event, sourced from the caller's
+  # ONE batched ai_thread_uuids lookup (never a per-row query).
+  def conversation_json_row(conversation, ai_uuids)
+    {
+      uuid:             conversation.uuid,
+      title:            conversation.title,
+      display_name:     conversation.display_name,
+      last_activity_at: conversation.last_activity_at&.to_time&.iso8601,
+      ai:               ai_uuids.include?(conversation.uuid)
+    }
+  end
+
 
   def conversation_params
     # Slice to the attributes we accept BEFORE permitting, so the route param

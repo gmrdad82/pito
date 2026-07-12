@@ -2,7 +2,7 @@
 
 module Pito
   module Dispatch
-    # Named resolver registry — the "escape hatch" from the verbs.yml YAML schema.
+    # Named resolver registry — the "escape hatch" from the tools.yml YAML schema.
     #
     # A resolver is a thin adapter that wraps EXISTING parsing/lookup code behind the
     # uniform contract:
@@ -42,7 +42,7 @@ module Pito
 
         # Invoke the resolver registered as +name+ with +input+ and +context+.
         #
-        # @param name    [Symbol, String]  resolver name as declared in verbs.yml
+        # @param name    [Symbol, String]  resolver name as declared in tools.yml
         # @param input   [String]          raw token/phrase to resolve
         # @param context [Hash]            domain objects the adapter needs (see adapters)
         # @return        the value produced by the adapter, or an Invalid instance
@@ -275,7 +275,7 @@ module Pito
       # Parses the `footage [update] <hours>` amount typed on a game-detail reply
       # into an exact half-step Rational (ceil UP to the next 0.5 h). Wraps the
       # shared Pito::Games::FootageAmount parser — the SAME one the `footage` chat
-      # verb and its GameDetail follow-up reply use (no fork). `footage snippet`
+      # tool and its GameDetail follow-up reply use (no fork). `footage snippet`
       # (game-agnostic) carries no hours, so it resolves Invalid — callers route
       # the snippet branch before binding the amount.
       #
@@ -289,7 +289,7 @@ module Pito
       # Parses the `price [set] <amount>` / `price unset` reply into either a
       # non-negative BigDecimal euro amount (2dp; 0 = free) or the `:unset`
       # sentinel. Wraps the shared Pito::Games::PriceAmount parser — the SAME one
-      # the `price` chat verb and its GameDetail follow-up reply use (no fork).
+      # the `price` chat tool and its GameDetail follow-up reply use (no fork).
       # An optional leading `set` is peeled; a leading `unset` short-circuits to
       # `:unset`. On a list target the leading row id is sliced off by ReplyBinding
       # before this runs (see LEADING_TOKEN_REFS), so the input is `<amount>` in
@@ -314,7 +314,7 @@ module Pito
       # :platform_value
       # Normalises the `platform [set|unset] <value>` reply into a canonical stored
       # platform string (the logo family). Wraps Pito::Games::PlatformInput.normalize
-      # — the SAME normaliser the `platform` chat verb uses (no fork) — after peeling
+      # — the SAME normaliser the `platform` chat tool uses (no fork) — after peeling
       # an optional leading set/unset subcommand and an optional `game(s)` noun filler.
       # The set-vs-unset OP stays handler-routed (this resolver yields the VALUE, the
       # bespoke parsing the TODO flagged). On a list target the leading row id is

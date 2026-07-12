@@ -164,6 +164,22 @@ RSpec.describe Pito::Mcp::Executor do
       expect(result.text).to include("- views: 1234")
       expect(result.text).not_to match(/pending/i)
     end
+
+    # T16.14: `games channel @handle` (pito_games) on a channel with vids but
+    # zero linked games used to return "" — Show#emit_segments_for silently
+    # skipped the guarded `games` segment, so Router.call returned an empty
+    # events array and EventText projected nothing. A blank tool result reads
+    # as broken to an MCP-calling model, so the sole-segment request now gets
+    # a friendly fallback line instead (see Show::SEGMENT_EMPTY_COPY).
+    it "runs pito_games and returns a friendly line (not empty) when the channel has no linked games" do
+      channel = create(:channel, handle: "gmrdad82")
+      create(:video, channel: channel) # has vids, zero game links
+
+      result = described_class.call(tool: "pito_games", arguments: { "channel_ref" => "@gmrdad82" })
+
+      expect(result.is_error).to be(false)
+      expect(result.text).to eq("This channel has no linked games yet.")
+    end
   end
 
   # ── the non-persistence invariant ─────────────────────────────────────────────

@@ -8,7 +8,7 @@ require "rails_helper"
 # handler UNDERSTANDS from a raw input. All DB lookups and builder calls are
 # stubbed — zero factories.
 #
-# Subject:  Pito::Chat::Handlers::Show  (app/services/pito/chat/handlers/show.rb)
+# Subject:  Pito::Chat::Handlers::Show  (lib/pito/chat/handlers/show.rb)
 # Resolver: id_only_resolution! — title (ILIKE) lookups are intentionally disabled.
 #
 # Branches:
@@ -72,7 +72,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :show,
+      tool:        :show,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -389,7 +389,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
   # ── Follow-up: video_list source ─────────────────────────────────────────────
   #
   # video_list declares "show" in its actions (verified below). Replying
-  # `#<handle> show 5` routes through VerbDelegator → Show handler with a
+  # `#<handle> show 5` routes through ToolDelegator → Show handler with a
   # FollowUpContext. In follow-up mode, video_target? reads reply_target (not
   # body_tokens): "video_list".start_with?("video") → true → video branch.
   # resolve_target sees no video_id in the list payload → resolve_in_list, which
@@ -518,7 +518,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
 
   # ── channel_list: show is NOT a declared action ───────────────────────────────
   #
-  # channel_list declares only "shinies". VerbDelegator gates "show" out before
+  # channel_list declares only "shinies". ToolDelegator gates "show" out before
   # the Show handler is invoked — the gate is the Registry.actions_for check.
   # We assert the Registry fact directly instead of simulating the gated path.
 
@@ -530,7 +530,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
     end
 
     it "channel_list declares exactly ['shinies', 'analyze', 'sort', 'order', 'next', 'with', 'without']" do
-      # match_array (order-insensitive): actions_for scanning order is verbs.yml-defined,
+      # match_array (order-insensitive): actions_for scanning order is tools.yml-defined,
       # not DSL-declaration order; the suggestions engine sorts the palette anyway.
       # with/without joined in G26.2 (channels gained addable columns).
       expect(Pito::FollowUp::Registry.actions_for("channel_list")).to match_array([ "shinies", "analyze", "sort", "order", "next", "more", "with", "without", "at-a-glance", "videos", "vids", "games" ])
@@ -594,7 +594,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
         body_tokens = body_words.each_with_index.map do |w, i|
           Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
         end
-        msg = Pito::Chat::Message.new(verb: :show, body_tokens: body_tokens, kind: :new_turn, raw: raw)
+        msg = Pito::Chat::Message.new(tool: :show, body_tokens: body_tokens, kind: :new_turn, raw: raw)
         Pito::Chat::Handlers::Show.new(message: msg, conversation: conversation,
                                         follow_up: nil, channel: channel_val).call
       end

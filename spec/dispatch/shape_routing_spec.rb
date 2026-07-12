@@ -43,26 +43,26 @@ RSpec.describe "Dispatch shape routing", type: :dispatch do
   describe "harness sanity — verb/spec resolution wiring" do
     it "resolves a chat verb to its handler class" do
       intent = parsed_intent("sync vids #23")
-      expect(intent[:verb]).to eq(:sync)
+      expect(intent[:tool]).to eq(:sync)
       expect(intent[:handler]).to eq(Pito::Chat::Handlers::Sync)
       expect(intent[:known]).to be(true)
     end
 
     it "resolves a chat alias (ls → list)" do
       intent = parsed_intent("ls games")
-      expect(intent[:verb]).to eq(:list)
+      expect(intent[:tool]).to eq(:list)
       expect(intent[:handler]).to eq(Pito::Chat::Handlers::List)
     end
 
     it "resolves a slash verb with its auth tier" do
       intent = parsed_intent("/config sound on")
-      expect(intent[:verb]).to eq(:config)
+      expect(intent[:tool]).to eq(:config)
       expect(intent[:auth]).to eq(:authenticated_only)
       expect(intent[:known]).to be(true)
     end
 
     it "resolves /login as unauthenticated-only" do
-      expect(parsed_intent("/login 123")).to include(verb: :login, auth: :unauthenticated_only)
+      expect(parsed_intent("/login 123")).to include(tool: :login, auth: :unauthenticated_only)
     end
 
     it "parses a hashtag reply into handle + action + rest" do

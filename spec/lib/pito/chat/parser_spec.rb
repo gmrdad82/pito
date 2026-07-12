@@ -17,7 +17,7 @@ RSpec.describe Pito::Chat::Parser do
 
     it "classifies a recognised verb as :new_turn" do
       result = described_class.call(lex("list videos"), raw: "list videos", conversation:)
-      expect(result.verb).to eq(:list)
+      expect(result.tool).to eq(:list)
       expect(result.kind).to eq(:new_turn)
       expect(result.body_tokens.map(&:value)).to eq([ "videos" ])
       expect(result.raw).to eq("list videos")
@@ -25,42 +25,42 @@ RSpec.describe Pito::Chat::Parser do
 
     it "recognises :show as a new-turn verb" do
       result = described_class.call(lex("show something"), raw: "show something", conversation:)
-      expect(result.verb).to eq(:show)
+      expect(result.tool).to eq(:show)
       expect(result.kind).to eq(:new_turn)
     end
 
     it "recognises :import as a new-turn verb" do
       result = described_class.call(lex("import Pragmata"), raw: "import Pragmata", conversation:)
-      expect(result.verb).to eq(:import)
+      expect(result.tool).to eq(:import)
       expect(result.kind).to eq(:new_turn)
     end
 
     it "parses `import <id>` to verb :import" do
       result = described_class.call(lex("import 1"), raw: "import 1", conversation:)
-      expect(result.verb).to eq(:import)
+      expect(result.tool).to eq(:import)
     end
 
     it "recognises :find as a new-turn verb" do
       result = described_class.call(lex("find items"), raw: "find items", conversation:)
-      expect(result.verb).to eq(:find)
+      expect(result.tool).to eq(:find)
       expect(result.kind).to eq(:new_turn)
     end
 
     it "canonicalizes the `rm` alias to the :delete verb" do
       result = described_class.call(lex("rm Elden Ring"), raw: "rm Elden Ring", conversation:)
-      expect(result.verb).to eq(:delete)
+      expect(result.tool).to eq(:delete)
       expect(result.kind).to eq(:new_turn)
     end
 
     it "canonicalizes the `ls` alias to the :list verb" do
       result = described_class.call(lex("ls games"), raw: "ls games", conversation:)
-      expect(result.verb).to eq(:list)
+      expect(result.tool).to eq(:list)
     end
 
     it "classifies unrecognised input as :unknown when no recent turn exists" do
       # NB: not a greeting/farewell — those phrase-match to :greet / :farewell.
       result = described_class.call(lex("xyzzy frobble"), raw: "xyzzy frobble", conversation:)
-      expect(result.verb).to be_nil
+      expect(result.tool).to be_nil
       expect(result.kind).to eq(:unknown)
       expect(result.body_tokens).to eq([])
     end
@@ -80,13 +80,13 @@ RSpec.describe Pito::Chat::Parser do
       )
 
       result = described_class.call(lex("more stuff"), raw: "more stuff", conversation:)
-      expect(result.verb).to be_nil
+      expect(result.tool).to be_nil
       expect(result.kind).to eq(:unknown)
     end
 
     it "classifies an unrecognised verb as :unknown with no open turn" do
       result = described_class.call(lex("madeup verb"), raw: "madeup verb", conversation:)
-      expect(result.verb).to be_nil
+      expect(result.tool).to be_nil
       expect(result.kind).to eq(:unknown)
     end
 
@@ -98,34 +98,34 @@ RSpec.describe Pito::Chat::Parser do
 
     it "handles single-word recognised verb with no body" do
       result = described_class.call(lex("list"), raw: "list", conversation:)
-      expect(result.verb).to eq(:list)
+      expect(result.tool).to eq(:list)
       expect(result.kind).to eq(:new_turn)
       expect(result.body_tokens).to eq([])
     end
 
     it "handles empty body tokens for unrecognised input" do
       result = described_class.call(lex("???"), raw: "???", conversation:)
-      expect(result.verb).to be_nil
+      expect(result.tool).to be_nil
       expect(result.kind).to eq(:unknown)
     end
 
     it "fuses a leading @ with its adjacent word into the @ai verb, any case" do
       %w[@ai @AI @Ai @aI].each do |form|
         result = described_class.call(lex("#{form} what should I play"), raw: "#{form} what should I play", conversation:)
-        expect(result.verb).to eq(:"@ai"), "expected #{form} to parse as @ai"
+        expect(result.tool).to eq(:"@ai"), "expected #{form} to parse as @ai"
         expect(result.kind).to eq(:new_turn)
       end
     end
 
     it "does NOT fuse when a space separates the @ from the word" do
       result = described_class.call(lex("@ ai hello"), raw: "@ ai hello", conversation:)
-      expect(result.verb).to be_nil
+      expect(result.tool).to be_nil
       expect(result.kind).to eq(:unknown)
     end
 
     it "leaves non-verb @handles unfused (channel handles are not verbs)" do
       result = described_class.call(lex("@all hello"), raw: "@all hello", conversation:)
-      expect(result.verb).to be_nil
+      expect(result.tool).to be_nil
       expect(result.kind).to eq(:unknown)
     end
   end

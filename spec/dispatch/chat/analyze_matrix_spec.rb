@@ -211,7 +211,7 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
         Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
       end
       msg = Pito::Chat::Message.new(
-        verb:        :analyze,
+        tool:        :analyze,
         body_tokens: body_tokens,
         kind:        :new_turn,
         raw:         raw

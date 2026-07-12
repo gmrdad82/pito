@@ -2,7 +2,7 @@
 
 module Pito
   module Games
-    # Normalises free-text platform input (typed via the `platform` chat verb)
+    # Normalises free-text platform input (typed via the `platform` chat tool)
     # into a canonical stored string that MATCHES one of the
     # +Pito::Games::PlatformTokens::IGDB_TO_TOKEN+ family regexes, so the correct
     # logo renders for the game.

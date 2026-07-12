@@ -31,6 +31,13 @@ RSpec.describe Pito::Shimmer::TokenComponent, type: :component do
       expect(cls).to include("tabular-nums")
     end
 
+    it "builds the reference-shimmer class for semantic refs (shimmer: true)" do
+      cls = described_class.css_class("#12", shimmer: true)
+      expect(cls).to include("pito-reference-shimmer")
+      expect(cls).to match(/\bpito-shimmer-d\d+\b/)
+      expect(cls).not_to include("pito-token")
+    end
+
     it "renders an html-safe span" do
       html = described_class.html("@gmrdad82")
       expect(html).to be_html_safe

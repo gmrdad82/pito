@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Unified chat-initiated YouTube video sync — the single job behind BOTH the
-# `sync videos` verb and its `import videos` alias.
+# `sync videos` tool and its `import videos` alias.
 #
 # Two paths, selected by `video_ids`:
 #

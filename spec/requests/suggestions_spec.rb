@@ -42,10 +42,10 @@ RSpec.describe "POST /suggestions", type: :request do
       expect(labels).not_to include("add")
     end
 
-    # The reply-verb position must come back as a verb PALETTE (stage:"verb") with
+    # The reply-verb position must come back as a verb PALETTE (stage:"tool") with
     # the target's FULL action set — so the client surfaces every verb, not just
     # the first as an inline ghost.
-    it "tags the reply-verb stage stage:'verb' with the target's full action set" do
+    it "tags the reply-tool stage stage:'tool' with the target's full action set" do
       conversation = Conversation.create!
       turn = conversation.turns.create!(input_kind: :slash, input_text: "list videos", position: 1)
       Event.create_with_position!(
@@ -56,17 +56,17 @@ RSpec.describe "POST /suggestions", type: :request do
       post "/suggestions", params: { input: "#vlist-3030 ", cursor: 12, uuid: conversation.uuid }
       body   = response.parsed_body
       labels = body["menu_items"].map { |i| i["label"] }
-      expect(body["stage"]).to eq("verb")
+      expect(body["stage"]).to eq("tool")
       expect(labels).to include("with", "without", "schedule", "shinies", "show")
     end
 
     # `/config ` arg stage returns the provider list as a browsable palette
-    # (stage:"verb"), not a single inline ghost.
+    # (stage:"tool"), not a single inline ghost.
     it "returns the config provider list as a palette for '/config '" do
       post "/suggestions", params: { input: "/config ", cursor: 8 }
       body   = response.parsed_body
       labels = body["menu_items"].map { |i| i["label"] }
-      expect(body["stage"]).to eq("verb")
+      expect(body["stage"]).to eq("tool")
       expect(labels).to include("google", "voyage", "igdb", "webhook")
     end
 
@@ -77,7 +77,7 @@ RSpec.describe "POST /suggestions", type: :request do
       body   = response.parsed_body
       labels = body["menu_items"].map { |i| i["label"] }
       masked = body["menu_items"].select { |i| i["masked"] }.map { |i| i["label"] }
-      expect(body["stage"]).to eq("verb")
+      expect(body["stage"]).to eq("tool")
       expect(labels).to include("client_id", "client_secret", "api_key")
       expect(masked).to include("client_id", "client_secret", "api_key")
     end

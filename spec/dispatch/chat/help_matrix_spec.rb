@@ -4,7 +4,7 @@ require "rails_helper"
 
 # ── Dispatch matrix: `help` chat verb (recognition, zero DB) ───────────────────
 #
-# Subject: Pito::Chat::Handlers::Help (app/services/pito/chat/handlers/help.rb)
+# Subject: Pito::Chat::Handlers::Help (lib/pito/chat/handlers/help.rb)
 #
 # THE HANDLER IS ARG-BLIND. Every call — bare `help`, `help <verb>`, `help
 # <anything>` — unconditionally delegates to
@@ -50,7 +50,7 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :help,
+      tool:        :help,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -117,7 +117,7 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
   # All inputs below must produce the same payload as bare `help`.
   describe "body tokens ignored — `help <arg>` → identical to bare help" do
     {
-      # ── games-group verbs (from VERB_GROUPS in Commands) ──
+      # ── games-group verbs (from TOOL_GROUPS in Commands) ──
       "help list"     => "games-group verb",
       "help show"     => "games-group verb",
       "help import"   => "games-group verb",
@@ -132,9 +132,9 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
       "help schedule" => "videos-group verb",
       # ── channels-group verbs ──
       "help sync"     => "channels-group verb",
-      # ── verbs known to the registry but absent from VERB_GROUPS ──
-      "help analyze"  => "known verb, not listed in VERB_GROUPS",
-      "help shinies"  => "known verb, not listed in VERB_GROUPS",
+      # ── verbs known to the registry but absent from TOOL_GROUPS ──
+      "help analyze"  => "known verb, not listed in TOOL_GROUPS",
+      "help shinies"  => "known verb, not listed in TOOL_GROUPS",
       # ── self-referential ──
       "help help"     => "self-referential (still ignored)",
       # ── multi-token bodies ──
@@ -209,7 +209,7 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
   # ── 5. `help --help` → dispatcher intercept → nonsense easter-egg body ────────
   #
   # Pito::Dispatch::Router#dispatch_new_turn checks:
-  #   message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/) && message.verb == :help
+  #   message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/) && message.tool == :help
   # → Pito::Slash::HelpBuilder.nonsense_body (the "manual's manual" easter egg)
   # → Result::Ok with a :system event; payload body differs from Commands.call body.
   describe "`help --help` → dispatcher-intercepted nonsense easter egg" do

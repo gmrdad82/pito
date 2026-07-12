@@ -1,0 +1,101 @@
+# frozen_string_literal: true
+
+# Handler for the `delete game <id>` / `rm game <id>` and
+# `delete video <id>` / `rm video <id>` chat tools.
+#
+# Resolves a single game or video by **ID only** (`#123`/`123`) — title
+# lookup is intentionally disabled (id_only_resolution!). Emits a
+# confirmation event; the destroy happens in
+# `Pito::Confirmation::Executor` on `#<handle> confirm`.
+# The title is carried in the payload so the outcome text survives the
+# row's deletion. Unknown reference → witty not-found; no reference → usage hint.
+module Pito
+  module Chat
+    module Handlers
+      class Delete < Pito::Chat::Handler
+        self.tool = :delete
+        self.description_key = "pito.chat.delete.descriptions.delete"
+        id_only_resolution!
+
+        GAME_NOUN_FILLERS  = %w[game games].freeze
+        VIDEO_NOUN_FILLERS = %w[vid vids video videos].freeze
+
+        def call
+          if video_target?(VIDEO_NOUN_FILLERS)
+            handle_video
+          elsif follow_up? || game_noun?
+            handle_game
+          else
+            unknown_entity
+          end
+        end
+
+        private
+
+        # Free-chat: an EXPLICIT game noun token present? In free chat the 2nd token
+        # IS the entity — a bare id (`rm 123`) or unknown word
+        # (`rm foo`) is NEVER silently treated as a game; only `game`/`games` routes
+        # here. (Follow-up replies bypass this via `follow_up?` in `call`.)
+        def game_noun?
+          message.body_tokens.any? { |t| GAME_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+        end
+
+        # ── Video branch ────────────────────────────────────────────────────────
+
+        def handle_video
+          video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+          return needs_ref if video == :needs_ref
+          return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
+
+          video_confirmation_event(video)
+        end
+
+        def video_confirmation_event(video)
+          payload = Pito::MessageBuilder::Video::DeleteConfirmation.call(video, conversation:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
+        end
+
+        def video_not_found(ref)
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
+          ])
+        end
+
+        # ── Game branch ─────────────────────────────────────────────────────────
+
+        def handle_game
+          game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+          return needs_ref if game == :needs_ref
+          return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
+
+          game_confirmation_event(game)
+        end
+
+        def game_confirmation_event(game)
+          payload = Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
+        end
+
+        def game_not_found(ref)
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
+          ])
+        end
+
+        # ── Shared helpers ──────────────────────────────────────────────────────
+
+        def needs_ref
+          Pito::Chat::Result::Error.new(message_key: "pito.chat.delete.needs_ref", message_args: {})
+        end
+
+        # Free-chat with no recognised entity (bare `rm`, bare id, or unknown word)
+        # — no guessing. Render the generic "I don't get it"
+        # dictionary (`pito.copy.huh`, reused per owner). Pre-rendered so the
+        # finalizer routes it to `text:` while keeping the :error chrome.
+        def unknown_entity
+          Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
+        end
+      end
+    end
+  end
+end

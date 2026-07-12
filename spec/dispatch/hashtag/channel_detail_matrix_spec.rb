@@ -17,7 +17,7 @@ require "rails_helper"
 #   anything else / bare         → needs_destination Error
 #
 # Routing in ChannelDetail#call:
-#   "sync"               → VerbDelegator (re-sync source channel)
+#   "sync"               → ToolDelegator (re-sync source channel)
 #   "visit channel"      → DIRECT: resolves channel → Result::Append (:channel)
 #   "visit youtube"      → DIRECT: synonym for channel → Result::Append (:channel)
 #   "visit yt"           → DIRECT: synonym for channel → Result::Append (:channel)
@@ -25,7 +25,7 @@ require "rails_helper"
 #   "visit"              → needs_destination Error (no dest word)
 #   "visit <unknown>"    → needs_destination Error (unrecognised dest)
 #   channel missing      → channel_not_found Error
-#   unknown action       → invalid_action Error (returned directly, no VerbDelegator)
+#   unknown action       → invalid_action Error (returned directly, no ToolDelegator)
 #
 # DB stubs:  ::Channel.find_by(id: 9) → channel_stub.
 # Builder stub: Pito::MessageBuilder::Channel::Visit.call → visit_payload.
@@ -54,13 +54,13 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     { "body" => "<visit/>", "channel_id" => 9, "visit_state" => "visiting", "visit_destination" => "channel" }
   end
 
-  # Sentinel returned by VerbDelegator for sync.
+  # Sentinel returned by ToolDelegator for sync.
   let(:sentinel) { Pito::FollowUp::Result::Append.new(events: [], consume: false) }
 
   before do
     allow(::Channel).to receive(:find_by).with(id: 9).and_return(channel_stub)
     allow(Pito::MessageBuilder::Channel::Visit).to receive(:call).and_return(visit_payload)
-    allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(sentinel)
+    allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel)
   end
 
   def call(rest)
@@ -100,7 +100,7 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     end
   end
 
-  # ── visit <destination> — DIRECT handler (not VerbDelegator) ──────────────────
+  # ── visit <destination> — DIRECT handler (not ToolDelegator) ──────────────────
   #
   # DESTINATION_MAP maps "channel" / "youtube" / "yt" → :channel; "studio" → :studio.
 
@@ -122,9 +122,9 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
           expect(result).not_to be_a(Pito::FollowUp::Result::Error)
         end
 
-        it "does NOT delegate to VerbDelegator" do
+        it "does NOT delegate to ToolDelegator" do
           result
-          expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+          expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
         end
 
         it "resolves channel via ::Channel.find_by(id: 9)" do
@@ -163,9 +163,9 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
       expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.needs_destination")
     end
 
-    it "does NOT call VerbDelegator" do
+    it "does NOT call ToolDelegator" do
       result
-      expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
     end
 
     it "does NOT call Visit builder (error returned before resolution)" do
@@ -212,9 +212,9 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     end
   end
 
-  # ── sync — delegates to VerbDelegator ─────────────────────────────────────────
+  # ── sync — delegates to ToolDelegator ─────────────────────────────────────────
 
-  describe "'sync' — delegates to VerbDelegator" do
+  describe "'sync' — delegates to ToolDelegator" do
     subject(:result) { call("sync") }
 
     it "is declared in actions_for('channel_detail')" do
@@ -225,14 +225,14 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
       expect(result).not_to be_a(Pito::FollowUp::Result::Error)
     end
 
-    it "delegates to VerbDelegator.call with source_event, rest, conversation" do
+    it "delegates to ToolDelegator.call with source_event, rest, conversation" do
       result
-      expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
         hash_including(source_event:, rest: "sync", conversation:)
       )
     end
 
-    it "returns the sentinel Append from VerbDelegator" do
+    it "returns the sentinel Append from ToolDelegator" do
       expect(result).to eq(sentinel)
     end
 
@@ -242,12 +242,12 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     end
   end
 
-  # ── declared segment verbs delegate to VerbDelegator ─────────────────────────
+  # ── declared segment verbs delegate to ToolDelegator ─────────────────────────
   #
   # games / videos / vids / shinies / at-a-glance are declared for channel_detail
-  # in verbs.yml, so they route to the matrix-gated VerbDelegator (they were
+  # in tools.yml, so they route to the matrix-gated ToolDelegator (they were
   # silently rejected before the hardcoded-gate removal).
-  describe "declared segment verbs → delegate to VerbDelegator" do
+  describe "declared segment verbs → delegate to ToolDelegator" do
     %w[games videos vids shinies at-a-glance].each do |verb|
       context verb.inspect do
         subject(:result) { call(verb) }
@@ -260,9 +260,9 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
           expect(result).not_to be_a(Pito::FollowUp::Result::Error)
         end
 
-        it "delegates to VerbDelegator with the verb as rest" do
+        it "delegates to ToolDelegator with the verb as rest" do
           result
-          expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+          expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
             hash_including(source_event:, rest: verb, conversation:)
           )
         end
@@ -272,8 +272,8 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
 
   # ── Unknown action → invalid_action Error ─────────────────────────────────────
   #
-  # Verbs NOT declared for channel_detail in verbs.yml are rejected with
-  # invalid_action by the config-driven gate — NOT via VerbDelegator.
+  # Verbs NOT declared for channel_detail in tools.yml are rejected with
+  # invalid_action by the config-driven gate — NOT via ToolDelegator.
 
   describe "unknown action → invalid_action Error" do
     %w[open show delete rm link unlink reindex bogus update help].each do |unknown|
@@ -292,9 +292,9 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
           expect(result.message_args).to include(action: unknown)
         end
 
-        it "does NOT call VerbDelegator" do
+        it "does NOT call ToolDelegator" do
           result
-          expect(Pito::FollowUp::VerbDelegator).not_to have_received(:call)
+          expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
         end
       end
     end

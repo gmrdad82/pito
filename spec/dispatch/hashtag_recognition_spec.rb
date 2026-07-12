@@ -27,7 +27,7 @@ RSpec.describe "Dispatch — hashtag recognition + action gating", type: :dispat
 
   describe "per-target action gating (the reply matrix)" do
     # Each follow-up target accepts a declared set of action verbs. Assert the
-    # registry exposes them (this is what gates VerbDelegator + drives suggestions).
+    # registry exposes them (this is what gates ToolDelegator + drives suggestions).
     {
       "video_detail"     => %w[rm delete reindex link unlink shinies sync],
       "game_detail"      => %w[rm delete reindex link unlink footage platform price shinies sync],

@@ -29,7 +29,7 @@ messages currently render the **interim scalar kv-table**. Still to do:
 `analyze` messages + the `show vid`/`show game` analytics `:enhanced` should be
 repliable via `#<handle>`. **Blocked on the `with` / `without` option vocabulary**
 (owner-deferred) — that's the primary reply use case. The base "reply → re-analyze
-this entity" path is buildable on top of `FollowUp` + `VerbDelegator` (delegate
+this entity" path is buildable on top of `FollowUp` + `ToolDelegator` (delegate
 the `analyze` verb to the handler with the replied-to entity as context; the
 handler gets a `follow_up?` branch that resolves the scope from the source event
 instead of `ScopeResolver`). Build once the `with`/`without` vocab is defined so

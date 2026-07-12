@@ -3,7 +3,7 @@
 require "rails_helper"
 
 class DispatcherTestHandler < Pito::Slash::Handler
-  self.verb = :ping
+  self.tool = :ping
   self.description_key = "pito.slash.help.descriptions.ping"
 
   def call
@@ -32,8 +32,8 @@ RSpec.describe Pito::Slash::Dispatcher do
     it "returns Result::Error for an unknown verb" do
       result = described_class.call(input: "/nonexistent", conversation:)
       expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
-      expect(result.message_args[:verb]).to eq(:nonexistent)
+      expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
+      expect(result.message_args[:tool]).to eq(:nonexistent)
     end
 
     it "returns Result::Error for malformed input (no slash)" do
@@ -60,7 +60,7 @@ RSpec.describe Pito::Slash::Dispatcher do
       expect(events.first[:payload][:text]).not_to eq("pong")
     end
 
-    it "intercepts --help for unregistered verbs (no unknown_verb error)" do
+    it "intercepts --help for unregistered verbs (no unknown_tool error)" do
       result = described_class.call(input: "/connect --help", conversation:)
       expect(result).to be_a(Pito::Slash::Result::Ok)
       expect(result.events.first[:kind]).to eq(:system)

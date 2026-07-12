@@ -8,7 +8,7 @@ require "rails_helper"
 # handler UNDERSTANDS, not data persistence. All DB lookups are stubbed.
 #
 # Subject: Pito::Chat::Handlers::Schedule
-#          (app/services/pito/chat/handlers/schedule.rb)
+#          (lib/pito/chat/handlers/schedule.rb)
 #          Pito::Schedule::TimeParser
 #          (app/services/pito/schedule/time_parser.rb)
 #
@@ -84,7 +84,7 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :schedule,
+      tool:        :schedule,
       body_tokens: body_tokens,
       kind:        :new_turn,
       raw:         raw
@@ -598,7 +598,7 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
   end
 
   describe "follow-up via video_list source event" do
-    # The VerbDelegator passes the full `rest` to Chat::Dispatcher as the input,
+    # The ToolDelegator passes the full `rest` to Chat::Dispatcher as the input,
     # producing a Message where body_tokens = tokens after the verb ("schedule").
     # In the unit test we construct the handler directly with the same body_tokens.
     # The source event's `video_ids`/`table_rows` are present but the Schedule
@@ -657,7 +657,7 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
   # ── Follow-up via video_detail source event ───────────────────────────────────
   #
   # Phase F4 added `schedule` to video_detail's declared reply actions, so a
-  # `#<handle> schedule …` reply on a detail card is GATED-IN (VerbDelegator no
+  # `#<handle> schedule …` reply on a detail card is GATED-IN (ToolDelegator no
   # longer rejects it) and reaches the chat Schedule handler.
   #
   # F4 FOLLOW-UP FIX — verified against source (schedule.rb#prepend_follow_up_ref):

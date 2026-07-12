@@ -51,7 +51,7 @@ RSpec.describe "Dispatch matrix — /login + /authenticate (recognition + maskin
       it "#{input.inspect} → stack :slash, verb :login, auth :unauthenticated_only, known: true" do
         intent = parsed_intent(input)
         expect(intent[:stack]).to eq(:slash)
-        expect(intent[:verb]).to eq(:login)
+        expect(intent[:tool]).to eq(:login)
         expect(intent[:auth]).to eq(:unauthenticated_only)
         expect(intent[:known]).to be(true)
       end
@@ -96,8 +96,8 @@ RSpec.describe "Dispatch matrix — /login + /authenticate (recognition + maskin
     }.each do |input, expected_verb|
       it "#{input} resolves to :#{expected_verb}, NOT :login" do
         intent = parsed_intent(input)
-        expect(intent[:verb]).to eq(expected_verb)
-        expect(intent[:verb]).not_to eq(:login)
+        expect(intent[:tool]).to eq(expected_verb)
+        expect(intent[:tool]).not_to eq(:login)
       end
     end
 

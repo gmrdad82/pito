@@ -2,17 +2,17 @@
 
 module Pito
   module Dispatch
-    # The source context a verb handler runs against — the surface-agnostic half
+    # The source context a tool handler runs against — the surface-agnostic half
     # of the uniform dispatch contract.
     #
     # `Pito::Dispatch::Router` builds one of these per invocation and passes it to
-    # the verb's dispatch class as `call(kwargs:, context:)`. It carries exactly
+    # the tool's dispatch class as `call(kwargs:, context:)`. It carries exactly
     # what today's chat handlers read: the parsed +message+, the +conversation+,
     # the shift+tab +channel+ scope, the analytics +period+, the +follow_up+
     # context (present only on `#<handle>` replies), and the scrollback
     # +viewport_width+. The Router-bound arguments (segment selection / reply
-    # ReplyBinding output) travel separately in `kwargs`, keeping "what the verb
-    # was called WITH" distinct from "where the verb was called FROM".
+    # ReplyBinding output) travel separately in `kwargs`, keeping "what the tool
+    # was called WITH" distinct from "where the tool was called FROM".
     #
     # A free-chat invocation carries `follow_up: nil`; a reply invocation carries a
     # populated `Pito::Chat::FollowUpContext`. `follow_up?` is the predicate.
@@ -23,7 +23,7 @@ module Pito
         super
       end
 
-      # True when this verb was reached via a `#<handle>` follow-up reply.
+      # True when this tool was reached via a `#<handle>` follow-up reply.
       def follow_up?
         !follow_up.nil?
       end

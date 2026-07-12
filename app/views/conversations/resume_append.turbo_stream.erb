@@ -1,0 +1,16 @@
+<%# Next /resume page — appends into the sidebar list's more-container and
+    replaces the pager sentinel with a fresh one (new cursor, or end-of-list).
+    Mirrors notifications/index.turbo_stream.erb's paginated shape. %>
+<%= turbo_stream.append "pito-conversations-more" do %>
+  <% @page[:older].each do |conversation| %>
+    <%= render partial: "conversations/row",
+               locals: { conversation: conversation, current: false,
+                         timestamp: Pito::Formatter::CompactTimeAgo.call(conversation.last_activity_at),
+                         ai: @ai_uuids.include?(conversation.uuid) } %>
+  <% end %>
+<% end %>
+<%= turbo_stream.replace Pito::ListPager::SentinelComponent::SENTINEL_ID do %>
+  <%= render(Pito::ListPager::SentinelComponent.new(
+        next_url: @page[:next_cursor].present? ? resume_path(after: @page[:next_cursor]) : nil
+      )) %>
+<% end %>

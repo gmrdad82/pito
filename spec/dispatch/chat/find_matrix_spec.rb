@@ -54,7 +54,7 @@ RSpec.describe "Dispatch matrix — find (recognition, grammar-only, DB mocked)"
       end
 
       it "resolves verb to :find (grammar spec matched)" do
-        expect(intent[:verb]).to eq(:find)
+        expect(intent[:tool]).to eq(:find)
       end
 
       it "handler is nil (no handler registered for :find)" do

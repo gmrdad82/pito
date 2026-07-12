@@ -37,4 +37,9 @@
           pinned:   m[:pinned]
         )) %>
   <% end %>
+  <%# Keyless providers list no models (no pinned placeholders — owner call):
+      one dim line says why the section is empty and what unlocks it. %>
+  <% if models.empty? && !key_present? %>
+    <div class="px-1.5 py-0.5 text-fg-faded"><%= Pito::Copy.render("pito.copy.ai.picker.key_gate") %></div>
+  <% end %>
 </div>

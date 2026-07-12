@@ -1,0 +1,11 @@
+# `analyze channel @gmrdad82hard` — the channel's full analytics scaffold (job-backed — analytics screen).
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-analyze-channel-gmrdad82hard
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "analyze channel @gmrdad82hard"
+  - sleep: 12
+  - shot: analyze-channel-gmrdad82hard.png

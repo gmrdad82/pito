@@ -11,13 +11,16 @@
 //
 //   The reply-verb stage sits AFTER the handle's space, so it trips the space
 //   heuristic (_isArgStage) — but the engine tags its /suggestions response
-//   stage:"verb" and the client renders the full allowed-verb list as a palette
+//   stage:"tool" and the client renders the full allowed-verb list as a palette
 //   (with/without/shinies/schedule/show/…).
 //
 // VERB STAGE (palette)
 //   Float-above .pito-suggestions-palette lists matching catalog entries.
 //   ArrowUp/ArrowDown → navigate rows (single step).
 //   Tab    → ACCEPT highlighted item (_insertToken); does NOT submit.
+//            A row carrying a non-empty `children` array expands IN PLACE
+//            instead (e.g. /config namespace drill-down) — see
+//            _acceptPaletteSelection. One level of nesting only.
 //   Enter  → ALWAYS submit the current chatbox value (never accepts a row).
 //   Space  → dismiss palette; space types normally → field becomes "/cmd " → arg stage.
 //   Esc    → close palette.
@@ -217,7 +220,7 @@ export default class extends Controller {
         // Hashtag REPLY-VERB stage (`#<handle> <verb>`): the verb sits after the
         // handle's space, so it trips _isArgStage — but it is a VERB choice, not
         // an arg. Fetch the full allowed-verb list and surface it as a PALETTE
-        // (the engine tags this response stage:"verb"). Keep any open palette up
+        // (the engine tags this response stage:"tool"). Keep any open palette up
         // (don't blink-close) while the debounced fetch refreshes its rows.
         if (this._isHashtagReplyVerbStage(value, cursor)) {
           this._scheduleArgFetch(value, cursor)
@@ -225,7 +228,7 @@ export default class extends Controller {
         }
 
         // Slash `/config <arg>` arg stage: the engine returns these completions
-        // as a browsable PALETTE (stage:"verb"), so keep any open palette up while
+        // as a browsable PALETTE (stage:"tool"), so keep any open palette up while
         // the debounced fetch refreshes its rows — same no-blink treatment as the
         // hashtag reply-verb stage. (Other slash args get no suggestions.)
         if (this._isSlashConfigArgStage(value, cursor)) {
@@ -298,6 +301,11 @@ export default class extends Controller {
       name:        it.label,
       insert:      it.insert,
       description: it.description || "",
+      // Drill-down rows (e.g. /config namespace picker): a non-empty
+      // `children` array is carried through untouched so
+      // _acceptPaletteSelection can expand it in place instead of inserting
+      // `insert`. Undefined for every existing palette — no behavior change.
+      children:    it.children,
     }))
     this._paletteTrigger = triggerChar || "#"
     this._selectedIdx    = 0
@@ -387,10 +395,30 @@ export default class extends Controller {
   }
 
   // Accept the currently highlighted palette row.
+  //
+  // Drill-down contract (additive, /config namespace picker): a row whose
+  // `children` array is non-empty does NOT insert anything — it expands IN
+  // PLACE, re-rendering the palette with those children as the new rows
+  // (highlight reset to the first child). Children are plain rows with their
+  // own `insert` and are accepted exactly like top-level rows; they never
+  // carry further `children` of their own — one level of nesting only. Rows
+  // without `children` (or an empty array) fall through to the existing
+  // insert-and-close behavior, byte-identical to before this contract.
   _acceptPaletteSelection() {
     const entry = this._paletteRows[this._selectedIdx]
     if (!entry) {
       this._closePalette()
+      return
+    }
+    if (Array.isArray(entry.children) && entry.children.length > 0) {
+      this._paletteRows = entry.children.map((child) => ({
+        label:       child.label,
+        name:        child.label,
+        insert:      child.insert,
+        description: child.description || "",
+      }))
+      this._selectedIdx = 0
+      this._renderPalette()
       return
     }
     this._closePalette()
@@ -418,7 +446,7 @@ export default class extends Controller {
 
   // Hashtag reply-verb stage: the cursor is choosing the VERB right after
   // `#<handle> ` (e.g. `#alpha-1266 sh`), before that verb is finalised by a
-  // second space. Mirrors the engine's at_verb_stage for follow-up handles.
+  // second space. Mirrors the engine's at_tool_stage for follow-up handles.
   // The handle may contain hyphens, so we key off the FIRST space (which always
   // ends the handle) and require no further space in the remainder.
   //   "#h "        → true   (empty partial verb)
@@ -436,7 +464,7 @@ export default class extends Controller {
 
   // FREE-mode (chat verb) argument menu at a FRESH token: `list `, `show game
   // 5 with `, … — the engine serves chat verbs' nouns/segments/kwargs tagged
-  // stage:"verb", but no gate rendered them, so the fetched items were
+  // stage:"tool", but no gate rendered them, so the fetched items were
   // discarded exactly like the reply-arg case (same bug class).
   // Fresh-token rule as everywhere: trailing space → palette; mid-token →
   // closed so Enter sends the message.
@@ -448,7 +476,7 @@ export default class extends Controller {
 
   // FREE-mode VERB stage: the FIRST word of a chat message is a verb in
   // progress ("l", "lis", "analy") — the engine prefix-filters the chat
-  // catalog (alias-aware) and tags it stage:"verb". Unlike the ARG stage's
+  // catalog (alias-aware) and tags it stage:"tool". Unlike the ARG stage's
   // fresh-token rule, the palette stays open WHILE TYPING mid-token — that's
   // the discovery behavior slash verbs have always had; Enter on an
   // exact-complete verb still sends (handled in handleKeydown, alias-aware).
@@ -464,7 +492,7 @@ export default class extends Controller {
 
   // Hashtag reply ARG stage at a FRESH token: `#<handle> <verb> [<args>] ` with
   // a trailing space. The engine serves the verb's argument menu here (columns
-  // for with/without, sort keys, metrics, row ids) tagged stage:"verb",
+  // for with/without, sort keys, metrics, row ids) tagged stage:"tool",
   // but this gate was never opened, so the fetched items were thrown away and
   // `#h with ` showed nothing. Same fresh-token rule as the
   // /config gate: mid-token (`#h with cat`) stays closed so Enter sends.
@@ -484,7 +512,7 @@ export default class extends Controller {
   // Slash `/config <arg>` arg stage: the verb is `config` and the cursor sits at
   // the START of a fresh arg token — i.e. right after a TRAILING space. The engine
   // surfaces these completions (provider list, per-provider keys) as a browsable
-  // palette (stage:"verb"); we keep that palette open ONLY when a trailing space
+  // palette (stage:"tool"); we keep that palette open ONLY when a trailing space
   // signals "I'm starting the next token". A COMPLETE token with no trailing space
   // (e.g. "/config google") must NOT pop the palette, so Enter can SEND the
   // read/default version of the command. Scoped to `config` (the only slash
@@ -560,10 +588,10 @@ export default class extends Controller {
       const menuItems = data.menu_items || []
 
       // VERB-STAGE PALETTE: the engine tags reply-verb (and /config arg)
-      // responses with stage:"verb" — render the WHOLE list as a selectable
+      // responses with stage:"tool" — render the WHOLE list as a selectable
       // palette so every allowed verb (with/without/shinies/schedule/show/…) is
       // visible and arrow-navigable.
-      if (data.stage === "verb") {
+      if (data.stage === "tool") {
         if (menuItems.length === 0) {
           this._closePalette()
           return
@@ -572,7 +600,7 @@ export default class extends Controller {
         // a hashtag reply-verb (`#h sh`), or a slash `/config` arg right after a
         // trailing space (`/config google `). When typing WITHIN a slash token
         // (no trailing space, e.g. `/config google`) the server still tags the
-        // response stage:"verb" — but we must NOT re-open the palette there, or it
+        // response stage:"tool" — but we must NOT re-open the palette there, or it
         // would intercept Enter on a complete command. Fall through to close
         // so the token stays Enter-sendable. Slash-only rule;
         // hashtag reply verbs are unchanged.

@@ -14,11 +14,11 @@ en:
           period_shortcut: "shift+space"
         no_channels: "none"
       mini_status:
-        authenticated: "■ %{nickname}"
-        anonymous: "● tarnished"
+        authenticated: "%{tag}"
+        anonymous: "tarnished"
         notifications_count:
-          one: "%{count}*"
-          other: "%{count}*"
+          one: "%{count}"
+          other: "%{count}"
         notifications_hint: "ctrl+/"
         notifications_open: "Open notifications"
         chat_hint: "m"

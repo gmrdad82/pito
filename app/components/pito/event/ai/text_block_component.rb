@@ -65,25 +65,33 @@ module Pito
         end
 
         def styled_span(m)
-          if m[1]    then tag.span(m[1], class: "font-bold")
-          elsif m[2] then tag.span(m[2], class: "italic")
-          else            tag.span(m[4], class: COLOR_CLASSES[m[3]])
+          if m[:bold]      then tag.span(m[:bold], class: "font-bold")
+          elsif m[:italic] then tag.span(m[:italic], class: "italic")
+          elsif m[:subj]   then tag.span(m[:subj], class: Pito::Shimmer::SubjectComponent.css_class(m[:subj]))
+          elsif m[:ref]    then tag.span(m[:ref], class: Pito::Shimmer::TokenComponent.css_class(m[:ref], shimmer: true))
+          else                  tag.span(m[:cbody], class: COLOR_CLASSES[m[:cname]])
           end
         end
 
-        # **bold**, *italic*, and the allowed [color]…[/color] tags.
+        # **bold**, *italic*, the allowed [color]…[/color] tags, and the
+        # semantic [subject]/[ref] tokens (rendered in the house shimmer/token
+        # style — the model marks meaning, pito owns the look). Named groups:
+        # the alternation's shape must never depend on how many colors the
+        # ontology allows.
         def inline_pattern
           @inline_pattern ||= begin
             colors = allowed_colors
-            color_alt = colors.any? ? "|\\[(#{colors.join("|")})\\](.*?)\\[\\/\\3\\]" : ""
-            /\*\*(.+?)\*\*|\*([^*\n]+)\*#{color_alt}/m
+            color_alt = colors.any? ? "|\\[(?<cname>#{colors.join("|")})\\](?<cbody>.*?)\\[\\/\\k<cname>\\]" : ""
+            /\*\*(?<bold>.+?)\*\*|\*(?<italic>[^*\n]+)\*#{color_alt}|\[subject\](?<subj>.*?)\[\/subject\]|\[ref\](?<ref>.*?)\[\/ref\]/m
           end
         end
 
-        # A color tag outside the allowed palette unwraps to its inner text.
+        # A bracket tag outside the known set (allowed colors + the semantic
+        # tokens) unwraps to its inner text.
         def unwrap_disallowed_colors(value)
+          known = allowed_colors + %w[subject ref]
           value.gsub(/\[([a-z]+)\](.*?)\[\/\1\]/m) do
-            allowed_colors.include?(Regexp.last_match(1)) ? Regexp.last_match(0) : Regexp.last_match(2)
+            known.include?(Regexp.last_match(1)) ? Regexp.last_match(0) : Regexp.last_match(2)
           end
         end
 

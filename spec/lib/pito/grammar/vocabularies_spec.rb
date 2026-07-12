@@ -17,8 +17,8 @@ RSpec.describe Pito::Grammar::Vocabularies do
     it "includes all expected vocabulary names" do
       names = described_class.all.map(&:name)
       expect(names).to include(
-        :slash_verbs, :config_providers, :config_keys, :on_off, :genres, :platforms,
-        :release_status, :metrics, :hashtag_verbs, :fillers, :connectives,
+        :slash_tools, :config_providers, :config_keys, :on_off, :genres, :platforms,
+        :release_status, :metrics, :hashtag_tools, :fillers, :connectives,
         :channels, :conversations, :game_titles
       )
     end
@@ -291,24 +291,24 @@ RSpec.describe Pito::Grammar::Vocabularies do
     end
   end
 
-  # ── Static vocab: :hashtag_verbs ───────────────────────────────────────────
-  describe ":hashtag_verbs" do
-    subject(:hashtag_verbs) { vocab(:hashtag_verbs) }
+  # ── Static vocab: :hashtag_tools ───────────────────────────────────────────
+  describe ":hashtag_tools" do
+    subject(:hashtag_tools) { vocab(:hashtag_tools) }
 
     it "is not dynamic" do
-      expect(hashtag_verbs.dynamic?).to be false
+      expect(hashtag_tools.dynamic?).to be false
     end
 
     it 'resolves "drop" to "without"' do
-      expect(hashtag_verbs.resolve("drop")).to eq("without")
+      expect(hashtag_tools.resolve("drop")).to eq("without")
     end
 
     it 'resolves "delete" to "without"' do
-      expect(hashtag_verbs.resolve("delete")).to eq("without")
+      expect(hashtag_tools.resolve("delete")).to eq("without")
     end
 
     it 'resolves "include" to "with"' do
-      expect(hashtag_verbs.resolve("include")).to eq("with")
+      expect(hashtag_tools.resolve("include")).to eq("with")
     end
   end
 
@@ -342,16 +342,16 @@ RSpec.describe Pito::Grammar::Vocabularies do
     end
   end
 
-  # ── Static vocab: :slash_verbs ─────────────────────────────────────────────
-  describe ":slash_verbs" do
-    subject(:slash_verbs) { vocab(:slash_verbs) }
+  # ── Static vocab: :slash_tools ─────────────────────────────────────────────
+  describe ":slash_tools" do
+    subject(:slash_tools) { vocab(:slash_tools) }
 
     it "is not dynamic" do
-      expect(slash_verbs.dynamic?).to be false
+      expect(slash_tools.dynamic?).to be false
     end
 
-    it "includes the implemented slash verbs" do
-      expect(slash_verbs.canonical).to include("config", "disconnect", "help")
+    it "includes the implemented slash tools" do
+      expect(slash_tools.canonical).to include("config", "disconnect", "help")
     end
   end
 

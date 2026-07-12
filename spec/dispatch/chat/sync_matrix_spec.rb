@@ -9,7 +9,7 @@ require "rails_helper"
 # stubbed — zero factories.
 #
 # Subject: Pito::Chat::Handlers::Sync
-#   app/services/pito/chat/handlers/sync.rb
+#   lib/pito/chat/handlers/sync.rb
 #
 # Branches:
 #   channels branch  — CHANNEL_NOUN_FILLERS in raw (channel/channels, no leading -)
@@ -110,7 +110,7 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
     end
     msg = Pito::Chat::Message.new(
-      verb: :sync, body_tokens: body_tokens, kind: :new_turn, raw: raw
+      tool: :sync, body_tokens: body_tokens, kind: :new_turn, raw: raw
     )
     Pito::Chat::Handlers::Sync.new(
       message: msg, conversation: conversation, channel: channel
@@ -601,7 +601,7 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
 
   # ── 18. Registry contract — sync is a declared action ─────────────────────────
   #
-  # VerbDelegator gates follow-up routing by checking
+  # ToolDelegator gates follow-up routing by checking
   # Pito::FollowUp::Registry.actions_for(reply_target). These assertions verify
   # the contract: `#<handle> sync` is reachable on exactly these three targets.
 

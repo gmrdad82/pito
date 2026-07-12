@@ -10,7 +10,7 @@
 # nightly fan-out.
 #
 # Enqueued by: `NightlySyncJob` (one per connected channel). The chat sync/import
-# verbs call `Pito::Sync::VideoLibrary#sync` directly because they broadcast a
+# tools call `Pito::Sync::VideoLibrary#sync` directly because they broadcast a
 # chat summary instead of creating a notification.
 class VideoSyncJob < ApplicationJob
   queue_as :default

@@ -5,11 +5,11 @@
   <div class="pito-segment__gap"></div>
   <div class="flex-1 min-w-0 bg-surface py-2.5 px-1.5">
     <div class="flex flex-col">
-      <%# Command list — verb displayed in fixed-width column so descriptions align %>
+      <%# Command list — tool displayed in fixed-width column so descriptions align %>
       <% @commands.each_with_index do |cmd, i| %>
         <% selected = i == @selected_index %>
         <div class="py-0.5 px-2.5" style="<%= 'background: var(--border-default);' if selected %>">
-          <span class="text-fg inline-block" style="width: 16ch;"><%= "/#{cmd[:verb]}" %></span>
+          <span class="text-fg inline-block" style="width: 16ch;"><%= "/#{cmd[:tool]}" %></span>
           <span class="text-fg-dim"><%= t(cmd[:description_key]) %></span>
         </div>
       <% end %>

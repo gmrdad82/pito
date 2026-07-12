@@ -14,7 +14,7 @@ require "rails_helper"
 # Routing in GameList#call:
 #   with / without  → mutate_columns → Result::Mutation
 #   sort  / order   → mutate_sort    → Result::Mutation
-#   everything else → VerbDelegator  (gating: unknown verb → Error)
+#   everything else → ToolDelegator  (gating: unknown verb → Error)
 #
 # Source event is an instance_double(Event, payload: { reply_target: "game_list",
 #   game_ids: [...], list_columns: [...], ... }) — no factories.
@@ -347,63 +347,63 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
     end
   end
 
-  # ── Delegated actions → VerbDelegator ────────────────────────────────────────
+  # ── Delegated actions → ToolDelegator ────────────────────────────────────────
   #
   # show, delete, del, rm, link, unlink, platform, price, shinies all fall
-  # through to VerbDelegator (stubbed). We assert the call and result type.
+  # through to ToolDelegator (stubbed). We assert the call and result type.
 
-  describe "delegated actions → VerbDelegator" do
+  describe "delegated actions → ToolDelegator" do
     before do
-      allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_return(fake_append)
+      allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(fake_append)
     end
 
     %w[show delete del rm link unlink platform price shinies].each do |action|
       context action do
-        it "#{action} → delegates to VerbDelegator with source_event + conversation" do
+        it "#{action} → delegates to ToolDelegator with source_event + conversation" do
           handler.call(event:, rest: "#{action} 10", conversation:)
-          expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+          expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
             hash_including(source_event: event, conversation:)
           )
         end
 
-        it "#{action} → result is whatever VerbDelegator returns" do
+        it "#{action} → result is whatever ToolDelegator returns" do
           result = handler.call(event:, rest: "#{action} 10", conversation:)
           expect(result).to be_a(Pito::FollowUp::Result::Append)
         end
       end
     end
 
-    it "passes the full rest string (action word included) to VerbDelegator" do
+    it "passes the full rest string (action word included) to ToolDelegator" do
       handler.call(event:, rest: "show 42", conversation:)
-      expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
         hash_including(rest: "show 42")
       )
     end
 
     it "passes rest unmodified for multi-word args (link 10 to 20)" do
       handler.call(event:, rest: "link 10 to 20", conversation:)
-      expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
         hash_including(rest: "link 10 to 20")
       )
     end
 
-    it "threads period: through to VerbDelegator" do
+    it "threads period: through to ToolDelegator" do
       handler.call(event:, rest: "show 10", conversation:, period: "28d")
-      expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
         hash_including(period: "28d")
       )
     end
 
-    it "threads viewport_width: through to VerbDelegator" do
+    it "threads viewport_width: through to ToolDelegator" do
       handler.call(event:, rest: "show 10", conversation:, viewport_width: "1200")
-      expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
         hash_including(viewport_width: "1200")
       )
     end
 
-    it "threads channel: through to VerbDelegator" do
+    it "threads channel: through to ToolDelegator" do
       handler.call(event:, rest: "show 10", conversation:, channel: "@pito")
-      expect(Pito::FollowUp::VerbDelegator).to have_received(:call).with(
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
         hash_including(channel: "@pito")
       )
     end
@@ -411,10 +411,10 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
 
   # ── Unknown action → invalid_action Error ────────────────────────────────────
   #
-  # Any verb not in game_list's declared actions matrix is gated by VerbDelegator,
+  # Any verb not in game_list's declared actions matrix is gated by ToolDelegator,
   # which returns Result::Error with the target-specific copy key.
 
-  describe "unknown action → invalid_action Error (via VerbDelegator gate)" do
+  describe "unknown action → invalid_action Error (via ToolDelegator gate)" do
     # These verbs exist elsewhere in the system but are not in game_list's matrix.
     %w[destroy publish reindex sync visit import schedule rename].each do |bad_action|
       it "#{bad_action.inspect} → Result::Error" do

@@ -40,9 +40,11 @@ Rails.application.routes.draw do
     post "search",       to: "search#create",       as: :games_search
     post "import",       to: "import#create",        as: :games_import
     post "search-local", to: "search_local#create",  as: :games_search_local
+    get  "picker",       to: "picker#index",         as: :games_picker
   end
   scope "/videos", module: "videos" do
     post "search-local", to: "search_local#create", as: :videos_search_local
+    get  "picker",       to: "picker#index",        as: :videos_picker
   end
   # Marks a channel-visit event consumed: the pito--auto-visit controller POSTs
   # here after its one-time click so the event flips to its :visited (follow-up)

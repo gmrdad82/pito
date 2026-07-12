@@ -3,93 +3,64 @@
 require "rails_helper"
 
 RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
-  before { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
-  after  { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
-
   describe "default state" do
     it "defaults to unauthenticated (state: false)" do
       node = render_inline(described_class.new)
-      expect(node.to_html).to include("● tarnished")
+      expect(node.css("svg.pito-conn-icon--lock")).not_to be_empty
+      expect(node.text).to include("tarnished")
     end
   end
 
   describe "state: false (anonymous)" do
-    it "renders the anonymous label in a red span" do
+    it "renders the red LOCK icon and the red anonymous label" do
       node = render_inline(described_class.new(state: false))
-      expect(node.css("span.text-red").text).to include("● tarnished")
-    end
-
-    it "does not render the authenticated shimmer span" do
-      node = render_inline(described_class.new(state: false))
-      expect(node.css("span.pito-me-shimmer")).to be_empty
+      dot = node.css("span#pito-conn-dot").first
+      expect(dot["class"]).to include("text-red")
+      expect(dot.css("svg.pito-conn-icon--lock")).not_to be_empty
+      expect(dot.css("svg.pito-conn-icon--cable")).to be_empty
+      expect(node.css("span.text-red").text).to include("tarnished")
     end
   end
 
   describe "state: true (authenticated)" do
-    context "with default nickname (gmrdad82)" do
-      it "renders the shimmering '■ gmrdad82' label (G70: the me-shimmer, green with the yellow contrast band)" do
-        node = render_inline(described_class.new(state: true))
-        green_span = node.css("span.pito-me-shimmer").first
-        expect(green_span).to be_present
-        expect(green_span.text.strip).to eq("■ gmrdad82")
-      end
-
-      it "renders the 'gmrdad82' label when authenticated" do
-        node = render_inline(described_class.new(state: true))
-        expect(node.to_html).to include("■ gmrdad82")
-      end
-    end
-
-    context "with a custom nickname" do
-      before { AppSetting.nickname = "Foo" }
-
-      it "renders the custom nickname in the shimmer label" do
-        node = render_inline(described_class.new(state: true))
-        green_span = node.css("span.pito-me-shimmer").first
-        expect(green_span).to be_present
-        expect(green_span.text.strip).to eq("■ Foo")
-      end
+    it "carries both auth icons, starts CONNECTING (plug-zap), and shows the dim tag" do
+      allow(Pito::Version).to receive(:suffix).and_return("dev")
+      node = render_inline(described_class.new(state: true))
+      dot = node.css("span#pito-conn-dot").first
+      expect(dot["data-state"]).to eq("connecting")
+      expect(dot["data-authenticated"]).to eq("true")
+      expect(dot.css("svg.pito-conn-icon--plug.text-orange")).not_to be_empty
+      expect(dot.css("svg.pito-conn-icon--cable.text-green")).not_to be_empty
+      expect(dot.css("path.pito-cable-spark[pathLength]")).not_to be_empty
+      expect(node.css("span.text-fg-dim").text).to include("dev")
     end
 
     it "does not render the anonymous label" do
       node = render_inline(described_class.new(state: true))
-      expect(node.to_html).not_to include("● tarnished")
+      expect(node.to_html).not_to include("tarnished")
     end
   end
 
   # G87: the suffix span is the bar's DEDICATED app-version slot — the cable
   # heartbeat (pito--version-watch) writes the server's version into it live.
   describe "the version slot (G87)" do
-    it "the suffix span carries the stable slot id" do
+    it "the label span carries the stable slot id and the tag" do
       allow(Pito::Version).to receive(:suffix).and_return("1.1.1")
       node = render_inline(described_class.new(state: true))
       slot = node.css("span##{described_class::VERSION_SLOT_ID}").first
       expect(slot).to be_present
-      expect(slot.text).to eq("@1.1.1")
-    end
-  end
-
-  describe "version suffix (@tag in prod / @host in dev)" do
-    it "appends a muted @suffix after the nickname when authenticated" do
-      allow(Pito::Version).to receive(:suffix).and_return("0.8.5")
-      node   = render_inline(described_class.new(state: true))
-      suffix = node.css("span.text-fg-dim").first
-      expect(suffix).to be_present
-      expect(suffix.text).to eq("@0.8.5")
-      # shimmer nickname span stays clean (suffix is its own muted span)
-      expect(node.css("span.pito-me-shimmer").first.text.strip).to eq("■ gmrdad82")
+      expect(slot.text).to include("1.1.1")
     end
 
-    it "renders no suffix when Version.suffix is nil" do
+    it "renders the neutral fallback when the build carries no tag" do
       allow(Pito::Version).to receive(:suffix).and_return(nil)
       node = render_inline(described_class.new(state: true))
-      expect(node.css("span.text-fg-dim")).to be_empty
+      expect(node.text).to include("pito")
     end
 
-    it "renders no suffix when unauthenticated (even if a version is present)" do
-      allow(Pito::Version).to receive(:suffix).and_return("0.8.5")
+    it "renders no slot when unauthenticated" do
       node = render_inline(described_class.new(state: false))
-      expect(node.css("span.text-fg-dim")).to be_empty
+      expect(node.css("span##{described_class::VERSION_SLOT_ID}")).to be_empty
     end
   end
 end

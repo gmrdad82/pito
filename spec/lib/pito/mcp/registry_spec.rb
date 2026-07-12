@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# Contract for Pito::Mcp::Registry — the projection of verbs.yml `mcp:` blocks +
+# Contract for Pito::Mcp::Registry — the projection of tools.yml `mcp:` blocks +
 # the top-level `mcp_readers:` into the MCP `tools/list` payload. Runs against the
 # REAL config (no injection): the add-a-tool proof (T1.4) covers the config-only
 # extensibility; this pins the shape of what the shipped ontology surfaces.
@@ -131,7 +131,7 @@ RSpec.describe Pito::Mcp::Registry do
         # a client could actually pass. That exact bare triple is gone. Note:
         # the STRING "platform" does still legitimately reappear further down
         # the (now much longer) list — it's also a `genres` vocabulary synonym
-        # for the "Platformer" genre (config/pito/verbs.yml
+        # for the "Platformer" genre (config/pito/tools.yml
         # vocabularies.genres.synonyms), a real, independently passable token —
         # so we pin absence of the old bare triple rather than a blanket
         # "platform" match, which would false-positive against that token.

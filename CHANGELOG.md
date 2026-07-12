@@ -21,6 +21,58 @@ All notable changes to PITO are documented here. The format follows
   replied-to exchange (your question plus that exact answer) is guaranteed
   into the model's context even when it has scrolled far out of the recent
   window. `apply [n]` still runs a suggested command.
+- **AI answers stream in as they're written** — on providers that support it,
+  the assistant's blocks no longer land in one paint at the end: each
+  paragraph, chart, or gauge appears in the pending message the moment the
+  model finishes writing it, and kv/table blocks go further — their rows fill
+  in ONE BY ONE while the table is still being composed (charts and gauges
+  always land whole; a half heart means nothing). The final message is still
+  persisted atomically, so an interrupted stream simply falls back to the
+  one-shot behavior.
+- **`/config` autocompletes by namespace** — typing `/config ` now offers the
+  three groups (AI · Sources · Profile), each expanding in place to its
+  members on Tab; typing a fragment still completes providers directly. The
+  final commands are unchanged.
+- **`with`/`without` suggestions know the card** — replying on an analytics
+  card, `with` offers only metrics it doesn't already show and `without` only
+  those it does; either vanishes from the palette when it has nothing to
+  offer.
+- **Select all stays inside the message** — long-press a word, hit Select
+  all, and the selection covers exactly that message (flash-free); dragging
+  across messages still works natively.
+- **The sidebar hugs the conversation** — on desktop the panel's left edge
+  now sits on the conversation column's right edge instead of floating at the
+  far side of an ultrawide.
+- **A heavy fill can't block your next command** — command dispatch rides its
+  own worker lane, so analytics crunching never delays the reply to whatever
+  you type next.
+- **Small models get more room** — the AI loop allows 16 round-trips (tokens
+  still capped) and its instructions teach batching tool calls and committing
+  early; bare `pito_analyze` now really does analyze all channels, and asking
+  a channel's games when none are linked answers in words instead of silence.
+- **The `/resume` list and notifications panel page themselves** — both
+  sidebars load 50 rows and fetch the next 50 through the same generic pager
+  the moment the dotted shimmer at the bottom scrolls into view — a
+  hundreds-long conversation history no longer arrives in one giant paint.
+- **The `show vid` / `show game` pickers page and search server-side** — the
+  picker sidebars ride that same 50-row pager, and the JSON feed behind them
+  (`/videos/picker.json`, `/games/picker.json`) accepts `q=` (the same
+  title match as the web's picker search) so a terminal client's search is
+  exact-parity with the browser — filtered results page too, instead of
+  arriving as one capped dump.
+- **Spinner verbs travel with the event** — thinking indicators on the JSON
+  stream and backfill now carry their word pools (`words` while spinning, the
+  past-tense `word` once resolved) rendered from the server's CURRENT copy at
+  send time, so a client binary older than the deployed dictionaries can
+  never show stale verbs.
+- **AI conversations wear a sparkle** — `/resume` rows whose thread contains
+  AI answers append the house sparkles glyph after the name, its fill
+  shimmering in the AI accent pair on the global angle; the ✨ model chip on
+  every AI answer now renders that same centralized badge.
+- **Model catalogs refresh themselves nightly** — a 01:30 scheduled job
+  re-fetches every reachable provider's model list (and the pricing mirror
+  behind computed chip costs) once a night, replacing ad-hoc daytime
+  re-fetches.
 - **Effort is per model** — the picker's effort cycler now binds
   low/medium/high to the CHOSEN model (a `provider/model → effort` map), so
   switching models restores each one's own setting and models without
@@ -60,14 +112,29 @@ All notable changes to PITO are documented here. The format follows
   config surface: `/config ai` is the ONLY AI entry, now scriptable as
   kwargs (`provider=… api_key=… model=… effort=…`, documented in its
   `--help`); per-provider slash commands are gone.
+- **Every answer knows what it cost** — the ✨ chip now shows the message's
+  price beside the model: the house coin and a two-decimal amount with its
+  currency ($0.01 — symbols attach, ISO codes take a space), taken from the
+  provider's own reported cost for the answer — a receipt, never an
+  estimate. Free models proudly show $0.00; providers that don't report a
+  cost show nothing rather than a made-up number.
+- **verbs are tools now** — the dispatch ontology file is
+  `config/pito/tools.yml` (top-level `tools:`), and the whole codebase
+  speaks "tool" for chat commands: parser, handlers, registry, matrix,
+  reply bindings, segments, pager, help groups, guard suites, copy
+  ("Unknown command"), and the suggestions wire protocol. MCP tools keep
+  their name — on any collision the MCP side wears the mcp prefix. Old
+  persisted rows keep reading via a back-compat key.
 - **Nine AI providers, one picker** — the `/config ai` dialog now spans every
   provider in the registry: OpenCode Zen, OpenRouter, Hugging Face, DeepSeek,
   OpenAI, Anthropic, Qwen, GLM (Z.ai), and Gemini. Favorites (`ctrl+f`) and
   recents float your models to the top; each provider gets an inline
   paste-your-key row (`/config <provider> api_key=…` works from text too, key
   masked); an effort cycler appears for providers that support reasoning
-  control. Keyless providers show their pinned fallback instantly instead of
-  waiting on doomed requests.
+  control. Keyless providers list nothing but a hint that models load once a
+  key is added (no placeholder rows, no doomed requests); a `pinned` badge
+  only ever marks the curated fallback when a keyed provider's live catalog
+  fetch fails.
 - **Charts and gauges untied from their data sources** — the big ticked area
   chart, and the time-to-beat gauge (now generic ordered levels + a current
   tracker — game footage is just its preset) accept plain values from any
@@ -100,6 +167,28 @@ All notable changes to PITO are documented here. The format follows
 
 ### Changed
 
+- **Sparklines come alive** — the glance tiles' sparklines drop their flat
+  single-color fill for the same red→amber→yellow→green health ramp the big
+  area charts wear, so a good week visibly glows green at its peaks.
+- **Bar charts punch as hard as the heatmap** — every filled segment is
+  clamped into the heatmap's neon band (bright, chroma-floored, hue kept),
+  so a brand-blue or purple bar glows exactly as loud as a red or green one
+  on any theme; the dim remainder cells also keep more of their own hue
+  instead of sinking into the dotted paper.
+- **Subjects wear pink, references shimmer cyan** — the highlighted SUBJECT
+  of a line (a game title, a metric name) now rests on each theme's own
+  synthesized pink instead of orange, and REFERENCE tokens (`#id`s and
+  values inside AI answers) get their shimmer back on their cyan base; both
+  sweeps are now derived mathematically from the base color itself, so the
+  pair stays coherent on every one of the 18 themes.
+- **`/config` overview regrouped** — three sections now: AI (ai, tavily),
+  Sources (google, voyage, igdb), and Profile (webhook, nickname, sound,
+  timezone).
+- **Older messages show their day, not just a time** — a scrollback message
+  from another day now reads `6 Jul 11:04` (and `2 Jan '25 11:04` once the
+  year differs) instead of a bare `11:04` that made a five-day-old
+  conversation look like it happened this morning. Today's messages keep the
+  clean time-only prefix.
 - **`search games like <title>` returns relevance, not the library** — the
   seed game itself now heads the results (its title being the closest match),
   followed only by games that actually share a genre with it, ranked by the

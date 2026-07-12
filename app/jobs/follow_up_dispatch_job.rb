@@ -37,10 +37,10 @@ class FollowUpDispatchJob < ApplicationJob
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     finalizer    = Pito::Dispatch::Finalizer.new(conversation:, broadcaster:)
 
-    # Universal verbs (share/revoke/unshare) short-circuit before the per-target
-    # handler dispatch — but only when the event's verb hasn't opted out
-    # (`universal_reply: false` in verbs.yml) and the target doesn't declare the
-    # token itself (verb config always wins — see UniversalActions.intercept?).
+    # Universal tools (share/revoke/unshare) short-circuit before the per-target
+    # handler dispatch — but only when the event's tool hasn't opted out
+    # (`universal_reply: false` in tools.yml) and the target doesn't declare the
+    # token itself (tool config always wins — see UniversalActions.intercept?).
     # `origin` (request scheme+host+port) is threaded so `share` mints a URL on
     # the host the owner is actually using.
     action = rest.to_s.split(/\s+/).first&.downcase
@@ -71,7 +71,7 @@ class FollowUpDispatchJob < ApplicationJob
       turn = Turn.find(turn_id)
       # Persist + broadcast (with canonical kinds — the D1 fix: reply-appended
       # events now get the same :system/:enhanced canonicalisation as chat).
-      # consume:false (repeatable verbs like link/unlink) keeps the source card
+      # consume:false (repeatable tools like link/unlink) keeps the source card
       # live AND suppresses the prior-hashtag sweep — a repeatable reply is not a
       # progression, so it disturbs nothing. consume:true (default) is a
       # progression: it consumes the source AND retires every prior live handle.

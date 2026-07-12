@@ -13,7 +13,8 @@ module Pito
       #                      chart (y tick values, date/index x-axis, optional
       #                      green target line), via its generic kwargs
       #   chart viz=bar    → Analytics::Visualizers::Bar (≤5 labelled bars)
-      #   chart viz=heatmap→ Analytics::Visualizers::Heatmap (7 weekday values)
+      #   chart viz=heatmap→ Analytics::Visualizers::Heatmap (2..42 values,
+      #                      optional 1:1 labels; weekday preset at a bare 7)
       #   score            → Pito::ScoreBarComponent (0–100 gradient bar)
       #   ttb              → Pito::TimeToBeatComponent (hours gauge)
       class VizBlockComponent < ViewComponent::Base
@@ -48,9 +49,17 @@ module Pito
           case block["viz"]
           when "area"    then area(block)
           when "bar"     then Pito::Analytics::Visualizers::Bar.new(bars: symbolized_bars(block), caption: "")
-          when "heatmap" then Pito::Analytics::Visualizers::Heatmap.new(values: block["values"], caption: "")
+          when "heatmap" then heatmap(block)
           when "heart"   then heart(block)
           end
+        end
+
+        # 2..42 equal-width heat columns; `labels` (nil-safe) pair 1:1 with
+        # values — nil at exactly 7 values wears the weekday preset ticks.
+        def heatmap(block)
+          Pito::Analytics::Visualizers::Heatmap.new(
+            values: block["values"], labels: block["labels"], caption: ""
+          )
         end
 
         # One heart, red (the AI palette's only heart color), filled to the
@@ -81,9 +90,15 @@ module Pito
           )
         end
 
+        # The house bucket ramp (mirrors the analyze builder's GEO_RAMP — the
+        # same 5 hues the native breakdown bars cycle through). The model never
+        # picks colors (style stays in the app); each bucket gets its own hue.
+        BAR_RAMP = %i[green cyan blue purple orange].freeze
+
         def symbolized_bars(block)
-          Array(block["bars"]).map do |bar|
-            { label: bar["label"], pct: bar["pct"], value_label: bar["value_label"] }.compact
+          Array(block["bars"]).each_with_index.map do |bar, i|
+            { label: bar["label"], pct: bar["pct"], value_label: bar["value_label"],
+              color: BAR_RAMP[i % BAR_RAMP.size] }.compact
           end
         end
       end

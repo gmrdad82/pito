@@ -45,6 +45,7 @@ module Pito
         fetch(:google_api_key) { AppSetting.google_api_key.presence }
       end
 
+
       def voyage_api_key
         fetch(:voyage_api_key) { AppSetting.voyage_api_key.presence }
       end

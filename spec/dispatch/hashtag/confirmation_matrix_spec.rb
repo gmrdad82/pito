@@ -381,9 +381,9 @@ RSpec.describe "Dispatch matrix — confirmation hashtag follow-up (recognition,
   describe "unknown action → Result::Error" do
     let(:event) { event_for("disconnect") }
 
-    unknown_verbs = %w[bogus destroy publish reindex sync import yes_please 999 banana]
+    unknown_tools = %w[bogus destroy publish reindex sync import yes_please 999 banana]
 
-    unknown_verbs.each do |bad|
+    unknown_tools.each do |bad|
       it "#{bad.inspect} → Result::Error (not Append)" do
         result = call(event, bad)
         expect(result).to be_a(Pito::FollowUp::Result::Error)

@@ -193,7 +193,7 @@ class ChatController < ApplicationController
     # Clear any persisted draft when a real message is sent.
     conversation.update_column(:draft, nil) if conversation.draft.present?
     # Prior #hashtag affordances are retired by the Finalizer when this command's
-    # :system/:confirmation result renders (covers typed verbs AND replies-that-append
+    # :system/:confirmation result renders (covers typed tools AND replies-that-append
     # uniformly) — no send-time consume needed here.
     enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width:)
   end
@@ -328,7 +328,7 @@ class ChatController < ApplicationController
   #
   # Stays synchronous — auth result must be visible before the next command.
 
-  # True when the input carries a --help or -h flag anywhere after the verb.
+  # True when the input carries a --help or -h flag anywhere after the tool.
   # Used to bypass fast-path handlers (login/logout/connect/new/resume) so
   # that --help never triggers side effects.
   def help_flag?(input)
@@ -487,13 +487,13 @@ class ChatController < ApplicationController
     words = input.to_s.strip.downcase.split
     return nil if words.empty?
 
-    verb = words.first
-    # After the verb, any remaining words must be only noun tokens.
+    tool = words.first
+    # After the tool, any remaining words must be only noun tokens.
     rest_words = words.drop(1)
     rest_only_nouns = rest_words.all? { |w| GAME_NOUN_PATTERN.match?(w) }
     return nil unless rest_only_nouns
 
-    case verb
+    case tool
     when "show"  then :show
     when "delete" then :delete
     when "rm"    then :delete
@@ -535,9 +535,7 @@ class ChatController < ApplicationController
 
     render partial: "chat/video_picker_sidebar",
            formats: [ :turbo_stream ],
-           locals:  {
-             videos: Video.includes(:channel).order(:title).limit(50)
-           }
+           locals:  Hash[[ :videos, :next_cursor ].zip(Video.picker_page)]
   end
 
   # Detects `/games import [title]` and returns the title string (may be "").
@@ -642,12 +640,15 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
-    # Bare `/resume` → the resume sidebar (unchanged).
+    # Bare `/resume` → the resume sidebar: page 1 of the keyset-paged list
+    # (the pager sentinel fetches the rest on scroll).
     current_uuid = params[:uuid].presence
+    page = Conversation.recency_page
     render partial: "chat/resume_sidebar",
            formats: [ :turbo_stream ],
            locals:  {
-             groups:       Conversation.recency_groups,
+             groups:       page.slice(:recent, :older),
+             next_cursor:  page[:next_cursor],
              current_uuid: current_uuid
            }
   end
@@ -690,11 +691,17 @@ class ChatController < ApplicationController
         key_present: key_present,
         reasoning:   config.dig(:capabilities, :reasoning).to_s,
         # Live fetch only where it can succeed (a key on file — or OpenCode
-        # Zen, which lists models unauthenticated); keyless providers show
-        # their pinned fallback instantly instead of stacking doomed requests.
-        models:      Ai::ModelCatalog.models(provider: name, live: key_present || name == :opencode)
+        # Zen, which lists models unauthenticated); keyless providers list
+        # NOTHING — the section renders the key-gate copy line instead of
+        # pinned placeholders (owner call), and never stacks doomed requests.
+        models:      key_present || name == :opencode ? Ai::ModelCatalog.models(provider: name) : []
       }
     end
+
+    # Turnless fast-path: no ChatDispatchJob will ever complete a turn here, so
+    # emit the done signal ourselves — otherwise the post-command dots comet
+    # keeps running behind the open picker (owner report).
+    Pito::Stream::Broadcaster.new(conversation:).broadcast_done(dom_id: "pito-scrollback")
 
     active_model = AppSetting.get("ai_model")
     active_entry = active_model.presence && "#{active_provider}/#{active_model}"
@@ -766,10 +773,7 @@ class ChatController < ApplicationController
 
     render partial: "chat/game_picker_sidebar",
            formats: [ :turbo_stream ],
-           locals:  {
-             games: Game.order(:title).limit(50),
-             mode:  mode
-           }
+           locals:  Hash[[ :games, :next_cursor ].zip(Game.picker_page)].merge(mode: mode)
   end
 
   # Creates a fresh Conversation and returns its path for a Turbo Stream navigate,
@@ -798,10 +802,10 @@ class ChatController < ApplicationController
     conversation_path(new_conversation)
   end
 
-  # The free-text argument after a `/<verb>` slash command (e.g. the name for
+  # The free-text argument after a `/<tool>` slash command (e.g. the name for
   # `/new <name>` / `/resume <name>`), or "" when bare.
-  def slash_arg(input, verb)
-    input.to_s.strip.sub(%r{\A/#{verb}\b\s*}i, "").strip
+  def slash_arg(input, tool)
+    input.to_s.strip.sub(%r{\A/#{tool}\b\s*}i, "").strip
   end
 
   # ── Follow-up engine dispatch ────────────────────────────────────────────────
@@ -839,9 +843,9 @@ class ChatController < ApplicationController
     # This allows handlers to declare different modes per action (e.g. add: :mutate,
     # show: :append) while sharing a single handler class.
     action = ff[:rest].to_s.split(/\s+/).first&.downcase
-    # Universal verbs (share / revoke / unshare) work on reply_handle events whose
-    # verb hasn't opted out and whose target doesn't declare the token itself
-    # (verb config always wins — see UniversalActions.intercept?). Force :append
+    # Universal tools (share / revoke / unshare) work on reply_handle events whose
+    # tool hasn't opted out and whose target doesn't declare the token itself
+    # (tool config always wins — see UniversalActions.intercept?). Force :append
     # mode so a turn + echo exist before FollowUpDispatchJob short-circuits.
     mode =
       if Pito::Share::UniversalActions.intercept?(action, event:)
@@ -852,14 +856,14 @@ class ChatController < ApplicationController
 
     # Thread the same dispatch context the typed pipeline carries (mirrors
     # handle_async): channel scope, analytics period, and scrollback width — so
-    # the delegated chat verb runs identically to the same verb typed in chat.
+    # the delegated chat tool runs identically to the same tool typed in chat.
     # Missing any one of these silently drops it, so they travel in lockstep
     # across every hop down to Pito::Dispatch::Router.
     channel        = params[:channel].presence || "@all"
     period         = params[:period].presence
     viewport_width = params[:viewport_width].presence
     # Request origin (scheme + host + port, e.g. "https://dev.pitomd.com") so the
-    # async `share` verb mints a /share URL on the host the owner is actually using
+    # async `share` tool mints a /share URL on the host the owner is actually using
     # — NOT the static PublicHosts.app_base (localhost in a tunnelled dev setup).
     origin         = request.base_url
 

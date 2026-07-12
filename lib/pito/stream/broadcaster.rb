@@ -56,7 +56,7 @@ module Pito
       end
 
       # Kinds whose events are stamped with a reply_handle (if absent) so that
-      # the universal share/revoke/unshare verbs work on any :system/:enhanced/:confirmation
+      # the universal share/revoke/unshare tools work on any :system/:enhanced/:confirmation
       # message regardless of its reply_target.
       HANDLE_STAMPING_KINDS = %w[system enhanced confirmation].freeze
 
@@ -66,12 +66,12 @@ module Pito
       def emit(turn:, kind:, payload:)
         Pito::Stream::EventPayload.validate!(kind:, payload:)
         if HANDLE_STAMPING_KINDS.include?(kind.to_s)
-          # Honor a per-verb `universal_reply: false` opt-out (verbs.yml): stamp
-          # the origin verb so later gates agree, and withhold the universal-only
-          # handle for opted-out verbs (see Pito::Dispatch::UniversalReply).
-          origin_verb = Pito::Dispatch::UniversalReply.origin_verb(turn)
-          payload["origin_verb"] = origin_verb if origin_verb && !payload.frozen?
-          unless Pito::Dispatch::UniversalReply.opted_out?(origin_verb)
+          # Honor a per-tool `universal_reply: false` opt-out (tools.yml): stamp
+          # the origin tool so later gates agree, and withhold the universal-only
+          # handle for opted-out tools (see Pito::Dispatch::UniversalReply).
+          origin_tool = Pito::Dispatch::UniversalReply.origin_tool(turn)
+          payload["origin_tool"] = origin_tool if origin_tool && !payload.frozen?
+          unless Pito::Dispatch::UniversalReply.opted_out?(origin_tool)
             Pito::FollowUp.ensure_handle!(payload, conversation: @conversation)
           end
         end
@@ -158,8 +158,50 @@ module Pito
       # Narrate the AI orchestrator's live tool activity inside a pending :ai
       # event — replaces the message's `event_<id>__ai_status` slot (rendered by
       # Pito::Event::AiComponent while status is "pending"). EPHEMERAL chrome:
-      # not JSON-mirrored, never persisted — the final replace_event carries the
-      # real payload (mirrors the replace_metric_fragment pattern).
+      # never persisted — the final replace_event carries the real payload
+      # (mirrors the replace_metric_fragment pattern). Also mirrored onto the
+      # JSON stream as `event.ai_status` (see broadcast_ai_status) — additive,
+      # alongside this Turbo replace, never instead of it.
+      # Stream ONE cut block into a pending :ai event's blocks container —
+      # ephemeral preview chrome (never persisted): the final replace_event
+      # re-renders the whole message from the persisted payload, replacing
+      # everything streamed here. Also mirrored onto the JSON stream as
+      # `event.ai_block` — additive, alongside the Turbo upsert below, never
+      # instead of it.
+      #
+      # UPSERT, not append: a kv_table/table block is re-broadcast repeatedly at
+      # the same `index` as its rows stream in (partial snapshots), then once
+      # more in final form — each delivery must REPLACE the prior preview div
+      # rather than pile up duplicates. We remove the existing
+      # `event_<id>__ai_block_<index>` div then append the freshly rendered one,
+      # both folded into a SINGLE broadcast (one cable transmission). `remove`
+      # on a not-yet-rendered id is a client-side no-op, so a first-time index
+      # still appends cleanly in order; a repeat index re-appends at the end,
+      # which is order-safe because the block currently streaming is always the
+      # last one in the slot.
+      def broadcast_ai_block(event:, block:, index:)
+        component = Pito::Event::Ai::BlockRenderer.component_for(block)
+        html      = ApplicationController.renderer.render(component, layout: false)
+        dom_id    = "event_#{event.id}__ai_block_#{index}"
+        wrapped   = %(<div id="#{dom_id}">#{html}</div>).html_safe
+        helper    = ApplicationController.helpers
+        content   = helper.turbo_stream.remove(dom_id) +
+                    helper.turbo_stream.append("event_#{event.id}__ai_blocks", wrapped)
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+
+        # JSON pane of the same tick (pito-tui et al.) — additive only, same
+        # stream broadcast_json uses. Unknown types are ignored by the web by
+        # design; the final event.replace stays authoritative (crash-safe).
+        ActionCable.server.broadcast(
+          "pito:json:conversation:#{@conversation.uuid}",
+          { type: "event.ai_block", event_id: event.id, index:, block: }
+        )
+        nil
+      end
+
       def broadcast_ai_status(event:, text:)
         helper  = ApplicationController.helpers
         slot    = "event_#{event.id}__ai_status"
@@ -172,6 +214,14 @@ module Pito
         Turbo::StreamsChannel.broadcast_stream_to(
           "pito:conversation:#{@conversation.uuid}",
           content:
+        )
+
+        # JSON pane of the same tick — additive only (see broadcast_ai_block).
+        # Unknown types are ignored by the web by design; the final
+        # event.replace stays authoritative (crash-safe).
+        ActionCable.server.broadcast(
+          "pito:json:conversation:#{@conversation.uuid}",
+          { type: "event.ai_status", event_id: event.id, text: }
         )
         nil
       end
@@ -195,7 +245,7 @@ module Pito
       # earlier than `before_turn`) so old `#handle` affordances retire the moment a
       # new message renders — only the newest turn's handles stay live. Stamps
       # `reply_consumed: true` + replace_event to re-render. Shared by the Finalizer
-      # (any new :system/:confirmation turn) so new chat verbs AND replies-that-append
+      # (any new :system/:confirmation turn) so new chat tools AND replies-that-append
       # both retire prior hashtags uniformly.
       def consume_prior_live_replies(before_turn:)
         @conversation.events
@@ -275,9 +325,9 @@ module Pito
 
       # Create and broadcast a thinking indicator for a turn.
       # `order` is a shuffled list of indices into the dictionary's `doing` array;
-      # the client cycles through it (one verb per INTERVAL_SECONDS) and the
+      # the client cycles through it (one tool per INTERVAL_SECONDS) and the
       # resolve step picks the same final index from elapsed time, so the
-      # past-tense word matches the last verb shown.
+      # past-tense word matches the last tool shown.
       def emit_thinking(turn:, dictionary:)
         words   = I18n.t("pito.copy.thinking.#{dictionary}.doing")
         order   = (0...Array(words).length).to_a.shuffle

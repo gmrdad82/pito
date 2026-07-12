@@ -3,7 +3,7 @@
 module Pito
   module Event
     # Renders an :ai event — the assistant's own composed answer (Flow B of the
-    # ai verb). The payload is typed BLOCKS, never markup:
+    # ai tool). The payload is typed BLOCKS, never markup:
     #
     #   status: [String]  "pending" while the orchestrator loop runs (the tile
     #           shows only the live tool-activity slot the Broadcaster feeds),
@@ -56,6 +56,12 @@ module Pito
 
       # The live tool-activity slot's stable id — the Broadcaster's
       # broadcast_ai_status replaces this node between loop iterations.
+      # The streamed-blocks container — Broadcaster#broadcast_ai_block appends
+      # each cut block here while the answer is still streaming.
+      def blocks_slot_id
+        "event_#{@event&.id}__ai_blocks"
+      end
+
       def status_slot_id
         "event_#{@event&.id}__ai_status"
       end

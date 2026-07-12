@@ -17,13 +17,15 @@ module Videos
   class SearchLocalController < ApplicationController
     def create
       q = params[:q].to_s.strip
-      videos = if q.blank?
-        Video.includes(:channel).order(:title).limit(50)
+      if q.blank?
+        # Clearing the search restores page 1 AND the pager sentinel — a
+        # bare rows render here used to strand the picker capped at 50.
+        videos, next_cursor = Video.picker_page
+        render partial: "videos/picker_reset", locals: { videos:, next_cursor: }
       else
-        Video.includes(:channel).where("title ILIKE ?", "%#{q}%").order(:title).limit(50)
+        videos = Video.includes(:channel).where("title ILIKE ?", "%#{q}%").order(:title).limit(50)
+        render partial: "videos/picker_rows", locals: { videos: videos }
       end
-
-      render partial: "videos/picker_rows", locals: { videos: videos }
     end
   end
 end

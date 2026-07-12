@@ -1,0 +1,11 @@
+# `at-a-glance channel @gmrdad82hard` — the channel's at-a-glance segment (synchronous, show-routed).
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-at-a-glance-channel-gmrdad82hard
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "at-a-glance channel @gmrdad82hard"
+  - sleep: 6
+  - shot: at-a-glance-channel-gmrdad82hard.png

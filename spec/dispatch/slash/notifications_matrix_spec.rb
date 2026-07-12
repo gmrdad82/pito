@@ -21,9 +21,9 @@ require "rails_helper"
 #
 # Key behavioral facts (from source):
 #   1. Verb is :notifs — NOT :notifications. "/notifications" produces verb
-#      :notifications, which is absent from Slash::Registry → unknown_verb error.
+#      :notifications, which is absent from Slash::Registry → unknown_tool error.
 #   2. "notifs" is NOT in KeywordSanitizer::KEYWORDS (unlike "themes"), so
-#      case variants (/NOTIFS, /Notifs) are never normalised → unknown_verb.
+#      case variants (/NOTIFS, /Notifs) are never normalised → unknown_tool.
 #   3. "--help" / "-h" are intercepted by the dispatcher BEFORE handler runs
 #      (regex /\s--help\b|\s-h\b/ on raw input). The handler has NO help? guard.
 #      For verb "notifs" the HelpBuilder returns generic command help (not the
@@ -73,10 +73,10 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
   end
 
   # Asserts an unknown-verb error.
-  def expect_unknown_verb(result, verb: nil)
+  def expect_unknown_tool(result, tool: nil)
     expect(result).to be_a(Pito::Slash::Result::Error)
-    expect(result.message_key).to eq("pito.slash.errors.unknown_verb")
-    expect(result.message_args[:verb]).to eq(verb) if verb
+    expect(result.message_key).to eq("pito.slash.errors.unknown_tool")
+    expect(result.message_args[:tool]).to eq(tool) if tool
   end
 
   # Asserts an arity error (too many positional args).
@@ -90,11 +90,11 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
   describe "grammar recognition" do
     it "/notifications (canonical) → known: true on :slash stack" do
       intent = parsed_intent("/notifications")
-      expect(intent).to include(stack: :slash, verb: :notifications, known: true)
+      expect(intent).to include(stack: :slash, tool: :notifications, known: true)
     end
 
     it "/notifs (alias) → canonicalises to :notifications, known: true" do
-      expect(parsed_intent("/notifs")).to include(stack: :slash, verb: :notifications, known: true)
+      expect(parsed_intent("/notifs")).to include(stack: :slash, tool: :notifications, known: true)
     end
 
     it "is gated as :authenticated_only in the grammar spec" do
@@ -166,9 +166,9 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
       end
     end
 
-    it "too_many_args message_args includes the verb" do
+    it "too_many_args message_args includes the tool" do
       result = dispatch("/notifs on")
-      expect(result.message_args[:verb]).to eq(:notifs)
+      expect(result.message_args[:tool]).to eq(:notifs)
     end
   end
 
@@ -234,11 +234,11 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
       expect(broadcaster).not_to have_received(:broadcast_notifications_sidebar)
     end
 
-    it "--help NOT intercepted when missing leading whitespace: /notifs--help → unknown_verb" do
+    it "--help NOT intercepted when missing leading whitespace: /notifs--help → unknown_tool" do
       # The lexer treats `notifs--help` as a single :word token (hyphens are
       # word chars). Verb becomes :"notifs--help" — absent from Slash::Registry.
       result = dispatch("/notifs--help")
-      expect_unknown_verb(result, verb: :"notifs--help")
+      expect_unknown_tool(result, tool: :"notifs--help")
     end
 
     it "--help NOT intercepted when uppercase: /notifs --HELP → arity error (not help)" do
@@ -325,7 +325,7 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
     end
 
     it "handler verb is :notifications" do
-      expect(Pito::Slash::Handlers::Notifications.verb).to eq(:notifications)
+      expect(Pito::Slash::Handlers::Notifications.tool).to eq(:notifications)
     end
   end
 end

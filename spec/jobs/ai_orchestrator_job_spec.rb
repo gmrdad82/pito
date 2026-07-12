@@ -12,13 +12,14 @@ RSpec.describe AiOrchestratorJob do
   # Minimal stand-in honoring Ai::Client's loop-facing API. Messages passed to
   # each chat call are snapshotted for assertions.
   class ScriptedClient
-    attr_reader :calls, :model, :provider
+    attr_reader :calls, :model, :provider, :effort
 
-    def initialize(responses, model: "scripted-model", provider: "scripted")
+    def initialize(responses, model: "scripted-model", provider: "scripted", effort: nil)
       @responses = responses
       @calls     = []
       @model     = model
       @provider  = provider
+      @effort    = effort
     end
 
     def chat(messages:, tools:, system:)
@@ -51,10 +52,10 @@ RSpec.describe AiOrchestratorJob do
     )
   end
 
-  def response(text: "", tool_calls: [], input: 10, output: 5, stop: :stop)
+  def response(text: "", tool_calls: [], input: 10, output: 5, stop: :stop, cost: nil)
     Ai::Wire::Response.new(
       text:, tool_calls:, stop_reason: stop,
-      usage: Ai::Wire::Usage.new(input_tokens: input, output_tokens: output)
+      usage: Ai::Wire::Usage.new(input_tokens: input, output_tokens: output, cost: cost)
     )
   end
 
@@ -82,6 +83,136 @@ RSpec.describe AiOrchestratorJob do
     end
   end
 
+  describe "web opt-in system prompt (smoke-found)" do
+    it "appends the explicit WEB availability line only on --web turns" do
+      job = described_class.new
+      turn  = make_turn("@ai --web q")
+      event = make_pending_event(turn, "q")
+      event.update!(payload: event.payload.merge("web" => true))
+      job.instance_variable_set(:@event, event)
+      expect(job.send(:run_system_prompt)).to include("web_search and web_fetch tools ARE available")
+
+      event.update!(payload: event.payload.except("web"))
+      expect(job.send(:run_system_prompt)).not_to include("ARE available")
+    end
+  end
+
+  describe "status line (T16.29: copy-only, gerund-led)" do
+    it "renders exactly one dictionary variant — no label prefix, no tool id" do
+      line = described_class.new.send(:status_line, "pito_list", { "noun" => "vids" })
+      variants = I18n.t("pito.copy.ai.status.pito_list")
+      expect(Array(variants)).to include(line)
+      expect(line).not_to include(":")
+      expect(line).not_to include("pito_list")
+    end
+
+    it "falls to the tool-nameless generic dictionary for unknown tools" do
+      line = described_class.new.send(:status_line, "mcp_custom_thing", {})
+      expect(Array(I18n.t("pito.copy.ai.status.generic"))).to include(line)
+      expect(line).not_to include("mcp_custom_thing")
+    end
+  end
+
+  describe "streaming (P13)" do
+    # A client that DECLARES streaming and yields pito_respond argument
+    # fragments before returning the assembled response — the wire contract.
+    class StreamingScriptedClient < ScriptedClient
+      def initialize(responses, fragments:, **kwargs)
+        super(responses, **kwargs)
+        @fragments = fragments
+      end
+
+      def streaming? = true
+
+      def chat(messages:, tools:, system:)
+        @fragments.each { |frag| yield(Ai::Toolset::RESPOND, frag) } if block_given?
+        super
+      end
+    end
+
+    it "broadcasts each block as it closes mid-stream, then finalizes from the full payload" do
+      payload   = '{"blocks": [{"type": "text", "text": "one"}, {"type": "text", "text": "two"}]}'
+      fragments = payload.chars.each_slice(7).map(&:join) # arbitrary split points
+      client    = StreamingScriptedClient.new(
+        [ response(tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "one" }, { "type" => "text", "text" => "two" } ]) ]) ],
+        fragments: fragments
+      )
+      allow(Ai::Client).to receive(:current).and_return(client)
+      expect_any_instance_of(Pito::Stream::Broadcaster)
+        .to receive(:broadcast_ai_block).twice.and_return(nil)
+
+      turn  = make_turn("@ai stream test")
+      event = make_pending_event(turn, "stream test")
+      described_class.perform_now(turn.id)
+
+      expect(event.reload.payload["blocks"].map { |b| b["text"] }).to eq(%w[one two])
+    end
+
+    it "previews a kv_table ROW BY ROW via partial snapshots, then its final form, at the same index" do
+      kv   = { "type" => "kv_table", "rows" => [ [ "Rating", "84" ], [ "Genre", "RPG" ] ] }
+      txt  = { "type" => "text", "text" => "done" }
+      json = JSON.generate("blocks" => [ kv, txt ])
+      # Deterministic boundaries: fragment 1 ends exactly at the first row's
+      # closing bracket, fragment 2 completes the kv block, fragment 3 the rest.
+      first_row_end = json.index(']') + 1
+      kv_end        = json.index('},') + 1
+      fragments     = [ json[0...first_row_end], json[first_row_end...kv_end], json[kv_end..] ]
+
+      client = StreamingScriptedClient.new(
+        [ response(tool_calls: [ tool_call(Ai::Toolset::RESPOND, "blocks" => [ kv, txt ]) ]) ],
+        fragments: fragments
+      )
+      allow(Ai::Client).to receive(:current).and_return(client)
+
+      seen = []
+      allow_any_instance_of(Pito::Stream::Broadcaster).to receive(:broadcast_ai_block) do |_b, event:, block:, index:|
+        seen << [ index, block["type"], block["rows"]&.size ]
+      end
+
+      turn  = make_turn("@ai row stream")
+      make_pending_event(turn, "row stream")
+      described_class.perform_now(turn.id)
+
+      expect(seen).to eq([
+        [ 1, "kv_table", 1 ], # partial: first row only, upserted in place…
+        [ 1, "kv_table", 2 ], # …then the block's final complete form
+        [ 2, "text", nil ]
+      ])
+    end
+
+    it "never previews a partial for a non-row type (charts land whole)" do
+      chart = { "type" => "chart", "viz" => "bar",
+                "data" => { "bars" => [ { "label" => "Solo", "pct" => 60.0 }, { "label" => "Co-op", "pct" => 40.0 } ] } }
+      json  = JSON.generate("blocks" => [ chart ])
+      client = StreamingScriptedClient.new(
+        [ response(tool_calls: [ tool_call(Ai::Toolset::RESPOND, "blocks" => [ chart ]) ]) ],
+        fragments: json.chars.each_slice(5).map(&:join)
+      )
+      allow(Ai::Client).to receive(:current).and_return(client)
+
+      seen = []
+      allow_any_instance_of(Pito::Stream::Broadcaster).to receive(:broadcast_ai_block) do |_b, event:, block:, index:|
+        seen << [ index, block["type"] ]
+      end
+
+      turn = make_turn("@ai chart stream")
+      make_pending_event(turn, "chart stream")
+      described_class.perform_now(turn.id)
+
+      expect(seen).to eq([ [ 1, "chart" ] ])
+    end
+
+    it "takes the plain non-streaming call for clients without streaming support" do
+      event, = run_with([
+        response(tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "plain" } ]) ])
+      ])
+
+      expect(event.payload["blocks"].first["text"]).to eq("plain")
+    end
+  end
+
   describe "Flow B — pito_respond" do
     it "finalizes the :ai event with the model's blocks" do
       event, = run_with([
@@ -92,6 +223,26 @@ RSpec.describe AiOrchestratorJob do
       expect(event.kind).to eq("ai")
       expect(event.payload["status"]).to eq("done")
       expect(event.payload["blocks"]).to eq([ { "type" => "text", "text" => "Play Tekken 7." } ])
+    end
+
+    it "stamps ONLY the provider-REPORTED cost (T16.22: pito never computes a price)" do
+      event, = run_with([
+        response(cost: 0.0042, tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
+      ])
+
+      expect(event.payload["cost_amount"]).to eq(0.0042)
+      expect(event.payload["cost_currency"]).to eq("USD")
+    end
+
+    it "stamps NO cost when the provider reports none — unknown is not free" do
+      event, = run_with([
+        response(tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
+      ])
+
+      expect(event.payload).not_to have_key("cost_amount")
+      expect(event.payload).not_to have_key("cost_currency")
     end
 
     it "stamps the answering model into the payload (the message's ✨ badge)" do

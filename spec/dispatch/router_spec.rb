@@ -6,7 +6,7 @@ require "rails_helper"
 # config-driven execution path for chat verbs + hashtag verb-replies.
 #
 # Coverage: config-driven dispatch (the verb→handler map now lives in
-# verbs.yml `chat.dispatch`, not Ruby), alias canonicalization, chat-surface
+# tools.yml `chat.dispatch`, not Ruby), alias canonicalization, chat-surface
 # availability gating, kwarg binding (a reply's FollowUpContext#bound consumed
 # into the contract), the uniform `call(kwargs:, context:)` invocation, Result
 # passthrough, unknown-verb + misrouted-slash + --help behaviour.
@@ -34,7 +34,7 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
 
   # ── config-driven dispatch + alias canonicalization ──────────────────────────
 
-  describe "config-driven dispatch (verbs.yml chat.dispatch)" do
+  describe "config-driven dispatch (tools.yml chat.dispatch)" do
     it "routes a recognised verb to the class declared in config" do
       fake = echo_handler
       stub_const("Pito::Chat::Handlers::List", fake)
@@ -57,7 +57,7 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
     # Table-driven: every chat verb the config declares a dispatch for is reached
     # through the Router with zero per-verb Router code (the add-a-verb foundation).
     Pito::Dispatch::Config.reload!
-    chat_verbs = Pito::Dispatch::Config.data[:verbs].filter_map do |verb, body|
+    chat_verbs = Pito::Dispatch::Config.data[:tools].filter_map do |verb, body|
       dispatch = body.dig(:chat, :dispatch)
       { verb:, class_string: dispatch } if dispatch.is_a?(String)
     end
@@ -127,12 +127,12 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
   # ── availability gating (chat surface) ───────────────────────────────────────
 
   describe "chat-surface availability" do
-    it "returns verb_not_implemented for a recognised verb with no chat dispatch (find)" do
+    it "returns tool_not_implemented for a recognised verb with no chat dispatch (find)" do
       result = described_class.call(input: "find something", conversation:)
 
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.errors.verb_not_implemented")
-      expect(result.message_args).to eq({ verb: :find })
+      expect(result.message_key).to eq("pito.chat.errors.tool_not_implemented")
+      expect(result.message_args).to eq({ tool: :find })
     end
   end
 

@@ -9,7 +9,7 @@ module Pito
     #   { hits: [...], total: Integer, error: nil | { kind:, message: } }
     #
     # The IGDB game search (Pito::Search::Modules::IgdbGames) is the first module;
-    # local DB search + a `search` chat verb are deferred (post-Video).
+    # local DB search + a `search` chat tool are deferred (post-Video).
     class Base
       class << self
         attr_reader :search_key_value

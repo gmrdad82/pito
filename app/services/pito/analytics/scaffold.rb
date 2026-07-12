@@ -7,7 +7,7 @@ module Pito
     # (via Primitives; retention is the single-video special case) and reports, per
     # metric, whether data came back (`true` = 1) or not (`false` = 0).
     #
-    # This is the TEMPORARY uniform renderer that proves the fan-out + verb +
+    # This is the TEMPORARY uniform renderer that proves the fan-out + tool +
     # with/without work end-to-end, before each metric earns its own bespoke
     # component (owner "revisit"). Metrics sharing one report group share its flag.
     module Scaffold

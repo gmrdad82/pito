@@ -2,7 +2,7 @@
 
 module Pito
   module Dispatch
-    # Cached loader for config/pito/verbs.yml — the verb ontology.
+    # Cached loader for config/pito/tools.yml — the tool ontology.
     #
     # Loads + deep-freezes the YAML once per boot; memoized at the class level.
     # In development, Rails.application.config.to_prepare triggers .reload! so
@@ -10,29 +10,29 @@ module Pito
     # config/initializers/pito_dispatch_config.rb).
     #
     # Public API:
-    #   Pito::Dispatch::Config.verb(:list)        # => frozen Hash, symbol keys
-    #   Pito::Dispatch::Config.pager(verb: :list) # => { page_size: 50, more_verb: "next" } | nil
+    #   Pito::Dispatch::Config.tool(:list)        # => frozen Hash, symbol keys
+    #   Pito::Dispatch::Config.pager(tool: :list) # => { page_size: 50, more_tool: "next" } | nil
     #   Pito::Dispatch::Config.reload!            # clears memoization (used in dev + tests)
     #
     # Raises LoadError at first access if the file is missing or the
     # schema_version is unsupported — config rot fails boot, not silently.
     module Config
       SUPPORTED_SCHEMA_VERSIONS = [ 1 ].freeze
-      PATH = Rails.root.join("config/pito/verbs.yml")
+      PATH = Rails.root.join("config/pito/tools.yml")
 
       module_function
 
-      # Returns the frozen verb Hash for +name+ (symbol or string), symbol-keyed.
-      # Raises KeyError for unknown verbs.
-      def verb(name)
-        data.fetch(:verbs, {}).fetch(name.to_sym) do
-          raise KeyError, "Pito::Dispatch::Config: unknown verb #{name.inspect}"
+      # Returns the frozen tool Hash for +name+ (symbol or string), symbol-keyed.
+      # Raises KeyError for unknown tools.
+      def tool(name)
+        data.fetch(:tools, {}).fetch(name.to_sym) do
+          raise KeyError, "Pito::Dispatch::Config: unknown tool #{name.inspect}"
         end
       end
 
-      # Returns the pager concern Hash for +verb+, or nil when the verb declares no pager.
-      def pager(verb:)
-        verb(verb).dig(:concerns, :pager)
+      # Returns the pager concern Hash for +tool+, or nil when the tool declares no pager.
+      def pager(tool:)
+        tool(tool).dig(:concerns, :pager)
       end
 
       # Clears memoization so the next access reloads from disk.

@@ -41,10 +41,18 @@
       desktop it slides in at 480px — both sit ON TOP of the conversation so
       the layout never shifts when toggling. The backdrop dims the content on
       desktop (managed by pito--resume). %>
-  <div class="flex h-screen overflow-hidden">
+  <%# h-dvh, not h-screen: 100vh includes the strip behind the mobile
+      browser's collapsing address bar, which pushed the chatbox under it
+      (owner screenshot 2026-07-12) — dvh tracks the VISIBLE viewport. %>
+  <div class="flex h-dvh overflow-hidden">
     <main class="flex-1 min-w-0"><%= yield %></main>
+    <%# Desktop geometry (owner DRAWING, 2026-07-12): the classic 480px panel
+        whose RIGHT edge sits ON the conversation column's right edge (the
+        964px centered column ends at 50vw+482px → right offset 50vw-482px,
+        floored at 0 for narrow windows), hanging OVER the column's right
+        half. Mobile: full width from the viewport edge. %>
     <div id="pito-sidebar" data-controller="pito--resume"
-         class="shrink-0 overflow-hidden transition-[width] duration-200 fixed inset-y-0 right-0 z-40 w-0 has-[aside]:w-full md:w-0 md:has-[aside]:w-[480px]"></div>
+         class="shrink-0 overflow-hidden transition-[width] duration-200 fixed inset-y-0 right-0 md:right-[max(0px,calc(50vw-482px))] z-40 w-0 has-[aside]:w-full md:w-0 md:has-[aside]:w-[480px]"></div>
   </div>
   <%# Desktop sidebar overlay backdrop — semi-transparent scrim behind the
       sidebar on desktop. Shown via CSS :has() when the sidebar is open.

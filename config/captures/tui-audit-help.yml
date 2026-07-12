@@ -1,0 +1,11 @@
+# `help` — the help / command reference view.
+# pito-tui parity audit reference capture (against dev.pitomd.com).
+name: tui-audit-help
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1400, scale: 2 }
+steps:
+  - visit: /
+  - login: true
+  - command: "help"
+  - sleep: 6
+  - shot: help.png

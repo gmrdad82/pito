@@ -2,7 +2,7 @@
 
 module Pito
   module Mcp
-    # Runs one MCP tool call. For a verb-backed tool it builds a chat GRAMMAR string
+    # Runs one MCP tool call. For a chat-tool-backed tool it builds a chat GRAMMAR string
     # from the tool's `input` template + `input_suffixes` (the same grammar a human
     # types), routes it through the UNMODIFIED Pito::Dispatch::Router, and projects
     # the Result's events to markdown via EventText — so the server's grammar stays
@@ -45,7 +45,7 @@ module Pito
         end
       end
 
-      # ── verb-backed tools ──────────────────────────────────────────────────────
+      # ── chat-tool-backed tools ──────────────────────────────────────────────────
 
       def execute_verb(descriptor, args)
         missing = missing_required(descriptor, args)
@@ -82,13 +82,20 @@ module Pito
       # (" with %{values}"). Arrays join with ", " — the universal separator the
       # chat grammar accepts for columns / ids / segments (space breaks columns).
       def build_input(descriptor, args)
-        input = interpolate(descriptor[:input].to_s, args)
+        input    = interpolate(descriptor[:input].to_s, args)
+        appended = false
         (descriptor[:input_suffixes] || {}).each do |param, template|
           value = args[param.to_s]
           next unless present?(value)
 
           input += interpolate_suffix(template.to_s, value)
+          appended = true
         end
+        # A tool may declare the grammar a BARE call means (`bare_input:`) —
+        # e.g. pito_analyze with no noun/ref documents itself as "all your
+        # channels", which is the `analyze channels` form, NOT bare `analyze`
+        # (that one just asks what to analyze). Only when no suffix fired.
+        input = interpolate(descriptor[:bare_input].to_s, args) if !appended && descriptor[:bare_input]
         input.strip
       end
 

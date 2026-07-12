@@ -9,8 +9,8 @@ require "rails_helper"
 # stubbed; records "exist" unless the example says otherwise.
 #
 # Subjects:
-#   app/services/pito/chat/handlers/unlink.rb
-#   app/services/pito/chat/handlers/multi_link_helpers.rb (follow-up branch)
+#   lib/pito/chat/handlers/unlink.rb
+#   lib/pito/chat/handlers/multi_link_helpers.rb (follow-up branch)
 #
 # Free-chat (Handler#call non-follow_up branch):
 #   body_tokens joined → split on \bfrom\b → left / right halves.
@@ -52,7 +52,7 @@ RSpec.describe "Dispatch matrix — unlink (recognition, DB mocked)", type: :dis
       Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: i.positive?)
     end
     msg = Pito::Chat::Message.new(
-      verb:        :unlink,
+      tool:        :unlink,
       body_tokens: tokens,
       kind:        :new_turn,
       raw:         "unlink #{body}"

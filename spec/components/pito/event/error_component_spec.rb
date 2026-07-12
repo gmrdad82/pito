@@ -7,8 +7,8 @@ RSpec.describe Pito::Event::ErrorComponent do
     it "resolves the message via I18n" do
       comp = described_class.new(
         payload: {
-          message_key: "pito.slash.errors.unknown_verb",
-          message_args: { verb: "oops" }
+          message_key: "pito.slash.errors.unknown_tool",
+          message_args: { tool: "oops" }
         }
       )
       node = render_inline(comp)
@@ -46,8 +46,8 @@ RSpec.describe Pito::Event::ErrorComponent do
     subject(:node) do
       render_inline(described_class.new(
         payload: {
-          message_key: "pito.slash.errors.unknown_verb",
-          message_args: { verb: "whoops" }
+          message_key: "pito.slash.errors.unknown_tool",
+          message_args: { tool: "whoops" }
         }
       ))
     end

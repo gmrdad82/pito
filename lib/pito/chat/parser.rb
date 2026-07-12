@@ -9,7 +9,7 @@ module Pito
 
       # Conversational hellos/goodbyes, matched against the WHOLE normalized input
       # (see #normalized_phrase) — case-insensitive, punctuation-tolerant, single
-      # or multi-word. They short-circuit to the :greet / :farewell verbs before
+      # or multi-word. They short-circuit to the :greet / :farewell tools before
       # command parsing.
       GREETINGS = Set.new([
         "hi", "hii", "hiya", "hey", "heya", "hello", "helloo", "hello there",
@@ -57,34 +57,34 @@ module Pito
         # (single OR multi-word) before command parsing, so "Hi", "good bye", and
         # "hasta luego!" all route to a friendly reply.
         phrase = normalized_phrase
-        return Message.new(verb: :greet,    body_tokens: [], kind: :new_turn, raw: @raw) if GREETINGS.include?(phrase)
-        return Message.new(verb: :farewell, body_tokens: [], kind: :new_turn, raw: @raw) if FAREWELLS.include?(phrase)
+        return Message.new(tool: :greet,    body_tokens: [], kind: :new_turn, raw: @raw) if GREETINGS.include?(phrase)
+        return Message.new(tool: :farewell, body_tokens: [], kind: :new_turn, raw: @raw) if FAREWELLS.include?(phrase)
 
-        # Read the first word token as the candidate verb. An "@"-fused verb
+        # Read the first word token as the candidate tool. An "@"-fused tool
         # ("@ai" in any case — the lexer emits the bare "@" plus the word) is
         # fused HERE, only when the word is adjacent (no space: "@ ai" stays
-        # two tokens) and the fused, downcased token is a registered verb —
+        # two tokens) and the fused, downcased token is a registered tool —
         # channel handles like @all keep their two-token shape for their own
         # consumers.
-        candidate_verb = first&.type == :word ? first.value.to_sym : nil
-        if candidate_verb
+        candidate_tool = first&.type == :word ? first.value.to_sym : nil
+        if candidate_tool
           advance
-        elsif (fused = fused_at_verb(first))
-          candidate_verb = fused
+        elsif (fused = fused_at_tool(first))
+          candidate_tool = fused
           advance
           advance
         end
 
-        spec = candidate_verb && Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: candidate_verb)
+        spec = candidate_tool && Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: candidate_tool)
         if spec
-          # Recognised verb → new turn. Canonicalize the verb to the spec's name
+          # Recognised tool → new turn. Canonicalize the tool to the spec's name
           # so aliases dispatch correctly (e.g. `rm` → :delete, `ls` → :list);
-          # the handler registry only knows canonical verbs.
+          # the handler registry only knows canonical tools.
           body_tokens = tokens_until_eof
-          Message.new(verb: spec.name, body_tokens:, kind: :new_turn, raw: @raw)
+          Message.new(tool: spec.name, body_tokens:, kind: :new_turn, raw: @raw)
         else
-          # No recognised verb → unknown.
-          Message.new(verb: nil, body_tokens: [], kind: :unknown, raw: @raw)
+          # No recognised tool → unknown.
+          Message.new(tool: nil, body_tokens: [], kind: :unknown, raw: @raw)
         end
       end
 
@@ -101,8 +101,8 @@ module Pito
       end
 
       # ":@ai" from ["@", "ai"] — nil unless the shape matches AND the fused
-      # token is a registered chat verb (downcased, so @AI/@Ai/@aI all fuse).
-      def fused_at_verb(first)
+      # token is a registered chat tool (downcased, so @AI/@Ai/@aI all fuse).
+      def fused_at_tool(first)
         follower = @tokens[@pos + 1]
         return nil unless first&.type == :at && follower&.type == :word && !follower.preceded_by_space
 

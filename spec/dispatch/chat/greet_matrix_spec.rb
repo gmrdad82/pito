@@ -26,7 +26,7 @@ RSpec.describe "Dispatch matrix — greet (recognition, DB mocked)", type: :disp
   end
 
   def greet?(raw)
-    parse(raw).verb == :greet
+    parse(raw).tool == :greet
   end
 
   # ── all 23 canonical phrases (verbatim from GREETINGS) ───────────────────────

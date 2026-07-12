@@ -12,7 +12,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
   describe "slash handler with grammar block" do
     let(:handler_class) do
       Class.new(Pito::Slash::Handler) do
-        self.verb            = :demo
+        self.tool            = :demo
         self.description_key = "x"
 
         grammar do
@@ -60,7 +60,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
   describe "slash handler with verb+description_key but no grammar block" do
     let(:handler_class) do
       Class.new(Pito::Slash::Handler) do
-        self.verb            = :bare
+        self.tool            = :bare
         self.description_key = "some.key"
       end
     end
@@ -109,7 +109,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
   describe "chat handler with no grammar block" do
     let(:handler_class) do
       Class.new(Pito::Chat::Handler) do
-        self.verb            = :search
+        self.tool            = :search
         self.description_key = "chat.search.key"
       end
     end
@@ -125,7 +125,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
   describe "subclass ivar isolation via inherited" do
     it "does not inherit the parent grammar block" do
       parent = Class.new(Pito::Slash::Handler) do
-        self.verb            = :parent
+        self.tool            = :parent
         self.description_key = "parent.key"
         grammar do
           free :query
@@ -133,7 +133,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
       end
 
       child = Class.new(parent) do
-        self.verb            = :child
+        self.tool            = :child
         self.description_key = "child.key"
       end
 
@@ -204,7 +204,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
     context "with a stub Handlers constant for full register_handler_specs coverage" do
       let(:handler_class) do
         Class.new(Pito::Slash::Handler) do
-          self.verb            = :demo
+          self.tool            = :demo
           self.description_key = "demo.key"
           # No grammar block → bare spec
         end
@@ -233,7 +233,7 @@ RSpec.describe Pito::Grammar::HandlerDsl do
   describe "grammar builder methods" do
     it "builds literal, kv, free, connective slots" do
       klass = Class.new(Pito::Slash::Handler) do
-        self.verb            = :test_all
+        self.tool            = :test_all
         self.description_key = "test.all"
 
         grammar do

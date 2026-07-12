@@ -3,8 +3,8 @@
 require "rails_helper"
 
 # Unit spec for Pito::Dispatch::Matrix — the reply-availability matrix derived
-# from config/pito/verbs.yml. Pins every public API method: targets, actions_for,
-# mode_for (alias-aware, base-mode derivation), verb_for, universal_tokens, reload!.
+# from config/pito/tools.yml. Pins every public API method: targets, actions_for,
+# mode_for (alias-aware, base-mode derivation), tool_for, universal_tokens, reload!.
 RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
   # Reload around each example so edits to Config in other specs don't leak.
   around do |example|
@@ -21,7 +21,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       expect(described_class.targets).to all(be_a(String))
     end
 
-    it "includes the well-known targets from verbs.yml" do
+    it "includes the well-known targets from tools.yml" do
       expect(described_class.targets).to include(
         "game_list", "video_list", "channel_list",
         "game_detail", "video_detail", "channel_detail",
@@ -47,13 +47,13 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       expect(described_class.actions_for("game_list")).to all(be_a(String))
     end
 
-    it "includes canonical verb names for the target" do
+    it "includes canonical tool names for the target" do
       expect(described_class.actions_for("game_list")).to include("show", "delete", "analyze", "next")
       expect(described_class.actions_for("video_list")).to include("show", "delete", "schedule", "publish")
     end
 
     it "includes per-target aliases (del/rm on delete targets, order on sort targets, pub on publish targets)" do
-      # del/rm are per-target aliases of delete on these targets (verb-level aliases
+      # del/rm are per-target aliases of delete on these targets (tool-level aliases
       # are NOT auto-expanded into actions_for — only per-target aliases are).
       expect(described_class.actions_for("game_list")).to include("del", "rm")
       expect(described_class.actions_for("game_list")).to include("order")
@@ -63,8 +63,8 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       expect(described_class.actions_for("video_detail")).to include("del", "rm", "pub")
     end
 
-    it "does NOT expand verb-level aliases (analytics/stats from analyze, yes/y from confirm)" do
-      # Verb-level aliases are chat-context synonyms; they must not appear as
+    it "does NOT expand tool-level aliases (analytics/stats from analyze, yes/y from confirm)" do
+      # Tool-level aliases are chat-context synonyms; they must not appear as
       # reply-target suggestions or they pollute the follow-up palette.
       expect(described_class.actions_for("analytics_glance")).not_to include("analytics", "stats")
       expect(described_class.actions_for("video_list")).not_to include("analytics", "stats")
@@ -95,7 +95,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       end
     end
 
-    it "game_detail includes all expected verb tokens" do
+    it "game_detail includes all expected tool tokens" do
       expect(described_class.actions_for("game_detail")).to include(
         "delete", "del", "rm", "reindex", "link", "unlink",
         "footage", "platform", "price", "shinies", "sync", "analyze"
@@ -116,9 +116,9 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       expect(described_class.actions_for("channel_visit")).to include("consume")
     end
 
-    it "confirmation includes confirm and cancel (only — no verb-level aliases)" do
+    it "confirmation includes confirm and cancel (only — no tool-level aliases)" do
       expect(described_class.actions_for("confirmation")).to include("confirm", "cancel")
-      # Verb-level aliases (yes/y/ok/approve/true, no/n/false/discard) are
+      # Tool-level aliases (yes/y/ok/approve/true, no/n/false/discard) are
       # intentionally excluded from actions_for — they are chat-context synonyms
       # and would pollute the follow-up suggestion palette.
     end
@@ -151,11 +151,11 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
         expect(described_class.mode_for("analytics_glance", action: nil)).to eq(:append)
       end
 
-      it "returns :mutate for analyze_message (all verb entries are mutate)" do
+      it "returns :mutate for analyze_message (all tool entries are mutate)" do
         expect(described_class.mode_for("analyze_message", action: nil)).to eq(:mutate)
       end
 
-      it "returns :mutate for channel_visit (only verb is consume → mutate)" do
+      it "returns :mutate for channel_visit (only tool is consume → mutate)" do
         expect(described_class.mode_for("channel_visit", action: nil)).to eq(:mutate)
       end
     end
@@ -173,7 +173,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       end
     end
 
-    # ── Canonical verb actions ─────────────────────────────────────────────────
+    # ── Canonical tool actions ─────────────────────────────────────────────────
 
     it "returns :append for show on game_list" do
       expect(described_class.mode_for("game_list", action: "show")).to eq(:append)
@@ -202,7 +202,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
 
     # ── Alias resolution ───────────────────────────────────────────────────────
 
-    describe "verb-level alias resolution" do
+    describe "tool-level alias resolution" do
       it "del → delete: returns :append on game_list" do
         expect(described_class.mode_for("game_list", action: "del")).to eq(:append)
       end
@@ -252,13 +252,13 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
 
     # ── Per-target mode isolation ──────────────────────────────────────────────
 
-    it "sort is :mutate on list targets; a verb absent from a target falls back to base mode (HF3)" do
+    it "sort is :mutate on list targets; a tool absent from a target falls back to base mode (HF3)" do
       expect(described_class.mode_for("game_channels", action: "sort"))
         .to eq(described_class.mode_for("game_channels", action: nil))
     end
   end
 
-  # ── verb_for ──────────────────────────────────────────────────────────────────
+  # ── tool_for ──────────────────────────────────────────────────────────────────
 
   describe ".mode_for — unknown action falls back to base mode (HF3)" do
     it "returns the target's base mode for an unrecognized token (DSL parity: --help fall-through)" do
@@ -267,37 +267,37 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
     end
   end
 
-  describe ".verb_for" do
-    it "returns the canonical verb for a canonical name" do
-      expect(described_class.verb_for("delete")).to eq("delete")
-      expect(described_class.verb_for("sort")).to eq("sort")
-      expect(described_class.verb_for("publish")).to eq("publish")
+  describe ".tool_for" do
+    it "returns the canonical tool for a canonical name" do
+      expect(described_class.tool_for("delete")).to eq("delete")
+      expect(described_class.tool_for("sort")).to eq("sort")
+      expect(described_class.tool_for("publish")).to eq("publish")
     end
 
-    it "resolves verb-level aliases → canonical" do
-      expect(described_class.verb_for("del")).to eq("delete")
-      expect(described_class.verb_for("rm")).to eq("delete")
-      expect(described_class.verb_for("order")).to eq("sort")
-      expect(described_class.verb_for("pub")).to eq("publish")
-      expect(described_class.verb_for("ls")).to eq("list")
+    it "resolves tool-level aliases → canonical" do
+      expect(described_class.tool_for("del")).to eq("delete")
+      expect(described_class.tool_for("rm")).to eq("delete")
+      expect(described_class.tool_for("order")).to eq("sort")
+      expect(described_class.tool_for("pub")).to eq("publish")
+      expect(described_class.tool_for("ls")).to eq("list")
     end
 
     it "resolves universal_reply aliases" do
-      expect(described_class.verb_for("unshare")).to eq("revoke")
+      expect(described_class.tool_for("unshare")).to eq("revoke")
     end
 
     it "returns nil for unknown tokens" do
-      expect(described_class.verb_for("bogus")).to be_nil
+      expect(described_class.tool_for("bogus")).to be_nil
     end
 
     it "returns nil for per-target-only aliases (not in global index)" do
       # 'create' is only an alias of 'new' on resume_missing — not a global alias.
-      expect(described_class.verb_for("create")).to be_nil
+      expect(described_class.tool_for("create")).to be_nil
     end
 
     it "is case-insensitive" do
-      expect(described_class.verb_for("DEL")).to eq("delete")
-      expect(described_class.verb_for("Order")).to eq("sort")
+      expect(described_class.tool_for("DEL")).to eq("delete")
+      expect(described_class.tool_for("Order")).to eq("sort")
     end
   end
 
@@ -305,12 +305,12 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
 
   describe ".universal_tokens" do
     # G92 (2026-07-05): `help` removed from universal_reply; canonical tokens are share + revoke only.
-    it "includes the canonical universal verb names" do
+    it "includes the canonical universal tool names" do
       expect(described_class.universal_tokens).to include("share", "revoke")
       expect(described_class.universal_tokens).not_to include("help")
     end
 
-    it "includes aliases of universal verbs (unshare → revoke)" do
+    it "includes aliases of universal tools (unshare → revoke)" do
       expect(described_class.universal_tokens).to include("unshare")
     end
 
@@ -323,11 +323,11 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
 
   # ── except: target exclusion ─────────────────────────────────────────────────
   #
-  # Ship-the-capability coverage: except: is not used in the real verbs.yml (kinds:
+  # Ship-the-capability coverage: except: is not used in the real tools.yml (kinds:
   # covers the owner's policy), but the Matrix wires it and tests pin the behaviour
   # via synthetic docs injected through DispatchConfigInjection.
 
-  describe "except: universal verb exclusion (synthetic doc)" do
+  describe "except: universal tool exclusion (synthetic doc)" do
     context "when share has except: [game_list]" do
       before do
         inject_dispatch_config!(universal_reply: <<~YAML)
@@ -362,7 +362,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       end
     end
 
-    context "when an alias of an excepted universal verb is used" do
+    context "when an alias of an excepted universal tool is used" do
       before do
         inject_dispatch_config!(universal_reply: <<~YAML)
           revoke:
