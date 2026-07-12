@@ -31,7 +31,7 @@ module Pito
       def start
         options = {
           headless:     true,
-          timeout:      20,
+          timeout:      60, # slow CDP under burst load + heavy shimmer pages
           window_size:  [ @viewport["width"], @viewport["height"] ],
           browser_options: { "hide-scrollbars" => nil, "force-device-scale-factor" => @viewport["scale"] }
         }

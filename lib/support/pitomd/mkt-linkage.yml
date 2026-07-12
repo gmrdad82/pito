@@ -1,4 +1,4 @@
-# Slide 2 — "Games <-> Videos <-> Channels." (long, complete GIF): show game 3
+# Slide 2 — "Games <-> Videos <-> Channels." (long, complete GIF): show game 20 with videos, channels
 # with the FOCUS on the enhanced messages — the linked-videos table and the
 # channel distribution + matches.
 name: mkt-linkage
@@ -9,11 +9,11 @@ steps:
   - sleep: 0.8
   - type: "show"
   - keyframe: 010-show.png
-  - type: " game 3"
-  - burst: { prefix: 020-cmd-show-game-3, frames: 4, fps: 8 }
+  - type: " game 20 with videos, channels"
+  - burst: { prefix: 020-cmd-show-game-20, frames: 4, fps: 8 }
   - submit: true
   - burst: { prefix: 030-thinking, frames: 8, fps: 10 }
-  - wait_for: { text: "Pragmata", timeout: 20 }
+  - wait_for: { text: "Souls", timeout: 20 }
   - wait_for: { selector: ".pito-game-channels", timeout: 20 }
   - sleep: 0.5
   - burst: { prefix: 040-bottom, frames: 6, fps: 6 }          # natural bottom view

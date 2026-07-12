@@ -1,0 +1,18 @@
+# Theme-showcase still — ONE generic scenario re-run once per theme by
+# script/recapture-themes (the loop flips AppSetting.theme via bin/rails
+# runner between runs, then copies tmp/captures/theme-showcase/theme.png
+# into docs/media/themes/<slug>.png by hand — shipped images are never
+# written by the tool itself). Every theme shot shows the SAME command,
+# `show video #1` (owner 2026-07-12), at the gallery's native 760x712.
+name: theme-showcase
+base_url: https://dev.pitomd.com
+viewport: { width: 760, height: 799, scale: 1 }
+steps:
+  - login: true
+  - sleep: 0.5
+  - command: "show video #1"
+  - wait_for: { selector: ".pito-video-detail", timeout: 20 }
+  - sleep: 1.5
+  - scroll_to: { selector: ".pito-video-detail", align: start }
+  - sleep: 1.0
+  - keyframe: theme.png

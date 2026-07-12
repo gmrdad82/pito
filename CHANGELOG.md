@@ -9,7 +9,7 @@ All notable changes to PITO are documented here. The format follows
 ### Added
 
 - **The `@ai` verb — ask PITO's assistant anything** — `@ai what should I play
-  next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
+next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
   configured provider: the model reads your library through PITO's own
   read-only tools, then either answers by running ONE real pito command (its
   native card appears, exactly as if you typed it) or composes its own reply.
@@ -83,7 +83,7 @@ All notable changes to PITO are documented here. The format follows
   keystroke. Appears only once AI messages exist.
 - **The AI's content vocabulary is declared, not hardcoded** — a new
   `config/pito/content.yml` is the single ontology of everything the
-  assistant may compose: paragraphs (with **bold**, *italic*, and a limited
+  assistant may compose: paragraphs (with **bold**, _italic_, and a limited
   color palette — default, cyan, red, green), kv-tables, tables, media,
   sparklines, area/bar/heatmap charts, the new **heart chart** (a braille
   heart filled to a 0–100 sentiment score with a likes/dislikes legend),
@@ -152,7 +152,7 @@ All notable changes to PITO are documented here. The format follows
   every credential).
 - **The `update` verb — one typed surface for metadata writes** —
   `update game footage|price|platform <id> <value>` writes locally at once;
-  `update vid description|tags <id> <value>` stages a confirmation whose *yes*
+  `update vid description|tags <id> <value>` stages a confirmation whose _yes_
   pushes exactly that one field to YouTube (nothing else in the snippet is
   touched, publish state untouched). These are the commands the AI suggests —
   and only you can run. The old typed `footage update` / `price set` /

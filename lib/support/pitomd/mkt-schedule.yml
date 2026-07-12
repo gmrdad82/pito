@@ -1,5 +1,5 @@
-# Slide 3 — "Find the open slot." (better GIF): show game 3, focus the similar
-# games strip, then the chatbox holding `schedule 3 slate` — typed, NOT
+# Slide 3 — "Find the open slot." (better GIF): show game 20 with similar, focus the similar
+# games strip, then the chatbox holding `schedule 20 slate` — typed, NOT
 # submitted (the command is the story).
 name: mkt-schedule
 base_url: https://dev.pitomd.com
@@ -9,15 +9,15 @@ steps:
   - sleep: 0.8
   - type: "show"
   - keyframe: 010-show.png
-  - type: " game 3"
-  - burst: { prefix: 020-cmd-show-game-3, frames: 4, fps: 8 }
+  - type: " game 20 with similar"
+  - burst: { prefix: 020-cmd-show-game-20, frames: 4, fps: 8 }
   - submit: true
   - burst: { prefix: 030-thinking, frames: 8, fps: 10 }
-  - wait_for: { text: "Pragmata", timeout: 20 }
+  - wait_for: { text: "Souls", timeout: 20 }
   - wait_for: { selector: ".pito-game-enhanced-message__similar-games-strip", timeout: 20 }
   - scroll_to: ".pito-game-enhanced-message__similar-games-strip"
   - sleep: 0.4
   - burst: { prefix: 040-similar, frames: 8, fps: 6 }
-  - type: "schedule 3 slate"
+  - type: "schedule 20 slate"
   - burst: { prefix: 050-schedule-cmd, frames: 6, fps: 6 }     # command visible, no submit
   - storyboard: { name: mkt-schedule.gif, fps: 5 }
