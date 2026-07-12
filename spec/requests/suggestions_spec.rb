@@ -60,14 +60,16 @@ RSpec.describe "POST /suggestions", type: :request do
       expect(labels).to include("with", "without", "schedule", "shinies", "show")
     end
 
-    # `/config ` arg stage returns the provider list as a browsable palette
-    # (stage:"tool"), not a single inline ghost.
-    it "returns the config provider list as a palette for '/config '" do
+    # `/config ` arg stage returns the provider GROUPS as a drill-down palette
+    # (stage:"tool"): three namespace rows whose children are the provider rows.
+    it "returns the config provider groups as a drill-down palette for '/config '" do
       post "/suggestions", params: { input: "/config ", cursor: 8 }
       body   = response.parsed_body
       labels = body["menu_items"].map { |i| i["label"] }
       expect(body["stage"]).to eq("tool")
-      expect(labels).to include("google", "voyage", "igdb", "webhook")
+      expect(labels).to include("ai", "sources", "profile")
+      sources = body["menu_items"].find { |i| i["label"] == "sources" }
+      expect(sources["children"].map { |c| c["label"] }).to include("google", "voyage", "igdb")
     end
 
     # `/config google ` arg stage returns the per-provider credential keys as a

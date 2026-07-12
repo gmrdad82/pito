@@ -6,6 +6,8 @@ All notable changes to PITO are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-07-12
+
 ### Added
 
 - **The `@ai` verb — ask PITO's assistant anything** — `@ai what should I play

@@ -76,7 +76,7 @@ RSpec.describe "Conversation requests", type: :request do
 
     it "wires the scrollback Stimulus controllers on the scrollback container" do
       get conversation_path(uuid: conversation.uuid)
-      expect(response.body).to include('data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag pito--pull-refresh"')
+      expect(response.body).to include('data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag pito--pull-refresh pito--selection-scope"')
     end
 
     it "includes the uuid in the chat form" do
@@ -93,8 +93,9 @@ RSpec.describe "Conversation requests", type: :request do
       create(:notification)
       create(:notification)
       get conversation_path(uuid: conversation.uuid)
-      # 2 unread notifications → "2*" in the mini-status (cyan-shimmer count)
-      expect(response.body).to include("2*")
+      # 2 unread notifications → count value on the mini-status bell slot
+      # (the old "2*" asterisk marker became the filled Lucide bell).
+      expect(response.body).to include('data-pito--notifications-count-count-value="2"')
     end
 
     it "does not render the notification badge when there are no unread notifications" do
