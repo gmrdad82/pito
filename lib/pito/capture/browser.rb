@@ -24,8 +24,9 @@ module Pito
         Dir.glob(File.expand_path("~/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux*/headless_shell")).max
       end
 
-      def initialize(viewport:)
-        @viewport = viewport
+      def initialize(viewport:, user_agent: nil)
+        @viewport   = viewport
+        @user_agent = user_agent
       end
 
       def start
@@ -33,7 +34,9 @@ module Pito
           headless:     true,
           timeout:      60, # slow CDP under burst load + heavy shimmer pages
           window_size:  [ @viewport["width"], @viewport["height"] ],
-          browser_options: { "hide-scrollbars" => nil, "force-device-scale-factor" => @viewport["scale"] }
+          browser_options: { "hide-scrollbars" => nil, "force-device-scale-factor" => @viewport["scale"] }.merge(
+            @user_agent ? { "user-agent" => @user_agent } : {}
+          )
         }
         path = ENV["PITO_CAPTURE_BROWSER"].presence || self.class.headless_shell_path
         options[:browser_path] = path if path.present?

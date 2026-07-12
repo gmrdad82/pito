@@ -158,13 +158,14 @@ runs:
             ;;
         esac
 
-        # Post as a Block Kit mrkdwn section, not a classic {text} message:
-        # classic text linkifies bare domains (the `ghcr.io/…` image ref showed
-        # up as an underlined link INSIDE its code span), while Block Kit
-        # mrkdwn only links explicit <url|…> and schemed URLs. The top-level
-        # `text` stays as the plain notification-preview fallback.
+        # Post as a Block Kit mrkdwn section with `verbatim: true`: Block Kit
+        # ALSO auto-linkifies bare domains by default (the `ghcr.io/…` image
+        # ref still rendered as an underlined, barely-visible link INSIDE its
+        # code chip — owner 2026-07-12). verbatim stops the auto-conversion
+        # while explicit <url|…> links (the `run` link) keep rendering. The
+        # top-level `text` stays as the plain notification-preview fallback.
         payload="$(jq -n --arg text "$text" \
-          '{text: $text, blocks: [{type: "section", text: {type: "mrkdwn", text: $text}}]}')"
+          '{text: $text, blocks: [{type: "section", text: {type: "mrkdwn", text: $text, verbatim: true}}]}')"
         curl -sS -X POST -H 'Content-type: application/json' \
           --data "$payload" "$SLACK_WEBHOOK" >/dev/null \
           && echo "Slack notified (${STATUS})." \
