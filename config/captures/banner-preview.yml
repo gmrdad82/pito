@@ -1,0 +1,13 @@
+# Preview of the get-the-app banner (Pito::GetAppBannerComponent): an ANDROID
+# browser UA (the banner is UA-gated) on a phone-sized viewport, logged in so
+# the banner floats over a real conversation.
+name: banner-preview
+base_url: https://dev.pitomd.com
+user_agent: "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36"
+viewport: { width: 448, height: 1085, scale: 2 }
+steps:
+  - login: true
+  - command: "show game 1"
+  - wait_for: { selector: ".pito-game-detail", timeout: 20 }
+  - sleep: 3.0
+  - keyframe: banner-preview.png

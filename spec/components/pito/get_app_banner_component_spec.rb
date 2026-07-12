@@ -28,6 +28,18 @@ RSpec.describe Pito::GetAppBannerComponent, type: :component do
       expect(href).to eq("https://github.com/gmrdad82/pito-android/releases/latest/download/pito.apk")
     end
 
+    it "wears the gold shiny material via the generic chip component" do
+      chip = fragment.css(".pito-shiny.pito-get-app").first
+      expect(chip).not_to be_nil
+      expect(chip["data-material"]).to eq("gold")
+      expect(fragment.css("a").first["class"]).to include("pito-get-app__cta")
+    end
+
+    it "floats below the top edge instead of gluing to it" do
+      root = fragment.css("[data-controller='pito--app-banner']").first
+      expect(root["class"]).to include("top-3")
+    end
+
     it "offers a dismiss action" do
       button = fragment.css("button[data-action='pito--app-banner#dismiss']").first
       expect(button.text).to eq("[x]")

@@ -6,6 +6,21 @@ All notable changes to PITO are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-07-12
+
+### Changed
+
+- **The Android install banner is a gold shiny** — the install invite now
+  wears the achievement system's gold award material (fill, travelling gleam,
+  breathing halo) stretched into a full-column banner, with the smartphone
+  glyph, a bracketed "[ Get the APK ↓ ]" action, roomier edges, 16px, and a
+  breath of space below the top edge. Built on a new generic ShinyChipComponent
+  so anything can wear a material without inline styling; the link keeps
+  resolving to the newest published APK release.
+- **Slack notifications stop underlining code** — the notifier posts its
+  Block Kit text verbatim, so a bare `ghcr.io/…` image ref inside a code chip
+  no longer renders as a barely-visible auto-link; explicit links still work.
+
 ## [2.0.0] — 2026-07-12
 
 ### Added

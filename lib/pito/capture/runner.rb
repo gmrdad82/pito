@@ -25,7 +25,7 @@ module Pito
 
       def initialize(scenario, browser: nil, root: Rails.root, io: $stdout)
         @scenario = scenario
-        @browser  = browser || Browser.new(viewport: scenario.viewport)
+        @browser  = browser || Browser.new(viewport: scenario.viewport, user_agent: scenario.user_agent)
         @root     = root
         @io       = io
       end

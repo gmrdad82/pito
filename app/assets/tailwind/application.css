@@ -285,6 +285,37 @@ body {
    scrollback (#pito-scrollback padding) so the chatbox left border lines up with
    the messages. On desktop this is removed (the centered 964 box matches the
    padding-less .pito-turn) — see the media query below. */
+/* ── Get-the-app banner (Pito::GetAppBannerComponent) ─────────────────────
+   The Android install invite AS A SHINY: the generic gold material chip
+   (Pito::ShinyChipComponent -> .pito-shiny: fill, travelling gleam,
+   breathing halo) stretched into a full-column banner. This modifier only
+   reshapes the chip — the material look stays 100% in the shiny system. */
+.pito-shiny.pito-get-app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 16px;
+  row-gap: 8px;
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  /* More air at the edges (owner, round 2) than the badge chip's 6/14. */
+  padding: 14px 32px 15px;
+  /* Owner exemption (2026-07-12): the install banner may exceed the 14px
+     base — one deliberate 16px anchor, same spirit as the wordmark's 18px.
+     Children inherit via the base `* { font-size: inherit }` rule. */
+  font-size: 16px;
+}
+/* Content alignment is handled HERE, not by utility timing: the action
+   cluster hugs the right edge on one line AND when it wraps under the
+   message on narrow phones. */
+.pito-shiny .pito-get-app__actions { margin-left: auto; }
+/* CTA + dismiss ride the material ink so they read on the gold fill;
+   brackets are the affordance (terminal button), no underline. */
+.pito-get-app__cta { color: var(--ink); text-decoration: none; }
+.pito-get-app__dismiss { color: var(--ink); opacity: 0.55; }
+
 .pito-conversation-col {
   padding-inline: 5px;
 }

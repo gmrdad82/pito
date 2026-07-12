@@ -2,18 +2,30 @@
     the inner wrapper reuses .pito-conversation-col (964px centered on desktop,
     5px-inset full width on mobile) so the banner always tracks the column
     width contract — deliberately NOT page-wide like the dev-only banner.
+    Floats 12px below the top edge and wears the SHINY award look (owner:
+    "make it look like a shiny") — a GOLD material chip composed through the
+    generic Pito::ShinyChipComponent, no inline material styling here.
     Hidden until the Stimulus controller confirms no stored dismissal. %>
-<div class="hidden fixed top-0 left-0 right-0 z-40" data-controller="pito--app-banner">
+<div class="hidden fixed top-3 left-0 right-0 z-40" data-controller="pito--app-banner">
   <div class="pito-conversation-col">
-    <div class="bg-surface border-x border-b border-default px-4 py-1 flex items-center justify-between gap-4">
-      <span class="text-fg-dim truncate"><%= Pito::Copy.render("pito.copy.get_app.banner") %></span>
-      <span class="flex items-center gap-4 shrink-0">
-        <%= link_to Pito::Copy.render("pito.copy.get_app.cta"), Pito::GetAppBannerComponent::APK_URL, class: "text-pito" %>
+    <%= render(Pito::ShinyChipComponent.new(material: "gold", tag_name: :div,
+                                            extra_class: "pito-get-app", seed: "get-the-apk")) do %>
+      <span class="flex items-center gap-3 min-w-0">
+        <%# Lucide `smartphone` (ISC), inlined like the mini-status icons. %>
+        <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="14" height="20" x="5" y="2" rx="0" ry="0"/>
+          <path d="M12 18h.01"/>
+        </svg>
+        <span><%= Pito::Copy.render("pito.copy.get_app.banner") %></span>
+      </span>
+      <span class="pito-get-app__actions flex items-center gap-4 shrink-0">
+        <%= link_to Pito::GetAppBannerComponent::APK_URL,
+                    class: "pito-get-app__cta whitespace-nowrap" do %>[ <%= Pito::Copy.render("pito.copy.get_app.cta") %> ↓ ]<% end %>
         <button type="button"
-                class="text-fg-faded cursor-pointer"
+                class="pito-get-app__dismiss cursor-pointer"
                 data-action="pito--app-banner#dismiss"
                 aria-label="<%= Pito::Copy.render("pito.copy.get_app.dismiss") %>">[x]</button>
       </span>
-    </div>
+    <% end %>
   </div>
 </div>

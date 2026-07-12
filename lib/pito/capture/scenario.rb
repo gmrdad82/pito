@@ -48,7 +48,7 @@ module Pito
 
       class InvalidScenario < StandardError; end
 
-      attr_reader :name, :base_url, :viewport, :steps, :path, :scope
+      attr_reader :name, :base_url, :viewport, :steps, :path, :scope, :user_agent
 
       def self.load(path, scope: nil)
         raw = YAML.safe_load_file(path, aliases: false)
@@ -74,6 +74,9 @@ module Pito
         @name     = raw["name"].to_s
         @base_url = raw["base_url"].to_s
         @viewport = DEFAULT_VIEWPORT.merge(raw["viewport"] || {})
+        # Optional UA override — e.g. an Android UA so UA-gated UI (the
+        # get-the-app banner) renders in a capture. nil = Chrome's default.
+        @user_agent = raw["user_agent"].presence
         @steps    = Array(raw["steps"])
         validate!
       end
