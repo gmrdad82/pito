@@ -79,9 +79,9 @@ All notable changes to PITO are documented here. The format follows
   restarting it — neighbours only, and never the same effect twice in a row
   when the art changes and the pool offers an alternative.
 - **The ffprobe snippet moved out** — `footage snippet` (and its `footage
-  game <id>` alias) left pito entirely; probing your recordings now lives in
+game <id>` alias) left pito entirely; probing your recordings now lives in
   pito-tui's ctrl+f flow, where the files actually are. `footage update
-  <id> <hours>` stays.
+<id> <hours>` stays.
 - **The scrollback never scrolls for you anymore** — the follow-the-newest
   feature is gone (an AI answer's tool iterations kept yanking the view
   mid-read). Reloading or resuming a conversation still lands on the
