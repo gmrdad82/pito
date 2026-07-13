@@ -4,6 +4,16 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] — 2026-07-13
+
+### Fixed
+
+- **`--web` is a command, not a suggestion** — the orchestrator now runs
+  the first web search itself on `@ai --web` turns and hands the model the
+  results, so no model can skip the web again (DeepSeek's tool forcing is
+  unreliable; ours isn't).
+- The AI now spells the product **PITO** — all caps, always.
+
 ## [2.1.0] — 2026-07-13
 
 ### Changed
