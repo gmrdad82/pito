@@ -95,7 +95,13 @@ class ApplicationController < ActionController::Base
             channels:          @channels,
             suggestions:       initial_showcase
           ),
-          status: :not_found
+          # 200 for the NATIVE SHELL, 404 for everyone else (owner ruling
+          # 2026-07-13, design A): Hotwire Native never renders an HTTP
+          # error's body — a deleted conversation's URL trapped the app on
+          # the library's dead error screen. Serving the SAME graceful
+          # not_found page as a success lets the app render it like any
+          # visit; browsers keep the honest 404.
+          status: hotwire_native_app? ? :ok : :not_found
         )
       end
       format.any { render json: { error: I18n.t("pito.not_found.error") }, status: :not_found }
