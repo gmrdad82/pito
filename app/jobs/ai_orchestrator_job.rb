@@ -72,8 +72,12 @@ class AiOrchestratorJob < ApplicationJob
   # The static protocol above + the content rules declared in
   # config/pito/content.yml (no emoji / kaomoji, styling, colors) — edited
   # there, never here.
+  # The product's name is spelled ONE way (owner 2026-07-13).
+  NAMING_LAW = "NAMING: the product is always written PITO — all caps, " \
+               "never Pito or pito."
+
   def self.system_prompt
-    "#{SYSTEM_PROMPT}\nCONTENT RULES:\n#{Ai::ContentRegistry.prompt_rules}"
+    "#{SYSTEM_PROMPT}\n#{NAMING_LAW}\nCONTENT RULES:\n#{Ai::ContentRegistry.prompt_rules}"
   end
 
   # The Finalizer's ai-pending gate: a persisted :ai event still awaiting fill.
@@ -115,6 +119,23 @@ class AiOrchestratorJob < ApplicationJob
       must_include_turn: anchor_turn
     )
     messages << { role: "user", content: prompt }
+
+    # --web is a COMMAND, not a suggestion (owner 2026-07-13): the model
+    # sometimes skipped the web tool despite the prompt line (DeepSeek's
+    # tool forcing is unreliable), so the orchestrator runs the FIRST
+    # web_search itself and hands the results in as context — deterministic
+    # on every model. The model still has the tools for follow-up searches.
+    if web
+      forced = Ai::ToolExecutor.call(name: "web_search", arguments: { "query" => prompt })
+      unless forced[:is_error]
+        messages << {
+          role: "user",
+          content: "[--web] Fresh web results the system already fetched for " \
+                   "this question — ground your answer in them (search again " \
+                   "only if these don't cover it):\n#{forced[:content]}"
+        }
+      end
+    end
 
     spent = 0
     @usage_input    = 0

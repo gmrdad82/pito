@@ -95,6 +95,40 @@ RSpec.describe AiOrchestratorJob do
       event.update!(payload: event.payload.except("web"))
       expect(job.send(:run_system_prompt)).not_to include("ARE available")
     end
+
+    it "FORCES the first web_search server-side on --web turns (owner: --web is a command, not a suggestion)" do
+      client = ScriptedClient.new([ response(text: "done") ])
+      allow(Ai::Client).to receive(:current).and_return(client)
+      turn  = make_turn("@ai --web what happened at the game awards")
+      event = make_pending_event(turn, "what happened at the game awards")
+      event.update!(payload: event.payload.merge("web" => true))
+
+      expect(Ai::ToolExecutor).to receive(:call)
+        .with(name: "web_search", arguments: { "query" => "what happened at the game awards" })
+        .and_return({ content: "fresh results", is_error: false })
+
+      described_class.new.perform(turn.id)
+
+      seeded = client.calls.first.select { |m| m[:content].to_s.include?("[--web] Fresh web results") }
+      expect(seeded.length).to eq(1)
+      expect(seeded.first[:content]).to include("fresh results")
+    end
+
+    it "never forces a search on plain ai turns" do
+      client = ScriptedClient.new([ response(text: "hi") ])
+      allow(Ai::Client).to receive(:current).and_return(client)
+      turn  = make_turn("@ai hello")
+      event = make_pending_event(turn, "hello")
+
+      expect(Ai::ToolExecutor).not_to receive(:call)
+      described_class.new.perform(turn.id)
+    end
+  end
+
+  describe "the naming law" do
+    it "spells the product PITO, all caps, in the system prompt" do
+      expect(described_class.system_prompt).to include("always written PITO")
+    end
   end
 
   describe "status line (T16.29: copy-only, gerund-led)" do
