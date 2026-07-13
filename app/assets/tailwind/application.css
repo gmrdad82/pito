@@ -723,20 +723,40 @@ body > .flex::before {
 .pito-conn-dot[data-state="connected"] .pito-conn-icon--cable { display: inline; }
 .pito-conn-dot[data-state="connecting"] .pito-conn-icon--plug { display: inline; }
 
-.pito-cable-spark {
+/* The payload act (owner 2026-07-13): the RED DOT is the pen — a fat
+   round dash traveling the cable's long run end to end — and the INK
+   (brand-pito grading to purple) fills the stroke behind it on the same
+   clock, then evaporates. Shared easing keeps pen and ink in lockstep. */
+.pito-cable-fill {
   opacity: 0;
-  stroke: var(--fg-default);
+  stroke: var(--brand-pito);
   stroke-width: 2.6;
-  stroke-dasharray: 16 100;
-  stroke-dashoffset: 116;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
 }
-.pito-cable-active .pito-cable-spark {
-  opacity: 1;
-  animation: pito-cable-spark-run 0.55s linear 1;
+.pito-cable-active .pito-cable-fill {
+  animation: pito-cable-fill-run 0.95s cubic-bezier(0.4, 0, 0.2, 1) 1;
 }
-@keyframes pito-cable-spark-run {
-  from { stroke-dashoffset: 116; }
-  to   { stroke-dashoffset: -16; }
+@keyframes pito-cable-fill-run {
+  0%   { stroke-dashoffset: 100; stroke: var(--brand-pito); opacity: 0.9; }
+  74%  { stroke-dashoffset: 0; stroke: var(--accent-purple); opacity: 0.85; }
+  100% { stroke-dashoffset: 0; stroke: var(--accent-purple); opacity: 0; }
+}
+.pito-cable-dot {
+  opacity: 0;
+  stroke: var(--accent-red);
+  stroke-width: 3.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 100;
+  stroke-dashoffset: 100.1;
+}
+.pito-cable-active .pito-cable-dot {
+  animation: pito-cable-dot-run 0.7s cubic-bezier(0.4, 0, 0.2, 1) 1;
+}
+@keyframes pito-cable-dot-run {
+  0%   { stroke-dashoffset: 100.1; opacity: 1; }
+  96%  { opacity: 1; }
+  100% { stroke-dashoffset: -0.1; opacity: 0; }
 }
 
 .pito-trend-number--down {

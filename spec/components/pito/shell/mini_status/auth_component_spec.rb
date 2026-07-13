@@ -31,7 +31,10 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
       expect(dot["data-authenticated"]).to eq("true")
       expect(dot.css("svg.pito-conn-icon--plug.text-orange")).not_to be_empty
       expect(dot.css("svg.pito-conn-icon--cable.text-green")).not_to be_empty
-      expect(dot.css("path.pito-cable-spark[pathLength]")).not_to be_empty
+      # The payload act (owner 2026-07-13): the red pen + its ink trail,
+      # both pathLength-normalized duplicates of the cable's long run.
+      expect(dot.css("path.pito-cable-dot[pathLength]")).not_to be_empty
+      expect(dot.css("path.pito-cable-fill[pathLength]")).not_to be_empty
       expect(node.css("span.text-fg-dim").text).to include("dev")
     end
 
