@@ -35,7 +35,9 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
     it "renders a man-page listing all config providers (sound; motion/fx removed)" do
       body = build_handler(raw: "/config").call.events.first[:payload]["body"]
       expect(body).to include("pito-help-block")
-      %w[google voyage igdb webhook me sound timezone].each { |p| expect(body).to include(p) }
+      %w[google voyage igdb webhook sound timezone].each { |p| expect(body).to include(p) }
+      # The nickname provider is PURGED (2.0.0) — never advertised again.
+      expect(Pito::Slash::HelpBuilder::ALL_CONFIG_PROVIDERS).not_to include("me")
     end
 
     it "renders a man-page help body" do

@@ -6,7 +6,7 @@ RSpec.describe Pito::Keybinding::HintComponent do
   describe "shortcut span" do
     it "renders the shortcut in bold yellow" do
       node = render_inline(described_class.new(shortcut: "ctrl+k", description: "commands"))
-      expect(node.css("span.font-bold.text-yellow").text).to include("ctrl+k")
+      expect(node.css("span.pito-kbd-shimmer").text).to include("ctrl+k")
     end
 
     it "adds data-* attributes from shortcut_data" do
@@ -14,7 +14,7 @@ RSpec.describe Pito::Keybinding::HintComponent do
         shortcut: "ctrl+k", description: "commands",
         shortcut_data: { action: "toggle", target: "audio" }
       ))
-      hint_span = node.css("span.font-bold.text-yellow").first
+      hint_span = node.css("span.pito-kbd-shimmer").first
       expect(hint_span["data-action"]).to eq("toggle")
       expect(hint_span["data-target"]).to eq("audio")
     end

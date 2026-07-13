@@ -5,9 +5,6 @@ en:
       # Each key resolves to a String (single line) or Array (variants).
       # Migrated from legacy pito.* namespace.
 
-      # Label for the dev-only bottom banner (rendered when Rails.env.development?).
-      development:
-        banner: "DEVELOPMENT"
 
       # Top banner offered to Android BROWSER visitors (never inside the
       # native shell — its Hotwire Native UA suppresses the render).
@@ -4174,7 +4171,7 @@ en:
         - "Take it easy. `list channels` keeps all the subs counts in one place."
         - "Bye! Go make something worth scheduling."
         - "Adiós, amigo. The IGDB import is one `import game <title>` away."
-        - "See you. Footage hours don't count themselves — well, the snippet does."
+        - "See you. Footage hours don't count themselves — `update game footage` still does."
         - "Peace! Your encrypted keys are safe; no SaaS is reading over your shoulder."
         - "Goodnight, and may your watch time be ever increasing."
         - "Later! I'll keep an eye on the upcoming releases for you."
@@ -8919,59 +8916,12 @@ en:
         - "Partial load: %{count} of %{total}. Full load requires `%{tool}`."
         - "%{count} rows. The list continues for %{rest} more. `%{tool}`."
       scrollback_nav:
-        # 50-variant dictionary for the scroll-nav count badge.
-        # Interpolates %{count} (integer) and %{direction} ("above" / "below").
-        count:
-          - "%{count} %{direction}"
-          - "%{count} more %{direction}"
-          - "%{direction}: %{count}"
-          - "%{direction} — %{count}"
-          - "%{count} {message|messages} %{direction}"
-          - "%{direction}: %{count} {message|messages}"
-          - "%{count} unread %{direction}"
-          - "%{direction}, %{count} more"
-          - "(%{count}) %{direction}"
-          - "%{count} more {message|messages} %{direction}"
-          - "%{direction} +%{count}"
-          - "+%{count} %{direction}"
-          - "%{count} %{direction} ↕"
-          - "%{direction}: +%{count}"
-          - "%{count} waiting %{direction}"
-          - "%{direction} — %{count} more"
-          - "%{count} {line|lines} %{direction}"
-          - "%{direction}: %{count} {line|lines}"
-          - "%{count} {item|items} %{direction}"
-          - "%{direction}: %{count} {item|items}"
-          - "%{count} {entry|entries} %{direction}"
-          - "%{direction}: %{count} {entry|entries}"
-          - "%{count} {turn|turns} %{direction}"
-          - "%{direction}: %{count} {turn|turns}"
-          - "%{count} {event|events} %{direction}"
-          - "%{direction}: %{count} {event|events}"
-          - "%{count} {segment|segments} %{direction}"
-          - "%{direction}: %{count} {segment|segments}"
-          - "%{count} unseen %{direction}"
-          - "%{direction}: %{count} unseen"
-          - "%{count} off-screen %{direction}"
-          - "%{count} left %{direction}"
-          - "%{direction}: %{count} left"
-          - "%{count} unseen, %{direction}"
-          - "%{count} more, %{direction}"
-          - "%{direction} holds %{count}"
-          - "%{count} hidden %{direction}"
-          - "%{direction}: %{count} hidden"
-          - "%{count} {prompt|prompts} %{direction}"
-          - "%{direction}: %{count} {prompt|prompts}"
-          - "%{count} {reply|replies} %{direction}"
-          - "%{direction}: %{count} {reply|replies}"
-          - "%{count} {note|notes} %{direction}"
-          - "%{direction} — %{count} unread"
-          - "%{count} unread, %{direction}"
-          - "%{count} {message|messages} {remains|remain} %{direction}"
-          - "%{direction}: %{count} more {message|messages}"
-          - "%{count} more {message|messages}, %{direction}"
-          - "%{direction} — %{count} {message|messages}"
-          - "%{count} {message|messages} %{direction}, unseen"
+        # ONE clear string per side (owner 2026-07-13: the 50-variant
+        # dictionary retired — pills read identically everywhere, web + tui).
+        # Interpolates %{count}; the kbd shortcut and jump glyph are rendered
+        # by the clients as separate pieces.
+        before: "%{count} msgs before"
+        after: "%{count} msgs after"
         jump_to_start: "▲"
         jump_to_end: "▼"
       purge_warning:

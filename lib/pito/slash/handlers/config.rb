@@ -19,7 +19,8 @@ module Pito
       #   → writes via `AppSetting` and broadcasts a settings-update cable event.
       # - Invalid toggle value → `Result::Error` with key `pito.slash.config.errors.invalid_toggle_value`.
       #
-      # (The `motion` toggle and `fx` reveal-effect provider were removed.)
+      # (The `motion` toggle and `fx` providers stay gone — the living
+      # background is configured in config/pito/fx.yml ONLY, owner law.)
       #
       # Bare `/config` (no provider) → general overview table of all providers.
       # Unknown provider → `Result::Error` with key `pito.slash.config.errors.unknown_provider`.

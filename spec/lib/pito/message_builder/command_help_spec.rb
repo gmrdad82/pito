@@ -212,7 +212,7 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "footage (multi-noun: game + snippet)" do
+      context "footage (usage-only: the ffprobe snippet retired to pito-tui)" do
         subject(:result) { described_class.call(:footage) }
 
         it "returns a valid html payload" do
@@ -220,9 +220,14 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "body lists both game and snippet forms" do
-          expect(result["body"]).to include("footage game")
-          expect(result["body"]).to include("footage snippet")
+        it "body carries the surviving update usage line" do
+          expect(result["body"]).to include("footage update")
+          expect(result["body"]).to include("&lt;id&gt;")
+          expect(result["body"]).to include("&lt;hours&gt;")
+        end
+
+        it "does not mention the retired snippet/game forms" do
+          expect(result["body"]).not_to include("snippet")
         end
       end
 
@@ -380,7 +385,10 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "footage game --help (subcommand)" do
+      context "footage --help with a stale noun (retired snippet/game forms)" do
+        # footage has no noun-level help pages anymore (usage-only, like
+        # `update`/`search`) — a noun arg is simply ignored, same as calling
+        # bare `footage --help`.
         subject(:result) { described_class.call(:footage, noun: :game) }
 
         it "returns an html payload" do
@@ -388,22 +396,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "usage line includes the footage game shape" do
-          expect(result["body"]).to include("footage game")
-          expect(result["body"]).to include("#id")
-        end
-      end
-
-      context "footage snippet --help (subcommand)" do
-        subject(:result) { described_class.call(:footage, noun: :snippet) }
-
-        it "returns an html payload" do
-          expect(result).to be_a(Hash)
-          expect(result["html"]).to be(true)
-        end
-
-        it "usage line includes the footage snippet shape" do
-          expect(result["body"]).to include("footage snippet")
+        it "falls back to the tool-level usage-only page" do
+          expect(result["body"]).to include("footage update")
         end
       end
 

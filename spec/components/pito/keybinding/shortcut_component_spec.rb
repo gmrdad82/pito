@@ -4,9 +4,9 @@ require "rails_helper"
 
 RSpec.describe Pito::Keybinding::ShortcutComponent do
   describe "rendered output" do
-    it "renders the keys text in a bold yellow span" do
+    it "renders the keys text in a kbd-shimmer span (bold fg + blue band via CSS)" do
       node = render_inline(described_class.new(keys: "ctrl+k"))
-      span = node.css("span.font-bold.text-yellow").first
+      span = node.css("span.pito-kbd-shimmer").first
       expect(span).not_to be_nil
       expect(span.text).to eq("ctrl+k")
     end
@@ -18,7 +18,7 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
 
     it "applies the shimmer class with a stable staggered offset bucket" do
       span = render_inline(described_class.new(keys: "ctrl+k")).css("span").first
-      expect(span["class"]).to include("pito-action-shimmer")
+      expect(span["class"]).to include("pito-kbd-shimmer")
       expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
       again = render_inline(described_class.new(keys: "ctrl+k")).css("span").first
       expect(again["class"]).to eq(span["class"])
@@ -43,7 +43,7 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
     it "renders various key strings correctly" do
       [ "shift+tab", "shift+space", "m", "ctrl+/", "ctrl+k" ].each do |keys|
         node = render_inline(described_class.new(keys: keys))
-        expect(node.css("span.font-bold.text-yellow").text).to eq(keys)
+        expect(node.css("span.pito-kbd-shimmer").text).to eq(keys)
       end
     end
   end

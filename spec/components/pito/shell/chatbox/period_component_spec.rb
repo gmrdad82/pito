@@ -28,19 +28,18 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
   end
 
   describe "shift+space shortcut (the label)" do
-    it "renders the shift+space shortcut in bold yellow" do
+    it "renders the shift+space shortcut as a kbd-shimmer token" do
       node = render_inline(described_class.new(period: "7d"))
-      yellow = node.css("span.font-bold.text-yellow").first
-      expect(yellow).not_to be_nil
-      expect(yellow.text).to include("shift+space")
+      kbd = node.css("span.pito-kbd-shimmer").first
+      expect(kbd).not_to be_nil
+      expect(kbd.text).to include("shift+space")
     end
 
     it "renders shift+space before the period value (shortcut is the label)" do
       node = render_inline(described_class.new(period: "7d"))
       spans = node.css("span.inline-flex.items-center.gap-2 > span")
       first_span = spans.first
-      expect(first_span["class"]).to include("font-bold")
-      expect(first_span["class"]).to include("text-yellow")
+      expect(first_span["class"]).to include("pito-kbd-shimmer")
       expect(first_span.text).to include("shift+space")
     end
   end

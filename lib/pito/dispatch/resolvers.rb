@@ -275,9 +275,8 @@ module Pito
       # Parses the `footage [update] <hours>` amount typed on a game-detail reply
       # into an exact half-step Rational (ceil UP to the next 0.5 h). Wraps the
       # shared Pito::Games::FootageAmount parser — the SAME one the `footage` chat
-      # tool and its GameDetail follow-up reply use (no fork). `footage snippet`
-      # (game-agnostic) carries no hours, so it resolves Invalid — callers route
-      # the snippet branch before binding the amount.
+      # tool and its GameDetail follow-up reply use (no fork). Non-numeric input
+      # resolves Invalid.
       #
       # Required context: none. Input: the reply args after `footage`.
       register(:footage_hours, lambda { |input, context:|

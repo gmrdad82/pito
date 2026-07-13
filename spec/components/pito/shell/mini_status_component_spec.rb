@@ -74,7 +74,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
 
       it "renders ctrl+k when authenticated and in start mode" do
         node = render_inline(described_class.new(mode: :start, state: true))
-        yellow_bold = node.css("span.font-bold.text-yellow")
+        yellow_bold = node.css("span.pito-kbd-shimmer")
         expect(yellow_bold.map(&:text)).to include("ctrl+k")
       end
 
@@ -97,7 +97,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
 
       it "renders notifications as ctrl+/ (yellow) + a muted count (item 7)" do
         node = render_inline(described_class.new(notifications: 2, show_notifications: true))
-        yellow = node.css("span.font-bold.text-yellow")
+        yellow = node.css("span.pito-kbd-shimmer")
         expect(yellow.map(&:text)).to include("ctrl+/")
         expect(node.text).to include("2")
           expect(node.to_html).to include("M10.268 21a2 2 0 0 0 3.464 0") # the bell
@@ -118,14 +118,14 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
       it "does NOT render notifications when unauthenticated (state: false)" do
         node = render_inline(described_class.new(notifications: 3, show_notifications: true, state: false))
         expect(node.to_html).not_to include("notifications")
-        expect(node.css("span.font-bold.text-yellow").map(&:text)).not_to include("ctrl+/")
+        expect(node.css("span.pito-kbd-shimmer").map(&:text)).not_to include("ctrl+/")
       end
     end
 
     context "always-present elements (connection mode only)" do
       it "renders the commands hint ('ctrl+k') in a bold yellow span" do
         node = render_inline(described_class.new)
-        yellow_bold = node.css("span.font-bold.text-yellow")
+        yellow_bold = node.css("span.pito-kbd-shimmer")
         expect(yellow_bold.map(&:text)).to include("ctrl+k")
       end
 

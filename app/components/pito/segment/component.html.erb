@@ -2,7 +2,7 @@
 <%# @background — content background (nil = transparent) %>
 <%# Alignment invariant: text sits 22px from the segment's left edge
     regardless of whether the bar is present. %>
-<div class="pito-segment flex"<% if @scrollback_message %> data-scrollback-message<% end %><% if @id %> id="<%= @id %>"<% end %>>
+<div class="pito-segment flex"<% if @scrollback_message %> data-scrollback-message<% end %><% if @id %> id="<%= @id %>"<% end %><% if fx_context %> data-fx-context="<%= fx_context %>"<% end %><% if fx_covers_json %> data-fx-covers="<%= fx_covers_json %>"<% end %>>
   <% if @accent %>
     <div class="pito-segment__bar" data-accent="<%= @accent %>"></div>
     <div class="pito-segment__gap"></div>

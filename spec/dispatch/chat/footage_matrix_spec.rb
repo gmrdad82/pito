@@ -27,11 +27,11 @@ require "rails_helper"
 #                          reply on a game_detail card routes through the
 #                          separate Pito::FollowUp::Handlers::GameDetail and is
 #                          untouched by this change.)
-#   "game" subcommand     → NEW: an alias for snippet. Any/no trailing ref is
-#                          ignored — identical Result::Ok to bare `footage
-#                          snippet` (no per-game lookup, no DB call).
-#   "snippet" subcommand → emit :system event with copyable ffprobe one-liner
-#   anything else        → Result::Error (needs_ref usage hint)
+#   anything else         → Result::Error (needs_ref usage hint)
+#
+# The `footage snippet` / `footage game <id>` ffprobe one-liner was RETIRED
+# 2026-07-13 (moved to pito-tui, ctrl+f) — "snippet" and "game" are now just
+# unrecognized subcommands like any other, covered by the needs_ref table below.
 #
 # Hours parsing (parse_hours, follow-up "update" path only):
 #   Zero or positive value → BigDecimal, ceil UP to next 0.5 step, returned as Rational
@@ -49,13 +49,10 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
   let(:game)         { double("Game", id: FOOTAGE_GAME_ID, title: "Elden Ring", footage_hours: 10.0) }
   let(:conversation) { double("Conversation") }
 
-  # Default stubs: game lookup always succeeds; update! always returns true;
-  # Snippet builder stubbed to avoid ViewComponent rendering in recognition tests.
+  # Default stubs: game lookup always succeeds; update! always returns true.
   before do
     allow(::Game).to receive(:find_by).and_return(game)
     allow(game).to receive(:update!).and_return(true)
-    allow(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
-      .and_return({ "body" => "<div></div>", "html" => true })
   end
 
   # Build and invoke a Footage handler from a raw string. The handler reads ONLY
@@ -75,9 +72,10 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
 
   # ── needs_ref → Result::Error ──────────────────────────────────────────────
   #
-  # Every bare or unrecognized subcommand (not "update", "snippet", or "game")
-  # → Error :needs_ref. "update" now always moves (see below); "game" now
-  # always aliases the snippet (see below) — neither reaches needs_ref anymore.
+  # Every bare or unrecognized subcommand (not "update") → Error :needs_ref.
+  # "update" always moves in free chat (see below); "snippet" and "game" are
+  # retired (2026-07-13, moved to pito-tui) and now just fall through here like
+  # any other unrecognized word.
 
   describe "needs_ref → Result::Error (pito.chat.footage.needs_ref)" do
     {
@@ -87,7 +85,9 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
       "footage #5 2.5"         => "id in subcommand slot (no 'update' keyword)",
       "footage 5 2.5"          => "bare id in subcommand slot",
       "footage 2.5"            => "only hours, no subcommand",
-      "footage unknown arg"    => "arbitrary unknown subcommand"
+      "footage unknown arg"    => "arbitrary unknown subcommand",
+      "footage snippet"        => "retired snippet subcommand — no longer special-cased",
+      "footage game 5"         => "retired game subcommand — no longer aliases snippet"
     }.each do |raw, description|
       it "#{raw.inspect} (#{description}) → Result::Error :needs_ref" do
         result = call(raw)
@@ -95,56 +95,11 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
         expect(result.message_key).to eq("pito.chat.footage.needs_ref")
       end
     end
-  end
 
-  # ── footage game <anything> → Result::Ok (snippet alias) ──────────────────
-  #
-  # NEW: "game" is a plain alias for the snippet — whatever follows it (an id,
-  # noise, or nothing) is ignored. No per-game lookup, no DB call; identical
-  # Result::Ok to bare `footage snippet`.
-
-  describe "footage game <anything> → Result::Ok (snippet alias, no DB access)" do
-    {
-      "footage game 5"                  => "id after 'game' — still the game-agnostic snippet",
-      "footage game"                    => "bare 'game', no id — snippet",
-      "footage game #5"                 => "#-prefixed id — ref is ignored",
-      "footage game unrelated noise 99" => "arbitrary trailing tokens — still snippet"
-    }.each do |raw, description|
-      it "#{raw.inspect} (#{description}) → Result::Ok, :system event" do
-        expect(::Game).not_to receive(:find_by)
-        result = call(raw)
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        expect(result.events.first[:kind]).to eq(:system)
-      end
-    end
-
-    it "Pito::MessageBuilder::Footage::Snippet.call is invoked for 'footage game 5'" do
-      expect(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
-        .once.and_return({ "body" => "<div></div>", "html" => true })
-      call("footage game 5")
-    end
-  end
-
-  # ── snippet → Result::Ok (:system event) ──────────────────────────────────
-  #
-  # `footage snippet` emits a copyable ffprobe shell one-liner. No game lookup.
-
-  describe "footage snippet → Result::Ok (:system event, no DB access)" do
-    it "footage snippet → Result::Ok with :system event" do
-      result = call("footage snippet")
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:kind]).to eq(:system)
-    end
-
-    it "Game.find_by is never called for the snippet subcommand" do
+    it "Game.find_by is never called for the retired 'snippet'/'game' subcommands" do
       expect(::Game).not_to receive(:find_by)
       call("footage snippet")
-    end
-
-    it "Pito::MessageBuilder::Footage::Snippet.call is invoked once" do
-      expect(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
-        .once.and_return({ "body" => "<div></div>", "html" => true })
-      call("footage snippet")
+      call("footage game 5")
     end
   end
 
@@ -209,11 +164,11 @@ RSpec.describe "Dispatch matrix — footage (recognition, DB mocked)", type: :di
       expect(result.message_key).to eq("pito.chat.footage.needs_ref")
     end
 
-    it "'footage snippet' in follow-up context → Result::Ok (snippet is context-free)" do
+    it "'footage snippet' in follow-up context → needs_ref (retired, no longer context-free)" do
       ctx    = Pito::Chat::FollowUpContext.new(source_event: source_event, rest: "footage snippet")
       result = call("footage snippet", follow_up: ctx)
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:kind]).to eq(:system)
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.footage.needs_ref")
     end
 
     it "full 'footage update #5 3' in follow-up → resolves from typed id (NOT source payload)" do

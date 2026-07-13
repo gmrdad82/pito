@@ -4,12 +4,13 @@
     are none (owner: create/remove, never show/hide). Pills are position:fixed, so
     this wrapper stays zero-height in the flex column. %>
 <div data-controller="pito--scroll-nav"
-     data-pito--scroll-nav-variants-value="<%= count_variants_json %>">
+     data-pito--scroll-nav-before-value="<%= before_template %>"
+     data-pito--scroll-nav-after-value="<%= after_template %>">
 
   <%# TOP pill template — cloned + appended when messages are above the viewport. %>
   <template data-pito--scroll-nav-target="topTemplate">
     <div class="pito-scroll-nav__pill pito-scroll-nav__pill--top">
-      <span class="text-fg-dim" data-scroll-nav-count></span>
+      <span class="text-fg-default" data-scroll-nav-count></span>
       <span class="<%= token_class("ctrl+home") %> cursor-pointer"
             data-action="click->pito--scroll-nav#jumpTop">ctrl+home</span>
       <span class="text-fg-dim"><%= jump_to_start %></span>
@@ -19,7 +20,7 @@
   <%# BOTTOM pill template — cloned + appended when messages are below the viewport. %>
   <template data-pito--scroll-nav-target="bottomTemplate">
     <div class="pito-scroll-nav__pill pito-scroll-nav__pill--bottom">
-      <span class="text-fg-dim" data-scroll-nav-count></span>
+      <span class="text-fg-default" data-scroll-nav-count></span>
       <span class="<%= token_class("ctrl+end") %> cursor-pointer"
             data-action="click->pito--scroll-nav#jumpBottom">ctrl+end</span>
       <span class="text-fg-dim"><%= jump_to_end %></span>

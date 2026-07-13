@@ -18,13 +18,12 @@
 //     be simulated in jsdom. The programmaticScrolling flag is set to false after
 //     the connect-time grace timer (setTimeout 0) fires.
 //
-// Behaviours verified:
-//   1. pito:submitted calls scrollTo (unlocks + scrolls to bottom)
-//   2. A new appended child triggers scrollTo via MutationObserver
-//   3. Appended echo/non-echo nodes dispatch pito:echo-appended / pito:result-appended
-//   4. User scroll-up > 80 px locks auto-scroll (suppresses scrollTo on MO)
-//   5. User scroll near bottom (< 80 px) does NOT lock
-//   6. Downward scroll after pito:submitted does not set the lock
+// Behaviours verified (THE PURGE, owner 2026-07-13 — the scrollback never
+// scrolls on its own; ctrl+home/end pills are the navigation):
+//   1. connect jumps instantly to the end (page load / conversation resume)
+//   2. Appended children NEVER trigger a scroll (the purged follow feature)
+//   3. Appended echo/non-echo nodes still dispatch their bus events
+//   4. pito:submitted jumps to the end (the user just acted)
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -87,139 +86,58 @@ describe("pito--scrollback controller", () => {
     document.body.innerHTML = ""
   })
 
-  // ── pito:submitted ────────────────────────────────────────────────────────
+  it("jumps instantly to the end on connect (reload / resume)", async () => {
+    const { scrollCalls } = buildScrollback()
+    await waitForConnect()
 
-  it("pito:submitted calls scrollTo on the scrollback element", async () => {
+    expect(scrollCalls.length).toBeGreaterThan(0)
+    expect(scrollCalls[0]).toMatchObject({ top: 500, behavior: "instant" })
+  })
+
+  it("NEVER scrolls when children are appended (the purged follow feature)", async () => {
     const { el, scrollCalls } = buildScrollback()
     await waitForConnect()
-
     const before = scrollCalls.length
-    document.dispatchEvent(new CustomEvent("pito:submitted"))
 
-    expect(scrollCalls.length).toBeGreaterThan(before)
-    expect(scrollCalls.at(-1)).toMatchObject({ top: expect.any(Number) })
-  })
-
-  it("pito:submitted unlocks scroll after a manual scroll-up lock", async () => {
-    const { el, scrollCalls } = buildScrollback({ scrollHeight: 500, scrollTop: 200, clientHeight: 300 })
-    await waitForConnect()
-
-    // Lock: first scroll to initialise lastScrollTop, then scroll up.
-    el.dispatchEvent(new Event("scroll"))
-    el.scrollTop = 50
-    el.dispatchEvent(new Event("scroll"))
-
-    // Submit: should unlock and re-scroll.
-    const before = scrollCalls.length
-    document.dispatchEvent(new CustomEvent("pito:submitted"))
-
-    expect(scrollCalls.length).toBeGreaterThan(before)
-  })
-
-  // ── MutationObserver triggers scroll ─────────────────────────────────────
-
-  it("appending a child triggers scrollTo via MutationObserver", async () => {
-    const { el, scrollCalls } = buildScrollback()
-    await waitForConnect()
-
-    const before = scrollCalls.length
-    el.appendChild(document.createElement("div"))
-    await waitForMO()
-
-    expect(scrollCalls.length).toBeGreaterThan(before)
-  })
-
-  it("appended echo element (data-accent=purple) dispatches pito:echo-appended", async () => {
-    const { el } = buildScrollback()
-    await waitForConnect()
-
-    let echoCaught = null
-    document.addEventListener("pito:echo-appended", (e) => { echoCaught = e }, { once: true })
-
-    const wrapper = document.createElement("div")
-    const inner = document.createElement("div")
-    inner.dataset.accent = "purple"
-    wrapper.appendChild(inner)
-    el.appendChild(wrapper)
-    await waitForMO()
-
-    expect(echoCaught).not.toBeNull()
-  })
-
-  it("appended non-echo element dispatches pito:result-appended", async () => {
-    const { el } = buildScrollback()
-    await waitForConnect()
-
-    let resultCaught = null
-    document.addEventListener("pito:result-appended", (e) => { resultCaught = e }, { once: true })
-
-    el.appendChild(document.createElement("div"))
-    await waitForMO()
-
-    expect(resultCaught).not.toBeNull()
-  })
-
-  // ── User scroll-up locking ────────────────────────────────────────────────
-
-  it("scroll-up > SCROLL_LOCK_THRESHOLD (80 px) suppresses auto-scroll", async () => {
-    // scrollHeight=500, clientHeight=300 → bottom = scrollTop 200
-    // After scroll-up to 50: distanceFromBottom = 500 - 50 - 300 = 150 > 80 → lock
-    const { el, scrollCalls } = buildScrollback({ scrollHeight: 500, scrollTop: 200, clientHeight: 300 })
-    await waitForConnect()
-
-    // Fire a scroll event to initialise lastScrollTop, then scroll up.
-    el.dispatchEvent(new Event("scroll"))
-    el.scrollTop = 50
-    el.dispatchEvent(new Event("scroll"))
-
-    // Now a child appends — scrollTo should NOT be called (locked).
-    const before = scrollCalls.length
-    el.appendChild(document.createElement("div"))
+    const node = document.createElement("div")
+    node.innerHTML = "<span>new message</span>"
+    el.appendChild(node)
     await waitForMO()
 
     expect(scrollCalls.length).toBe(before)
   })
 
-  it("scroll-up within SCROLL_LOCK_THRESHOLD (<= 80 px) does not lock", async () => {
-    // After scroll: distanceFromBottom = 500 - 195 - 300 = 5 < 80 → no lock
-    const { el, scrollCalls } = buildScrollback({ scrollHeight: 500, scrollTop: 200, clientHeight: 300 })
+  it("still announces appended segments on the event bus", async () => {
+    const { el } = buildScrollback()
     await waitForConnect()
 
-    // Fire a scroll event to initialise lastScrollTop, then scroll up slightly.
-    el.dispatchEvent(new Event("scroll"))
-    el.scrollTop = 195
-    el.dispatchEvent(new Event("scroll"))
+    const seen = []
+    const record = (e) => seen.push(e.type)
+    document.addEventListener("pito:echo-appended", record)
+    document.addEventListener("pito:result-appended", record)
 
-    const before = scrollCalls.length
-    el.appendChild(document.createElement("div"))
+    const echo = document.createElement("div")
+    echo.innerHTML = "<div data-accent=\"purple\"></div>"
+    el.appendChild(echo)
+    const result = document.createElement("div")
+    result.innerHTML = "<span>answer</span>"
+    el.appendChild(result)
     await waitForMO()
 
-    expect(scrollCalls.length).toBeGreaterThan(before)
+    expect(seen).toContain("pito:echo-appended")
+    expect(seen).toContain("pito:result-appended")
+    document.removeEventListener("pito:echo-appended", record)
+    document.removeEventListener("pito:result-appended", record)
   })
 
-  // ── Programmatic-scroll flag prevents false lock ──────────────────────────
-  //
-  // JSDOM NOTE: The smooth-scroll animation (SMOOTH_SCROLL_GRACE 600 ms) cannot
-  // be simulated in jsdom. We test the observable result: a programmatic
-  // pito:submitted followed immediately by a downward scroll event does not set
-  // the lock, so a subsequent append still triggers scrollTo.
-
-  it("downward scroll after pito:submitted does not set the lock", async () => {
-    const { el, scrollCalls } = buildScrollback({ scrollHeight: 500, scrollTop: 200, clientHeight: 300 })
+  it("pito:submitted jumps to the end (the user just acted)", async () => {
+    const { scrollCalls } = buildScrollback()
     await waitForConnect()
+    const before = scrollCalls.length
 
-    // Trigger a programmatic scroll via pito:submitted.
     document.dispatchEvent(new CustomEvent("pito:submitted"))
 
-    // Fire a downward scroll event immediately.
-    el.scrollTop = 210
-    el.dispatchEvent(new Event("scroll"))
-
-    const before = scrollCalls.length
-    el.appendChild(document.createElement("div"))
-    await waitForMO()
-
-    // Downward event during programmatic scroll should not lock.
     expect(scrollCalls.length).toBeGreaterThan(before)
+    expect(scrollCalls.at(-1)).toMatchObject({ top: 500 })
   })
 })

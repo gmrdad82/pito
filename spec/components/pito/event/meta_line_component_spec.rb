@@ -34,18 +34,18 @@ RSpec.describe Pito::Event::MetaLineComponent do
       hint = node.css("[data-pito-lasthashtag-hint]").first
       expect(hint).not_to be_nil
       expect(hint["class"]).to include("hidden")
-      expect(hint.css("span.pito-action-shimmer.text-yellow")).not_to be_empty
+      expect(hint.css("span.pito-kbd-shimmer")).not_to be_empty
       expect(hint.text.strip).to eq("shift+r")
     end
 
     it "wires the shift+r hint to prefill `#<handle> ` instead of synthesizing a keydown" do
       node = render_inline(described_class.new(handle: "alpha-42"))
-      kbd = node.css("[data-pito-lasthashtag-hint] span.pito-action-shimmer").first
+      kbd = node.css("[data-pito-lasthashtag-hint] span.pito-kbd-shimmer").first
       expect(kbd["data-controller"]).to eq("pito--chat-prefill")
       expect(kbd["data-action"]).to eq("click->pito--chat-prefill#fill")
       expect(kbd["data-pito--chat-prefill-text-value"]).to eq("#alpha-42 ")
-      # keeps the yellow kbd styling, drops the kbd-click wiring
-      expect(kbd["class"]).to include("text-yellow")
+      # keeps the kbd shimmer styling, drops the kbd-click wiring
+      expect(kbd["class"]).to include("pito-kbd-shimmer")
       expect(kbd["data-controller"]).not_to include("pito--kbd-click")
     end
 

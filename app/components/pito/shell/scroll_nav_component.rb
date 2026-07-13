@@ -28,15 +28,19 @@ module Pito
         Pito::Copy.render("pito.copy.scrollback_nav.jump_to_end")
       end
 
-      # All 50 count-variant template strings as a JSON array, for the JS
-      # controller to interpolate %{count} / %{direction} at runtime.
-      def count_variants_json
-        raw = I18n.t("pito.copy.scrollback_nav.count", raise: true)
-        Array(raw).to_json
+      # The ONE copy template per side (owner 2026-07-13 — the 50-variant
+      # dictionary is retired; web + tui read identically). Raw I18n string:
+      # %{count} interpolates client-side, same deferral as the old array.
+      def before_template
+        I18n.t("pito.copy.scrollback_nav.before", raise: true)
+      end
+
+      def after_template
+        I18n.t("pito.copy.scrollback_nav.after", raise: true)
       end
 
       # Yellow (clickable) shimmer CSS class for the jump token span.
-      # `clickable: true` selects the YELLOW pito-action-shimmer (not cyan).
+      # `clickable: true` selects the clickable pito-action-shimmer (fg-default + purple band).
       def token_class(text)
         Pito::Shimmer::TokenComponent.css_class(text, clickable: true)
       end

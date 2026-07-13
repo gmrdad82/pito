@@ -33,17 +33,16 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
 
   it "renders the shift+tab shortcut in bold yellow" do
     node = render_inline(described_class.new(channel: "@all"))
-    yellow = node.css("span.font-bold.text-yellow").first
-    expect(yellow).not_to be_nil
-    expect(yellow.text).to include("shift+tab")
+    kbd = node.css("span.pito-kbd-shimmer").first
+    expect(kbd).not_to be_nil
+    expect(kbd.text).to include("shift+tab")
   end
 
   it "renders shift+tab before the channel value (shortcut is the label)" do
     node = render_inline(described_class.new(channel: "@all"))
     spans = node.css("span.inline-flex.items-center.gap-2 > span")
     first_span = spans.first
-    expect(first_span["class"]).to include("font-bold")
-    expect(first_span["class"]).to include("text-yellow")
+    expect(first_span["class"]).to include("pito-kbd-shimmer")
     expect(first_span.text).to include("shift+tab")
   end
 

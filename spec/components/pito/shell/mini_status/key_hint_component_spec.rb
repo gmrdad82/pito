@@ -4,21 +4,21 @@ require "rails_helper"
 
 RSpec.describe Pito::Shell::MiniStatus::KeyHintComponent do
   describe "hint span" do
-    it "renders the hint text in a bold yellow span" do
+    it "renders the hint text in a kbd-shimmer span" do
       node = render_inline(described_class.new(hint: "ctrl+k", label: "commands"))
-      expect(node.css("span.font-bold.text-yellow").text).to include("ctrl+k")
+      expect(node.css("span.pito-kbd-shimmer").text).to include("ctrl+k")
     end
 
     it "adds data-* attributes from hint_data onto the hint span" do
       node = render_inline(described_class.new(hint: "ctrl+m", label: "mute", hint_data: { action: "toggle", target: "audio" }))
-      hint_span = node.css("span.font-bold.text-yellow").first
+      hint_span = node.css("span.pito-kbd-shimmer").first
       expect(hint_span["data-action"]).to eq("toggle")
       expect(hint_span["data-target"]).to eq("audio")
     end
 
     it "still wires the kbd-click attrs on the hint span (always tappable) when hint_data is omitted" do
       node = render_inline(described_class.new(hint: "tab", label: "channels"))
-      hint_span = node.css("span.font-bold.text-yellow").first
+      hint_span = node.css("span.pito-kbd-shimmer").first
       expect(hint_span["data-controller"]).to eq("pito--kbd-click")
       expect(hint_span["data-action"]).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire")
       expect(hint_span["data-pito--kbd-click-key-value"]).to eq("tab")
@@ -48,7 +48,7 @@ RSpec.describe Pito::Shell::MiniStatus::KeyHintComponent do
   describe "without optional params" do
     it "renders successfully with only hint and label" do
       node = render_inline(described_class.new(hint: "tab", label: "channels"))
-      expect(node.css("span.font-bold.text-yellow").text).to include("tab")
+      expect(node.css("span.pito-kbd-shimmer").text).to include("tab")
       expect(node.css("span.text-fg-dim").text).to include("channels")
     end
   end

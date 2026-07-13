@@ -754,8 +754,6 @@ tools:
           ref: { resolver: source_entity }   # game from payload game_id
           args:
             hours: { resolver: footage_hours }   # `footage [update] <hours>` → 0.5-step Rational
-          # `footage snippet` (game-agnostic) carries no hours — it resolves
-          # Invalid and stays a GameDetail branch (routed before the amount binds).
 
   price:
     description: pito.grammar.chat.price

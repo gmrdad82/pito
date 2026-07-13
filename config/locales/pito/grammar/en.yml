@@ -19,7 +19,7 @@ en:
         list: "List games in your library"
         show: "Show a game or vid's details (by id)"
         import: "Import a game from IGDB into your library"
-        footage: "Get the footage probe command for a game (by id or title)"
+        footage: "Set a game's total footage hours (e.g. update game footage 12 8.5)"
         delete: "Delete a game or vid (by id or title)"
         reindex: "Re-embed a game or vid in Voyage (by id or title)"
         platform: "Add or remove a game's platform (e.g. platform set 12 ps5, platform unset 12 ps5)"

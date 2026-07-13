@@ -117,9 +117,10 @@ RSpec.describe Pito::Ai::PickerComponent, type: :component do
     expect(node.css('[data-row-type="effort"]').first.text).to include("model default")
   end
 
-  it "headers the active pick, or 'no model selected'" do
-    expect(render_picker.text).to include("opencode/")
-    expect(render_picker(active_model: nil).text).to include("no model selected")
+  it "keeps the header to title + Esc — no active-model summary (owner 2026-07-12)" do
+    header = render_picker.css("#pito-ai-picker .font-bold").first.parent
+    expect(header.text).not_to include("opencode/")
+    expect(header.text).not_to include("no model selected")
   end
 
   it "never emits a value attribute on any password input" do

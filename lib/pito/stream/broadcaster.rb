@@ -75,6 +75,8 @@ module Pito
             Pito::FollowUp.ensure_handle!(payload, conversation: @conversation)
           end
         end
+        # (The living-background fx stamp lives in Event.create_with_position!
+        # — the ONE create door every path shares; see app/models/event.rb.)
         event = ::Event.create_with_position!(conversation: @conversation, turn:, kind:, payload:)
         broadcast_event(event)
         event
@@ -143,6 +145,17 @@ module Pito
       # Used by confirmation routing to flip a segment to processing/resolved state.
       def replace_event(event)
         Pito::Stream::ScrollbackCache.bust(@conversation)
+
+        # Re-derive the fx stamp (F2): a replace-style follow-up may have
+        # changed what the message IS (columns added, similars joined) — the
+        # mood must track the content it replaces.
+        if Pito::Fx::Context.eligible?(event.kind)
+          fx = Pito::Fx::Context.derive(kind: event.kind, payload: event.payload)
+          if fx != event.payload["fx"]
+            event.payload = fx ? event.payload.merge("fx" => fx) : event.payload.except("fx")
+            event.save!
+          end
+        end
 
         html    = Pito::Stream::EventRenderer.render(event)
         helper  = ApplicationController.helpers

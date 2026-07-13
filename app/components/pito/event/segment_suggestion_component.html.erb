@@ -3,6 +3,6 @@
   <% if @code.present? %><span class="bg-elevated px-1.5 border border-line-default text-fg"><%= @code %></span><% end -%>
   <% if @post.present? %> <span class="text-fg-dim"><%= @post %></span><% end -%>
   <% if @shortcut.present? %>
-    <span class="text-fg-faded mx-2">—</span><span class="font-bold text-yellow" data-controller="pito--kbd-click" data-pito--kbd-click-key-value="<%= @shortcut %>" data-action="click->pito--kbd-click#fire"><%= @shortcut %></span><% if @run_label.present? %> <span class="text-fg-dim"><%= @run_label %></span><% end %>
+    <span class="text-fg-faded mx-2">—</span><span class="pito-kbd-shimmer <%= Pito::Shimmer.offset_class(@shortcut) %>" data-controller="pito--kbd-click" data-pito--kbd-click-key-value="<%= @shortcut %>" data-action="click->pito--kbd-click#fire"><%= @shortcut %></span><% if @run_label.present? %> <span class="text-fg-dim"><%= @run_label %></span><% end %>
   <% end %>
 <% end %>

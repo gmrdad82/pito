@@ -20,7 +20,10 @@
   <%# Horizontal padding lives in CSS (17.11): 5px on mobile to match the
       scrollback's 5px, 0 on desktop to match the centered .pito-turn (which has
       none) so the chatbox left border lines up with the messages. %>
-  <div class="pito-conversation-col" style="padding-bottom: 32px;">
+  <%# Bottom breathing room lives on .pito-chatdock (CSS): 12px in
+      production, 32px in development where the DEVELOPMENT ribbon
+      occupies the strip — the prod-only dead gap fix. %>
+  <div class="pito-conversation-col pito-chatdock<%= " pito-chatdock--dev" if Rails.env.development? %>">
     <%# CTXF5: meter only inside an authenticated conversation — never for
         unauthenticated visitors, start_screen, or not_found. %>
     <% if @authenticated %>

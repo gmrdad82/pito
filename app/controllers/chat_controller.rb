@@ -681,52 +681,16 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
-    active_provider = AppSetting.get("ai_provider").presence || "opencode"
-    providers = Ai::ProviderRegistry.provider_names.map do |name|
-      config      = Ai::ProviderRegistry.provider(name)
-      key_present = AppSetting.get("#{name}_api_key").present?
-      {
-        provider:    name.to_s,
-        label:       config[:label],
-        key_present: key_present,
-        reasoning:   config.dig(:capabilities, :reasoning).to_s,
-        # Live fetch only where it can succeed (a key on file — or OpenCode
-        # Zen, which lists models unauthenticated); keyless providers list
-        # NOTHING — the section renders the key-gate copy line instead of
-        # pinned placeholders (owner call), and never stacks doomed requests.
-        models:      key_present || name == :opencode ? Ai::ModelCatalog.models(provider: name) : []
-      }
-    end
-
     # Turnless fast-path: no ChatDispatchJob will ever complete a turn here, so
     # emit the done signal ourselves — otherwise the post-command dots comet
     # keeps running behind the open picker (owner report).
     Pito::Stream::Broadcaster.new(conversation:).broadcast_done(dom_id: "pito-scrollback")
 
-    active_model = AppSetting.get("ai_model")
-    active_entry = active_model.presence && "#{active_provider}/#{active_model}"
-
-    # Models THIS conversation's answers already used (✨ badge stamps),
-    # newest first — the picker's "Conversation" group.
-    conversation_models = conversation.events.where(kind: "ai")
-                                      .order(id: :desc).limit(50)
-                                      .filter_map { |e|
-                                        p = e.payload["provider"].presence
-                                        m = e.payload["model"].presence
-                                        "#{p}/#{m}" if p && m
-                                      }.uniq.first(5)
-
+    # ONE assembly shared with GET /settings/ai.json (pito-tui's picker) —
+    # the two faces can never drift.
     render partial: "chat/ai_picker",
            formats: [ :turbo_stream ],
-           locals:  {
-             providers:           providers,
-             active_provider:     active_provider,
-             active_model:        active_model,
-             effort:              active_entry && AppSetting.ai_effort_for(active_entry),
-             favorites:           AppSetting.ai_favorites,
-             recents:             AppSetting.ai_recents,
-             conversation_models: conversation_models
-           }
+           locals:  Ai::PickerState.call(conversation:)
   end
 
   def handle_theme_sidebar(conversation)

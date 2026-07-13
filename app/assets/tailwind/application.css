@@ -54,9 +54,18 @@
      its own base/band colour tokens so they retune with one edit. */
   --pito-shimmer-angle: 135deg;   /* diagonal sweep angle, everywhere */
   --pito-shimmer-speed: 5s;       /* sweep duration, everywhere (incl. charts/badges) */
-  /* action — CLICKABLE elements (keys, links, clickable tokens): pito-blue + purple. */
-  --shimmer-action-base: var(--brand-pito);
+  /* TEXT bands (kbd + clickable tokens) sweep FASTER (owner round 5: the band
+     is a thin abrupt glint now — at 5s it read as a slow purple wash). */
+  --pito-shimmer-speed-text: 2.6s;
+  /* action — CLICKABLE tokens (#id / @handle prefills, links): fg-default base
+     + the theme's PURPLE band (owner round 5: every special token rests on the
+     same white as plain text; only the sweeping band carries color). */
+  --shimmer-action-base: var(--fg-default);
   --shimmer-action-band: var(--accent-purple);
+  /* kbd — KEYBINDINGS (shift+r, ctrl+k, …): fg-default base + the theme's
+     BLUE band (the palette token, NOT pito-blue). */
+  --shimmer-kbd-base: var(--fg-default);
+  --shimmer-kbd-band: var(--accent-blue);
   /* network — ALL network activity (thinking, IGDB search/import, notif load-more):
      the INVERSE of action (purple base + pito-blue band). */
   --shimmer-network-base: var(--accent-purple);
@@ -200,6 +209,182 @@ body {
   scroll-padding-bottom: 20px;
 }
 
+/* ── The living background's canvas (2.1.0) ──────────────────────
+   ONE fixed canvas under the whole app: the resting star sky + (P5) the
+   enforcer passes. Behind everything by stacking order (first body child,
+   z-0); inert to input. The page keeps its own bg — the canvas paints
+   OVER body's bg-root and UNDER all content, so the sky lives exactly in
+   the app's negative space (the TUI law). */
+.pito-fx-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Content must stack above the canvas: the layout's direct wrappers gain
+   a stacking context via z-index on their existing positioning. */
+body > .flex, body > main, #pito-scrollback { position: relative; z-index: 1; }
+/* THE CONVERSATION VEIL (owner design, rounds 3-4): a faint page-color
+   band EXACTLY as wide as the message column (964px centered, full width
+   on phones) — reading is enriched inside it, the mood keeps full glory
+   in the margins. One fixed band spans scrollback and dock alike; z:-1
+   tucks it under the messages but above the canvas (the scrollback's own
+   stacking context). */
+body > .flex::before {
+  /* Homed on the SHELL wrapper (not the scrollback): the wrapper owns the
+     scrollback AND the chat dock, so one band veils the entire column —
+     messages, chatbox, status row — top to bottom (owner: the chatbox
+     zone looked naked without it). z:-1 = above the canvas, below all
+     content within the wrapper's stacking context. */
+  content: "";
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, 976px);
+  background: color-mix(in srgb, var(--bg-root) 55%, transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── The cover wall (fx cover_wall renderer) ─────────────────────
+   Floating game covers at hashed, collision-free positions behind the
+   conversation: the wall layer shares the canvas's stacking slot (above
+   canvas, below content); tiles sway with the butterfly (--wall-ax/--wall-ay,
+   depth-scaled, unchanged since 2026-07-13) and bob on their own slow
+   keyframe. A film-grain layer sits over the tiles. No hover, no pointer. */
+.pito-fx-wall-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.pito-fx-wall {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.2s linear;
+}
+.pito-fx-wall__tile {
+  position: absolute;
+  left: var(--wall-x);
+  top: var(--wall-y);
+  width: var(--wall-size);
+  /* Locks the rendered box to the ratio the JS's collision math assumes
+     (matches the 180×240 similar-game/channel-games cover convention) —
+     object-fit crops whatever the source art's native ratio actually is, so
+     "no overlap" computed in JS is "no overlap" on screen. */
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--brand-pito) 30%, transparent);
+  filter: saturate(0.85) brightness(0.9);
+  /* Two motion sources, both depth-scaled: the flock sway (--wall-ax/ay)
+     plus mouse/gyro TILT parallax (--wall-tx/ty — owner: the tiles react
+     to hand and phone, the pitomd shelf feel). Near tiles travel farther. */
+  translate:
+    calc((var(--wall-ax, 0) * -60px + var(--wall-tx, 0) * -34px) * var(--wall-depth))
+    calc((var(--wall-ay, 0) * -36px + var(--wall-ty, 0) * -22px) * var(--wall-depth));
+  animation: pito-wall-bob 9s ease-in-out infinite;
+  animation-delay: var(--wall-delay);
+}
+@keyframes pito-wall-bob {
+  0%, 100% { margin-top: 0; }
+  50% { margin-top: -10px; }
+}
+/* Film grain (owner 2026-07-13, adapted from pitomd's .grain): a static
+   SVG-turbulence tile drifting subtly over the covers — the "expensive lens"
+   layer, kept faint so it never fights the readability pact below. */
+.pito-fx-wall__grain {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  animation: pito-wall-grain-shift 1.2s steps(3) infinite;
+}
+@keyframes pito-wall-grain-shift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-2%, 3%); }
+  50% { transform: translate(3%, -2%); }
+  75% { transform: translate(-3%, -3%); }
+  100% { transform: translate(2%, 2%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pito-fx-wall__tile { animation: none; translate: none; }
+  .pito-fx-wall__grain { animation: none; }
+}
+
+/* THE READABILITY PACT (F10, owner round 2026-07-13): the moods may
+   shimmer THROUGH the conversation — surfaces went translucent and the
+   naked text wears a halo — but words stay effortlessly readable.
+
+   1) Surface-less messages (:system bodies, thinking lines) stay NAKED —
+      no backdrop at all (owner: :system is supposed to be without
+      surface); their readability rides the text halo below plus the
+      engine's global enforcer_alpha cap. */
+/* 2) Tinted surfaces (echo bars, cards, ai) repaint at 90% of their own
+      intended color — the --pito-msg-bg custom property carries the color
+      the component chose, and author !important outranks the inline
+      style that set it. One lever, every surface. */
+[data-scrollback-message] .pito-segment__content[style] {
+  /* 87% (owner glass round: "85-90%") — moods breathe through a little
+     more. Transparency ONLY here: a backdrop blur on every message would
+     stack dozens of live blur layers over the animated canvas; the
+     chatbox below, being ONE element, gets the actual glass. */
+  background: color-mix(in srgb, var(--pito-msg-bg, var(--bg-surface)) 87%, transparent) !important;
+}
+
+/* The CHATBOX is the one true glass pane (owner): same 87% translucency
+   plus a real backdrop blur — affordable because it is a single fixed
+   element, not a scrollback full of them. The FPS meter is the judge; if
+   a device chokes, deleting the backdrop-filter line is the whole revert. */
+.chatbox-wrapper .pito-segment__content[style] {
+  background: color-mix(in srgb, var(--pito-msg-bg, var(--bg-surface)) 87%, transparent) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.15);
+  backdrop-filter: blur(8px) saturate(1.15);
+}
+/* 3) Naked text — thinking lines and surface-less system bodies — wears a
+      bg-root halo: readable over any mood, invisible over plain page. */
+.pito-thinking,
+[data-scrollback-message] .pito-segment__content:not([style]) {
+  /* Naked plain text keeps only the gentlest halo — one soft breath of
+     page color (round 4: anything denser reads harsh). */
+  text-shadow: 0 1px 3px var(--bg-root);
+}
+/* 4) Special spans — tokens, timestamps, meta lines, the shimmer families —
+      wear the SAME soft halo as plain text (owner round 5: no chips, no
+      backgrounds, no shadow stacks — one breath of page color is the whole
+      treatment, "like ls vids"). Clipped-gradient glyphs can't wear
+      text-shadow (it paints OVER the gradient), so the two families that
+      still shimmer take the identical halo as drop-shadow — it follows the
+      painted pixels. */
+[data-scrollback-message] .pito-subject-shimmer,
+[data-scrollback-message] .pito-reference-shimmer,
+[data-scrollback-message] .pito-token,
+[data-scrollback-message] .pito-timestamp-prefix,
+[data-scrollback-message] .pito-echo__meta {
+  text-shadow: 0 1px 3px var(--bg-root);
+}
+[data-scrollback-message] .pito-action-shimmer,
+[data-scrollback-message] .pito-kbd-shimmer {
+  /* text-shadow is INHERITED — from the naked-content halo above or the
+     meta-line rule — and on background-clip:text glyphs it paints OVER the
+     gradient, muddying the white base (the "same component, different look"
+     bug). Cancel it; the drop-shadow below is these families' halo. */
+  text-shadow: none;
+  filter: drop-shadow(0 1px 3px var(--bg-root));
+}
+
+/* ── Chat dock bottom breathing room ─────────────────────────────
+   The chatbox column's bottom padding: production hugs the viewport edge
+   (12px); development reserves the DEVELOPMENT ribbon's strip (32px).
+   Scoped to the dock instance — .pito-conversation-col is also a width
+   wrapper elsewhere (banners) and must never inherit this. */
+.pito-chatdock { padding-bottom: 12px; }
+.pito-chatdock--dev { padding-bottom: 32px; }
+
 /* ── Scroll-nav pills (pito--scroll-nav controller) ──────────────
  *
  * Two fixed pills that float over the conversation column showing
@@ -210,43 +395,39 @@ body {
  * z-index 30 — sits above normal content but below the sidebar
  * backdrop (z-39), sidebar panel (z-40), and Ctrl+K palette (z-50).
  *
- * Centered to the viewport with left:50% + translateX(-50%).  On
- * desktop the conversation column is itself centered at 50% of the
- * viewport (max-width 1208px, margin-inline auto) so the pills land
- * in the correct horizontal region on all screen widths.
+ * The pills KISS the actual SCROLLBAR (owner round 2: the column-edge
+ * anchor was wrong on wide windows — the scrollbar lives at the window's
+ * right edge, so that's where the pills sit, a breath away).
  */
 .pito-scroll-nav__pill {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 10px;
   z-index: 30;
   display: flex;
   align-items: center;
   gap: 8px;
   background: var(--bg-root);
   color: var(--fg-dim);
-  border: 1px solid var(--border-faded);
-  /* Minimal chrome: 1px top/bottom, 4px left/right padding (+2px L/R). */
+  /* Borderless (owner 2026-07-13): just the root-toned plate under the words. */
   padding: 1px 4px;
   max-width: min(964px, calc(100vw - 20px));
   white-space: nowrap;
 }
 
-/* TOP pill: flush against the very top edge of the page, no top border. */
+/* TOP pill: flush at the very top of the conversation area. */
 .pito-scroll-nav__pill--top {
-  top: 0;
-  border-top: none;
+  top: 4px;
 }
 
-/* BOTTOM pill: sits 116px up from the viewport bottom so its bottom edge TOUCHES
-   the top of the context bar (owner measured this exact value). No bottom border —
-   mirrors the TOP pill's missing top border, so each pill is borderless on the
-   edge it hugs. Static — the controller no longer overrides
-   `bottom`. */
+/* BOTTOM pill: the controller measures the chat dock's top edge and sets
+   `bottom` inline so the pill always touches the top of the context bar —
+   on mobile, with the dev ribbon, and with prod's tighter padding alike
+   (the old static 116px was desktop-measured and overlapped the context
+   meter on phones). 116px stays as the no-JS fallback. No bottom border —
+   mirrors the TOP pill's missing top border. */
 .pito-scroll-nav__pill--bottom {
   bottom: 116px;
-  border-bottom: none;
-}
+  }
 
 @media (max-width: 767px) {
   .pito-scroll-nav__pill {
@@ -647,23 +828,29 @@ body {
 /* The trend triangle rides snug after its value token (e.g. `841K▲`). */
 .pito-metric__trend { margin-left: 0.15ch; }
 
-/* ── Keyboard-shortcut shimmer (Pito::Keybinding::ShortcutComponent) ──
-   Every yellow shortcut token gets a slow diagonal (top-left → bottom-right)
-   shimmer: yellow text with an orange band sweeping through. Staggered
-   animation-delay buckets (-dN, negative so they start mid-cycle) keep tokens
-   out of phase — they never all pulse together. Theme-aware accents. */
+/* ── Clickable-token shimmer (owner round 5, the two-band scheme) ──
+   Everything special rests on fg-default — the same white as plain text —
+   and ONLY a sweeping band carries color: PURPLE for clickable tokens
+   (#id / @handle prefills, links), BLUE for keybindings below. Bold, no
+   chips, no backgrounds. Staggered animation-delay buckets (-dN, negative
+   so they start mid-cycle) keep tokens out of phase. */
 @keyframes pito-action-shimmer-sweep {
   0%   { background-position: 200% 200%; }
   100% { background-position: 0% 0%; }
 }
 
 .pito-action-shimmer {
+  font-weight: 700;
+  /* The band is a THIN, HARD-EDGED glint (owner round 5): identical stops
+     back-to-back cut the ramp entirely, so the token is solid white except
+     for a narrow purple stripe racing through — never a wash. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
     var(--shimmer-action-base) 0%,
-    var(--shimmer-action-base) 38%,
-    var(--shimmer-action-band) 50%,
-    var(--shimmer-action-base) 62%,
+    var(--shimmer-action-base) 47%,
+    var(--shimmer-action-band) 47%,
+    var(--shimmer-action-band) 53%,
+    var(--shimmer-action-base) 53%,
     var(--shimmer-action-base) 100%
   );
   background-size: 200% 200%;
@@ -672,7 +859,33 @@ body {
   -webkit-text-fill-color: transparent;
   /* LONGHAND so the per-token .pito-shimmer-dN stagger (animation-delay) survives. */
   animation-name: pito-action-shimmer-sweep;
-  animation-duration: var(--pito-shimmer-speed);
+  animation-duration: var(--pito-shimmer-speed-text);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* ── Keybinding shimmer (Pito::Keybinding::ShortcutComponent) ──
+   Same recipe, the theme's BLUE band — every keyboard shortcut (shift+r,
+   ctrl+k, tab…) reads as bold white with a blue gleam passing through. */
+.pito-kbd-shimmer {
+  font-weight: 700;
+  /* Same thin hard-edged glint as the action family — blue. */
+  background-image: linear-gradient(
+    var(--pito-shimmer-angle),
+    var(--shimmer-kbd-base) 0%,
+    var(--shimmer-kbd-base) 47%,
+    var(--shimmer-kbd-band) 47%,
+    var(--shimmer-kbd-band) 53%,
+    var(--shimmer-kbd-base) 53%,
+    var(--shimmer-kbd-base) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* LONGHAND — see .pito-action-shimmer. */
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed-text);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -688,90 +901,27 @@ body {
   color: var(--accent-cyan);
 }
 
-/* ── Reference shimmer (Pito::Shimmer::TokenComponent, shimmer: true) ──
+/* ── Reference tokens (Pito::Shimmer::TokenComponent, shimmer: true) ──
    Worn by the AI text blocks' semantic [ref] tokens (decorative @handle /
    #id / scope-chip identifiers stay PLAIN .pito-token per owner 17.4).
-   Reuses the pito-action-shimmer-sweep keyframe. */
+   Owner round 5: REFERENCES DON'T SHIMMER anymore — bold fg-default, plain,
+   readable over any mood. The class name stays (Ruby call sites + the
+   offset stagger hook are untouched; the delay is simply inert). */
 .pito-reference-shimmer {
-  /* REFERENCE tokens rest on CYAN; the sweeping pair is DERIVED from that
-     cyan (oklch relative color: lightened, chroma-boosted, hue rotated
-     toward the violet pole) so the pair tracks each theme's own cyan and
-     reads on all 18 themes. min() caps lightness so light themes don't
-     blow out to white. */
-  --shimmer-fg-base: var(--accent-cyan);
-  --shimmer-fg-band-a: oklch(
-    from var(--accent-cyan) calc(min(l + 0.1, 0.94)) calc(c * 1.15) calc(h + 40)
-  );
-  --shimmer-fg-band-b: oklch(
-    from var(--accent-cyan) calc(min(l + 0.18, 0.96)) calc(c * 1.3) calc(h + 80)
-  );
-  /* The band is a GRADIENT — band-a grading into band-b inside one sweep,
-     WIDER than the old single-color 6% slice (44–56%) so it actually reads
-     while moving. Same for subject below. */
-  background-image: linear-gradient(
-    var(--pito-shimmer-angle),
-    var(--shimmer-fg-base) 0%,
-    var(--shimmer-fg-base) 36%,
-    var(--shimmer-fg-band-a) 44%,
-    var(--shimmer-fg-band-b) 56%,
-    var(--shimmer-fg-base) 64%,
-    var(--shimmer-fg-base) 100%
-  );
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* LONGHAND so the per-token .pito-shimmer-dN stagger (animation-delay) survives. */
-  animation-name: pito-action-shimmer-sweep;
-  animation-duration: var(--pito-shimmer-speed);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  color: var(--fg-default);
+  font-weight: 700;
 }
 
 /* (Hashtag reply tokens are now MUTED text — see Pito::Shimmer::HashtagTokenComponent;
    the old .pito-hashtag-shimmer was removed in the shimmer revisit.) */
 
-/* ── Subject shimmer (Pito::Shimmer::SubjectComponent) ──────────
-   The SUBJECT of a message intro (the %{title} / %{game} / %{name} value) gets
-   a fg→ORANGE diagonal shimmer: default fg at the ends, an orange
-   band sweeping through the centre. Same shared angle / speed / -dN offsets as
-   the other fg-band families (reference = the YELLOW counterpart).
-   Reuses the pito-action-shimmer-sweep keyframe. */
+/* ── Subject tokens (Pito::Shimmer::SubjectComponent) ──────────
+   The SUBJECT of a message intro (the %{title} / %{game} / %{name} value).
+   Owner round 5: SUBJECTS DON'T SHIMMER anymore — bold fg-default, plain,
+   the same voice as the reference tokens above. */
 .pito-subject-shimmer {
-  /* SUBJECT tokens rest on PINK — the palette has no --accent-pink, so it
-     is synthesized theme-aware exactly like the footage bar's insanity end:
-     color-mix(in oklch, red, purple) lands on each theme's own magenta.
-     The sweeping pair is DERIVED from that pink (oklch relative color),
-     rotated toward the violet pole — the mirror of the reference pair's
-     lean, so the two families gleam through the same middle from opposite
-     sides. */
-  --shimmer-fg-base: color-mix(in oklch, var(--accent-red), var(--accent-purple));
-  --shimmer-fg-band-a: oklch(
-    from var(--shimmer-fg-base) calc(min(l + 0.1, 0.94)) calc(c * 1.15) calc(h - 40)
-  );
-  --shimmer-fg-band-b: oklch(
-    from var(--shimmer-fg-base) calc(min(l + 0.18, 0.96)) calc(c * 1.3) calc(h - 80)
-  );
-  background-image: linear-gradient(
-    var(--pito-shimmer-angle),
-    var(--shimmer-fg-base) 0%,
-    var(--shimmer-fg-base) 36%,
-    var(--shimmer-fg-band-a) 44%,
-    var(--shimmer-fg-band-b) 56%,
-    var(--shimmer-fg-base) 64%,
-    var(--shimmer-fg-base) 100%
-  );
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* LONGHANDS, never the `animation` shorthand: the shorthand resets
-     animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger
-     applied to this same element. See the .pito-shimmer-dN block. */
-  animation-name: pito-action-shimmer-sweep;
-  animation-duration: var(--pito-shimmer-speed);
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  color: var(--fg-default);
+  font-weight: 700;
 }
 
 /* ── Shared staggered animation-delay buckets (Pito::Shimmer.offset_class) ──
@@ -2616,40 +2766,9 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 .pito-coin       { height: 1.3em; width: auto; display: inline-block; vertical-align: middle; }
 .pito-coin--free { height: 1.45em; }
 
-/* ── Footage snippet (copyable ffprobe one-liner) ──────────────
-   A dim hint line above a monospace command row. The command scrolls
-   horizontally rather than wrapping (one long shell line), with the copy
-   affordance pinned beside it. Border-radius 0, no hover. */
-.pito-footage-snippet__hint { margin-bottom: 0.35rem; }
-.pito-footage-snippet__bar {
-  display: flex;
-  align-items: flex-start;
-  gap: 1ch;
-}
-.pito-footage-snippet__code {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  display: block;
-  /* WRAP the one-liner instead of scaling/scrolling it: pre-wrap keeps its spacing
-     but lets it flow to multiple lines; overflow-wrap:anywhere breaks the long
-     token-less runs (paths/pipes) so it fits a 450px mobile column. No h-scroll,
-     no transform (the 3rd revisit; the real cause was
-     pito--ascii-fit scaling the old <pre>). */
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  border-radius: 0;
-  /* Surface panel + snug padding so the script reads as a proper code block. */
-  background: var(--bg-surface);
-  padding: 5px;
-  /* Explicit base size + mono family: the browser "monospace" keyword shrink
-     renders ~13px; anchor it to the 14px base so it matches the hint above. */
-  font-size: var(--text-base);
-  font-family: var(--font-mono);
-}
 /* ── Copy-to-clipboard widget (Pito::CopyButtonComponent) — the SHARED copy
-   affordance used by the share-link message AND the footage snippet, so the copy
-   icon is styled in ONE place. The lucide copy ICON wears the
+   affordance used by the share-link message AND the AI suggestion block, so the
+   copy icon is styled in ONE place. The lucide copy ICON wears the
    ACTION shimmer (pito-blue↔purple), matching every clickable link/token — NOT the
    old cyan. Since the icon is an SVG (stroke:currentColor), the gradient-clip text
    shimmer can't apply, so we animate `color` between the action base/band. No
@@ -2673,12 +2792,12 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 }
 /* "Copied!" feedback — ONE rule for every host: the label
    overlays to the LEFT of the icon, its right edge anchored at the icon, so it
-   can NEVER clip the container's right edge (footage: icon at the bar's right
-   edge; share link: icon mid-line after the sentence). It occupies zero flex
-   space — a host row never re-wraps when it appears/clears (the layout-jump
-   bug) — and wears an opaque page-bg backdrop so briefly covering host content
-   (code chars, the yellow link) reads as a deliberate label, not a collision.
-   pointer-events off: it is a transient label. */
+   can NEVER clip the container's right edge, regardless of where the icon sits
+   in the host row (bar's right edge, mid-line after a sentence, …). It occupies
+   zero flex space — a host row never re-wraps when it appears/clears (the
+   layout-jump bug) — and wears an opaque page-bg backdrop so briefly covering
+   host content (code chars, the yellow link) reads as a deliberate label, not a
+   collision. pointer-events off: it is a transient label. */
 .pito-copy__feedback {
   position: absolute;
   right: 100%;
@@ -2774,7 +2893,8 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 .pito-shiny {
   position: relative;
   display: inline-block;
-  padding: 6px 14px 7px;
+  /* 7/6 (not 6/7): the ink sits 1px lower in the chip (owner round 8). */
+  padding: 7px 14px 6px;
   border-radius: 8px;
   text-align: center;
   white-space: nowrap;
@@ -2782,7 +2902,14 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   font-weight: 700;
   letter-spacing: .03em;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  /* ENGRAVED ink (owner rounds 6-7): not black, not white — the ink is a
+     DEEP SHADE OF THE CHIP'S OWN MATERIAL, sitting in a carve: a soft dark
+     recess above, a material-tinted light lip below. Derived per material
+     from --m1, so gold engraves warm, stone engraves cool — nothing flat. */
+  color: color-mix(in oklch, var(--m1), black 62%);
+  text-shadow:
+    0 -1px 1px rgba(0, 0, 0, 0.35),
+    0 1px 0 color-mix(in oklch, var(--m1), white 52%);
   background: linear-gradient(135deg, var(--m0) 0%, var(--m1) 45%, var(--m0) 100%);
   border: 1px solid var(--medge);
   box-shadow:

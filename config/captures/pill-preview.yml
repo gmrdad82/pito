@@ -1,0 +1,15 @@
+# Throwaway-ish verification scenario: the bottom scroll-nav pill must touch
+# the chat dock's top edge (context meter), not overlap it (owner bug
+# 2026-07-12). Mobile frame, scrolled up so "below" is non-zero.
+name: pill-preview
+base_url: https://dev.pitomd.com
+viewport: { width: 448, height: 1085, scale: 2 }
+steps:
+  - login: true
+  - command: "show game 1"
+  - wait_for: { selector: ".pito-game-detail", timeout: 20 }
+  - command: "list games"
+  - sleep: 3.0
+  - scroll_to: { selector: "#pito-scrollback [id^='event_']", align: start }
+  - sleep: 1.0
+  - keyframe: pill-preview.png

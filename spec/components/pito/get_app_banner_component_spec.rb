@@ -23,9 +23,11 @@ RSpec.describe Pito::GetAppBannerComponent, type: :component do
       expect(fragment.css(".pito-conversation-col")).not_to be_empty
     end
 
-    it "links to the latest APK release asset" do
+    it "links the switch-to-app intent with the latest-APK fallback" do
       href = fragment.css("a").first["href"]
-      expect(href).to eq("https://github.com/gmrdad82/pito-android/releases/latest/download/pito.apk")
+      expect(href).to start_with("intent://app.pitomd.com/#Intent;scheme=https;package=md.pitom.android;")
+      expect(href).to include("S.browser_fallback_url=https%3A%2F%2Fgithub.com%2Fgmrdad82%2Fpito-android%2Freleases%2Flatest%2Fdownload%2Fpito.apk")
+      expect(href).to end_with(";end")
     end
 
     it "wears the gold shiny material via the generic chip component" do

@@ -22,6 +22,17 @@ class SettingsController < ApplicationController
     head :no_content
   end
 
+  # GET /settings/ai (JSON)
+  # The picker's READ path — the exact state hash the /config ai web overlay
+  # renders, serialized for non-browser clients (pito-tui's model picker).
+  # Optional ?conversation=<uuid> fills conversation_models (the ✨ trail);
+  # unknown/absent uuid simply omits the group. Session-gated like every
+  # settings action (anonymous JSON → 401).
+  def ai_state
+    conversation = Conversation.find_by(uuid: params[:conversation]) if params[:conversation].present?
+    render json: Ai::PickerState.call(conversation:)
+  end
+
   # PATCH /settings/ai
   # Body (any subset): { provider:, api_key:, clear_key:, model:, effort:, favorite: }
   # Backs the /config ai picker dialog. The API key lands in the AppSetting

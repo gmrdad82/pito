@@ -4,11 +4,11 @@ require "rails_helper"
 
 RSpec.describe Pito::Shell::MiniStatus::NotificationsComponent do
   describe "rendered output" do
-    it "renders the ctrl+/ hint in a bold yellow span" do
+    it "renders the ctrl+/ hint as a kbd-shimmer token" do
       node = render_inline(described_class.new(count: 3))
-      yellow = node.css("span.font-bold.text-yellow").first
-      expect(yellow).to be_present
-      expect(yellow.text).to eq("ctrl+/")
+      kbd = node.css("span.pito-kbd-shimmer").first
+      expect(kbd).to be_present
+      expect(kbd.text).to eq("ctrl+/")
     end
 
     it "renders the count as dim, non-clickable text (one trailing tone)" do

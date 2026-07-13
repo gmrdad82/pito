@@ -24,6 +24,8 @@ module Pito
       #     → Set this game's total footage hours (ceil'd UP to the next 0.5),
       #       mirroring the `footage update <id> <hours>` chat tool (the id is
       #       implied by the card). Reachable via shift+r, which seeds `#<handle> `.
+      #       (The `footage snippet` ffprobe one-liner moved to pito-tui (ctrl+f)
+      #       2026-07-13 — this reply no longer has a snippet branch.)
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
 
@@ -61,19 +63,12 @@ module Pito
 
         private
 
-        # ── footage [update] <hours> | footage snippet ───────────────────────────
+        # ── footage [update] <hours> ──────────────────────────────────────────────
 
         # `#<handle> footage [update] <hours>` sets the game's footage total (id
-        # implied by the card); `#<handle> footage snippet` renders the copyable
-        # ffprobe one-liner — parity with the `footage` chat tool's two forms.
+        # implied by the card) — parity with the `footage update <id> <hours>`
+        # chat tool.
         def handle_footage(event, args, conversation)
-          # snippet is game-agnostic (mirrors the chat `footage snippet` form).
-          if args.to_s.strip.downcase.start_with?("snippet")
-            return Pito::FollowUp::Result::Append.new(
-              events: [ { kind: :system, payload: Pito::MessageBuilder::Footage::Snippet.call } ]
-            )
-          end
-
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
 

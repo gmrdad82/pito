@@ -1,0 +1,11 @@
+# Readability round 3 verification: the water mood behind a vid intro's
+# dim timestamp + pink subject — the exact frame the owner flagged.
+name: vid-mood-preview
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 837, scale: 1 }
+steps:
+  - login: true
+  - command: "show vid 19"
+  - wait_for: { selector: ".pito-video-detail", timeout: 20 }
+  - sleep: 6.0
+  - keyframe: vid-mood-preview.png

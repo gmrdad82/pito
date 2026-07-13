@@ -1,0 +1,11 @@
+# The cover-wall mood: `list games` holds the viewport — the listed games'
+# covers float at hashed depths behind the conversation.
+name: wall-preview
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 837, scale: 1 }
+steps:
+  - login: true
+  - sleep: 1.0
+  - command: "list games"
+  - sleep: 7.0
+  - keyframe: wall-preview.png

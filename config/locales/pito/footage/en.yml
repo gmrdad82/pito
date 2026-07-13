@@ -3,7 +3,3 @@ en:
     footage:
       update:
         usage: "footage update <id> <hours>"
-      snippet:
-        hint: "Run this in your footage folder, then: footage update <id> <hours>"
-        copy_label: "Copy"
-        aria_label: "Copy the footage snippet command"

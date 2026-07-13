@@ -318,8 +318,8 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       expect(result).to eq(25r / 2)
     end
 
-    it "invalid: `snippet` (no hours) resolves Invalid" do
-      result = described_class.resolve(:footage_hours, "snippet")
+    it "invalid: non-numeric input resolves Invalid" do
+      result = described_class.resolve(:footage_hours, "bogus")
       expect(result).to be_a(invalid_class)
       expect(result.reason).to match(/not a footage amount/)
     end

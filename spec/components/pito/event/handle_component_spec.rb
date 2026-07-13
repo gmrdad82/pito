@@ -3,12 +3,12 @@
 require "rails_helper"
 
 RSpec.describe Pito::Event::HandleComponent do
-  it "renders #handle as muted text (item 7 — no shimmer)" do
+  it "renders #handle as plain fg-default text (no shimmer, owner round 5)" do
     node = render_inline(described_class.new("alpha-1322"))
     expect(node.text).to eq("#alpha-1322")
     span = node.css("span[data-pito-handle]").first
     expect(span).to be_present
-    expect(span["class"]).to include("text-fg-faded")
+    expect(span["class"]).to include("text-fg-default")
     expect(span["class"]).not_to include("shimmer")
   end
 

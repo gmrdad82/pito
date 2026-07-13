@@ -127,13 +127,13 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(faded_texts).not_to include("Period")
       end
 
-      it "renders shift+tab and shift+space in bold yellow within the filter row" do
+      it "renders shift+tab and shift+space as kbd-shimmer tokens within the filter row" do
         node = render_inline(described_class.new(
           filter: { channel: "@all", period: "7d" }
         ))
-        yellow_texts = node.css("span.font-bold.text-yellow").map(&:text)
-        expect(yellow_texts).to include("shift+tab")
-        expect(yellow_texts).to include("shift+space")
+        kbd_texts = node.css("span.pito-kbd-shimmer").map(&:text)
+        expect(kbd_texts).to include("shift+tab")
+        expect(kbd_texts).to include("shift+space")
       end
 
       it "keeps a shimmer span inside channelDisplay for the cycling hook" do

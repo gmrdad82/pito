@@ -2,16 +2,17 @@
 
 module Pito
   module Shimmer
-    # Renders a #hashtag reply token (e.g. #chi-4450) as MUTED text: the
+    # Renders a #hashtag reply token (e.g. #chi-4450) in plain fg-default: the
     # handle is a decorative label, not an action — the clickable reply affordance
-    # lives on shift+r. No shimmer (same muted treatment as the notification count).
+    # lives on shift+r. No shimmer, no chip (owner round 5: every special token
+    # rests on the same white as plain text).
     #
     #   render(Pito::Shimmer::HashtagTokenComponent.new(text: "#chi-4450"))
     class HashtagTokenComponent < ViewComponent::Base
-      MUTED_CLASS = "text-fg-faded"
+      PLAIN_CLASS = "text-fg-default"
 
       def self.css_class(_text, extra: nil)
-        [ MUTED_CLASS, extra ].compact.join(" ")
+        [ PLAIN_CLASS, extra ].compact.join(" ")
       end
 
       def self.html(text, extra: nil)

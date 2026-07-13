@@ -12,10 +12,10 @@ module Pito
     #     value_component: Pito::Table::LinkValueComponent.new(url: channel.youtube_channel_url)
     #   ))
     class LinkValueComponent < ViewComponent::Base
-      # Yellow text with the diagonal yellow→orange shimmer sweep (same as the
-      # keyboard-shortcut tokens). A per-url stagger offset keeps the two channel
-      # links out of phase.
-      DEFAULT_CLASS = "text-yellow pito-action-shimmer"
+      # The clickable-token shimmer (bold fg-default + theme-purple band, owner
+      # round 5). A per-url stagger offset keeps the two channel links out of
+      # phase.
+      DEFAULT_CLASS = "pito-action-shimmer"
 
       # Max displayed length before the (scheme-stripped) URL is ellipsised. The
       # full URL always rides the href; only the visible text shortens, so a long

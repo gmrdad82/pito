@@ -73,26 +73,19 @@ RSpec.describe Pito::Shell::ScrollNavComponent do
     counts.each { |c| expect(c.text.strip).to eq("") }
   end
 
-  # ── 50-variant JSON catalog ──────────────────────────────────────────────────
+  # ── The ONE copy template per side (owner 2026-07-13: the 50-variant
+  #    dictionary is retired; web + tui read identically) ─────────────────────
 
-  it "emits the count variants JSON on the controller root element" do
-    root = node.css("[data-pito--scroll-nav-variants-value]").first
+  it "emits the before/after templates on the controller root element" do
+    root = node.css("[data-pito--scroll-nav-before-value]").first
     expect(root).not_to be_nil
+    expect(root["data-pito--scroll-nav-before-value"]).to eq("%{count} msgs before")
+    expect(root["data-pito--scroll-nav-after-value"]).to eq("%{count} msgs after")
   end
 
-  it "emits exactly 50 count variants" do
-    root     = node.css("[data-pito--scroll-nav-variants-value]").first
-    variants = JSON.parse(root["data-pito--scroll-nav-variants-value"])
-    expect(variants.length).to eq(50)
-  end
-
-  it "every count variant contains %{count} and %{direction} placeholders" do
-    root     = node.css("[data-pito--scroll-nav-variants-value]").first
-    variants = JSON.parse(root["data-pito--scroll-nav-variants-value"])
-    variants.each do |tmpl|
-      expect(tmpl).to include("%{count}"),    "template #{tmpl.inspect} missing %{count}"
-      expect(tmpl).to include("%{direction}"), "template #{tmpl.inspect} missing %{direction}"
-    end
+  it "renders the copy span in fg-default (white words, per the owner's tui ruling)" do
+    counts = node.css(".pito-scroll-nav__pill [data-scroll-nav-count]")
+    counts.each { |c| expect(c["class"]).to include("text-fg-default") }
   end
 
   # ── Stimulus controller wired on the root ───────────────────────────────────
