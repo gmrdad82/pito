@@ -652,7 +652,7 @@ The server renders ONE app; everything else is a thin window onto it. No
 separate APIs to version, no second UI to maintain — your instance already
 serves them all.
 
-- [**`pito-android`**](https://github.com/gmrdad82/pito-android) — a thin
+- [**pito-android**](https://github.com/gmrdad82/pito-android) — a thin
   [Hotwire Native](https://native.hotwired.dev) shell around the same
   server-rendered app, with native navigation and back-stack (the path
   configuration lives at `/configurations/android_v1.json`). Self-hoster
@@ -661,7 +661,7 @@ serves them all.
   APKs ship on the releases page (no Play Store required), and PITO itself
   offers the download in a dismissible banner when you visit from an Android
   browser.
-- [**`pito-tui`**](https://github.com/gmrdad82/pito-tui) — the same chatbox
+- [**pito-tui**](https://github.com/gmrdad82/pito-tui) — the same chatbox
   in your terminal: Go + Bubble Tea, raw text in, the server's JSON events
   out, live over ActionCable. The grammar stays server-side, so the TUI can
   never lag behind the web.
