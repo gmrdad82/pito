@@ -4,6 +4,19 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.3] — 2026-07-14
+
+### Fixed
+
+- The conversations sidebar paints above its dimming overlay again — the
+  living background's stacking rules had quietly trapped it underneath.
+
+### Changed
+
+- The cable writes now: every payload sends a bright red dot traveling the
+  cable's stroke end to end with a blue-to-purple ink trail chasing it,
+  then evaporating.
+
 ## [2.1.2] — 2026-07-13
 
 ### Fixed

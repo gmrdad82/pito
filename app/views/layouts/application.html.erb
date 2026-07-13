@@ -64,11 +64,14 @@
         half. Mobile: full width from the viewport edge. %>
     <div id="pito-sidebar" data-controller="pito--resume"
          class="shrink-0 overflow-hidden transition-[width] duration-200 fixed inset-y-0 right-0 md:right-[max(0px,calc(50vw-482px))] z-40 w-0 has-[aside]:w-full md:w-0 md:has-[aside]:w-[480px]"></div>
+    <%# Desktop sidebar overlay backdrop — semi-transparent scrim behind the
+        sidebar. MUST live INSIDE this container (owner bug 2026-07-13: the
+        fx readability rule made `body > .flex` a stacking context, so a
+        body-level backdrop at z-39 painted over the z-40 sidebar trapped
+        inside it — same-context siblings restore the honest 39 < 40).
+        Clicking it dismisses the sidebar (pito--resume backdrop listener). %>
+    <div id="pito-sidebar-backdrop" class="pito-sidebar-backdrop"></div>
   </div>
-  <%# Desktop sidebar overlay backdrop — semi-transparent scrim behind the
-      sidebar on desktop. Shown via CSS :has() when the sidebar is open.
-      Clicking it dismisses the sidebar (pito--resume backdrop listener). %>
-  <div id="pito-sidebar-backdrop" class="pito-sidebar-backdrop"></div>
 
   <%# The /config ai picker's landing pad: the fast-path turbo stream mounts
       the overlay here; pito--ai-picker removes it on close. %>
