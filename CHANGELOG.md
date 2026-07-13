@@ -4,6 +4,20 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] — 2026-07-14
+
+### Added
+
+- **`ls private vids`** — the fourth visibility filter: vids that are
+  private and not scheduled — uploaded, processed, and going nowhere until
+  you act. Scheduled vids stay out; the filter survives paging and speaks
+  MCP.
+- **The night watchman** — at 01:45 every night (right after the sync),
+  PITO counts your private vids older than a day and, if any exist, nags
+  you once — the bell, Slack, and Discord all carry the same line, drawn
+  from a fresh 50-variant dictionary. One reminder per day, silence when
+  the shelf is clear.
+
 ## [2.1.3] — 2026-07-14
 
 ### Fixed

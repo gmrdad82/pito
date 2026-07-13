@@ -199,6 +199,7 @@ tools:
           published: { tokens: [published], scope: published, desc: pito.copy.help.filters.vids.published }
           unlisted:  { tokens: [unlisted],  scope: unlisted,  desc: pito.copy.help.filters.vids.unlisted }
           scheduled: { tokens: [scheduled], scope: scheduled, desc: pito.copy.help.filters.vids.scheduled }
+          private:   { tokens: [private],   scope: private_unscheduled, desc: pito.copy.help.filters.vids.private }
 
   show:
     description: pito.grammar.chat.show

@@ -433,7 +433,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
 
     it "offers the vids visibility filters among the openers" do
-      expect(labels("ls vids ")).to eq([ "published", "scheduled", "sorted by", "unlisted", "with" ])
+      expect(labels("ls vids ")).to eq([ "private", "published", "scheduled", "sorted by", "unlisted", "with" ])
     end
 
     it "consumes a committed filter token" do

@@ -101,10 +101,10 @@ RSpec.describe Pito::Mcp::Registry do
       it "enumerates the toggle filters per noun on the filter param" do
         filter_desc = schema_for("pito_list")["properties"]["filter"]["description"]
         expect(filter_desc).to match(/games: upcoming/)
-        expect(filter_desc).to match(/vids: published, unlisted, scheduled/)
+        expect(filter_desc).to match(/vids: published, unlisted, scheduled, private/)
         # vids filters carry no `vocabulary:` — their tokens are already literal,
         # so nothing to expand; pin the noun's list is exactly this and no more.
-        expect(filter_desc).to end_with("vids: published, unlisted, scheduled.")
+        expect(filter_desc).to end_with("vids: published, unlisted, scheduled, private.")
       end
 
       # capability_tokens' `filters` branch now expands each filter through

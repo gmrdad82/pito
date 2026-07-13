@@ -51,6 +51,16 @@ production:
     schedule: "30 1 * * *"
     description: "Nightly AI model catalog + pricing mirror refresh"
 
+  # Private-vids reminder — daily at 01:45 UTC (after the 01:00 nightly_sync
+  # has imported the night's private uploads). Counts Video.private_unscheduled
+  # (D2) uploaded more than a day ago and drives
+  # Pito::Notifications::Source::PrivateReminder, which owns the dictionary
+  # line + once-per-day dedupe (P19/T19.2b).
+  private_reminder:
+    class: PrivateReminderJob
+    schedule: "45 1 * * *"
+    description: "Nightly nag for private, unscheduled vids uploaded >1 day ago"
+
   # Nightly data sync — daily at 01:00 UTC. The daily new-video detection pass.
   # Fans out per connected channel: ChannelSync + VideoSyncJob (import new/private
   # uploads + reconcile updates/deletions, refreshing Pito::Stats on upsert), then
@@ -151,6 +161,12 @@ development:
     class: AiModelCatalogRefreshJob
     schedule: "30 1 * * *"
     description: "Nightly AI model catalog + pricing mirror refresh"
+
+  # Private-vids reminder — daily at 01:45 (dev parity with production).
+  private_reminder:
+    class: PrivateReminderJob
+    schedule: "45 1 * * *"
+    description: "Nightly nag for private, unscheduled vids uploaded >1 day ago"
 
   # Nightly data sync — daily at 01:00. Fans out ChannelSync + VideoSyncJob
   # (import + reconcile + Pito::Stats on upsert) + GameIgdbNightlyRefresh per channel.

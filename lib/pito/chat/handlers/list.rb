@@ -9,7 +9,7 @@
 #
 # ## Video listing
 #
-# Syntax: `list videos [published|unlisted|scheduled]`
+# Syntax: `list videos [published|unlisted|scheduled|private]`
 #
 # Channel scope comes from `self.channel` (the param threaded through the
 # dispatcher, e.g. "@all" or "@handle"):
@@ -20,6 +20,7 @@
 #   "published" → Video.published (public)
 #   "unlisted"  → Video.unlisted
 #   "scheduled" → Video.scheduled (future publish_at)
+#   "private"   → Video.private_unscheduled (private AND NOT scheduled — D2)
 #   (none)      → all videos regardless of privacy_status
 #
 # Ordering: id DESC by default (biggest/newest first); sort clauses override.
@@ -44,7 +45,8 @@ module Pito
         VISIBILITY_FILTERS = {
           "published" => :published,
           "unlisted"  => :unlisted,
-          "scheduled" => :scheduled
+          "scheduled" => :scheduled,
+          "private"   => :private_unscheduled
         }.freeze
 
         # Width-aware column auto-fill. With no `with` clause, `list` fills
@@ -318,7 +320,7 @@ module Pito
           ((width - COLUMN_BASE_PX) / COLUMN_PER_PX).clamp(0, max)
         end
 
-        # `list videos [published|unlisted|scheduled] [with <col>, …]`
+        # `list videos [published|unlisted|scheduled|private] [with <col>, …]`
         #
         # 1. Resolve channel scope from `self.channel`.
         # 2. Apply privacy filter from raw input.
@@ -477,7 +479,8 @@ module Pito
           ch
         end
 
-        # Returns the Symbol scope name (:published / :unlisted / :scheduled) or nil.
+        # Returns the Symbol scope name (:published / :unlisted / :scheduled /
+        # :private_unscheduled) or nil.
         def visibility_filter_from(raw)
           VISIBILITY_FILTERS.each do |word, scope|
             return scope if raw.match?(/\b#{Regexp.escape(word)}\b/i)
