@@ -97,7 +97,7 @@ RSpec.describe "tools.yml capabilities — orphan + copy guard", type: :dispatch
     end
   end
 
-  { "games" => %w[upcoming genre platform], "vids" => %w[published unlisted scheduled] }.each do |noun, expected|
+  { "games" => %w[upcoming genre platform], "vids" => %w[published unlisted scheduled private] }.each do |noun, expected|
     describe "list · #{noun} filters" do
       subject(:filters) { Cap.filters(:list, noun) }
 

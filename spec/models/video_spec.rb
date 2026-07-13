@@ -101,6 +101,37 @@ RSpec.describe Video, type: :model do
     end
   end
 
+  # D2 (docs/claude/2.2.0.md): private = privacy_status private AND NOT
+  # scheduled (publish_at NULL or past). A future-dated scheduled upload is
+  # privacy-private on YouTube too but must be excluded — it belongs to the
+  # `scheduled` filter/slate, never `private`.
+  describe ".private_unscheduled" do
+    it "excludes a private video with a future publish_at (scheduled)" do
+      scheduled = create(:video, :scheduled)
+      expect(described_class.private_unscheduled).not_to include(scheduled)
+    end
+
+    it "includes a private video with a past publish_at" do
+      past_private = create(:video, :private, publish_at: 1.hour.ago)
+      expect(described_class.private_unscheduled).to include(past_private)
+    end
+
+    it "includes a private video with a NULL publish_at" do
+      nil_private = create(:video, :private, publish_at: nil)
+      expect(described_class.private_unscheduled).to include(nil_private)
+    end
+
+    it "excludes a public video" do
+      public_vid = create(:video, :public)
+      expect(described_class.private_unscheduled).not_to include(public_vid)
+    end
+
+    it "excludes an unlisted video" do
+      unlisted_vid = create(:video, :unlisted)
+      expect(described_class.private_unscheduled).not_to include(unlisted_vid)
+    end
+  end
+
   # ── #thumbnail_variant_url ───────────────────────────────────────
   describe "#thumbnail_variant_url" do
     let(:saved) { create(:video) }

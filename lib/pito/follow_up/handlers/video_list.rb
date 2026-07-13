@@ -178,7 +178,7 @@ module Pito
           # Allowlist the visibility scope before public_send — the cursor is
           # server-written, but never replay an arbitrary method name from a payload.
           filter_key = cursor["filter"]&.to_sym
-          filter_key = nil unless %i[published unlisted scheduled].include?(filter_key)
+          filter_key = nil unless %i[published unlisted scheduled private_unscheduled].include?(filter_key)
           sort_token = cursor["sort_token"].presence
           sort_dir   = cursor["sort_direction"].presence
 

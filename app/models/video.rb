@@ -86,6 +86,11 @@ class Video < ApplicationRecord
   # A future scheduled publish (the `publish_at` column carries the YouTube
   # scheduled go-live time; cleared/past once it has gone live).
   scope :scheduled, -> { where("publish_at > ?", Time.current) }
+  # `private` filter (D2): privacy_status private AND NOT scheduled — a
+  # future-dated scheduled upload is privacy-private on YouTube too, but it
+  # is surfaced via the `scheduled` filter/slate instead, never here. NULL or
+  # past publish_at both read as "not scheduled".
+  scope :private_unscheduled, -> { privacy_status_private.where("publish_at IS NULL OR publish_at <= ?", Time.current) }
 
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true

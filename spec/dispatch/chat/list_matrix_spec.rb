@@ -644,8 +644,8 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
   describe "A10. Video visibility filter — VISIBILITY_FILTERS constant" do
     subject(:vf) { Pito::Chat::Handlers::List::VISIBILITY_FILTERS }
 
-    it "has exactly 3 entries: published, unlisted, scheduled" do
-      expect(vf.keys).to eq(%w[published unlisted scheduled])
+    it "has exactly 4 entries: published, unlisted, scheduled, private" do
+      expect(vf.keys).to eq(%w[published unlisted scheduled private])
     end
 
     it "published → :published" do
@@ -658,6 +658,10 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
 
     it "scheduled → :scheduled" do
       expect(vf["scheduled"]).to eq(:scheduled)
+    end
+
+    it "private → :private_unscheduled (D2: private AND NOT scheduled)" do
+      expect(vf["private"]).to eq(:private_unscheduled)
     end
   end
 
@@ -677,12 +681,16 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       "list videos unlisted"                      => :unlisted,
       "list vids scheduled"                       => :scheduled,
       "list videos scheduled"                     => :scheduled,
+      "list vids private"                         => :private_unscheduled,
+      "list videos private"                       => :private_unscheduled,
+      "ls private vids"                           => :private_unscheduled,
       "list vids with views, likes published"     => :published,
       "list vids with channel published"          => :published,
       "list vids published with views"            => :published,
       "PUBLISHED list vids"                       => :published,   # case-insensitive
       "list vids UNLISTED"                        => :unlisted,
-      "list vids SCHEDULED"                       => :scheduled
+      "list vids SCHEDULED"                       => :scheduled,
+      "list vids PRIVATE"                         => :private_unscheduled
     }.each do |raw, scope|
       it "#{raw.inspect} → filter=:#{scope}" do
         expect(visibility_from(raw)).to eq(scope)
@@ -988,6 +996,7 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       allow(rel).to receive(:published).and_return(rel)
       allow(rel).to receive(:unlisted).and_return(rel)
       allow(rel).to receive(:scheduled).and_return(rel)
+      allow(rel).to receive(:private_unscheduled).and_return(rel)
       allow(rel).to receive(:includes).and_return(rel)
       allow(rel).to receive(:order).and_return(rel)
       allow(rel).to receive(:empty?).and_return(false)
@@ -1120,11 +1129,22 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
         expect(video_rel).to have_received(:scheduled)
       end
 
+      it "list vids private → private_unscheduled scope called on relation" do
+        build_handler("list vids private").call
+        expect(video_rel).to have_received(:private_unscheduled)
+      end
+
+      it "ls private vids → private_unscheduled scope called on relation" do
+        build_handler("ls private vids").call
+        expect(video_rel).to have_received(:private_unscheduled)
+      end
+
       it "list vids (no filter) → no visibility scope applied" do
         build_handler("list vids").call
         expect(video_rel).not_to have_received(:published)
         expect(video_rel).not_to have_received(:unlisted)
         expect(video_rel).not_to have_received(:scheduled)
+        expect(video_rel).not_to have_received(:private_unscheduled)
       end
 
       it "list videos published with views → published applied and Video::List called" do

@@ -692,6 +692,33 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
 
+    # D2 (docs/claude/2.2.0.md): private = privacy_status private AND NOT
+    # scheduled. A scheduled vid is privacy-private on YouTube too, but it
+    # must surface only under `scheduled`, never under `private`.
+    context "with `private` filter" do
+      let!(:scheduled_vid) { create(:video, :scheduled, title: "Scheduled Not Private", channel: chan_a) }
+      let!(:private_nil)   { create(:video, :private, title: "Private Nil Publish", channel: chan_a) }
+      let!(:private_past)  { create(:video, :private, title: "Private Past Publish", publish_at: 1.hour.ago, channel: chan_a) }
+
+      it "returns only privacy-private, non-scheduled videos (NULL or past publish_at)" do
+        result  = handler_for("list vids private", channel: "@all").call
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Private Nil Publish", "Private Past Publish")
+        expect(titles).not_to include("Scheduled Not Private")
+        expect(titles).not_to include("Alpha Public")
+        expect(titles).not_to include("Alpha Unlisted")
+        expect(titles).not_to include("Beta Public")
+      end
+
+      it "also parses filter-before-noun phrasing (`ls private vids`)" do
+        result  = handler_for("ls private vids", channel: "@all").call
+        titles  = video_titles(result.events.first[:payload])
+        expect(titles).to include("Private Nil Publish", "Private Past Publish")
+        expect(titles).not_to include("Scheduled Not Private")
+      end
+    end
+
     context "with `list videos with duration`" do
       let!(:dur_video) do
         create(:video, :public, title: "Duration Video", channel: chan_a,
