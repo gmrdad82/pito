@@ -4,6 +4,17 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.2] — 2026-07-13
+
+### Fixed
+
+- **The app can't get trapped on a dead conversation anymore** — deleting
+  the conversation you're standing in used to strand the Android shell on
+  the native error screen (Hotwire never renders an HTTP error's body).
+  PITO now serves its own graceful not_found page as a success to the
+  native shell, so the app renders it like any visit; browsers keep the
+  honest 404. No app update needed — every installed APK is fixed.
+
 ## [2.1.1] — 2026-07-13
 
 ### Fixed

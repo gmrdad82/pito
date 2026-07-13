@@ -104,4 +104,22 @@ RSpec.describe "Dynamic 404 page", type: :request do
       end
     end
   end
+  describe "the Hotwire Native shell (owner ruling 2026-07-13, design A)" do
+    # The native WebView never renders an HTTP error body — a deleted
+    # conversation's URL trapped the app on the library's dead error screen.
+    # The SAME graceful page ships as 200 to the app so it renders like any
+    # visit; browsers keep the honest 404.
+    let(:native_ua) { "PITO; v1.2.0; Hotwire Native Android; Turbo Native Android" }
+
+    it "serves the graceful not_found page with 200 to the app" do
+      get "/unknown-void", headers: { "User-Agent" => native_ua }
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("404")
+    end
+
+    it "keeps the honest 404 for browsers" do
+      get "/unknown-void", headers: { "User-Agent" => "Mozilla/5.0" }
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end
