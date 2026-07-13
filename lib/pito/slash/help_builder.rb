@@ -26,7 +26,7 @@ module Pito
       CONFIG_PROVIDER_GROUPS = {
         "ai"      => %w[ai tavily],
         "sources" => %w[google voyage igdb],
-        "profile" => %w[webhook me sound timezone]
+        "profile" => %w[webhook sound timezone]
       }.freeze
 
       # Ordered provider list for /config --help; derived from the groups so the

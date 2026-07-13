@@ -37,7 +37,10 @@ module Pito
       end
 
       def key(conversation)
-        "pito:scrollback:v1:#{conversation.uuid}:#{Time.zone.name}"
+        # v2 (2026-07-13): v1 snapshots predated the ai segment's fx data
+        # attributes and served them stale for up to a week — bump the
+        # version WHENEVER event templates change what the snapshot holds.
+        "pito:scrollback:v2:#{conversation.uuid}:#{Time.zone.name}"
       end
 
       # The canonical scrollback assembly — identical markup to the cable path:

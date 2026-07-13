@@ -234,22 +234,7 @@ en:
             Options:
               "--help": "Print this help message"
       footage:
-        usage: "footage game #id  |  footage snippet"
-        game:
-          usage: "footage game #id"
-          sections:
-            Arguments:
-              "game": "Target noun — the game you're tallying footage for"
-              "#id": "Local numeric game id"
-            Options:
-              "--help": "Print this help message"
-        snippet:
-          usage: "footage snippet"
-          sections:
-            Arguments:
-              "snippet": "Target noun — copy a shell one-liner that ffprobes the current folder and sums its footage hours"
-            Options:
-              "--help": "Print this help message"
+        usage: "footage update <id> <hours>"
       price:
         usage: "price set #id <amount>  |  price unset #id"
         set:
@@ -549,11 +534,10 @@ en:
               Options:
                 "--help": "Print this help message"
           footage:
-            usage: "#<show-game-hashtag> footage [update] <hours>  |  footage snippet"
+            usage: "#<show-game-hashtag> footage [update] <hours>"
             sections:
               Arguments:
                 "<hours>": "New total footage in hours for this game (rounded up to the next 0.5)"
-                "snippet": "Copy a shell one-liner that ffprobes the current folder and sums its footage hours"
               Options:
                 "--help": "Print this help message"
           price:

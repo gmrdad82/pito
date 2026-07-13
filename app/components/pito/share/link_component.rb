@@ -5,8 +5,8 @@ module Pito
     # Renders the `share` confirmation message: the witty "here's your link" line
     # (pito.copy.share.shared_url, 50 variants) with the URL as a CLICKABLE link —
     # an <a target="_blank"> carrying the action shimmer class (like every other
-    # clickable link/token) — plus a footage-snippet-style COPY affordance
-    # (pito--clipboard) so the full link is one click to copy.
+    # clickable link/token) — plus a COPY affordance (Pito::CopyButtonComponent,
+    # pito--clipboard) so the full link is one click to copy.
     #
     # Rendered into an html: true payload by Pito::MessageBuilder::Share::Link, so
     # the sampled sentence is frozen at creation. A leading data-pito-ts-slot keeps

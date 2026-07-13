@@ -27,6 +27,11 @@ export default defineConfig({
         replacement: resolve(__dirname, "app/javascript/controllers") + "/",
       },
       {
+        // The living background's modules ("fx/sky", "fx/engine", …).
+        find: /^fx\//,
+        replacement: resolve(__dirname, "app/javascript/fx") + "/",
+      },
+      {
         // Turbo Rails stub — controllers that import Turbo won't execute it in tests.
         find: "@hotwired/turbo-rails",
         replacement: resolve(__dirname, "spec/javascript/support/turbo_stub.js"),

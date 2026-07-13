@@ -143,7 +143,17 @@ export default class extends Controller {
   }
 
   // Seam for tests (location.reload is unstubbable in jsdom).
+  //
+  // A Turbo replace-visit, NOT location.reload: the body swaps in place with
+  // no document unload, so the Android shell never flashes its neon boot
+  // chrome on a pull-refresh (owner: refresh must not look like a cold
+  // boot). Plain browsers get the same soft swap; reload stays the fallback
+  // for the no-Turbo edge.
   _reload() {
-    window.location.reload()
+    if (window.Turbo?.visit) {
+      window.Turbo.visit(window.location.href, { action: "replace" })
+    } else {
+      window.location.reload()
+    }
   }
 }

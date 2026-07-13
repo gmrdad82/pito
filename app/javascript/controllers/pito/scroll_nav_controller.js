@@ -39,7 +39,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["topTemplate", "bottomTemplate"]
-  static values  = { variants: Array }
+  static values  = { before: String, after: String }
 
   connect() {
     this.scrollback = document.getElementById("pito-scrollback")
@@ -50,8 +50,6 @@ export default class extends Controller {
     // the DOM — never show/hidden — so their presence alone is the "shown" state.
     this._topEl     = null
     this._bottomEl  = null
-    this._topIdx    = -1
-    this._bottomIdx = -1
 
     // rAF throttle flag — one pending update at a time.
     this._rafPending = false
@@ -83,6 +81,25 @@ export default class extends Controller {
       childList: true, subtree: true, characterData: true,
     })
 
+    // Keep the bottom pill glued to the dock's top edge: the dock grows
+    // (textarea autosize, context meter) and the viewport resizes (mobile
+    // keyboards), so the anchor is measured, never a constant.
+    window.addEventListener("resize", this.#anchorBottomPill.bind(this), {
+      signal:  this._abort.signal,
+      passive: true,
+    })
+    const dock = document.querySelector(".pito-chatdock")
+    if (dock) {
+      this._dockObserver = new ResizeObserver(this.#anchorBottomPill.bind(this))
+      this._dockObserver.observe(dock)
+    }
+    // The mobile URL bar collapsing resizes the VISUAL viewport without a
+    // window resize — re-anchor on it too.
+    window.visualViewport?.addEventListener("resize", this.#anchorBottomPill.bind(this), {
+      signal: this._abort.signal,
+      passive: true,
+    })
+
     // Initial count — needed for pages where the user loads mid-scroll.
     this.#update()
   }
@@ -91,6 +108,7 @@ export default class extends Controller {
     this._abort?.abort()
     this._overlayObserver?.disconnect()
     this._contentObserver?.disconnect()
+    this._dockObserver?.disconnect()
     this._topEl?.remove()
     this._bottomEl?.remove()
   }
@@ -193,19 +211,33 @@ export default class extends Controller {
 
     if (!el) {
       // Pick a variant distinct from the opposite pill's current one.
-      const oppositeIdx = side === "top" ? this._bottomIdx : this._topIdx
-      const idx         = this.#pickVariant(oppositeIdx)
+
       const template    = side === "top" ? this.topTemplateTarget : this.bottomTemplateTarget
       el = template.content.firstElementChild.cloneNode(true)
       this.element.appendChild(el)
-      if (side === "top") { this._topEl = el; this._topIdx = idx }
-      else { this._bottomEl = el; this._bottomIdx = idx }
+      if (side === "top") { this._topEl = el }
+      else { this._bottomEl = el; this.#anchorBottomPill() }
     }
 
-    const idx       = side === "top" ? this._topIdx : this._bottomIdx
-    const direction = side === "top" ? "above" : "below"
-    const countEl   = el.querySelector("[data-scroll-nav-count]")
-    if (countEl) countEl.textContent = this.#format(idx, count, direction)
+    const countEl = el.querySelector("[data-scroll-nav-count]")
+    if (countEl) countEl.textContent = this.#format(side, count)
+  }
+
+  // Pin the bottom pill so its bottom edge TOUCHES the chat dock's top edge.
+  // Anchored by TOP in client coordinates: mixing `bottom` with
+  // window.innerHeight broke on phones, where the visual viewport (URL bar
+  // collapsing) and the layout viewport fixed elements position against
+  // disagree by dozens of pixels — the pill floated mid-scrollback (owner
+  // round 2). Rect-to-rect in one coordinate space cannot drift.
+  #anchorBottomPill() {
+    if (!this._bottomEl) return
+    const dock = document.querySelector(".pito-chatdock")
+    if (!dock) return
+    const top = dock.getBoundingClientRect().top - this._bottomEl.offsetHeight
+    if (top > 0) {
+      this._bottomEl.style.top = `${Math.round(top)}px`
+      this._bottomEl.style.bottom = "auto"
+    }
   }
 
   // Remove the pill for `side` from the DOM entirely and reset its slot so the
@@ -213,38 +245,16 @@ export default class extends Controller {
   #removePill(side) {
     const el = side === "top" ? this._topEl : this._bottomEl
     if (el) el.remove()
-    if (side === "top") { this._topEl = null; this._topIdx = -1 }
-    else { this._bottomEl = null; this._bottomIdx = -1 }
+    if (side === "top") this._topEl = null
+    else this._bottomEl = null
   }
 
-  // Interpolate %{count} / %{direction} and resolve {singular|plural} nouns into
-  // the chosen variant template. A {a|b} token renders `a` when count is exactly
-  // 1, else `b` — so "1 more message above" / "3 more messages above" (17.3/17.6).
-  #format(idx, count, direction) {
-    const variants = this.variantsValue
-    if (!variants.length) return String(count)
-    const tmpl = variants[idx] || variants[0]
-    return tmpl
-      .replace(/%\{count\}/g, count)
-      .replace(/%\{direction\}/g, direction)
-      .replace(/\{([^|{}]*)\|([^{}]*)\}/g, (_m, singular, plural) =>
-        count === 1 ? singular : plural
-      )
-  }
-
-  // Pick a random variant index, avoiding `exclude` (the opposite pill's index).
-  // Falls back after 10 attempts so the loop never spins forever on tiny arrays.
-  #pickVariant(exclude) {
-    const len = this.variantsValue.length
-    if (len === 0) return 0
-    if (len === 1) return 0
-    let idx
-    let attempts = 0
-    do {
-      idx = Math.floor(Math.random() * len)
-      attempts++
-    } while (idx === exclude && attempts < 10)
-    return idx
+  // ONE template per side (owner 2026-07-13): "%{count} msgs before" /
+  // "%{count} msgs after" — no variant pool, no direction word.
+  #format(side, count) {
+    const tmpl = side === "top" ? this.beforeValue : this.afterValue
+    if (!tmpl) return String(count)
+    return tmpl.replace(/%\{count\}/g, count)
   }
 
   // True when the sidebar panel or the Ctrl+K command palette is open.

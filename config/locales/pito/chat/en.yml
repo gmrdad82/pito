@@ -37,8 +37,8 @@ en:
         usage_hint: "To import a game from IGDB, type `import game [title]`. To sync vids, use `sync vids` (`import vids` is an alias)."
       footage:
         descriptions:
-          footage: "Show the footage tally snippet (footage game <id> / footage snippet); set hours via update"
-        needs_ref: "Usage: `footage game <id>` (or bare `footage snippet`) to tally a folder. Set hours with `update game footage <id> <hours>`."
+          footage: "Set a game's total footage hours (footage update <id> <hours>)"
+        needs_ref: "Usage: reply `footage <hours>` on a game card, or set it directly with `update game footage <id> <hours>`."
       price:
         descriptions:
           price: "Set or clear a game's euro price (by id)"

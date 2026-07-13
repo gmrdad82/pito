@@ -28,13 +28,10 @@ if (!Element.prototype.scrollTo) {
   Element.prototype.scrollTo = function () {}
 }
 
-// ── Shared variants fixture ──────────────────────────────────────────────────
+// ── Shared copy fixture — ONE template per side (owner 2026-07-13) ──────────
 
-const VARIANTS = [
-  "%{count} messages %{direction}",
-  "%{count} more %{direction}",
-  "%{count} items %{direction}",
-]
+const BEFORE = "%{count} msgs before"
+const AFTER  = "%{count} msgs after"
 
 // ── DOM scaffold ─────────────────────────────────────────────────────────────
 
@@ -52,7 +49,7 @@ function makeTemplate(side) {
   return tmpl
 }
 
-function buildScaffold({ variants = VARIANTS } = {}) {
+function buildScaffold({ before = BEFORE, after = AFTER } = {}) {
   const scrollback = document.createElement("div")
   scrollback.id = "pito-scrollback"
   // jsdom has no layout engine — getBoundingClientRect returns all-zero by
@@ -61,7 +58,8 @@ function buildScaffold({ variants = VARIANTS } = {}) {
 
   const wrapper = document.createElement("div")
   wrapper.setAttribute("data-controller", "pito--scroll-nav")
-  wrapper.setAttribute("data-pito--scroll-nav-variants-value", JSON.stringify(variants))
+  wrapper.setAttribute("data-pito--scroll-nav-before-value", before)
+  wrapper.setAttribute("data-pito--scroll-nav-after-value", after)
   wrapper.appendChild(makeTemplate("top"))
   wrapper.appendChild(makeTemplate("bottom"))
   document.body.appendChild(wrapper)
@@ -171,29 +169,25 @@ describe("pito--scroll-nav controller", () => {
     expect(pillEl(wrapper, "bottom")).toBeNull()
   })
 
-  it("renders the SINGULAR noun when exactly one message is out of view", async () => {
-    const { wrapper, scrollback } = buildScaffold({
-      variants: [ "%{count} {message|messages} %{direction}" ],
-    })
+  it("renders the fixed copy for one message out of view (no plural machinery)", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    expect(countText(wrapper, "top")).toBe("1 message above")
+    expect(countText(wrapper, "top")).toBe("1 msgs before")
   })
 
-  it("renders the PLURAL noun when several messages are out of view", async () => {
-    const { wrapper, scrollback } = buildScaffold({
-      variants: [ "%{count} {message|messages} %{direction}" ],
-    })
+  it("renders the count into the fixed copy for several messages", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
     addMessage(scrollback, { top: -120, height: 50 })
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    expect(countText(wrapper, "top")).toBe("2 messages above")
+    expect(countText(wrapper, "top")).toBe("2 msgs before")
   })
 
   it("removes the top pill when scrolled to the very top, even if a message reads above", async () => {
@@ -255,62 +249,30 @@ describe("pito--scroll-nav controller", () => {
 
   // ── count text interpolation ────────────────────────────────────────────────
 
-  it("interpolates %{count} and %{direction} in the count text (top pill)", async () => {
-    const { wrapper, scrollback } = buildScaffold({ variants: ["%{count} messages %{direction}"] })
+  it("interpolates %{count} into the before template (top pill)", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: -60, height: 50 })
 
     await tick()
 
-    expect(countText(wrapper, "top")).toBe("1 messages above")
+    expect(countText(wrapper, "top")).toBe("1 msgs before")
   })
 
-  it("interpolates %{count} and %{direction} in the count text (bottom pill)", async () => {
-    const { wrapper, scrollback } = buildScaffold({ variants: ["%{count} messages %{direction}"] })
+  it("interpolates %{count} into the after template (bottom pill)", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
     addMessage(scrollback, { top: 700, height: 50 })
 
     await tick()
 
-    expect(countText(wrapper, "bottom")).toBe("1 messages below")
+    expect(countText(wrapper, "bottom")).toBe("1 msgs after")
   })
 
-  // ── variant uniqueness (top ≠ bottom simultaneously) ────────────────────────
+  // ── template stable while the pill stays in the DOM (count changes) ──────────
 
-  it("top and bottom pills use different variant indices when both present", async () => {
-    const manyVariants = Array.from({ length: 20 }, (_, i) => `V${i} %{count} %{direction}`)
-    const { wrapper, scrollback } = buildScaffold({ variants: manyVariants })
-    setContainerRect(scrollback, { top: 0, height: 600 })
-
-    const above = addMessage(scrollback, { top: -60, height: 50 })
-    const below = addMessage(scrollback, { top: 700, height: 50 })
-
-    let sameCount = 0
-    const RUNS = 10
-
-    for (let i = 0; i < RUNS; i++) {
-      // Move both into view → both pills removed.
-      above.getBoundingClientRect = () => ({ top: 100, bottom: 150, left: 0, right: 800, width: 800, height: 50 })
-      below.getBoundingClientRect = () => ({ top: 200, bottom: 250, left: 0, right: 800, width: 800, height: 50 })
-      scrollback.dispatchEvent(new Event("scroll"))
-      await tick()
-
-      // Re-expose both outside the viewport → both pills re-created with fresh variants.
-      above.getBoundingClientRect = () => ({ top: -60, bottom: -10, left: 0, right: 800, width: 800, height: 50 })
-      below.getBoundingClientRect = () => ({ top: 700, bottom: 750, left: 0, right: 800, width: 800, height: 50 })
-      scrollback.dispatchEvent(new Event("scroll"))
-      await tick()
-
-      if (countText(wrapper, "top") === countText(wrapper, "bottom")) sameCount++
-    }
-
-    expect(sameCount).toBeLessThanOrEqual(3)
-  })
-
-  // ── variant locked while the pill stays in the DOM (count changes) ───────────
-
-  it("keeps the same variant text while the pill stays in the DOM (count changes)", async () => {
-    const { wrapper, scrollback } = buildScaffold({ variants: ["%{count} messages %{direction}"] })
+  it("keeps the same copy template while the pill stays in the DOM (count changes)", async () => {
+    const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600 })
 
     const msg1 = addMessage(scrollback, { top: -60, height: 50 })

@@ -20,10 +20,21 @@
       with GET /version after a cable reconnect — a mismatch means the server
       updated under this tab and the refresh nudge appears. %>
   <meta name="pito-version" content="<%= Pito::Version.suffix %>">
-  <%= stylesheet_link_tag "tailwind", media: "all" %>
+  <%# data-turbo-track="reload": the pull-refresh gesture is a SOFT Turbo
+      replace-visit now — Turbo compares these tracked digests on every visit
+      response and forces a real full reload only when the assets actually
+      changed (the pull's original post-update recovery job, kept). %>
+  <%= stylesheet_link_tag "tailwind", media: "all", "data-turbo-track": "reload" %>
   <%= javascript_importmap_tags %>
 </head>
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
+  <%# The living background (2.1.0): ONE fixed canvas under everything —
+      the resting star sky, later the enforcer passes. pointer-events none;
+      content stacks above it in DOM order. Config = the fx.yml registry,
+      one ontology on both sides of the wire. %>
+  <canvas id="pito-fx" class="pito-fx-canvas"
+          data-controller="pito--fx"
+          data-pito--fx-config-value="<%= Pito::Fx::Registry.as_json.to_json %>"></canvas>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
   <%# The version heartbeat's landing pad: VersionHeartbeatJob replaces

@@ -1,0 +1,12 @@
+# Round-5 verification: the exact owner scene — list vids over a bright
+# cover mood; every token bold white (kbd blue-band / clickable purple-band),
+# one soft halo, NO chips.
+name: list-mood-preview
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 837, scale: 1 }
+steps:
+  - login: true
+  - sleep: 1.0
+  - command: "list vids"
+  - sleep: 7.0
+  - keyframe: list-mood-preview.png

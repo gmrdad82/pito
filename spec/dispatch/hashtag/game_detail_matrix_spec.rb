@@ -50,8 +50,6 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(delegated_append)
 
     # Builder / formatter stubs so direct handlers don't blow up.
-    allow(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
-      .and_return({ "text" => "ffprobe one-liner" })
     allow(Pito::MessageBuilder::Text).to receive(:call)
       .and_return({ "text" => "confirmed" })
     allow(Pito::Formatter::FootageHours).to receive(:call).and_return("5h")
@@ -162,30 +160,23 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
       end
     end
 
-    describe "footage snippet — game-agnostic snippet form" do
+    # The `footage snippet` ffprobe one-liner moved to pito-tui (ctrl+f)
+    # 2026-07-13 — "snippet" is no longer special-cased, so it's just an
+    # invalid (non-numeric) hours value now, same as "footage bogus" below.
+    describe "footage snippet — retired game-agnostic form, now invalid hours" do
       subject(:result) { call("footage snippet") }
 
-      it "returns Result::Append" do
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
+      it "returns Result::Error" do
+        expect(result).to be_a(Pito::FollowUp::Result::Error)
       end
 
-      it "calls Footage::Snippet.call (renders the ffprobe one-liner)" do
-        expect(Pito::MessageBuilder::Footage::Snippet).to receive(:call)
-        result
-      end
-
-      it "does NOT call ::Game.find_by (game-agnostic path)" do
-        expect(::Game).not_to receive(:find_by)
-        result
+      it "uses the missing_hours key" do
+        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
       end
 
       it "does NOT delegate to ToolDelegator" do
         expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
         result
-      end
-
-      it "appends a :system kind event" do
-        expect(result.events.first[:kind]).to eq(:system)
       end
     end
 

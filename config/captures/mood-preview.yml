@@ -1,0 +1,11 @@
+# P5 smoke: a game-detail message takes viewport dominance — the seeded
+# cover mood must crossfade in over the sky.
+name: mood-preview
+base_url: https://dev.pitomd.com
+viewport: { width: 448, height: 1085, scale: 2 }
+steps:
+  - login: true
+  - command: "show game 20"
+  - wait_for: { selector: ".pito-game-detail", timeout: 20 }
+  - sleep: 6.0
+  - keyframe: mood-preview.png

@@ -14,6 +14,14 @@ module Pito
     # changes between releases, so it is safe to bake in.
     APK_URL = "https://github.com/gmrdad82/pito-android/releases/latest/download/pito.apk"
 
+    # SWITCH TO APP (owner 2026-07-12, Android only): the CTA is an Android
+    # intent URL — Chrome opens the INSTALLED app by package name, and when
+    # it is not installed follows S.browser_fallback_url to the latest-APK
+    # download. One link, both outcomes; no Play listing required.
+    INTENT_URL = "intent://app.pitomd.com/#Intent;scheme=https;" \
+                 "package=md.pitom.android;" \
+                 "S.browser_fallback_url=#{ERB::Util.url_encode(APK_URL)};end"
+
     ANDROID_MARKER = "Android"
     NATIVE_MARKER  = "Hotwire Native"
 

@@ -15,13 +15,28 @@ module Pito
       #   wrapper — the seam for class-driven surfaces (the animated :ai
       #   gradient needs background-size + animation, which an inline
       #   `background:` shorthand would reset).
-      def initialize(accent: nil, background: nil, id: nil, scrollback_message: false, msg_bg: nil, content_class: nil)
+      def initialize(accent: nil, background: nil, id: nil, scrollback_message: false, msg_bg: nil, content_class: nil, fx: nil)
         @accent = accent
         @background = background
         @id = id
         @scrollback_message = scrollback_message
         @msg_bg = msg_bg || background
         @content_class = content_class
+        # Living-background context stamp (2.1.0): {context:, covers: []} from
+        # the event payload's `fx` key — emitted as data attributes the fx
+        # engine's dominance observer reads. Nil = no mood (the sky answers).
+        @fx = fx
+      end
+
+      # data-fx-context / data-fx-covers for the root element; nil when the
+      # segment carries no mood so the attributes are omitted entirely.
+      def fx_context
+        @fx && (@fx[:context] || @fx["context"])
+      end
+
+      def fx_covers_json
+        covers = @fx && (@fx[:covers] || @fx["covers"])
+        covers.present? ? covers.to_json : nil
       end
 
       # The content wrapper's inline style — background (when given) plus the

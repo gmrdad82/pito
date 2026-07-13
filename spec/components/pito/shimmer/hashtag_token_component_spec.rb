@@ -6,7 +6,7 @@ RSpec.describe Pito::Shimmer::HashtagTokenComponent, type: :component do
   it "renders the text as muted text (item 7 — no shimmer)" do
     span = render_inline(described_class.new(text: "#chi-4450")).css("span").first
     expect(span.text).to eq("#chi-4450")
-    expect(span["class"]).to include("text-fg-faded")
+    expect(span["class"]).to include("text-fg-default")
     expect(span["class"]).not_to include("shimmer")
   end
 
@@ -18,14 +18,14 @@ RSpec.describe Pito::Shimmer::HashtagTokenComponent, type: :component do
   describe ".css_class / .html" do
     it "builds the muted class string" do
       cls = described_class.css_class("#chi-4450")
-      expect(cls).to include("text-fg-faded")
+      expect(cls).to include("text-fg-default")
       expect(cls).not_to include("shimmer")
     end
 
     it "renders an html-safe span" do
       html = described_class.html("#chi-4450")
       expect(html).to be_html_safe
-      expect(html).to include("text-fg-faded")
+      expect(html).to include("text-fg-default")
       expect(html).to include("#chi-4450")
     end
   end

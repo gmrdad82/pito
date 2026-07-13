@@ -2,9 +2,10 @@
 
 module Pito
   module Keybinding
-    # Renders a single keyboard shortcut token in canonical yellow bold styling.
-    # Single source of truth for the `font-bold text-yellow` shortcut appearance.
-    # The diagonal yellow→orange shimmer's staggered offset comes from the shared
+    # Renders a single keyboard shortcut token in the canonical keybinding
+    # styling: bold fg-default with the theme-BLUE shimmer band
+    # (.pito-kbd-shimmer, owner round 5). Single source of truth for the
+    # shortcut appearance. The staggered offset comes from the shared
     # Pito::Shimmer.offset_class so it never re-derives the bucket math by hand.
     class ShortcutComponent < ViewComponent::Base
       # `kbd_click:` (default true) wires the pito--kbd-click controller so a tap
@@ -19,7 +20,7 @@ module Pito
       end
 
       def call
-        tag.span(@keys, class: "font-bold text-yellow pito-action-shimmer #{Pito::Shimmer.offset_class(@keys)}", **data_attrs)
+        tag.span(@keys, class: "pito-kbd-shimmer #{Pito::Shimmer.offset_class(@keys)}", **data_attrs)
       end
 
       private

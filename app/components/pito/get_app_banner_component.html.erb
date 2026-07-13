@@ -19,7 +19,7 @@
         <span><%= Pito::Copy.render("pito.copy.get_app.banner") %></span>
       </span>
       <span class="pito-get-app__actions flex items-center gap-4 shrink-0">
-        <%= link_to Pito::GetAppBannerComponent::APK_URL,
+        <%= link_to Pito::GetAppBannerComponent::INTENT_URL,
                     class: "pito-get-app__cta whitespace-nowrap" do %>[ <%= Pito::Copy.render("pito.copy.get_app.cta") %> ↓ ]<% end %>
         <button type="button"
                 class="pito-get-app__dismiss cursor-pointer"

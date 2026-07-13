@@ -111,52 +111,6 @@ RSpec.describe Pito::Chat::Handlers::Footage do
     expect(game.reload.footage_hours).to eq(BigDecimal("3.0"))
   end
 
-  # ── footage game <id> — same Ok as `footage snippet` ─────────────────────────
-
-  it "treats `footage game <id>` as the snippet command (id is not consulted)" do
-    result = handler_for("game", game.id.to_s).call
-
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-
-    event = result.events.first
-    expect(event[:kind]).to eq(:system)
-    expect(event[:payload]["html"]).to be(true)
-
-    fragment = Nokogiri::HTML.fragment(event[:payload]["body"])
-    code     = fragment.css(".pito-footage-snippet__code").first
-    expect(code.text).to eq(Pito::Footage::SnippetComponent::COMMAND)
-  end
-
-  it "never touches Game for `footage game <id>` (no write, no lookup)" do
-    expect(::Game).not_to receive(:find_by)
-    handler_for("game", game.id.to_s).call
-    expect(game.reload.footage_hours).to eq(BigDecimal(0))
-  end
-
-  # ── footage snippet ──────────────────────────────────────────────────────────
-
-  it "emits a system event rendering the copyable snippet command" do
-    result = handler_for("snippet").call
-
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-
-    event = result.events.first
-    expect(event[:kind]).to eq(:system)
-    expect(event[:payload]["html"]).to be(true)
-
-    fragment = Nokogiri::HTML.fragment(event[:payload]["body"])
-    code     = fragment.css(".pito-footage-snippet__code").first
-    expect(code.text).to eq(Pito::Footage::SnippetComponent::COMMAND)
-  end
-
-  it "renders the snippet message with the clipboard wiring" do
-    result = handler_for("snippet").call
-    body   = result.events.first[:payload]["body"]
-
-    expect(body).to include('data-controller="pito--clipboard"')
-    expect(body).to include("click->pito--clipboard#copy")
-  end
-
   # ── unknown / non-numeric reference → witty not-found (via follow-up) ───────
 
   it "returns a witty not-found (text payload) for an unknown numeric id" do
@@ -186,10 +140,24 @@ RSpec.describe Pito::Chat::Handlers::Footage do
     expect(result.message_key).to eq("pito.chat.footage.needs_ref")
   end
 
-  it "names the game/snippet forms and the update verb in the usage hint copy" do
+  # The `footage snippet` / `footage game <id>` ffprobe one-liner moved to
+  # pito-tui (ctrl+f) 2026-07-13 — both words are now just unrecognized
+  # subcommands, same as any other.
+  it "returns needs_ref for the retired 'snippet' subcommand (no snippet component render)" do
+    result = handler_for("snippet").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.footage.needs_ref")
+  end
+
+  it "returns needs_ref for the retired 'game' subcommand (no snippet alias)" do
+    result = handler_for("game", game.id.to_s).call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.footage.needs_ref")
+  end
+
+  it "names the reply and update forms in the usage hint copy" do
     hint = I18n.t("pito.chat.footage.needs_ref")
-    expect(hint).to include("footage game <id>")
-    expect(hint).to include("footage snippet")
+    expect(hint).to include("footage <hours>")
     expect(hint).to include("update game footage <id> <hours>")
   end
 

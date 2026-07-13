@@ -19,7 +19,7 @@ require "bigdecimal"
 #   parse("update 12.5") => (25/2)
 #   parse("2.1")         => (5/2)    # ceils UP to 2.5h
 #   parse("-1")          => nil
-#   parse("snippet")     => nil      # not a number (callers route snippet first)
+#   parse("bogus")       => nil      # not a number
 module Pito
   module Games
     module FootageAmount

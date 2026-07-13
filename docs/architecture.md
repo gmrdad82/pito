@@ -204,8 +204,6 @@ Pito::StartScreen::Component      — full-viewport start screen
 
 Pito::Palette::CtrlK::Component        — Ctrl+K command palette
 Pito::Palette::CtrlK::SectionComponent — section inside the palette
-
-Pito::Footage::SnippetComponent   — copyable ffprobe one-liner (footage snippet)
 ```
 
 ## Dispatch pipeline
@@ -492,3 +490,75 @@ multi-arch image.
 - **Hygiene** — `pito:clean` (`Pito::Tools::Clean`) clears the `tmp/` scratch
   (keeping `tmp/storage`, `tmp/pids`, `.keep`) + truncates dev `log/*.log`; dev blobs
   live in `public/pito-storage`, not tmp/. In Docker, logs are STDOUT (json-file rotation).
+
+## The living background (fx, 2.1.0)
+
+One fixed canvas under the app runs the natural star sky (pito-tui's math:
+deterministic fnv star identity, 4 weighted color classes, 4-size rarity
+ladder, per-star breathing periods, two parallax drift layers) as the
+resting mood. Eligible events (:system/:enhanced/:ai) are stamped at the
+single create door (`Event.create_with_position!` → `Pito::Fx::Context`)
+with `fx: {context, covers}` — Option B: the event says WHAT it is; the
+`config/pito/fx.yml` registry (schema v2, boot-validated by
+`Pito::Fx::Registry`) alone maps context → weighted effect pool + knobs.
+
+fx.yml declares cover CARDINALITY on both sides: effects carry `covers:
+single|many|none` (needs_cover is gone), contexts are `{covers:, pool:}`
+maps, and the registry boot-fails any pool entry whose effect demands what
+its context can't carry ("single-cover moods never render lists (owner
+law)") — placement is validated, never silently degraded. The owner-locked
+map (all eleven moods): water / duotone / lens on the single-cover
+contexts (game_detail, vid_detail, and their verbatim analyze twins);
+cover_wall + plasma 50/50 on game_list, vid_list, channel, analyze_channel
+(plasma also answers thin shelves under the wall's min_covers); globs /
+trails (ring-cascades) / aurora on ai; glow EXCLUSIVELY on ai_game — an AI
+answer whose media or suggestion blocks name exactly one game derives that
+game's cover. Bare analyze (breakdowns) has no entry: the sky answers.
+Derive reads each message's own payload markers — replies get no special
+rules; channel walls draw art-bearing games only, in SQL. The scrollback
+snapshot cache is keyed v2 — bump it whenever event templates change.
+
+Client side (`app/javascript/fx/` + the `pito--fx` Stimulus shell): a pure
+context engine (`fx/engine.js`) turns viewport dominance (≥35%, 300ms
+hysteresis, clock-matured) into an event-seeded pick and a 700ms crossfade;
+WebGL renderers (`fx/renderers/*`: plasma, duotone, water, lens,
+fluid_smoke) draw offscreen at `engine.enforcer_alpha`; `cover_wall` mounts
+DOM-side. A COVERED mood's identity is effect + covers: a new dominant
+message with matching covers keeps the LIVING mood untouched while the new
+pool still offers the effect; a different cover rolls fresh, dropping the
+living effect when an alternative exists (ANTI-REPEAT; a one-effect pool
+repeats honestly). Cover-less moods (`plasma`, `fluid_smoke`) stay
+per-message; the cache is NEIGHBOUR-ONLY — only the living mood, never
+history — keyed `name:eventId` per owning event.
+
+Everything chases the BUTTERFLY FLOCK, never the pointer — the hand
+(mouse on desktop, gyro on phones) reaches every pixel by exactly one
+path: it leans the butterflies (randomly-dealt personalities per spawn —
+attracted / repelled / tilted / combos; the leader stays attracted), and
+the moods follow the butterflies. Nothing reads the device directly; the
+sky sways with the leader, the wall's second parallax layer with
+butterfly two. `engine.butterflies` is a ceiling; each NEW PICK rolls a
+flock of 3..ceiling members
+(`fx/attractor.js`: eased legs of uneven tempo — dart/cruise/drift — kicked
+to a dart by real events). The leader drives every effect and takes the
+mouse's bias; the rest wander chaotic, with tiered safety radii relaxed
+over two separation passes then low-pass smoothed into the position every
+consumer reads; dart legs hop nearby, never teleport. Ring+trail bodies
+draw over the resting sky ONLY, and only after `ring_idle_ms` (8s) of
+stillness — activity fades them out — six size tiers, never
+adjacent-matching. The sky also tilts with the phone gyro / desktop mouse.
+
+Lens and duotone anchor up to 3 foci to flock members, not one
+pointer-glued circle — count scales `min(viewport)/400`, clamped 1..3,
+tiered sizes. `cover_wall` tiles scale to a fraction of the viewport's
+short side (`size_frac`, boosted `sqrt(max_tiles/count)`, capped
+`size_ceiling_frac`), never duplicating art. `duotone` supersamples 2x via
+`knobs.dpr` — cells are CANVAS px, so visual dot size is `cell / dpr`.
+
+Readability laws: messages stack above the canvas; a 55% page-color veil
+band as wide as the message column; declared surfaces repaint at 92% of
+their own color; naked text wears a page-toned halo. Degrades:
+reduced-motion → one static frame; missing art or no WebGL2/float → cover
+moods drop out pool-wise, the sky answers. Configured in fx.yml ONLY
+(owner law — no /config surface); the dev ribbon carries the live FPS
+meter (`page fps · fx clock`).

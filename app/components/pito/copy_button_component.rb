@@ -3,9 +3,10 @@
 module Pito
   # The shared copy-to-clipboard WIDGET CORE — a self-contained `pito--clipboard`
   # controller wrapping the lucide copy ICON button + a "Copied!" feedback span.
-  # Reused by the share-link message (Pito::Share::LinkComponent) and the footage
-  # snippet (Pito::Footage::SnippetComponent) so the copy affordance is defined and
-  # styled in ONE place (fix the widget core, not each caller).
+  # Reused by the share-link message (Pito::Share::LinkComponent) and the AI
+  # suggestion block (Pito::Event::Ai::SuggestionBlockComponent) so the copy
+  # affordance is defined and styled in ONE place (fix the widget core, not each
+  # caller).
   #
   # The icon wears the ACTION shimmer (pito-blue↔purple), matching every other
   # clickable link/token — NOT the old cyan. Because the icon is an SVG

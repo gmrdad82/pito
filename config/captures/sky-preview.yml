@@ -1,0 +1,9 @@
+# The living background's first light: the start screen (no context, F1) —
+# the resting star sky in the app's negative space.
+name: sky-preview
+base_url: https://dev.pitomd.com
+viewport: { width: 448, height: 1085, scale: 2 }
+steps:
+  - visit: /
+  - sleep: 4.0
+  - keyframe: sky-preview.png

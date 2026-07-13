@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent:, background:, id: dom_id, scrollback_message: true)) do %>
+<%= render(Pito::Segment::Component.new(accent:, background:, id: dom_id, scrollback_message: true, fx: @payload[:fx])) do %>
   <% if sections.any? %>
     <%# Sections mode: body + all section detail, rendered instantly. %>
     <% if html %>

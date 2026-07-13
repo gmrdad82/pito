@@ -43,8 +43,8 @@ RSpec.describe Pito::Event::SegmentSuggestionComponent do
   end
 
   describe "keyboard shortcut" do
-    it "renders ctrl+/ in yellow" do
-      shortcut = node.css("span.font-bold.text-yellow").first
+    it "renders ctrl+/ as a kbd-shimmer token" do
+      shortcut = node.css("span.pito-kbd-shimmer").first
       expect(shortcut).to be_present
       expect(shortcut.text).to eq("ctrl+/")
     end

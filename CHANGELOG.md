@@ -4,7 +4,133 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.1.0] — 2026-07-13
+
+### Changed
+
+- **The AI model picker's header slimmed to title + Esc** — the active-model
+  summary is gone from the top row; the ● on the active row already says it.
+
+### Added
+
+- **The AI model picker's state is readable as JSON** — `GET /settings/ai`
+  returns exactly what the `/config ai` overlay renders (providers, keys
+  present, live catalogs, active pick, effort, favorites, recents, and —
+  given `?conversation=` — that conversation's ✨ model trail), session-gated;
+  the web overlay and the JSON now render one shared assembly, so terminal
+  clients get pixel-parity pickers that can never drift.
+
+- **A live FPS meter rides the DEVELOPMENT ribbon** — page frame rate now,
+  the fx engine's own clock alongside it once the living background lands;
+  the perf yardstick for fx iteration.
+
+- **The shelf mood** — game lists and channel libraries float their actual
+  covers at hashed depths behind the conversation, swaying with the
+  butterfly.
+- **The butterfly flock** — every effect chases an autonomous attractor that
+  flies in eased legs of uneven tempo (darting, cruising, drifting), startles
+  when pito events land, leans toward your mouse without obeying it — and a
+  whole flock of them wears visible bodies over the resting sky: thin
+  brand-colored rings trailing fading echoes, never touching, never over a
+  mood (they fade as a mood rises). The lens and halftone moods anchor up to
+  three focus circles to the flock — more on a desktop, one on a phone, each
+  a different size — and the cover wall sizes its tiles by how much art it
+  has: a thin shelf means bigger covers, never doubled ones.
+- **A readable conversation over any mood** — a page-toned veil band exactly
+  as wide as the message column, surfaces at 92% of their own color, one soft
+  halo on every text, and a global mood-intensity cap; water calmed to a pond
+  (rare soft drops, high damping — all fx.yml knobs).
+- **One white ink, two colored gleams** — every special token now rests on
+  the same foreground white as plain text: keybindings are bold with the
+  theme's blue band sweeping through, clickable #id / @handle tokens are bold
+  with the theme's purple band, and subjects, references, and #handles are
+  simply bold — no shimmer, no chips, no backgrounds.
+- **The verdict sheet closed the roster** — `aurora` (2-4 blurred hue
+  areas breathing on the flock) wears every analyze moment; `trails` (the
+  pitomd ring-cascade: each butterfly drags a stack of luminous purple/blue
+  circles, bright head to swelling tail) joins lists, analyze, and channel;
+  plasma serves walls and only walls; AI wears the globs alone; and the
+  fluid smoke, comet, film grain, scanlines, and coins were shown the door.
+- **Two new moods from the owner's verdict sheet** — `glow` (dreamy
+  spotlights punching light through the cover, one per butterfly, staggered
+  sizes) joins water, duotone, and lens on single-cover moments; `globs`
+  (the gooey metaball field, blobs riding the flock) leads the AI pool. The
+  cover wall gained collision-free placement (tiles never overlap, sizes
+  roam between a floor and a ceiling, film grain on top), plasma became the
+  wall's 50/50 partner and its thin-shelf understudy, the flock re-rolls
+  3-6 members on every mood pick, and the idle rings finally wear pitomd's
+  luminous rotating gradients instead of thin hoops.
+- **The mood map is law, not luck** — fx.yml now states cover cardinality on
+  both sides: every effect declares whether it wears one cover, many, or
+  none, and every context declares what it carries. The locked trio (water,
+  duotone — né halftone — and lens) belongs to single-cover moments only
+  (show/analyze of one game or vid); cover walls belong to `ls games`,
+  `ls vids`, and `show channel`; putting a single-cover mood on a list is a
+  boot error in the owner's own words, not a silent skip.
+- **Messages now command the background** — when a game, list, vid, channel,
+  AI, or analytics message holds the viewport, a mood picked from its
+  YAML-declared pool crossfades in over the sky (halftone dots, water
+  ripples, a chromatic lens, or drifting smoke — cover-fed where the message
+  carries art), chosen per message and remembered per message; scrolling
+  glides between moods, never strobes, and nothing ever paints over a
+  message body. Moods are keyed by their ART, not the message: `show vid 2`
+  then `analyze vid 2` flow through one uninterrupted ripple field, and a
+  game sharing its linked vid's cover keeps the water alive rather than
+  restarting it — neighbours only, and never the same effect twice in a row
+  when the art changes and the pool offers an alternative.
+- **The ffprobe snippet moved out** — `footage snippet` (and its `footage
+  game <id>` alias) left pito entirely; probing your recordings now lives in
+  pito-tui's ctrl+f flow, where the files actually are. `footage update
+  <id> <hours>` stays.
+- **The scrollback never scrolls for you anymore** — the follow-the-newest
+  feature is gone (an AI answer's tool iterations kept yanking the view
+  mid-read). Reloading or resuming a conversation still lands on the
+  newest message, and sending a command still shows it arrive; everything
+  else is yours, with ctrl+home / ctrl+end as the ferries.
+- **The scroll pills speak once, plainly** — "3 msgs before ctrl+home ▲" /
+  "3 msgs after ctrl+end ▼": one clear string on both web and TUI (the
+  50-variant dictionary is retired), white words, and the pills now kiss the
+  conversation scrollbar — top pill at the top, bottom pill riding the chat
+  dock.
+- **Shinies are engraved, not shadowed** — chip text is a deep shade of its
+  own material sitting in a carve (dark recess above, material-tinted lip
+  below); gold engraves warm, stone engraves cool.
+- **Pull-to-refresh is a soft swap** — the bottom pull now rides a Turbo
+  replace-visit instead of a full reload, so the Android app never flashes
+  its boot screen on a refresh.
+- **The sky is on** — a natural star field now breathes under the whole app:
+  the TUI sky's exact math (deterministic star identity, real stellar color
+  classes, a rarity ladder from dust to brilliants, per-star breathing, two
+  parallax drift layers) on one fixed canvas that never fights the content —
+  30fps-capped, DPR-capped, pausing when hidden, still under reduced motion,
+  and fully alive on mobile.
+- **Messages know their mood** — eligible messages (`:system`, `:enhanced`,
+  `:ai`) now carry a server-derived fx context (game, shelf, vid, channel,
+  AI, analyze — with the cover art paths that mood needs) stamped at the
+  persist door and re-derived when a follow-up replaces content; the JSON
+  mirror carries it to every client. The living background reads this,
+  never guesses.
+- **The fx registry** — `config/pito/fx.yml` declares the living background's
+  ontology (engine knobs, effects and their capabilities, context → weighted
+  effect pools), schema-validated with did-you-mean hints and an
+  add-an-effect proof: a new effect or context remap is a YAML edit, never a
+  conditional. Groundwork for 2.1.0's message-mood backgrounds.
+
+### Fixed
+
+- **No more dead strip under the chatbox in production** — the chat dock
+  reserved the development ribbon's 32px in every environment; production now
+  hugs the viewport with a tight 12px while development keeps its ribbon room.
+- **The "below: N hidden" pill stops covering the context meter** — its
+  anchor is now measured from the chat dock's real top edge (and re-measured
+  as the dock grows), instead of a desktop-tuned 116px constant that
+  overlapped the meter on phones.
+
+### Changed
+
+- **The install banner switches to the app** — on Android the banner's action
+  is now an intent link: if the PITO app is installed it opens straight into
+  it, and if not the same tap falls back to downloading the newest APK.
 
 ## [2.0.1] — 2026-07-12
 

@@ -14,18 +14,11 @@
   <div class="relative w-[600px] bg-surface border border-line-default p-2.5 flex flex-col">
     <%# Title row — palette-style: bold title, active model summary, Esc hint
         (ShortcutComponent = tappable on touch: the tap synthesizes Escape). %>
+    <%# Title row — bold title + Esc hint only (owner 2026-07-12: no
+        current-model summary in the header; the active row's ✓ carries it). %>
     <div class="flex justify-between items-center gap-2">
       <span class="font-bold text-fg"><%= t("pito.palette.ai_picker.title") %></span>
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="truncate text-fg-dim">
-          <% if active_model %>
-            <%= active_provider %>/<span class="text-pito"><%= active_model %></span>
-          <% else %>
-            <span class="text-fg-faded"><%= t("pito.palette.ai_picker.no_model") %></span>
-          <% end %>
-        </span>
-        <%= render(Pito::Keybinding::ShortcutComponent.new(keys: t("pito.palette.ai_picker.esc_hint"))) %>
-      </div>
+      <%= render(Pito::Keybinding::ShortcutComponent.new(keys: t("pito.palette.ai_picker.esc_hint"))) %>
     </div>
 
     <div class="h-3"></div>

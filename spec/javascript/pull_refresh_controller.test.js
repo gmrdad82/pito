@@ -168,4 +168,13 @@ describe("pito--pull-refresh controller", () => {
     el.dispatchEvent(touchEvent("touchend", 700)) // no movement
     expect(spinner()).toBeNull()
   })
+  it("soft-refreshes via a Turbo replace-visit so the APK never cold-boots", async () => {
+    await build({ enabled: true })
+    const visit = vi.fn()
+    window.Turbo = { visit }
+    ctrl._reload()
+    expect(visit).toHaveBeenCalledWith(window.location.href, { action: "replace" })
+    delete window.Turbo
+  })
+
 })

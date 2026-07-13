@@ -29,7 +29,6 @@ RSpec.describe Pito::Games::FootageAmount do
     end
 
     it "returns nil for non-numeric input" do
-      expect(described_class.parse("snippet")).to be_nil
       expect(described_class.parse("abc")).to be_nil
       expect(described_class.parse("")).to be_nil
       expect(described_class.parse(nil)).to be_nil

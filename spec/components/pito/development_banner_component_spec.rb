@@ -6,17 +6,16 @@ RSpec.describe Pito::DevelopmentBannerComponent do
   subject(:node) { render_inline(described_class.new) }
 
   it "renders the DEVELOPMENT label from Pito::Copy (not hardcoded)" do
-    expect(node.text.strip).to eq(Pito::Copy.render("pito.copy.development.banner"))
+    # The ribbon IS the meter now (owner 2026-07-13): no wordmark copy, the
+    # red bar marks the environment, the meter is the content.
+    expect(node.css("#pito-fx-fps[data-controller='pito--fx-fps']").text).to eq("-- fps")
+    expect(node.text).not_to include("DEVELOPMENT")
   end
 
-  it "renders 'DEVELOPMENT'" do
-    expect(node.text).to include("DEVELOPMENT")
-  end
-
-  it "is a fixed, full-width red banner pinned to the bottom" do
+  it "is a fixed, full-width red ribbon raised off the screen edge (owner: near mini-status)" do
     div = node.css("div").first
     classes = div["class"]
-    expect(classes).to include("fixed", "bottom-0", "left-0", "right-0", "bg-red")
+    expect(classes).to include("fixed", "bottom-1", "left-0", "right-0", "bg-red")
   end
 
   it "uses the default foreground for readable contrast on red" do

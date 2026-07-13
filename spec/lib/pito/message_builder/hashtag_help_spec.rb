@@ -92,7 +92,6 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         it "body includes the footage usage shape" do
           expect(result["body"]).to include("footage")
           expect(result["body"]).to include("hours")
-          expect(result["body"]).to include("snippet")
         end
 
         it "body includes the --help option" do

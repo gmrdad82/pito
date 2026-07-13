@@ -3,9 +3,10 @@
 module Pito
   module Shimmer
     # Renders an identifier token — a channel @handle, the @all / period (28d)
-    # scope chip, or a video/game #id — with the cyan→pito-blue shimmer
-    # (.pito-reference-shimmer) and a shared staggered offset (Pito::Shimmer.offset_class)
-    # so adjacent tokens are out of phase (never synchronised).
+    # scope chip, or a video/game #id — with a shared staggered offset
+    # (Pito::Shimmer.offset_class) so adjacent tokens are out of phase.
+    # Owner round 5: clickable tokens shimmer bold fg-default + theme-purple
+    # band; reference tokens are plain bold fg-default (no shimmer).
     #
     # `extra_class` carries layout-only utilities (e.g. "tabular-nums",
     # "whitespace-nowrap") — the shimmer owns the colour via background-clip.
@@ -24,7 +25,8 @@ module Pito
       # @handle / #id / scope chips no longer shimmer). Raw-markup callers that merge
       # `prefill_data` themselves must pass `clickable: true` so the styling matches.
       # Semantic REFERENCES (the AI text blocks' [ref] tokens) are the exception:
-      # they wear the cyan reference shimmer (`shimmer: true`).
+      # they wear the bold fg-default reference styling (`shimmer: true` —
+      # static since owner round 5; the class name is the stable hook).
       SHIMMER_CLASS   = "pito-reference-shimmer" # semantic [ref] tokens (AI text blocks)
       CLICKABLE_CLASS = "pito-action-shimmer"   # CLICKABLE (the only clickable shimmer)
       PLAIN_CLASS     = "pito-token"            # DECORATIVE identifiers — plain text + JS hook

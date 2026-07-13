@@ -33,45 +33,18 @@ Two surfaces write `footage_hours`:
   game.
 
 Negative or non-numeric hours are rejected with a usage hint. Bare `footage` or
-an unknown subcommand also returns the usage hint naming both forms.
+an unknown subcommand also returns the usage hint naming the surviving form.
 
-Handler: `Pito::Chat::Handlers::Footage` (`self.verb = :footage`), with
-subcommands `update` and `snippet`.
+Handler: `Pito::Chat::Handlers::Footage` (`self.verb = :footage`), with the
+single subcommand `update`.
 
-## `footage snippet` — the ffprobe one-liner
+## Measuring footage — pito-tui
 
-`footage snippet` renders a copyable shell one-liner (no rake task, no Rails
-involvement). You run it **inside your footage folder**; it sums the durations
-of every file there and prints the total in hours, which you then paste into
-`footage update <id> <hours>`.
-
-What the one-liner does:
-
-1. `find . -maxdepth 1 -type f` — every file in the current folder (non-recursive).
-2. `ffprobe -v error -show_entries format=duration` — reads each file's duration
-   in seconds.
-3. `awk '{s+=int(($1+1799)/1800)} END{printf "%.1f", s/2}'` — ceils **each
-   file** up to the next half-hour (1800 s) and sums, then prints the 1-decimal
-   total in hours.
-4. `wl-copy` (when available) — copies the total to the Wayland clipboard.
-
-The exact command is `Pito::Footage::SnippetComponent::COMMAND`. `ffprobe`
-(shipped with FFmpeg) must be installed on the machine where you run it:
-
-```bash
-# Arch / EndeavourOS
-sudo pacman -S ffmpeg
-# macOS
-brew install ffmpeg
-# Ubuntu / Debian
-sudo apt-get install ffmpeg
-```
-
-## UI component
-
-`Pito::Footage::SnippetComponent` renders the copyable one-liner as a `:system`
-event. The payload is built by `Pito::MessageBuilder::Footage::Snippet`. The
-component is wired to the shared `pito--clipboard` Stimulus controller: clicking
-the copy affordance writes the command to the clipboard and flips the feedback
-label to "Copied!". Its copy/aria/hint strings come from
-`config/locales/.../pito.footage.snippet.*`.
+PITO itself has no `ffprobe` integration and never did more than store the
+number. The `footage snippet` shell one-liner that used to render inline in
+the chatbox was removed (2026-07-13) — probing your recordings only makes
+sense on the machine where the files (and `ffprobe`) actually live, so that
+flow now lives in **pito-tui** (ctrl+f): pick a game, browse local folders,
+select the files to probe, and it writes the total straight through this same
+`footage update <id> <hours>` tool. See the pito-tui docs for the ffprobe
+requirement and the folder-navigator UI.

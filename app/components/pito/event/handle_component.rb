@@ -2,8 +2,8 @@
 
 module Pito
   module Event
-    # Renders a confirmation / segment reply handle as `#handle` with the
-    # blue→purple hashtag shimmer (distinct from the cyan @handle / #id shimmer).
+    # Renders a confirmation / segment reply handle as `#handle` in plain
+    # fg-default (owner round 5 — no shimmer, no muting, no chip).
     # Used inside MetaLineComponent and anywhere a reply handle appears inline.
     # The class comes from Pito::Shimmer::HashtagTokenComponent.css_class so the
     # `data-pito-handle` hook (used by the lasthashtag controller) is preserved.
@@ -16,11 +16,10 @@ module Pito
         @handle.present?
       end
 
-      # The reply handle is DECORATIVE (purple hashtag shimmer) and NOT clickable
-      # (purple shimmer must never be clickable — only the yellow shimmer is).
-      # The click-to-prefill affordance was removed; the shift+r
-      # keybinding (yellow kbd) remains the way to reply. The `data-pito-handle`
-      # hook is preserved for the lasthashtag controller.
+      # The reply handle is DECORATIVE and NOT clickable. The click-to-prefill
+      # affordance was removed; the shift+r keybinding (blue kbd shimmer)
+      # remains the way to reply. The `data-pito-handle` hook is preserved for
+      # the lasthashtag controller.
       def call
         token = "##{@handle}"
         tag.span(token,

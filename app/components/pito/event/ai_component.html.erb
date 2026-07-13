@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent: pending? ? :surface : :ai, content_class: pending? ? nil : "pito-ai-surface", msg_bg: "var(--bg-surface)", id: dom_id, scrollback_message: true)) do %>
+<%= render(Pito::Segment::Component.new(accent: pending? ? :surface : :ai, content_class: pending? ? nil : "pito-ai-surface", msg_bg: "var(--bg-surface)", fx: @payload[:fx], id: dom_id, scrollback_message: true)) do %>
   <% if pending? %>
     <%# The loop is running — the tile wears the FULL :system dress (surface
         bar, transparent background) and only promotes to the AI chrome when
