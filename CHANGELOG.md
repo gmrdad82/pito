@@ -4,6 +4,16 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.3.2] — 2026-07-14
+
+### Fixed
+
+- **The wall stopped ghosting under the plasma** — when the living
+  background changed moods mid-jank (several `ls games` cover walls loading
+  at once), the outgoing wall could freeze at a visible tint and haunt the
+  screen for five seconds. Retired moods now drop to invisible the moment
+  they leave the mix.
+
 ## [2.3.1] — 2026-07-14
 
 ### Fixed

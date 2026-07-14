@@ -418,7 +418,15 @@ export default class extends Controller {
       [mix.enforcer, mix.fading].filter(Boolean).map((p) => this.#passKey(p))
     )
     for (const [key, instance] of this._instances) {
-      if (!live.has(key) && now - (instance._lastUsed || 0) > 5000) {
+      if (live.has(key)) continue
+      // A DOM-backed pass (the wall) keeps whatever opacity its LAST
+      // composited frame wrote — and once it leaves the mix, no pass ever
+      // writes it again. A mid-crossfade frame hitch (multiple ls-games
+      // walls loading images) strands it at a visible alpha, ghosting
+      // under the incoming mood until the 5s reap. Kill the paint NOW;
+      // keep the instance warm for the quick-flip reuse window.
+      if (instance.element) instance.element.style.opacity = "0"
+      if (now - (instance._lastUsed || 0) > 5000) {
         instance.destroy?.()
         this._instances.delete(key)
       }
