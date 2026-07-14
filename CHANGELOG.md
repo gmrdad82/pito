@@ -4,6 +4,18 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] — 2026-07-14
+
+### Added
+
+- **Your shinies, your ambitions** — the achievement ladders moved out of
+  the code and into `config/pito/shinies.yml`: every scope × metric ceiling
+  and the channel-subs award metals are data now, shipped with the same
+  defaults as before (nothing changes unless you say so). Self-hosters
+  mount their own copy over the baked one to reshape every ladder; a broken
+  file refuses to boot with a message naming exactly what's wrong. See
+  README → "Customizing your shinies".
+
 ## [2.3.2] — 2026-07-14
 
 ### Fixed

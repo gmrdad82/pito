@@ -44,7 +44,7 @@ module Pito
     def css_classes
       base = "pito-shiny #{offset_class}"
       base += " pito-shiny--iridescent" if IRIDESCENT.include?(@material)
-      base += " pito-shiny--award" if Pito::Achievement::Tier::AWARDS.value?(@material)
+      base += " pito-shiny--award" if Pito::Achievement::Tier.awards.value?(@material)
       [ base, @extra_class ].compact.join(" ")
     end
   end

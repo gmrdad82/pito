@@ -18,33 +18,36 @@ module Pito
     module Tier
       STONES = %w[wood stone amber coral jade pearl ruby opal].freeze
 
+      module_function
+
       # Channel-subs awards: threshold -> metal (channel scope only).
-      AWARDS = { 100_000 => "silver", 1_000_000 => "gold", 10_000_000 => "diamond" }.freeze
+      # Since P25 the values live in config/pito/shinies.yml — every install
+      # can carry its own ambitions (Pito::Achievements::Config validates).
+      def awards
+        Pito::Achievements::Config.awards
+      end
 
       # Stone-ladder ceilings per scope x metric (the award thresholds sit
       # ABOVE the channel subs ceiling and are appended by series_for).
-      CEILINGS = {
-        "Video"   => { "views" => 1_000_000,  "watched_hours" => 100_000,
-                       "likes" => 20_000,     "comments" => 5_000, "subs_gained" => 5_000 }.freeze,
-        "Game"    => { "views" => 10_000_000, "watched_hours" => 500_000,
-                       "likes" => 200_000,    "comments" => 20_000, "subs_gained" => 10_000 }.freeze,
-        "Channel" => { "views" => 50_000_000, "watched_hours" => 2_000_000,
-                       "likes" => 500_000,    "comments" => 50_000, "subs" => 50_000 }.freeze
-      }.freeze
-
-      module_function
+      def ceilings
+        Pito::Achievements::Config.ceilings
+      end
 
       # The 1-2-5 milestone series for a scope x metric, awards appended for
-      # channel subs. Frozen + memoised per pair.
+      # channel subs. Frozen + memoised per pair — the memo is keyed on the
+      # loaded config document's identity, so a dev-reload or a spec's
+      # reload! naturally invalidates it.
       #
       # @param scope  [String] "Channel" | "Video" | "Game" (polymorphic_name)
       # @param metric [String, Symbol]
       # @return [Array<Integer>]
       # @raise [KeyError] on an unknown scope/metric pair
       def series_for(scope:, metric:)
-        @series ||= {}
+        doc = Pito::Achievements::Config.data
+        @series = {} unless @series_doc.equal?(doc)
+        @series_doc = doc
         @series[[ scope.to_s, metric.to_s ]] ||= begin
-          max = CEILINGS.fetch(scope.to_s).fetch(metric.to_s)
+          max = ceilings.fetch(scope.to_s).fetch(metric.to_s)
           steps = []
           base = 1
           while base <= max
@@ -54,7 +57,7 @@ module Pito
             end
             base *= 10
           end
-          steps.concat(AWARDS.keys) if award_track?(scope, metric)
+          steps.concat(awards.keys) if award_track?(scope, metric)
           steps.freeze
         end
       end
@@ -67,10 +70,10 @@ module Pito
       # @return [String] one of STONES or AWARDS.values
       def material_for(scope:, metric:, threshold:)
         award = award_track?(scope, metric)
-        return AWARDS[threshold] if award && AWARDS.key?(threshold)
+        return awards[threshold] if award && awards.key?(threshold)
 
         series = series_for(scope:, metric:)
-        series = series.reject { |t| AWARDS.key?(t) } if award
+        series = series.reject { |t| awards.key?(t) } if award
         idx = series.index(threshold) || series.rindex { |t| t <= threshold } || 0
         return STONES.last if idx == series.length - 1
 

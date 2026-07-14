@@ -40,7 +40,7 @@ module Pito
 
       def award?(threshold)
         Pito::Achievement::Tier.award_track?(@scope, @metric) &&
-          Pito::Achievement::Tier::AWARDS.key?(threshold)
+          Pito::Achievement::Tier.awards.key?(threshold)
       end
 
       def next_threshold

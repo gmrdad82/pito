@@ -55,7 +55,7 @@ RSpec.describe Pito::Achievement::Tier do
 
     it "no metal ever appears outside the channel-subs award steps" do
       %w[Video Game].each do |scope|
-        T::CEILINGS.fetch(scope).each_key do |metric|
+        T.ceilings.fetch(scope).each_key do |metric|
           mats = T.series_for(scope:, metric:).map { |t| T.material_for(scope:, metric:, threshold: t) }
           expect(mats).to all(be_in(T::STONES))
         end

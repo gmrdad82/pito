@@ -11,24 +11,24 @@ RSpec.describe Pito::Achievements::Evaluate do
 
   # ── MATRIX / metrics_for ───────────────────────────────────────────────────
 
-  describe "MATRIX" do
+  describe "the configured metric matrix (shinies.yml)" do
     it "has entries for Channel, Video, and Game" do
-      expect(described_class::MATRIX.keys).to contain_exactly("Channel", "Video", "Game")
+      expect(Pito::Achievements::Config.ceilings.keys).to contain_exactly("Channel", "Video", "Game")
     end
 
     it "gives Channel subs but not subs_gained" do
-      expect(described_class::MATRIX["Channel"]).to include("subs")
-      expect(described_class::MATRIX["Channel"]).not_to include("subs_gained")
+      expect(Pito::Achievements::Config.metrics_for("Channel")).to include("subs")
+      expect(Pito::Achievements::Config.metrics_for("Channel")).not_to include("subs_gained")
     end
 
     it "gives Video subs_gained but not subs" do
-      expect(described_class::MATRIX["Video"]).to include("subs_gained")
-      expect(described_class::MATRIX["Video"]).not_to include("subs")
+      expect(Pito::Achievements::Config.metrics_for("Video")).to include("subs_gained")
+      expect(Pito::Achievements::Config.metrics_for("Video")).not_to include("subs")
     end
 
     it "gives Game subs_gained but not subs" do
-      expect(described_class::MATRIX["Game"]).to include("subs_gained")
-      expect(described_class::MATRIX["Game"]).not_to include("subs")
+      expect(Pito::Achievements::Config.metrics_for("Game")).to include("subs_gained")
+      expect(Pito::Achievements::Config.metrics_for("Game")).not_to include("subs")
     end
   end
 

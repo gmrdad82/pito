@@ -1,0 +1,54 @@
+# Shinies — pito's achievements — declared as data, so every install can
+# carry its own ambitions.
+#
+# Ladders are generated, not listed: each scope × metric climbs a 1-2-5
+# series (1, 2, 5, 10, 20, 50, …) from 1 up to its ceiling below. The eight
+# stones (wood → opal) spread positionally across each ladder, so the TOP of
+# every ladder carries the same valor (opal) whatever its ceiling — 50K
+# channel comments shines like 50M channel views.
+#
+# ceilings: the top stone step per scope × metric. Raising one grows the
+#   ladder (more shinies to hunt); lowering one shortens it. Positive
+#   integers only. Each scope lists exactly the metrics it tracks — a
+#   channel counts TOTAL subs; vids and games count subs GAINED.
+#
+# awards: the channel-subs metals sitting ABOVE the stone ceiling
+#   (YouTube Creator Award scale). Thresholds must ascend.
+#
+# Changing values later never revokes an unlocked shiny (unlock rows are
+# permanent), but stone materials are POSITIONAL on the current ladder —
+# re-shaping a ladder may re-color existing badges. That is by design.
+#
+# Self-hosting: this file ships baked into the image with the defaults
+# below (the reference channel: a monetized, 100K-subs target — views
+# ≈ 200–500× subs lifetime, likes ≈ views/30, comments ≈ views/700). To
+# customize, mount your own copy over it — see README → "Customizing your
+# shinies" (the same read-only mount channel as master.key).
+schema_version: 1
+
+# Metric order below is meaningful: surfaces that list a scope's shinies
+# iterate it as written (subs first is the house order).
+ceilings:
+  video:
+    subs_gained: 5_000
+    views: 1_000_000
+    watched_hours: 100_000
+    likes: 20_000
+    comments: 5_000
+  game:
+    subs_gained: 10_000
+    views: 10_000_000
+    watched_hours: 500_000
+    likes: 200_000
+    comments: 20_000
+  channel:
+    subs: 50_000
+    views: 50_000_000
+    watched_hours: 2_000_000
+    likes: 500_000
+    comments: 50_000
+
+awards:
+  silver: 100_000
+  gold: 1_000_000
+  diamond: 10_000_000

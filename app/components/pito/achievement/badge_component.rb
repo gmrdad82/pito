@@ -66,7 +66,7 @@ module Pito
         # (shinies-tool message) stays on the base class.
         base = "pito-shiny #{offset_class}"
         base += " pito-shiny--iridescent" if %w[pearl opal diamond].include?(material)
-        base += " pito-shiny--award" if Pito::Achievement::Tier::AWARDS.value?(material)
+        base += " pito-shiny--award" if Pito::Achievement::Tier.awards.value?(material)
         @form == :compact ? "#{base} pito-shiny--compact" : base
       end
 
