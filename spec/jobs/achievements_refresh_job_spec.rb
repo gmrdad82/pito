@@ -7,7 +7,7 @@ RSpec.describe AchievementsRefreshJob, type: :job do
 
   # ─── helpers ────────────────────────────────────────────────────────────────
 
-  # Build a minimal analytics top_videos row.
+  # Build a minimal LifetimeVideoReport row (lifetime per-video analytics).
   def make_analytics_row(video_id, views: 1000, minutes: 6000, subs_gained: 5)
     {
       video_id:                  video_id,
@@ -18,12 +18,9 @@ RSpec.describe AchievementsRefreshJob, type: :job do
     }
   end
 
-  # Build a minimal videos_list response item (likes + comments from Data API).
-  def make_video_item(id, likes: "50", comments: "10")
-    {
-      id:         id,
-      statistics: { like_count: likes, comment_count: comments }
-    }
+  # Build a minimal VideoStatsReadThrough result entry (views/likes/comments).
+  def make_video_stats(views: 0, likes: 50, comments: 10)
+    { views: views, likes: likes, comments: comments }
   end
 
   # Build a minimal channels_list response item.
@@ -47,19 +44,18 @@ RSpec.describe AchievementsRefreshJob, type: :job do
   let!(:game)  { create(:game) }
   let!(:link)  { create(:video_game_link, video: video, game: game) }
 
-  let(:analytics_client) { instance_double(Channel::Youtube::AnalyticsClient) }
-  let(:data_client)      { instance_double(Channel::Youtube::Client) }
+  let(:data_client) { instance_double(Channel::Youtube::Client) }
 
   before do
-    allow(Channel::Youtube::AnalyticsClient).to receive(:new).with(connection).and_return(analytics_client)
-    allow(Channel::Youtube::Client).to receive(:new).with(connection).and_return(data_client)
+    allow(::Channel::Youtube::LifetimeVideoReport).to receive(:rows_for)
+      .with(channel: channel, max_age: described_class::LIFETIME_MAX_AGE)
+      .and_return([ make_analytics_row("vid_aaa", views: 1200, minutes: 3600, subs_gained: 8) ])
 
-    allow(analytics_client).to receive(:top_videos).and_return([
-      make_analytics_row("vid_aaa", views: 1200, minutes: 3600, subs_gained: 8)
-    ])
-    allow(data_client).to receive(:videos_list).and_return(
-      { items: [ make_video_item("vid_aaa", likes: "40", comments: "12") ] }
-    )
+    allow(::Channel::Youtube::VideoStatsReadThrough).to receive(:call)
+      .with(channel: channel, max_age: described_class::VIDEO_STATS_MAX_AGE)
+      .and_return({ "vid_aaa" => make_video_stats(likes: 40, comments: 12) })
+
+    allow(Channel::Youtube::Client).to receive(:new).with(connection).and_return(data_client)
     allow(data_client).to receive(:channels_list).and_return(
       { items: [ make_channel_item("UCprimary", subscriber_count: "5000") ] }
     )
@@ -67,15 +63,21 @@ RSpec.describe AchievementsRefreshJob, type: :job do
 
   subject(:job) { described_class.new }
 
-  # ─── analytics client call ──────────────────────────────────────────────────
+  # ─── lifetime report + read-through seam calls ──────────────────────────────
 
-  describe "Analytics API call" do
-    it "calls top_videos with the explicit channel_id, lifetime start, and today" do
-      expect(analytics_client).to receive(:top_videos).with(
-        channel_id: "UCprimary",
-        start_date: described_class::LIFETIME_START,
-        end_date:   Date.current
-      ).and_return([])
+  describe "lifetime video report + video stats read-through seams" do
+    it "calls LifetimeVideoReport.rows_for with the channel and the 12h max_age" do
+      expect(::Channel::Youtube::LifetimeVideoReport).to receive(:rows_for)
+        .with(channel: channel, max_age: 12.hours)
+        .and_return([])
+
+      job.perform
+    end
+
+    it "calls VideoStatsReadThrough.call with the channel and the 3h max_age" do
+      expect(::Channel::Youtube::VideoStatsReadThrough).to receive(:call)
+        .with(channel: channel, max_age: 3.hours)
+        .and_return({})
 
       job.perform
     end
@@ -188,19 +190,18 @@ RSpec.describe AchievementsRefreshJob, type: :job do
     let!(:video2) { create(:video, channel: channel2, youtube_video_id: "vid_bbb") }
     let!(:link2)  { create(:video_game_link, video: video2, game: game) }
 
-    let(:analytics_client2) { instance_double(Channel::Youtube::AnalyticsClient) }
-    let(:data_client2)      { instance_double(Channel::Youtube::Client) }
+    let(:data_client2) { instance_double(Channel::Youtube::Client) }
 
     before do
-      allow(Channel::Youtube::AnalyticsClient).to receive(:new).with(connection2).and_return(analytics_client2)
-      allow(Channel::Youtube::Client).to receive(:new).with(connection2).and_return(data_client2)
+      allow(::Channel::Youtube::LifetimeVideoReport).to receive(:rows_for)
+        .with(channel: channel2, max_age: described_class::LIFETIME_MAX_AGE)
+        .and_return([ make_analytics_row("vid_bbb", views: 800, minutes: 1200, subs_gained: 3) ])
 
-      allow(analytics_client2).to receive(:top_videos).and_return([
-        make_analytics_row("vid_bbb", views: 800, minutes: 1200, subs_gained: 3)
-      ])
-      allow(data_client2).to receive(:videos_list).and_return(
-        { items: [ make_video_item("vid_bbb", likes: "20", comments: "5") ] }
-      )
+      allow(::Channel::Youtube::VideoStatsReadThrough).to receive(:call)
+        .with(channel: channel2, max_age: described_class::VIDEO_STATS_MAX_AGE)
+        .and_return({ "vid_bbb" => make_video_stats(likes: 20, comments: 5) })
+
+      allow(Channel::Youtube::Client).to receive(:new).with(connection2).and_return(data_client2)
       allow(data_client2).to receive(:channels_list).and_return(
         { items: [ make_channel_item("UCsecond", subscriber_count: "1000") ] }
       )
@@ -263,22 +264,24 @@ RSpec.describe AchievementsRefreshJob, type: :job do
     end
     let!(:video2) { create(:video, channel: channel2, youtube_video_id: "vid_bbb") }
 
-    let(:analytics_client2) { instance_double(Channel::Youtube::AnalyticsClient) }
-    let(:data_client2)      { instance_double(Channel::Youtube::Client) }
+    let(:data_client2) { instance_double(Channel::Youtube::Client) }
 
     before do
-      allow(Channel::Youtube::AnalyticsClient).to receive(:new).with(connection2).and_return(analytics_client2)
       allow(Channel::Youtube::Client).to receive(:new).with(connection2).and_return(data_client2)
 
-      # channel's analytics client raises; channel2's succeeds
-      allow(analytics_client).to receive(:top_videos).and_raise(StandardError, "analytics boom")
+      # channel's lifetime report raises; channel2's succeeds
+      allow(::Channel::Youtube::LifetimeVideoReport).to receive(:rows_for)
+        .with(channel: channel, max_age: described_class::LIFETIME_MAX_AGE)
+        .and_raise(StandardError, "analytics boom")
 
-      allow(analytics_client2).to receive(:top_videos).and_return([
-        make_analytics_row("vid_bbb", views: 500, minutes: 600, subs_gained: 2)
-      ])
-      allow(data_client2).to receive(:videos_list).and_return(
-        { items: [ make_video_item("vid_bbb", likes: "5", comments: "1") ] }
-      )
+      allow(::Channel::Youtube::LifetimeVideoReport).to receive(:rows_for)
+        .with(channel: channel2, max_age: described_class::LIFETIME_MAX_AGE)
+        .and_return([ make_analytics_row("vid_bbb", views: 500, minutes: 600, subs_gained: 2) ])
+
+      allow(::Channel::Youtube::VideoStatsReadThrough).to receive(:call)
+        .with(channel: channel2, max_age: described_class::VIDEO_STATS_MAX_AGE)
+        .and_return({ "vid_bbb" => make_video_stats(likes: 5, comments: 1) })
+
       allow(data_client2).to receive(:channels_list).and_return(
         { items: [ make_channel_item("UCsecond", subscriber_count: "300") ] }
       )
@@ -294,10 +297,71 @@ RSpec.describe AchievementsRefreshJob, type: :job do
       job.perform
     end
 
+    # The owner's contract: the failure becomes an AppSignal incident AND
+    # stays isolated — reported, never re-raised, siblings unaffected.
+    it "reports the error to AppSignal without breaking isolation" do
+      allow(Appsignal).to receive(:report_error)
+
+      expect { job.perform }.not_to raise_error
+
+      expect(Appsignal).to have_received(:report_error)
+        .with(an_instance_of(StandardError).and(having_attributes(message: "analytics boom")))
+      expect(AchievementMetric.find_by(achievable: video2, metric: "views")&.value).to eq(500)
+    end
+
     it "still writes metrics for the channel that succeeded" do
       job.perform
       row = AchievementMetric.find_by(achievable: video2, metric: "views")
       expect(row&.value).to eq(500)
+    end
+  end
+
+  # ─── channel subscriber count ────────────────────────────────────────────────
+
+  describe "channel subscriber count" do
+    context "when a fresh subscribers stat row exists" do
+      before { ::Pito::Stats.set(channel, :subscribers, 7_500) }
+
+      it "does not fetch from channels_list" do
+        expect(Channel::Youtube::Client).not_to receive(:new)
+
+        job.perform
+      end
+
+      it "uses the fresh stat row's value for the subs metric" do
+        job.perform
+        row = AchievementMetric.find_by(achievable: channel, metric: "subs")
+        expect(row&.value).to eq(7_500)
+      end
+    end
+
+    context "when the subscribers stat row is stale" do
+      before do
+        stat = ::Pito::Stats.set(channel, :subscribers, 1)
+        stat.update!(synced_at: 13.hours.ago)
+      end
+
+      it "falls back to channels_list and persists the fetched value" do
+        job.perform
+
+        row = AchievementMetric.find_by(achievable: channel, metric: "subs")
+        expect(row&.value).to eq(5000)
+
+        stat_row = channel.stats.find_by(kind: "subscribers")
+        expect(stat_row.value).to eq(5000)
+      end
+    end
+
+    context "when the subscribers stat row is missing" do
+      it "falls back to channels_list and persists the fetched value" do
+        job.perform
+
+        row = AchievementMetric.find_by(achievable: channel, metric: "subs")
+        expect(row&.value).to eq(5000)
+
+        stat_row = channel.stats.find_by(kind: "subscribers")
+        expect(stat_row.value).to eq(5000)
+      end
     end
   end
 
@@ -337,10 +401,9 @@ RSpec.describe AchievementsRefreshJob, type: :job do
     end
     let!(:reauth_video) { create(:video, channel: reauth_channel, youtube_video_id: "reauth_vid") }
 
-    it "does not call top_videos for a needs_reauth channel" do
-      reauth_analytics = instance_double(Channel::Youtube::AnalyticsClient)
-      allow(Channel::Youtube::AnalyticsClient).to receive(:new).with(reauth_connection).and_return(reauth_analytics)
-      expect(reauth_analytics).not_to receive(:top_videos)
+    it "does not call LifetimeVideoReport.rows_for for a needs_reauth channel" do
+      expect(::Channel::Youtube::LifetimeVideoReport).not_to receive(:rows_for)
+        .with(channel: reauth_channel, max_age: anything)
 
       job.perform
     end
@@ -359,14 +422,17 @@ RSpec.describe AchievementsRefreshJob, type: :job do
       create(:channel, youtube_connection: empty_connection, youtube_channel_id: "UCempty")
     end
 
-    let(:empty_analytics) { instance_double(Channel::Youtube::AnalyticsClient) }
-    let(:empty_data)      { instance_double(Channel::Youtube::Client) }
+    let(:empty_data) { instance_double(Channel::Youtube::Client) }
 
     before do
-      allow(Channel::Youtube::AnalyticsClient).to receive(:new).with(empty_connection).and_return(empty_analytics)
+      allow(::Channel::Youtube::LifetimeVideoReport).to receive(:rows_for)
+        .with(channel: empty_channel, max_age: described_class::LIFETIME_MAX_AGE)
+        .and_return([])
+      allow(::Channel::Youtube::VideoStatsReadThrough).to receive(:call)
+        .with(channel: empty_channel, max_age: described_class::VIDEO_STATS_MAX_AGE)
+        .and_return({})
+
       allow(Channel::Youtube::Client).to receive(:new).with(empty_connection).and_return(empty_data)
-      allow(empty_analytics).to receive(:top_videos).and_return([])
-      allow(empty_data).to receive(:videos_list).and_return({ items: [] })
       allow(empty_data).to receive(:channels_list).and_return(
         { items: [ make_channel_item("UCempty", subscriber_count: "0") ] }
       )

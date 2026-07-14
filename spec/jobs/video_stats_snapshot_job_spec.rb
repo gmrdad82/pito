@@ -264,5 +264,16 @@ RSpec.describe VideoStatsSnapshotJob, type: :job do
       job.perform
       expect(Pito::Stats.get(video2, :views)).to eq(777)
     end
+
+    # Reported to AppSignal AND isolated — never re-raised, siblings still write.
+    it "reports the error to AppSignal without breaking isolation" do
+      allow(Appsignal).to receive(:report_error)
+
+      expect { job.perform }.not_to raise_error
+
+      expect(Appsignal).to have_received(:report_error)
+        .with(an_instance_of(StandardError).and(having_attributes(message: "API exploded")))
+      expect(Pito::Stats.get(video2, :views)).to eq(777)
+    end
   end
 end

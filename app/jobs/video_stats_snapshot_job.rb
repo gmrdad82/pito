@@ -55,6 +55,9 @@ class VideoStatsSnapshotJob < ApplicationJob
       Array(response[:items]).each { |item| write_stats(item) }
     end
   rescue StandardError => e
+    # Isolation stays (siblings run on); the failure ALSO becomes an
+    # AppSignal incident — report_error is a no-op when AppSignal is inactive.
+    Appsignal.report_error(e)
     Rails.logger.error(
       "VideoStatsSnapshotJob: failed for channel=#{channel.id}: " \
       "#{e.class}: #{e.message}"
@@ -71,6 +74,7 @@ class VideoStatsSnapshotJob < ApplicationJob
     ::Pito::Stats.set(video, :likes,    stats[:like_count]&.to_i    || 0)
     ::Pito::Stats.set(video, :comments, stats[:comment_count]&.to_i || 0)
   rescue StandardError => e
+    Appsignal.report_error(e)
     Rails.logger.error(
       "VideoStatsSnapshotJob: failed to write stats for video=#{item[:id]}: " \
       "#{e.class}: #{e.message}"

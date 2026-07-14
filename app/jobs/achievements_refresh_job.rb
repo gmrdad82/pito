@@ -8,14 +8,24 @@
 #
 # == Per-channel flow (one connected channel at a time)
 #
-#   1. Analytics API (lifetime per-video): views, estimated_minutes_watched,
-#      subscribers_gained — one `top_videos` call per channel.
-#   2. Data API (per-video in batches of 50): like_count, comment_count.
+#   1. Lifetime per-video analytics (views, estimated_minutes_watched,
+#      subscribers_gained) — via the shared Channel::Youtube::
+#      LifetimeVideoReport cache (12h max_age; the distribution column
+#      reads the same report, so it's fetched at most twice a day).
+#   2. Per-video likes/comments — via Channel::Youtube::
+#      VideoStatsReadThrough (3h max_age): reads the Pito::Stats rows the
+#      stats passes wrote an hour earlier; only stale/missing videos hit
+#      the Data API (self-healing when a producer pass failed).
 #   3. Write AchievementMetric + run Evaluate for every Video.
-#   4. Data API (channel-level): subscriber_count.
+#   4. Channel subscriber_count — the Pito::Stats row ChannelSync persists
+#      (12h max_age), falling back to one channels.list fetch + persist.
 #   5. Write AchievementMetric + run Evaluate for the Channel, using
 #      subscriber_count from step 4 and sums of video metrics from step 3.
 #   6. Accumulate per-game sums into an in-memory Hash for post-pass rollup.
+#
+#   Steady state (P20 batching): steps 1-4 make ZERO YouTube calls on the
+#   10:00/18:00 runs and one lifetime top_videos call at 02:00 — the fleet
+#   (01:00/13:00 syncs, 09:00/17:00 snapshots) already fetched everything.
 #
 # == Game rollup (after all channels)
 #
@@ -44,8 +54,12 @@
 class AchievementsRefreshJob < ApplicationJob
   queue_as :default
 
-  BATCH_SIZE     = 50
-  LIFETIME_START = Date.new(2005, 1, 1)
+  # Freshness windows for the P20 read-throughs — matched to the producer
+  # cadence: this job trails each stats pass by 1h (3h covers a failed pass
+  # without going stale-blind) and each sync pass by ≤9h (12h ditto).
+  VIDEO_STATS_MAX_AGE = 3.hours
+  SUBS_MAX_AGE        = 12.hours
+  LIFETIME_MAX_AGE    = 12.hours
 
   def perform
     # game_id → { metric_key → Integer sum }
@@ -78,32 +92,18 @@ class AchievementsRefreshJob < ApplicationJob
   # Fetch all metrics for one channel, write AchievementMetrics, run Evaluate,
   # and accumulate game sums. Errors are rescued so sibling channels still run.
   def sync_channel(channel, game_accumulator)
-    connection = channel.youtube_connection
-    analytics  = ::Channel::Youtube::AnalyticsClient.new(connection)
-    client     = ::Channel::Youtube::Client.new(connection)
-
-    # 1. Lifetime per-video analytics (views / watch time / subs gained).
-    analytics_rows   = analytics.top_videos(
-      channel_id: channel.youtube_channel_id,
-      start_date: LIFETIME_START,
-      end_date:   Date.current
+    # 1. Lifetime per-video analytics (views / watch time / subs gained) —
+    #    shared cached report (see class header).
+    analytics_rows   = ::Channel::Youtube::LifetimeVideoReport.rows_for(
+      channel: channel, max_age: LIFETIME_MAX_AGE
     )
     analytics_by_vid = analytics_rows.index_by { |r| r[:video_id] }
 
-    # 2. Per-video Data API stats (likes, comments) in batches of ≤50.
-    video_ids   = channel.videos.pluck(:youtube_video_id).compact
-    data_by_vid = {}
-
-    video_ids.each_slice(BATCH_SIZE) do |batch|
-      response = client.videos_list(ids: batch, parts: %i[statistics])
-      Array(response[:items]).each do |item|
-        stats = item[:statistics] || {}
-        data_by_vid[item[:id].to_s] = {
-          likes:    stats[:like_count]&.to_i    || 0,
-          comments: stats[:comment_count]&.to_i || 0
-        }
-      end
-    end
+    # 2. Per-video likes/comments — fresh Pito::Stats rows, API only for
+    #    stale/missing ids (fetch+persist inside the read-through).
+    data_by_vid = ::Channel::Youtube::VideoStatsReadThrough.call(
+      channel: channel, max_age: VIDEO_STATS_MAX_AGE
+    )
 
     # 3. Per-video write + evaluate; accumulate channel and game sums.
     channel_totals = Hash.new(0)
@@ -112,11 +112,9 @@ class AchievementsRefreshJob < ApplicationJob
       write_video(video, analytics_by_vid, data_by_vid, channel_totals, game_accumulator)
     end
 
-    # 4. Channel subscriber count from Data API.
-    ch_response = client.channels_list(ids: [ channel.youtube_channel_id ], parts: %i[statistics])
-    ch_item     = Array(ch_response[:items]).first || {}
-    ch_stats    = ch_item[:statistics] || {}
-    subs        = ch_stats[:subscriber_count]&.to_i || 0
+    # 4. Channel subscriber count — ChannelSync's persisted row when fresh
+    #    (a nil value — hidden-subs channels — falls through to the fetch).
+    subs = fresh_subscriber_count(channel) || fetch_subscriber_count(channel)
 
     # 5. Write channel AchievementMetrics + evaluate.
     write_and_evaluate(channel, {
@@ -127,10 +125,34 @@ class AchievementsRefreshJob < ApplicationJob
       "comments"      => channel_totals[:comments]
     })
   rescue StandardError => e
+    # Isolation stays (siblings run on); the failure ALSO becomes an
+    # AppSignal incident — report_error is a no-op when AppSignal is inactive.
+    Appsignal.report_error(e)
     Rails.logger.error(
       "AchievementsRefreshJob: failed for channel=#{channel.id}: " \
       "#{e.class}: #{e.message}"
     )
+  end
+
+  # The subscribers stat row ChannelSync persists on every 01:00/13:00 pass —
+  # nil when the row is missing, stale, or holds a nil value (hidden subs).
+  def fresh_subscriber_count(channel)
+    row = channel.stats.find_by(kind: "subscribers")
+    return nil unless row&.synced_at && row.synced_at >= SUBS_MAX_AGE.ago
+
+    row.value&.to_i
+  end
+
+  # Fallback: one channels.list fetch, persisted so the NEXT run reads it.
+  def fetch_subscriber_count(channel)
+    client   = ::Channel::Youtube::Client.new(channel.youtube_connection)
+    response = client.channels_list(ids: [ channel.youtube_channel_id ], parts: %i[statistics])
+    item     = Array(response[:items]).first || {}
+    stats    = item[:statistics] || {}
+    subs     = stats[:subscriber_count]&.to_i || 0
+
+    ::Pito::Stats.set(channel, :subscribers, subs)
+    subs
   end
 
   # Compute one video's metrics, write AchievementMetric rows, run Evaluate,
@@ -168,6 +190,7 @@ class AchievementsRefreshJob < ApplicationJob
       game_accumulator[game.id][:comments]      += comments
     end
   rescue StandardError => e
+    Appsignal.report_error(e)
     Rails.logger.error(
       "AchievementsRefreshJob: failed for video=#{video.id}: " \
       "#{e.class}: #{e.message}"
@@ -189,6 +212,7 @@ class AchievementsRefreshJob < ApplicationJob
         "comments"      => totals[:comments]
       })
     rescue StandardError => e
+      Appsignal.report_error(e)
       Rails.logger.error(
         "AchievementsRefreshJob: failed for game=#{game_id}: " \
         "#{e.class}: #{e.message}"

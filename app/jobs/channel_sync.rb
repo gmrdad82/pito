@@ -15,6 +15,13 @@
 # avatar and banner images (digest-gated inside each Ingest service —
 # unchanged bytes are a no-op). This mirrors ChannelInfoJob's behavior
 # on OAuth connect and ensures banners are refreshed on `sync channels`.
+#
+# This nightly/midday sync is also the freshness source
+# AchievementsRefreshJob reads channel subscriber counts from (P20
+# batching) — the normalized hash already carries :subscriber_count and
+# :view_count from `fetch_channel`, so they're persisted via
+# `Pito::Stats.set` (mirrors SyncChannelStatsJob's nil semantics: a nil
+# value is written through as-is) instead of being thrown away.
 class ChannelSync < ApplicationJob
   queue_as :default
 
@@ -42,6 +49,8 @@ class ChannelSync < ApplicationJob
 
     Channel.transaction do
       channel.update!(normalized.slice(*SYNC_COLUMNS).merge(last_synced_at: Time.current))
+      Pito::Stats.set(channel, :subscribers, normalized[:subscriber_count])
+      Pito::Stats.set(channel, :views, normalized[:view_count])
     end
 
     # Refresh locally-cached avatar and banner off the sync path so CDN

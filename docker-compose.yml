@@ -81,6 +81,10 @@ services:
       PITO_TAG: ${PITO_TAG:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      # AppSignal APM (optional). Set the key in the install dir's .env to
+      # activate; absent/blank keeps AppSignal completely inert (see
+      # config/appsignal.rb). Never bake this into the image or credentials.
+      APPSIGNAL_PUSH_API_KEY: ${APPSIGNAL_PUSH_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,6 +124,9 @@ services:
       PITO_TAG: ${PITO_TAG:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      # Same optional AppSignal key as `web` — the MCP Puma reports as the
+      # same app; inert when blank.
+      APPSIGNAL_PUSH_API_KEY: ${APPSIGNAL_PUSH_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

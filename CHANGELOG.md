@@ -4,6 +4,46 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] — 2026-07-14
+
+### Added
+
+- **AppSignal, wired but optional** — APM, error tracking, and log
+  forwarding for the whole production stack (web requests, SolidQueue jobs,
+  the recurring fleet, and the MCP Puma). Activation is double-gated: the
+  app must run in production AND find `APPSIGNAL_PUSH_API_KEY` in its
+  environment (set it in the install dir's `.env`; compose passes it
+  through). Without a key — every other self-host — nothing changes, at
+  all. Logs keep flowing to Docker's STDOUT either way.
+- **`/up`** — the liveness route production.rb always believed in finally
+  exists (200 when booted), ready for uptime monitors.
+- **The sync runs twice a day now** — channels and vids refresh at 01:00
+  AND 13:00 UTC (new uploads show up by lunch, not tomorrow); the IGDB
+  upcoming-games refresh stays a nightly affair.
+
+- **Warm analytics, faster fills** — a twice-daily warmup pass now
+  pre-fills every connected channel's glance, analyze, and breakdown
+  caches with the exact production fill code, so those turns land on warm
+  data instead of paying YouTube round-trips while you watch. Cold turns
+  got faster too: per-metric fills run six at a time (was three) and cold
+  fetches fan out eight wide (was four), with the connection pool sized to
+  match — tuned per environment, so development runs wider still on a big
+  machine while production stays fitted to its 2-vCPU box.
+
+### Changed
+
+- **The recurring fleet stopped fetching what it already had** — the
+  achievements passes now read the video stats, subscriber counts, and
+  lifetime analytics the sync and snapshot passes persisted an hour
+  earlier, falling back to the API only when a pass failed (stale data
+  heals itself; failed fetches never write fake zeros). Steady state: two
+  lifetime-report calls a day instead of three-plus, and zero redundant
+  videos.list / channels.list sweeps.
+- **Fleet failures report without breaking ranks** — when one channel's
+  refresh dies inside a recurring pass, the error now lands in AppSignal as
+  an incident while the isolation holds exactly as before: siblings keep
+  running, nothing partial is written, and keyless installs report nowhere.
+
 ## [2.2.0] — 2026-07-14
 
 ### Added
