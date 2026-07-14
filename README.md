@@ -602,6 +602,35 @@ multi-arch image on GHCR → within 15 minutes your server is running it,
 hands-off. (Edge-channel installs are deliberately skipped — `latest` stays a
 by-hand choice.)
 
+### Customizing your shinies (optional)
+
+The achievement ladders are data, not code: `config/pito/shinies.yml` sets
+every scope × metric ceiling for the 1-2-5 stone ladders, plus the
+channel-subs award metals. The shipped defaults target the reference channel
+(a monetized, 100K-subs ambition):
+
+```yaml
+ceilings:
+  channel:
+    subs: 50_000
+    views: 50_000_000
+awards:
+  silver: 100_000
+  gold: 1_000_000
+```
+
+To run your own ambitions, drop a full copy next to `docker-compose.yml`,
+edit the numbers, and mount it over the baked one (uncomment the ready-made
+line in the compose file):
+
+```yaml
+- ./shinies.yml:/rails/config/pito/shinies.yml:ro
+```
+
+A broken file refuses to boot and names exactly what's wrong. Reshaping a
+ladder never revokes an unlocked shiny, but stone materials are positional —
+a shorter ladder may re-color badges you've already earned.
+
 ### Monitoring (optional)
 
 PITO can report performance, errors, and logs to [AppSignal](https://appsignal.com)

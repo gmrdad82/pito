@@ -17,23 +17,17 @@ module Pito
     #   Pito::Achievements::Evaluate.call(achievable: video, metric: "views", value: 1_500)
     #   # => [#<Achievement threshold=1>, #<Achievement threshold=2>, ...]
     module Evaluate
-      # Valid metrics per achievable type.
-      # Only Channel has +subs+ (total subscriber count).
-      # Only Video / Game have +subs_gained+ (subscribers gained in a period).
-      MATRIX = {
-        "Channel" => %w[subs views watched_hours likes comments].freeze,
-        "Video"   => %w[subs_gained views watched_hours likes comments].freeze,
-        "Game"    => %w[subs_gained views watched_hours likes comments].freeze
-      }.freeze
-
       module_function
 
-      # Returns the valid metric list for +achievable+'s type.
+      # Returns the valid metric list for +achievable+'s type — derived from
+      # the configured ceilings (config/pito/shinies.yml), so the yml stays
+      # the single source of what each scope tracks. By default only Channel
+      # has +subs+ (total count); Video / Game carry +subs_gained+.
       #
       # @param achievable [Channel, Video, Game]
       # @return [Array<String>]
       def metrics_for(achievable)
-        MATRIX.fetch(achievable.class.polymorphic_name, [])
+        Pito::Achievements::Config.metrics_for(achievable.class.polymorphic_name)
       end
 
       # Evaluate +value+ against the milestone series and unlock every

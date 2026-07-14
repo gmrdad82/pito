@@ -60,6 +60,9 @@ services:
       # image's baked-in author copies. These files must exist before `up`.
       - ./config/master.key:/rails/config/master.key:ro
       - ./config/credentials.yml.enc:/rails/config/credentials.yml.enc:ro
+      # Optional: your own shinies ladders over the baked defaults —
+      # see README → "Customizing your shinies".
+      # - ./shinies.yml:/rails/config/pito/shinies.yml:ro
     environment:
       RAILS_ENV: production
       # The master key comes from the mounted config/master.key (see volumes
