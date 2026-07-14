@@ -22,8 +22,8 @@ gem "solid_cache", "~> 1.0"
 gem "solid_cable", "~> 4.0"
 
 # YouTube APIs
-gem "google-apis-youtube_v3", "~> 0.65"
-gem "google-apis-youtube_analytics_v2", "~> 0.18"
+gem "google-apis-youtube_v3", "~> 0.66"
+gem "google-apis-youtube_analytics_v2", "~> 0.19"
 # google-apis-core (1.1.0+) requires multi_json at runtime but no longer declares
 # it, so the 0.65 bump drops it from the lock and the bundle fails to load
 # ("multi_json is not part of the bundle"). Pin it explicitly to keep it present.
