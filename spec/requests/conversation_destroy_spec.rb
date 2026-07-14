@@ -51,6 +51,46 @@ RSpec.describe "DELETE /chat/:uuid", type: :request do
     end
   end
 
+  # ── CSRF carve-out (the pito-tui contract) ───────────────────────────────────
+  #
+  # Request specs run with forgery protection OFF (test-env default), which is
+  # exactly how the tui's body-less DELETE shipped broken: media_type-keyed
+  # CSRF skipping never matches a request with no body (AppSignal incident,
+  # 2026-07-14). These examples turn REAL forgery protection on to pin the
+  # application_controller carve-out: token-less JSON-Accept DELETE passes,
+  # token-less browser-shaped DELETE still refuses.
+
+  describe "CSRF, with real forgery protection enabled" do
+    # Authenticate FIRST (the login POST itself needs protection off, like
+    # the browser page that carries a token), then flip real protection on
+    # for the DELETE under test only.
+    def with_forgery_protection
+      prior = ActionController::Base.allow_forgery_protection
+      ActionController::Base.allow_forgery_protection = true
+      yield
+    ensure
+      ActionController::Base.allow_forgery_protection = prior
+    end
+
+    before { authenticate_via_totp }
+
+    it "accepts a token-less DELETE with a JSON Accept header (pito-tui)" do
+      with_forgery_protection do
+        delete conversation_path(uuid: conversation.uuid),
+               headers: { "Accept" => "application/json" }
+      end
+      expect(response).to have_http_status(:no_content)
+    end
+
+    it "still refuses a token-less browser-shaped (HTML) DELETE" do
+      with_forgery_protection do
+        delete conversation_path(uuid: conversation.uuid)
+      end
+      expect(response).not_to have_http_status(:no_content)
+      expect(conversation.reload.deleting_at).to be_nil
+    end
+  end
+
   # ── Unauthenticated path ─────────────────────────────────────────────────────
 
   describe "when unauthenticated" do

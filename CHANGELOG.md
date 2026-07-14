@@ -4,6 +4,19 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [2.3.1] — 2026-07-14
+
+### Fixed
+
+- **pito-tui can delete conversations again** — a body-less DELETE carries
+  no Content-Type, so the JSON CSRF carve-out never matched it and the
+  server refused the tui's `dd` behind a disguised 404. DELETE now also
+  recognizes API clients by their JSON Accept header — safe because no
+  browser primitive can send a cross-site DELETE (forms can't produce the
+  verb, fetch forces a preflight we never approve, and the lax session
+  cookie stays home regardless). Found by AppSignal four minutes into its
+  first production hour.
+
 ## [2.3.0] — 2026-07-14
 
 ### Added

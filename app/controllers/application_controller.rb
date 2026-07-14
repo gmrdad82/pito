@@ -14,7 +14,19 @@ class ApplicationController < ActionController::Base
   # request.media_type (the Content-Type header), NOT request.format — format
   # is attacker-influencable via the URL (.json / ?format=), media_type only
   # via a non-form request body.
-  skip_forgery_protection if: -> { request.media_type == "application/json" }
+  #
+  # BODY-LESS verbs need a second key: a DELETE carries no Content-Type at
+  # all (pito-tui's dd delete died on this — AppSignal incident #1/13), so
+  # media_type can never match it. For DELETE — and only DELETE — keying on
+  # the JSON format is safe despite the note above: format-forgery matters
+  # for verbs a browser can be tricked into sending, and no browser
+  # primitive sends cross-site DELETE — forms only produce GET/POST, and
+  # fetch/XHR DELETE is non-simple, forcing the CORS preflight we never
+  # approve; the lax cookie stays home on cross-site subrequests besides.
+  skip_forgery_protection if: -> {
+    request.media_type == "application/json" ||
+      (request.delete? && request.format.json?)
+  }
 
   # UTC-storage / user-tz-render is the app-wide contract. All requests
   # render times in the owner's configured time zone (AppSetting.timezone,
