@@ -82,4 +82,40 @@ RSpec.describe ChannelSync, type: :job do
   it "does not enqueue ChannelBannerJob when banner_url is absent" do
     expect { described_class.perform_now(channel.id) }.not_to have_enqueued_job(ChannelBannerJob)
   end
+
+  context "when the normalized payload includes subscriber and view counts" do
+    before do
+      allow(client).to receive(:fetch_channel).and_return(
+        normalized.merge(subscriber_count: 12_345, view_count: 987_654)
+      )
+    end
+
+    it "persists both Pito::Stats rows with the fetched values" do
+      described_class.perform_now(channel.id)
+
+      expect(Pito::Stats.get(channel, :subscribers)).to eq(12_345)
+      expect(Pito::Stats.get(channel, :views)).to eq(987_654)
+    end
+
+    it "stamps a fresh synced_at on both Pito::Stats rows" do
+      described_class.perform_now(channel.id)
+
+      channel.reload
+      expect(channel.stats.find_by(kind: "subscribers").synced_at).to be_within(5.seconds).of(Time.current)
+      expect(channel.stats.find_by(kind: "views").synced_at).to be_within(5.seconds).of(Time.current)
+    end
+  end
+
+  context "when the normalized payload has no subscriber or view counts" do
+    it "writes nil through for both stats without raising" do
+      expect { described_class.perform_now(channel.id) }.not_to raise_error
+    end
+
+    it "stores nil, not coerced to 0, for both stats" do
+      described_class.perform_now(channel.id)
+
+      expect(Pito::Stats.get(channel, :subscribers)).to be_nil
+      expect(Pito::Stats.get(channel, :views)).to be_nil
+    end
+  end
 end

@@ -72,8 +72,20 @@ production:
     schedule: "0 1 * * *"
     description: "Daily channel + new-video sync; fans out IGDB stale-refresh"
 
+  # Midday sync — same channel + video fan-out at 13:00 UTC, but WITHOUT the
+  # IGDB upcoming-games refresh (that stays nightly-only; owner D4). The
+  # trailing hash arrives as true kwargs: SolidQueue serializes recurring
+  # args through ActiveJob::Arguments (symbol keys survive) and applies
+  # Hash.ruby2_keywords_hash before the splat.
+  nightly_sync_midday:
+    class: NightlySyncJob
+    schedule: "0 13 * * *"
+    args:
+      - igdb: false
+    description: "Midday channel + new-video sync (IGDB skipped)"
+
   # Video stats snapshot — Pito::Stats only (no playlist/upsert), 09:00 + 17:00 UTC.
-  # With the 01:00 nightly_sync, this gives 3 stats refreshes per day.
+  # With the 01:00/13:00 syncs, stats land four times a day (01/09/13/17).
   video_stats_snapshot_morning:
     class: VideoStatsSnapshotJob
     schedule: "0 9 * * *"
@@ -99,6 +111,20 @@ production:
     class: AchievementsRefreshJob
     schedule: "0 18 * * *"
     description: "Achievements upsert + milestone unlock pass (afternoon)"
+
+  # Analytics cache warming — 01:35 + 13:35 UTC. Runs the REAL glance/analyze
+  # fill fan-outs per connected channel (Pito::Analytics::Warmup) so the
+  # owner's interactive `show`/`analyze`/`breakdowns` land on warm primitives
+  # + cells. Live windows expire after 4h (Window policy), so add slots here
+  # if afternoon/evening cold turns ever grate.
+  analytics_warmup_night:
+    class: AnalyticsWarmupJob
+    schedule: "35 1 * * *"
+    description: "Pre-fill glance/analyze/breakdown caches (post-nightly-sync)"
+  analytics_warmup_midday:
+    class: AnalyticsWarmupJob
+    schedule: "35 13 * * *"
+    description: "Pre-fill glance/analyze/breakdown caches (midday)"
 
   # SolidQueue housekeeping — clear finished jobs every hour
   clear_solid_queue_finished_jobs:
@@ -175,7 +201,15 @@ development:
     schedule: "0 1 * * *"
     description: "Daily channel + new-video sync; fans out IGDB stale-refresh"
 
-  # Video stats snapshot — Pito::Stats only, 09:00 + 17:00 (3 passes/day with 01:00).
+  # Midday sync — 13:00, IGDB skipped (dev parity with production).
+  nightly_sync_midday:
+    class: NightlySyncJob
+    schedule: "0 13 * * *"
+    args:
+      - igdb: false
+    description: "Midday channel + new-video sync (IGDB skipped)"
+
+  # Video stats snapshot — Pito::Stats only, 09:00 + 17:00 (4 writes/day with 01:00/13:00).
   video_stats_snapshot_morning:
     class: VideoStatsSnapshotJob
     schedule: "0 9 * * *"
@@ -198,6 +232,16 @@ development:
     class: AchievementsRefreshJob
     schedule: "0 18 * * *"
     description: "Achievements upsert + milestone unlock pass (afternoon)"
+
+  # Analytics cache warming — 01:35 + 13:35 (dev parity with production).
+  analytics_warmup_night:
+    class: AnalyticsWarmupJob
+    schedule: "35 1 * * *"
+    description: "Pre-fill glance/analyze/breakdown caches (post-nightly-sync)"
+  analytics_warmup_midday:
+    class: AnalyticsWarmupJob
+    schedule: "35 13 * * *"
+    description: "Pre-fill glance/analyze/breakdown caches (midday)"
 
   # YouTube reauth check — daily at 01:00
   youtube_reauth_check:

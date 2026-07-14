@@ -68,6 +68,11 @@ Rails.application.routes.draw do
   # The running build's identity — the refresh nudge's reconnect check (G71).
   get "/version", to: "versions#show", as: :version
 
+  # Liveness probe: 200 when the app booted, 500 otherwise. production.rb
+  # already silences its logs (silence_healthcheck_path) and AppSignal ignores
+  # it (config/appsignal.rb) — used by the AppSignal uptime monitor.
+  get "up" => "rails/health#show", as: :rails_health_check
+
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout
 

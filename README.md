@@ -602,6 +602,15 @@ multi-arch image on GHCR → within 15 minutes your server is running it,
 hands-off. (Edge-channel installs are deliberately skipped — `latest` stays a
 by-hand choice.)
 
+### Monitoring (optional)
+
+PITO can report performance, errors, and logs to [AppSignal](https://appsignal.com)
+in production. Grab a **Push API key** from your AppSignal app (**App settings →
+Push & deploy → Push API key**), set `APPSIGNAL_PUSH_API_KEY=<key>` in the install
+dir's `.env`, then `pito up -d` to pick it up. The key never touches the image, the
+repo, or Rails credentials — just that one `.env` line. No key, no AppSignal — the
+app boots exactly as before.
+
 ## Exposing PITO (HTTPS)
 
 PITO forces HTTPS in production, so anything past `localhost` needs TLS in front.

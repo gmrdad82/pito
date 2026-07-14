@@ -10,13 +10,29 @@ default: &default
       threads: 2
       processes: 1
       polling_interval: 0.1
+    # 6 threads so a burst of per-metric analytics fills (one job per glance/
+    # analyze cell) streams in parallel instead of three at a time. The
+    # database.yml pool arithmetic counts these threads — change both together.
     - queues: "*"
-      threads: 3
+      threads: 6
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
       polling_interval: 0.1
 
+# The default block carries the PRODUCTION-conservative numbers (Hetzner
+# CX23: 2 vCPU / 4GB — 6 lanes is the sane ceiling there). Development
+# overrides the whole workers array (YAML merge can't deep-merge arrays)
+# to run wider on the 64GB laptop.
 development:
   <<: *default
+  workers:
+    - queues: dispatch
+      threads: 2
+      processes: 1
+      polling_interval: 0.1
+    - queues: "*"
+      threads: 8
+      processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
+      polling_interval: 0.1
 
 test:
   <<: *default

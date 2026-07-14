@@ -77,6 +77,9 @@ GEM
       uri (>= 0.13.1)
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
+    appsignal (4.8.6)
+      logger
+      rack (>= 2.0.0)
     ast (2.4.3)
     auth-sanitizer (0.2.1)
       version_gem (~> 1.1, >= 1.1.10)
@@ -498,6 +501,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
+  appsignal (~> 4.8)
   bootsnap (~> 1.24)
   brakeman (~> 8.0)
   bundler-audit (~> 0.9)

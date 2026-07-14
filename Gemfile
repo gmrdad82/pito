@@ -91,3 +91,8 @@ end
 gem "rotp", "~> 6.3"
 
 gem "countries", "~> 8.1"
+
+# AppSignal APM / error tracking / log forwarding. Inert unless the app runs
+# in production WITH an APPSIGNAL_PUSH_API_KEY in the environment — keyless
+# self-hosters, dev, and test boot exactly as before (see config/appsignal.rb).
+gem "appsignal", "~> 4.8"

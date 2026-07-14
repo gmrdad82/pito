@@ -119,8 +119,10 @@ module Pito
 
       # Bounded concurrency for cold per-video fetches. Specs run sequential
       # (see spec/support/analytics_primitives.rb) — threaded writes would
-      # escape the per-example transaction.
-      MAX_FETCH_CONCURRENCY = 4
+      # escape the per-example transaction. Each fetch thread holds a DB
+      # connection while it stores, so the database.yml pool is sized to
+      # cover a full fan-out (see the arithmetic there) — raise both together.
+      MAX_FETCH_CONCURRENCY = 8
 
       def max_concurrency
         @max_concurrency || MAX_FETCH_CONCURRENCY

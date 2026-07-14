@@ -1,14 +1,23 @@
-# Pool sizing rule: at least the Web Puma thread count (config/puma.rb), with
-# headroom for SolidQueue's in-process worker. Tune via RAILS_MAX_THREADS.
+# Pool sizing rule: cover the busiest single process — the SolidQueue "*"
+# worker (6 job threads, config/queue.yml), one of which may fan out
+# Pito::Analytics::Primitives cold fetches (MAX_FETCH_CONCURRENCY = 8
+# threads, each holding a connection while it stores): 6 + 8 + headroom = 20.
+# The same figure comfortably covers web Puma (RAILS_MAX_THREADS, default 3)
+# and the MCP Puma's inline analytics fills. Pools open connections lazily,
+# so the per-process ceiling is cheap. Override via RAILS_DB_POOL.
 default: &default
   adapter: postgresql
   encoding: unicode
   host: <%= ENV.fetch("POSTGRES_HOST", "127.0.0.1") %>
   port: <%= ENV.fetch("POSTGRES_PORT", 54327).to_i %>
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5).to_i %>
+  pool: <%= ENV.fetch("RAILS_DB_POOL", 20).to_i %>
 
 development:
   <<: *default
+  # Wider than production: dev runs 8 worker threads (queue.yml) and a
+  # 12-wide analytics fetch fan-out (initializers/analytics_concurrency.rb)
+  # on the 64GB laptop — 8 + 12 + headroom = 30.
+  pool: <%= ENV.fetch("RAILS_DB_POOL", 30).to_i %>
   database: <%= Rails.application.credentials.dig(:postgres, :development, :database) || "pito_development" %>
   username: <%= Rails.application.credentials.dig(:postgres, :development, :username) || "pito" %>
   password: <%= Rails.application.credentials.dig(:postgres, :development, :password) || "" %>
