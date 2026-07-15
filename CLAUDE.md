@@ -8,7 +8,7 @@
 
 ## The log law (non-negotiable; mechanically enforced)
 
-The active working plan in `~/Dev/notes/pito/` is the **single source of
+The active working plan in `~/Dev/dev-notes/pito/` is the **single source of
 truth** — what's done, what's next, every bug/feedback/decision/discussion item
 the owner raised, per tag/purpose. NEVER hold work in your own memory, a scratch
 plan-mode buffer, or the harness todo list. If it isn't in the working md, it
@@ -62,6 +62,8 @@ live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
   `git push` (nor `stash` / `checkout` / `restore` / `reset`), never picks a
   branch, and never assumes a release flow — the owner decides every git
   operation, every time, after reviewing the diff.
+- **Never force-push a branch.** When origin has moved, `git pull --rebase`
+  before pushing — remote history is never rewritten.
 - **Follow the Stack principles + architecture below before writing stack code**
   (Rails, RSpec, Postgres, Tailwind, Turbo, ActionCable, Voyage, security);
   for visual / component work read `docs/design.md`. Don't work from memory.
@@ -79,7 +81,7 @@ live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
 
 A **plan is an atomic-task `.md` file** that tracks the work it describes —
 not freeform prose, not the throwaway plan-mode scratch buffer. Plans and other
-agent/working docs (briefs, checklists) now live in **`~/Dev/notes/pito/`**
+agent/working docs (briefs, checklists) now live in **`~/Dev/dev-notes/pito/`**
 (outside the repo, indexed by qmd for search); `docs/` itself holds only permanent references
 (`architecture.md`, `design.md`, `footage.md`). Write nothing — no edits, commits,
 or sub-agents — until the user approves the plan.
@@ -105,7 +107,7 @@ Every phase ends with its diff ready for the owner's review.
 **Execution.** Checkboxes are the live record: `[ ]` → `[-]` before starting a
 task, `[-]` → `[x]` immediately after its verification passes — one edit per
 transition, never batched. Announce each task's complexity tier and let the user
-pick the model before starting. The plan file lives in `~/Dev/notes/pito/`
+pick the model before starting. The plan file lives in `~/Dev/dev-notes/pito/`
 (outside the repo), so it is **not** staged or committed — only the work it describes is.
 
 **Done means verified.** `bundle exec rspec` green (NOT `bin/rspec`), `bin/rubocop`
