@@ -8,7 +8,8 @@
 
 ## The log law (non-negotiable; mechanically enforced)
 
-The active working plan in `~/Dev/dev-notes/pito/` is the **single source of
+The active working plan in the local notes directory (per-person and optional,
+outside the repo) is the **single source of
 truth** — what's done, what's next, every bug/feedback/decision/discussion item
 the owner raised, per tag/purpose. NEVER hold work in your own memory, a scratch
 plan-mode buffer, or the harness todo list. If it isn't in the working md, it
@@ -81,7 +82,7 @@ live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
 
 A **plan is an atomic-task `.md` file** that tracks the work it describes —
 not freeform prose, not the throwaway plan-mode scratch buffer. Plans and other
-agent/working docs (briefs, checklists) now live in **`~/Dev/dev-notes/pito/`**
+agent/working docs (briefs, checklists) now live in **the local notes directory**
 (outside the repo, indexed by qmd for search); `docs/` itself holds only permanent references
 (`architecture.md`, `design.md`, `footage.md`). Write nothing — no edits, commits,
 or sub-agents — until the user approves the plan.
@@ -107,7 +108,7 @@ Every phase ends with its diff ready for the owner's review.
 **Execution.** Checkboxes are the live record: `[ ]` → `[-]` before starting a
 task, `[-]` → `[x]` immediately after its verification passes — one edit per
 transition, never batched. Announce each task's complexity tier and let the user
-pick the model before starting. The plan file lives in `~/Dev/dev-notes/pito/`
+pick the model before starting. The plan file lives in the local notes directory
 (outside the repo), so it is **not** staged or committed — only the work it describes is.
 
 **Done means verified.** `bundle exec rspec` green (NOT `bin/rspec`), `bin/rubocop`
