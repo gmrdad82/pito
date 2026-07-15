@@ -30,6 +30,12 @@ anything else:**
 
 The `Stop` hook refuses to end a turn while any `⛔ UNPROCESSED` block remains.
 Report status ONLY from the md + verified code/git — never from memory. (Hooks
+
+**Secrets never live in the ledger.** The capture hook masks keyed values
+(`key=…`, `token: …`, webhooks, bearers) mechanically before appending; for
+anything the regex can't know (a bare token pasted alone), move the value to
+its proper home (`.env`, config) and REDACT the INBOX occurrence in the same
+turn — the ledger keeps a `[redacted:<what>]` marker, never the value.
 live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
 
 ## How we work
@@ -52,9 +58,10 @@ live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
   - When reviewing an agent's result, read the **changed files**, not its summary.
 - **Keep a visible TodoWrite list** mirroring the plan's tasks, flipped per
   transition (one `in_progress` at a time).
-- **One branch, commit per phase, push incrementally**, and verify CI is green
-  before merging. Work on the current branch — no new branches or tags unless the
-  user asks.
+- **Git belongs to the owner.** Claude never runs `git commit` / `git tag` /
+  `git push` (nor `stash` / `checkout` / `restore` / `reset`), never picks a
+  branch, and never assumes a release flow — the owner decides every git
+  operation, every time, after reviewing the diff.
 - **Follow the Stack principles + architecture below before writing stack code**
   (Rails, RSpec, Postgres, Tailwind, Turbo, ActionCable, Voyage, security);
   for visual / component work read `docs/design.md`. Don't work from memory.
@@ -87,23 +94,19 @@ or sub-agents — until the user approves the plan.
 One verb per task (split on "and"), verifiable in ≤5 min, naming the file or
 command it touches. Three complexity tiers only:
 
-- `[manual]` — operator by hand: commits, credentials, design calls, smoke tests.
+- `[manual]` — operator by hand: git operations, credentials, design calls, smoke tests.
 - `[low]` — mechanical / moderate work a cheap model can run: renames, deletions,
   single-file classes, components, queries, pattern-following multi-file edits.
 - `[high]` — architectural / cross-cutting: schema, security, DSL, dispatch
   routing, ActionCable wiring — a decision a cheap model shouldn't make alone.
 
-Every phase ends with a commit task (`Commit: <message>. complexity: [manual]`)
-as its highest-numbered ID.
+Every phase ends with its diff ready for the owner's review.
 
 **Execution.** Checkboxes are the live record: `[ ]` → `[-]` before starting a
 task, `[-]` → `[x]` immediately after its verification passes — one edit per
 transition, never batched. Announce each task's complexity tier and let the user
 pick the model before starting. The plan file lives in `~/Dev/notes/pito/`
 (outside the repo), so it is **not** staged or committed — only the work it describes is.
-
-**Commit hygiene.** Plain imperative messages — **no `[skipci]`, no co-author /
-"Generated with" trailer**. Current branch, no tags.
 
 **Done means verified.** `bundle exec rspec` green (NOT `bin/rspec`), `bin/rubocop`
 clean, `node --check` on any JS, `bin/brakeman -q -w2` clean on security-relevant
