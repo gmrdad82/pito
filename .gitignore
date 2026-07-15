@@ -50,7 +50,7 @@
 !.claude/settings.json
 
 # Local-only agent/working docs (plans, briefs, the 0.7.0 checklist) — never checked in.
-/docs/claude/
+/.claude/INBOX.md
 
 /app/assets/builds/*
 !/app/assets/builds/.keep
