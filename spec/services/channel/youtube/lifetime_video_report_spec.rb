@@ -15,6 +15,13 @@ RSpec.describe Channel::Youtube::LifetimeVideoReport, type: :service do
   end
   let(:cache_key) { "pito:yt:lifetime_top_videos:v1:channel:#{channel.id}" }
 
+  # All frozen clocks hang off a RELATIVE anchor — absolute dates gave this
+  # file a 24h fuse (cache entries seeded under a frozen 2026-07-14 clock
+  # expired when the REAL clock passed 2026-07-15 08:00 and un-frozen reads
+  # returned nil). Never freeze to a literal date here.
+  let(:base) { (Time.current - 2.days).change(hour: 8, min: 0, sec: 0, usec: 0) }
+
+
   before do
     # Real cache so fetch/read/write semantics are exercised (test env defaults to :null_store).
     allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new)
@@ -35,24 +42,24 @@ RSpec.describe Channel::Youtube::LifetimeVideoReport, type: :service do
     end
 
     it "writes the rows and a fetched_at timestamp to the shared per-channel cache key" do
-      travel_to(Time.zone.local(2026, 7, 14, 8, 0, 0)) do
+      travel_to(base) do
         described_class.rows_for(channel: channel, max_age: 12.hours)
 
         entry = Rails.cache.read(cache_key)
         expect(entry[:rows]).to eq(rows)
-        expect(entry[:fetched_at]).to eq(Time.zone.local(2026, 7, 14, 8, 0, 0))
+        expect(entry[:fetched_at]).to eq(base)
       end
     end
   end
 
   describe "cache freshness" do
     it "returns the cached rows without refetching while still within max_age" do
-      travel_to(Time.zone.local(2026, 7, 14, 8, 0, 0)) do
+      travel_to(base) do
         described_class.rows_for(channel: channel, max_age: 12.hours)
       end
 
       result = nil
-      travel_to(Time.zone.local(2026, 7, 14, 12, 0, 0)) do # 4h later — within the 12h max_age
+      travel_to(base + 4.hours) do # 4h later — within the 12h max_age
         result = described_class.rows_for(channel: channel, max_age: 12.hours)
       end
 
@@ -63,19 +70,19 @@ RSpec.describe Channel::Youtube::LifetimeVideoReport, type: :service do
     it "refetches and rewrites the cache once the entry is older than max_age" do
       new_rows = [ { video_id: "vid3", views: 999, estimated_minutes_watched: 10, subscribers_gained: 0, subscribers_lost: 0, likes: 0 } ]
 
-      travel_to(Time.zone.local(2026, 7, 14, 8, 0, 0)) do
+      travel_to(base) do
         described_class.rows_for(channel: channel, max_age: 12.hours)
       end
 
       allow(client).to receive(:top_videos).and_return(new_rows)
 
       result = nil
-      travel_to(Time.zone.local(2026, 7, 14, 21, 0, 0)) do # 13h later — stale for a 12h max_age
+      travel_to(base + 13.hours) do # 13h later — stale for a 12h max_age
         result = described_class.rows_for(channel: channel, max_age: 12.hours)
 
         entry = Rails.cache.read(cache_key)
         expect(entry[:rows]).to eq(new_rows)
-        expect(entry[:fetched_at]).to eq(Time.zone.local(2026, 7, 14, 21, 0, 0))
+        expect(entry[:fetched_at]).to eq(base + 13.hours)
       end
 
       expect(result).to eq(new_rows)
@@ -85,13 +92,13 @@ RSpec.describe Channel::Youtube::LifetimeVideoReport, type: :service do
 
   describe "shared cache across callers with different max_age" do
     it "lets a looser caller read the same entry a stricter caller must refetch" do
-      travel_to(Time.zone.local(2026, 7, 14, 6, 0, 0)) do
+      travel_to(base - 2.hours) do
         described_class.rows_for(channel: channel, max_age: 24.hours) # seeds the shared entry
       end
 
       new_rows = [ { video_id: "vid9", views: 1, estimated_minutes_watched: 1, subscribers_gained: 0, subscribers_lost: 0, likes: 0 } ]
 
-      travel_to(Time.zone.local(2026, 7, 15, 0, 0, 0)) do # entry is now 18h old
+      travel_to(base + 16.hours) do # entry is now 18h old
         # 24h max_age caller: 18h < 24h — reads the shared cache, no refetch.
         result_24h = described_class.rows_for(channel: channel, max_age: 24.hours)
         expect(result_24h).to eq(rows)
@@ -108,21 +115,23 @@ RSpec.describe Channel::Youtube::LifetimeVideoReport, type: :service do
 
   describe "error honesty" do
     it "propagates a Channel::Youtube::Error and leaves the previous cache entry untouched" do
-      travel_to(Time.zone.local(2026, 7, 14, 8, 0, 0)) do
+      travel_to(base) do
         described_class.rows_for(channel: channel, max_age: 12.hours) # seeds the cache
       end
 
       allow(client).to receive(:top_videos).and_raise(Channel::Youtube::Error, "boom")
 
-      travel_to(Time.zone.local(2026, 7, 14, 22, 0, 0)) do # stale for a 12h max_age — forces a refetch attempt
+      travel_to(base + 14.hours) do # stale for a 12h max_age — forces a refetch attempt
         expect {
           described_class.rows_for(channel: channel, max_age: 12.hours)
         }.to raise_error(Channel::Youtube::Error, "boom")
       end
 
-      entry = Rails.cache.read(cache_key)
-      expect(entry[:rows]).to eq(rows)
-      expect(entry[:fetched_at]).to eq(Time.zone.local(2026, 7, 14, 8, 0, 0))
+      travel_to(base + 15.hours) do
+        entry = Rails.cache.read(cache_key)
+        expect(entry[:rows]).to eq(rows)
+        expect(entry[:fetched_at]).to eq(base)
+      end
     end
   end
 
