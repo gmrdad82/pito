@@ -8,6 +8,11 @@ fi
 # Ensure the dev Postgres container is up and healthy before Rails starts.
 docker compose -f docker-compose.dev.yml up -d --wait --remove-orphans postgres
 
+# AI sidecars (embedder + nlmapper) boot WITHOUT --wait: their first boot
+# downloads models for minutes, and Puma must not block on that — the app
+# treats an unreachable sidecar as "feature degraded", never an error.
+docker compose -f docker-compose.dev.yml up -d embedder nlmapper
+
 # Default to port 3027 if not specified
 export PORT="${PORT:-3027}"
 

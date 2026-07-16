@@ -9,21 +9,14 @@
 # CLI consumers all read from.
 #
 # Initial migration scope (FB-178+180 / FB-126 / FB-171 spaghetti
-# closeout): reindex_voyage. Subsequent actions
-# (`update_slack_webhook`, `revoke_session`, etc.) folded in by their
-# own dispatches per the ADR's migration plan.
+# closeout): the first action registered here was `reindex_voyage`,
+# purged 2026-07-15 along with the rest of the `/config voyage` surface
+# (its route helper had already gone dead — see git history for the
+# original registration). Subsequent actions (`update_slack_webhook`,
+# `revoke_session`, etc.) folded in by their own dispatches per the
+# ADR's migration plan.
 Rails.application.config.after_initialize do
   routes = Rails.application.routes.url_helpers
-
-  Pito::ActionRegistry.define(
-    :reindex_voyage,
-    path: -> { routes.settings_stack_voyage_reindex_path },
-    method: :post,
-    confirmation: { brand: "Voyage AI", danger: true },
-    i18n_key: "tui.commands.reindex_voyage",
-    cable_panel: "pito:settings:stack:voyage",
-    scope: :home
-  )
 
   # 2026-05-24 — section-specific `:` palette actions.
   #

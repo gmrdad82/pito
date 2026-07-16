@@ -2,7 +2,7 @@
 
 # Extended coverage for Pito::Slash::Handlers::Config.
 # The main config_spec.rb covers core getter/setter/toggle paths.
-# This file adds: provider --help tables, voyage/igdb/webhook setters,
+# This file adds: provider --help tables, igdb/webhook setters,
 # bare /config overview, toggle getter for fx, and the ai/tavily providers
 # (the ordered set_ai_values path: provider → api_key → model → effort).
 
@@ -35,7 +35,7 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
     it "renders a man-page listing all config providers (sound; motion/fx removed)" do
       body = build_handler(raw: "/config").call.events.first[:payload]["body"]
       expect(body).to include("pito-help-block")
-      %w[google voyage igdb webhook sound timezone].each { |p| expect(body).to include(p) }
+      %w[google igdb webhook sound timezone].each { |p| expect(body).to include(p) }
       # The nickname provider is PURGED (2.0.0) — never advertised again.
       expect(Pito::Slash::HelpBuilder::ALL_CONFIG_PROVIDERS).not_to include("me")
     end
@@ -50,14 +50,6 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
 
   # ── Provider --help tables ───────────────────────────────────────────────────
 
-  describe "#show_help — /config voyage --help" do
-    it "returns a system event" do
-      result = build_handler(args: [ "voyage" ], raw: "/config voyage --help").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:kind]).to eq(:system)
-    end
-  end
-
   describe "#show_help — /config igdb --help" do
     it "returns a system event with provider help text" do
       result = build_handler(args: [ "igdb" ], raw: "/config igdb --help").call
@@ -69,28 +61,6 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
     it "returns a system event" do
       result = build_handler(args: [ "webhook" ], raw: "/config webhook --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-  end
-
-  # ── Voyage setter ─────────────────────────────────────────────────────────────
-
-  describe "#call — /config voyage api_key=voy-secret (setter)" do
-    it "persists the api_key to AppSetting and returns Ok" do
-      result = build_handler(args: [ "voyage" ], kwargs: { api_key: "voy-secret" }).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      AppSetting.singleton_row.reload
-      expect(AppSetting.singleton_row.voyage_api_key).to eq("voy-secret")
-    end
-
-    it "includes the pito.slash.config.updated key in the payload" do
-      result = build_handler(args: [ "voyage" ], kwargs: { api_key: "v" }).call
-      expect(result.events.first[:payload][:message_key]).to eq("pito.slash.config.updated")
-    end
-
-    it "returns an error for an unknown voyage key" do
-      result = build_handler(args: [ "voyage" ], kwargs: { unknown: "x" }).call
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
     end
   end
 
@@ -141,22 +111,6 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
 
       values = build_handler(args: [ "webhook" ]).call.events.first[:payload][:table_rows].map { |r| r[:value] }
       expect(values).to all(eq(I18n.t("pito.slash.config.status.missing")))
-    end
-  end
-
-  # ── Voyage getter (status table) ──────────────────────────────────────────────
-
-  describe "#call — /config voyage (getter, no kwargs)" do
-    it "returns a system event with a table_rows array" do
-      result = build_handler(args: [ "voyage" ]).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload][:table_rows]).to be_an(Array)
-    end
-
-    it "includes API Key row" do
-      result = build_handler(args: [ "voyage" ]).call
-      keys = result.events.first[:payload][:table_rows].map { |r| r[:key] }
-      expect(keys).to include("API Key:")
     end
   end
 

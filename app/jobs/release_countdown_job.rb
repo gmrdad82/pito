@@ -11,6 +11,16 @@
 # release day (this is the Item 23 fix: never count "0 days" to a quarter).
 # Games with no dated per-platform release are silently skipped.
 #
+# == One digest webhook, not N
+#
+# Each per-group Notification is created with `skip_webhook: true` — the
+# in-app record and mini-status badge still land per group, but the
+# individual `NotificationWebhookDeliverJob` is suppressed. Instead every
+# newly-created group's `[countdown, title]` is collected into `rows` and,
+# once the loop finishes, sent as ONE `Pito::Notifications::WebhookDigest`
+# call — a single colored Slack/Discord message listing every upcoming
+# release instead of a flood of individual webhooks.
+#
 # == Same-day per (game, date) dedup
 #
 # The `Notification` schema is message-only — no dedup_key column. We embed an
@@ -28,24 +38,35 @@ class ReleaseCountdownJob < ApplicationJob
 
   def perform
     window_end = Date.current + COUNTDOWN_WINDOW
+    digest_rows = []
 
     dated = GamePlatformRelease
             .where.not(release_day: nil)
             .where(release_date: Date.current..window_end)
             .includes(:game)
 
-    dated.group_by { |rel| [ rel.game_id, rel.release_date ] }.each do |(_game_id, date), rows|
-      game = rows.first.game
+    dated.group_by { |rel| [ rel.game_id, rel.release_date ] }
+         .sort_by { |(_game_id, date), _platform_rows| date }
+         .each do |(_game_id, date), platform_rows|
+      game = platform_rows.first.game
       next if game.nil? || already_reminded?(game, date)
 
+      days_remaining = (date - Date.current).to_i
       body = Pito::Notifications::Source::ReleaseCountdown.message(
         game:           game,
-        days_remaining: (date - Date.current).to_i,
-        platforms:      platform_label(rows.map(&:platform_token))
+        days_remaining: days_remaining,
+        platforms:      platform_label(platform_rows.map(&:platform_token))
       )
 
-      Notification.create!(message: "#{body}#{marker(game, date)}")
+      Notification.create!(message: "#{body}#{marker(game, date)}", skip_webhook: true)
+      digest_rows << [ countdown_label(days_remaining), game.title ]
     end
+
+    Pito::Notifications::WebhookDigest.call(
+      title:  "🎮 Upcoming releases",
+      accent: Pito::Notifications::WebhookDigest::RELEASES,
+      rows:   digest_rows
+    )
   end
 
   private
@@ -56,6 +77,12 @@ class ReleaseCountdownJob < ApplicationJob
           .sort_by { |t| Pito::Games::PlatformTokens::ORDER.index(t) || Pito::Games::PlatformTokens::ORDER.size }
           .map { |t| I18n.t("pito.game.platform_label.#{t}") }
           .join(" + ")
+  end
+
+  # Digest col1 wording — "in 1 day" (singular), otherwise "in N days"
+  # ("in 0 days" for a today release keeps the plural, which is correct).
+  def countdown_label(days_remaining)
+    days_remaining == 1 ? "in 1 day" : "in #{days_remaining} days"
   end
 
   # Invisible, stable per-(game, date) marker so a same-day re-run recognises its

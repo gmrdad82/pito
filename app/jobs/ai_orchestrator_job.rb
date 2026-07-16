@@ -62,12 +62,62 @@ class AiOrchestratorJob < ApplicationJob
        blocks (see the tool description for the block types). Prefer structured
        blocks over prose paragraphs. NEVER format tables as markdown pipes inside a
        text block — use a kv_table block (label/value pairs) or a table block.
-       To recommend an action the owner must take, emit a suggestion block whose
-       command is a valid pito command — you can NEVER execute changes yourself.
+       CLOSE WITH A SUGGESTION whenever the answer implies a next step the owner
+       could take — view something in full, link it, import it, reindex it, search
+       for more, apply a change you only described, and so on: end with one or more
+       suggestion blocks for that step. This is the EXPECTED close for an
+       actionable answer, not an optional extra — skip it only when the answer is
+       purely informational with no natural next action (never invent one just to
+       have something to suggest). Every suggestion's `command` MUST be a complete,
+       valid pito command exactly as typed — pick a shape from the CHEAT-SHEET
+       below or one you have directly confirmed via a tool call this turn; never
+       guess at syntax. You can NEVER execute changes yourself, only propose them.
+       Stay within the suggestion block's own per-answer cap (its Limits line in
+       the tool description) — a few sharp suggestions beat a wall of them.
 
     Keep answers grounded in tool results. If pito has no data for the question,
     say so in a text block. Never fabricate ids, metrics, or titles.
   PROMPT
+
+  # A curated, HAND-VERIFIED slice of pito's command grammar — bounded to the
+  # shapes a suggestion is most likely to need, so a suggested command always
+  # parses. Each line was checked against either a passing chat-handler spec or
+  # an explicit "→" example inside tools.yml's own `mcp.description` fields —
+  # NEVER against `nl_examples` (those are free-text phrasings, not runnable
+  # syntax) or the top-level `nl.exemplars` (the NL mapper's few-shot corpus;
+  # some of its `run:` forms are only valid as a follow-up reply on an
+  # already-scoped card, not as a fresh command — e.g. "link 14 3" needs the
+  # noun + `to` connector below when typed fresh). Maintained BY HAND: update
+  # it when the grammar changes; never generate it from a live call — the NL
+  # sidecar/router stay untouched (Pito::Embedding, Pito::Nl are off-limits).
+  COMMAND_SHAPES = [
+    "list games | list vids | list channels",
+    "show game <id> | show vid <id> | show channel @handle",
+    "analyze | analyze channel | analyze game <id> | analyze vid <id>",
+    "at-a-glance game <id>",
+    "breakdowns game <id>",
+    "similar game <id>",
+    "channels game <id>",
+    "videos channel @handle | videos game <id>",
+    "game vid <id>",
+    "games channel @handle",
+    "shinies channel @handle | shinies game <id> | shinies vid <id>",
+    "search games like <text> | search games for <text>",
+    "search conversations for <text>",
+    "link game <id> to vid <id>",
+    "unlink vid <id> from game <id>",
+    "import <title>",
+    "sync vids | sync channels",
+    "update game footage <id> <hours>",
+    "update game price <id> <amount>",
+    "update game platform <id> <name>",
+    "update vid description <id> <text>",
+    "publish vid <id>",
+    "unlist vid <id>",
+    "schedule vid <id> <dd-mm-yyyy>",
+    "delete game <id> | delete vid <id>",
+    "reindex game <id> | reindex vid <id>"
+  ].freeze
 
   # The static protocol above + the content rules declared in
   # config/pito/content.yml (no emoji / kaomoji, styling, colors) — edited
@@ -77,8 +127,20 @@ class AiOrchestratorJob < ApplicationJob
                "never Pito or pito."
 
   def self.system_prompt
-    "#{SYSTEM_PROMPT}\n#{NAMING_LAW}\nCONTENT RULES:\n#{Ai::ContentRegistry.prompt_rules}"
+    "#{SYSTEM_PROMPT}\n#{NAMING_LAW}\n#{command_cheat_sheet}\n" \
+      "CONTENT RULES:\n#{Ai::ContentRegistry.prompt_rules}"
   end
+
+  # Assembles COMMAND_SHAPES into the prompt's CHEAT-SHEET block, once —
+  # a STATIC string built at prompt-build time from the curated Ruby array
+  # above, never from a sidecar or the NL router.
+  def self.command_cheat_sheet
+    @command_cheat_sheet ||=
+      "CHEAT-SHEET (valid pito command shapes — swap <placeholders> for real " \
+      "ids/@handles/text from what you already gathered; every other word is " \
+      "literal):\n#{COMMAND_SHAPES.map { |line| "  #{line}" }.join("\n")}"
+  end
+  private_class_method :command_cheat_sheet
 
   # The Finalizer's ai-pending gate: a persisted :ai event still awaiting fill.
   def self.pending?(event)

@@ -204,11 +204,14 @@ blocks:
     label: suggestion
     about: >-
       A ready-to-run pito command the OWNER may execute. You can never execute
-      anything yourself — this is how you recommend an action when asked.
+      anything yourself — this is how you propose the owner's next step.
     when_to_use: >-
-      ONLY when the owner explicitly asks for suggestions, recommendations, or
-      next steps. Never volunteer suggestion blocks otherwise — an unasked
-      answer ends without them.
+      Whenever the answer implies a next step the owner could take — viewing
+      something in full, linking/importing/reindexing it, searching for more, or
+      applying a change you only described. Closing an actionable answer with one
+      or more suggestions is the EXPECTED default, not something to wait to be
+      asked for. Skip them only when the answer is purely informational with no
+      natural next action — never invent one just to have something to suggest.
     data:
       command: "String — a complete, valid pito command exactly as typed"
       note: "optional String — one line on why (you write it)"

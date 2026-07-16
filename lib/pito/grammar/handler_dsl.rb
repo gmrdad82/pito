@@ -15,7 +15,7 @@ module Pito
     #     literal :provider, source: :config_providers
     #     enum    :state,    source: :on_off,  optional: true, when: { provider: %w[sound fx] }
     #     kv      :cfg,      source: :config_keys, optional: true, repeatable: true,
-    #                        when: { provider: %w[google voyage igdb webhook] }
+    #                        when: { provider: %w[google igdb webhook] }
     #     aliases :cfg, :configuration
     #     auth    :authenticated_only
     #     description_key "pito.grammar.slash.config"

@@ -10,7 +10,7 @@ require "rails_helper"
 # documented in-line.
 #
 # ── What is mocked ──────────────────────────────────────────────────────────
-# • AppSetting.singleton_row.update! (google client_id/secret, voyage api_key)
+# • AppSetting.singleton_row.update! (google client_id/secret)
 # • All AppSetting class-level writer methods (redirect_uri=, igdb_client_id=, …)
 # • All AppSetting class-level reader methods (sound_enabled?, …)
 #   → deterministic defaults so getter paths return predictable text
@@ -47,7 +47,7 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
   end
 
   before do
-    # ── AppSetting singleton row (google client_id/secret + voyage api_key go here)
+    # ── AppSetting singleton row (google client_id/secret go here)
     allow(singleton_row).to receive(:update!)
     allow(AppSetting).to receive(:singleton_row).and_return(singleton_row)
 
@@ -73,7 +73,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     allow(Pito::Credentials).to receive(:google_oauth_client_secret).and_return(nil)
     allow(Pito::Credentials).to receive(:google_oauth_redirect_uri).and_return(nil)
     allow(Pito::Credentials).to receive(:google_api_key).and_return(nil)
-    allow(Pito::Credentials).to receive(:voyage_api_key).and_return(nil)
     allow(Pito::Credentials).to receive(:igdb_client_id).and_return(nil)
     allow(Pito::Credentials).to receive(:igdb_client_secret).and_return(nil)
     allow(Pito::Credentials).to receive(:slack_webhook_url).and_return(nil)
@@ -111,7 +110,7 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     it "lists all providers in the overview body (motion/fx removed — item 18)" do
       result = build_handler(raw: "/config").call
       body = result.events.first[:payload]["body"]
-      %w[google voyage igdb webhook me sound timezone].each do |p|
+      %w[google igdb webhook me sound timezone].each do |p|
         expect(body).to include(p), "expected overview to include provider '#{p}'"
       end
     end
@@ -128,7 +127,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     {
       "bare /config --help (no provider)"  => [ [], "/config --help" ],
       "/config google --help"              => [ %w[google],  "/config google --help" ],
-      "/config voyage --help"              => [ %w[voyage],  "/config voyage --help" ],
       "/config igdb --help"               => [ %w[igdb],    "/config igdb --help" ],
       "/config webhook --help"             => [ %w[webhook], "/config webhook --help" ],
       "/config timezone --help"            => [ %w[timezone], "/config timezone --help" ]
@@ -296,35 +294,10 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
     end
 
-    it "/config google voyage_key=x → unknown_keys error (cross-provider kwarg rejected)" do
-      result = build_handler(args: %w[google], kwargs: { voyage_key: "x" }).call
+    it "/config google igdb_key=x → unknown_keys error (cross-provider kwarg rejected)" do
+      result = build_handler(args: %w[google], kwargs: { igdb_key: "x" }).call
       expect(result).to be_a(Pito::Slash::Result::Error)
       expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
-    end
-  end
-
-  # ── Voyage credential provider ────────────────────────────────────────────
-  describe "voyage provider" do
-    it "/config voyage (getter, no kwargs) → Result::Ok with table_rows" do
-      result = build_handler(args: %w[voyage], raw: "/config voyage").call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      rows = result.events.first[:payload][:table_rows]
-      expect(rows).to be_an(Array).and be_present
-    end
-
-    it "/config voyage api_key=x → Result::Ok; calls singleton_row.update! with voyage_api_key" do
-      expect(singleton_row).to receive(:update!).with(voyage_api_key: "voyage-key")
-      result = build_handler(args: %w[voyage], kwargs: { api_key: "voyage-key" }).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload][:message_key]).to eq("pito.slash.config.updated")
-    end
-
-    %w[client_id client_secret redirect_uri slack discord unknown_key].each do |bad_kwarg|
-      it "/config voyage #{bad_kwarg}=x → unknown_keys error (only api_key accepted)" do
-        result = build_handler(args: %w[voyage], kwargs: { bad_kwarg.to_sym => "x" }).call
-        expect(result).to be_a(Pito::Slash::Result::Error)
-        expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
-      end
     end
   end
 
@@ -354,7 +327,7 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    %w[api_key redirect_uri slack discord unknown_key voyage_key].each do |bad_kwarg|
+    %w[api_key redirect_uri slack discord unknown_key].each do |bad_kwarg|
       it "/config igdb #{bad_kwarg}=x → unknown_keys error" do
         result = build_handler(args: %w[igdb], kwargs: { bad_kwarg.to_sym => "x" }).call
         expect(result).to be_a(Pito::Slash::Result::Error)

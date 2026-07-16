@@ -1,11 +1,28 @@
 # frozen_string_literal: true
 
-# Handler for `show channel @handle` / `show game <id>` / `show video <id>`.
+# Handler for `show channel @handle` / `show game <ref>` / `show video <ref>`.
 #
-# Resolves a single entity by ID only (`#123` or `123`) —
-# title (ILIKE) lookup is intentionally disabled (id_only_resolution!).
-# Unknown reference → witty not-found via `Pito::Copy`. No reference → a usage
-# hint (the no-arg picker fast-path is wired in `ChatController`).
+# `ref` is a numeric id (`#123` or `123`) — resolved BYTE-IDENTICALLY to
+# before — or, for game/vid, a non-numeric title, resolved through the shared
+# exact-first ladder (`Game`/`Video.resolve_by_title`; see
+# `Pito::TitleResolve`): exact match, then prefix, then anchored token-run
+# scoring, then acronym-of-initials. `id_only_resolution!` still switches OFF
+# `TargetResolution#find_by_ref`'s OWN (ILIKE) title lookup — untouched, so
+# every OTHER id_only_resolution! handler (delete/reindex/platform/shinies) is
+# unaffected; Show's game/vid branches resolve a title-shaped miss through the
+# ladder themselves instead (`#resolve_title`). Unknown reference → witty
+# not-found via `Pito::Copy`. No reference → a usage hint (the no-arg picker
+# fast-path is wired in `ChatController`).
+#
+# == The vid's linked game, by vid ref: `show game for vid <ref>`
+#
+# `show game for vid <ref>` / `for video <ref>` pivots the whole request:
+# `<ref>` (numeric id or title, same ladder) names a VID, and the answer is
+# THAT vid's linked game — the exact emission the `game` segment tool
+# (`game vid <ref>` / `linked game <ref>`) produces (`#handle_game_for_vid`).
+# An unresolvable vid ref → the ordinary video not-found copy; a
+# resolved-but-unlinked vid → that same segment path's SEGMENT_EMPTY_COPY
+# fallback (see below).
 #
 # == Ordinal selectors
 #
@@ -62,6 +79,13 @@ module Pito
         # Ordinal keywords that trigger first/last resolution instead of ID lookup.
         ORDINAL_WORDS = %w[first last].freeze
 
+        # "show game for vid tekken 7" → captures "tekken 7"; "for video …" is the
+        # same clause under the alternate spelling. Mirrors search.rb's
+        # LIKE_CLAUSE/FOR_CLAUSE idiom — a fixed trailing clause, captured lazily
+        # to end-of-string once the segment-selection clause (if any) is already
+        # stripped from the text this is matched against (see #game_for_vid_ref).
+        FOR_VID_CLAUSE = /\bfor\s+vid(?:eo)?\b\s+(.+?)\s*\z/i
+
         # Maps entity_kind → segment name → private emitter method symbol.
         # The table-driven loop in #emit_segments_for calls send(method_sym, entity).
         # No builder arguments live here — each private method below is the sole
@@ -90,16 +114,20 @@ module Pito
         # Maps entity_kind → segment name → copy key rendered as a lone :system
         # event when that segment is the ONLY one requested (`only <segment>` /
         # a segment tool, e.g. `games channel @h`) but its `emit_if` guard fails
-        # (G/T16.14: a channel with no linked games). A combined view
-        # (`full`/`with …`) stays silent as before — only a SOLE explicit
-        # request gets this fallback, so an empty Result (which reads as broken,
-        # especially to MCP callers) never reaches the caller.
+        # (e.g. a channel with no linked games, or a vid with no linked game). A
+        # combined view (`full`/`with …`) stays silent as before — only a SOLE
+        # explicit request gets this fallback, so an empty Result (which reads
+        # as broken, especially to MCP callers) never reaches the caller.
         SEGMENT_EMPTY_COPY = {
-          channel: { "games" => "pito.copy.channels.games_empty" }
+          channel: { "games" => "pito.copy.channels.games_empty" },
+          vid:     { "game"  => "pito.copy.videos.linked_game_empty" }
         }.freeze
 
         def call
           return drive_forced_entity if @forced_entity
+
+          for_vid_ref = game_for_vid_ref
+          return handle_game_for_vid(for_vid_ref) if for_vid_ref
 
           if channel_noun? || channel_follow_up?
             handle_channel
@@ -192,6 +220,19 @@ module Pito
           message.body_tokens
                  .take_while { |t| !%w[with only without full].include?(t.value.to_s.downcase) }
                  .any? { |t| GAME_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+        end
+
+        # `show game for vid <ref>` / `for video <ref>` — the captured `<ref>`
+        # (or nil when the clause isn't present). Only checked when the typed
+        # noun is `game` (never `vid`), so `show vid …` keeps its ordinary
+        # video routing untouched even when the word "vid"/"video" happens to
+        # appear elsewhere in the input. Matched against +resolution_raw+ (the
+        # segment-selection clause, if any, already stripped) so `show game for
+        # vid tekken 7 full` still isolates "tekken 7" as the vid ref.
+        def game_for_vid_ref
+          return nil unless game_noun?
+
+          resolution_raw[FOR_VID_CLAUSE, 1]
         end
 
         def handle_channel
@@ -310,6 +351,7 @@ module Pito
           else
             video = resolve_target(::Video, id_key: :video_id, noun_fillers: video_noun_fillers)
             return needs_ref if video == :needs_ref
+            video ||= resolve_title(::Video, video_noun_fillers)
             return video_not_found(target_ref(video_noun_fillers, id_key: :video_id)) if video.nil?
           end
 
@@ -360,6 +402,7 @@ module Pito
           else
             game = resolve_target(::Game, id_key: :game_id, noun_fillers: game_noun_fillers)
             return needs_ref if game == :needs_ref
+            game ||= resolve_title(::Game, game_noun_fillers)
             return game_not_found(target_ref(game_noun_fillers, id_key: :game_id)) if game.nil?
           end
 
@@ -375,6 +418,24 @@ module Pito
           Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
+        end
+
+        # ── Game-for-vid pivot (`show game for vid <ref>`) ─────────────────────
+
+        # Resolves the named VID (id or title), then answers with ITS linked
+        # game — a solo `only game` selection on the VID entity, driven through
+        # the exact same #emit_segments_for the `game` segment tool's
+        # forced-entity route (`drive_segment("game", entity: :vid)`) ends up
+        # calling. Byte-identical outcome to `game vid <the vid's id>` for the
+        # same vid: unresolvable ref → the ordinary video not-found copy;
+        # resolved-but-unlinked → that segment's existing (silent) outcome —
+        # never new copy.
+        def handle_game_for_vid(vid_ref)
+          video = resolve_id_or_title(::Video, vid_ref)
+          return video_not_found(vid_ref) if video.nil?
+
+          selection = Pito::Chat::SegmentSelection.only(tool: :show, entity: :vid, segment: "game")
+          emit_segments_for(video, :vid, selection)
         end
 
         # ── Per-segment emitters: game ─────────────────────────────────────────
@@ -410,6 +471,32 @@ module Pito
         # to ALL_NOUN_FILLERS; otherwise the branch's own fillers (byte-identical).
         def video_noun_fillers = @forced_entity ? ALL_NOUN_FILLERS : VIDEO_NOUN_FILLERS
         def game_noun_fillers  = @forced_entity ? ALL_NOUN_FILLERS : GAME_NOUN_FILLERS
+
+        # Non-numeric-ref fallback for the free-chat game/vid branches: when
+        # +resolve_target+ came back nil (id_only_resolution! keeps its OWN ILIKE
+        # lookup off), re-extract the SAME ref and resolve it through the shared
+        # title ladder instead. Follow-up replies stay id-based only — this never
+        # runs there, so detail/list-reply resolution is untouched.
+        def resolve_title(model_class, noun_fillers)
+          return nil if follow_up?
+
+          ref = extract_ref_from(resolution_raw, noun_fillers)
+          resolve_id_or_title(model_class, ref) if ref.present?
+        end
+
+        # ID-form (`#7`/`7`) resolves by id; any other ref resolves through the
+        # shared exact-first title ladder (`Game`/`Video.resolve_by_title`) —
+        # mirrors TargetResolution#find_by_ref's id-detection idiom, but (unlike
+        # that shared helper, which id_only_resolution! switches off for every
+        # other handler) always tries the ladder for a non-numeric ref. Used both
+        # by #resolve_title above and by the game-for-vid pivot, which has no
+        # prior id attempt of its own to fall back from.
+        def resolve_id_or_title(model_class, ref)
+          id = ref.to_s.sub(/\A#\s*/, "")
+          return model_class.find_by(id: id) if id.match?(/\A\d+\z/)
+
+          model_class.resolve_by_title(ref)
+        end
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.show.needs_ref", message_args: {})

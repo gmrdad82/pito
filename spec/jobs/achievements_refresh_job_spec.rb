@@ -390,6 +390,33 @@ RSpec.describe AchievementsRefreshJob, type: :job do
       job.perform
       expect { job.perform }.not_to change(Notification, :count)
     end
+
+    it "does not enqueue an individual webhook delivery job per shiny (digested instead)" do
+      expect { job.perform }.not_to have_enqueued_job(NotificationWebhookDeliverJob)
+    end
+
+    it "sends ONE WebhookDigest.call with a [witty, entity] row per unlocked shiny" do
+      digest_calls = []
+      allow(Pito::Notifications::WebhookDigest).to receive(:call) do |title:, accent:, rows:|
+        digest_calls << { title: title, accent: accent, rows: rows }
+      end
+
+      job.perform
+
+      expect(digest_calls.size).to eq(1)
+      call = digest_calls.first
+      expect(call[:title]).to eq("🏆 Achievements")
+      expect(call[:accent]).to eq(Pito::Notifications::WebhookDigest::ACHIEVEMENTS)
+      expect(call[:rows].size).to eq(Achievement.count)
+      expect(call[:rows]).to all(be_an(Array).and(have_attributes(size: 2)))
+    end
+
+    it "still calls WebhookDigest.call (which no-ops) with empty rows on a run with no new unlocks" do
+      job.perform
+
+      expect(Pito::Notifications::WebhookDigest).to receive(:call).with(hash_including(rows: []))
+      job.perform
+    end
   end
 
   # ─── skips needs_reauth channels ────────────────────────────────────────────

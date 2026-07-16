@@ -20,8 +20,8 @@ en:
           description: "Start a fresh conversation."
       resume:
         help:
-          usage: "/resume"
-          description: "Browse and switch to a previous conversation."
+          usage: "/resume [<uuid> [<event_id>]]"
+          description: "Browse conversations, switch by name, or jump straight to one by uuid (optionally to a specific message)."
       connect:
         descriptions:
           connect: "Connect a YouTube channel via Google OAuth"
@@ -30,7 +30,7 @@ en:
           description: "Initiate Google OAuth to connect a YouTube channel."
       config:
         descriptions:
-          config: "Read or write install-wide credentials, toggle sound, or set the display time zone (/config ai|google|voyage|igdb|webhook|sound|timezone)"
+          config: "Read or write install-wide credentials, toggle sound, or set the display time zone (/config ai|google|igdb|webhook|sound|timezone)"
         help:
           general:
             body: "/config <provider> [on|off | key=value …]"
@@ -42,7 +42,6 @@ en:
               ai: "AI provider, key, model & effort (bare `/config ai` opens the picker)"
               tavily: "Web search key for @ai --web (Tavily)"
               google: "OAuth + YouTube API credentials"
-              voyage: "Voyage AI embedding key"
               igdb: "IGDB game database client credentials"
               webhook: "Slack / Discord incoming webhook URLs"
               sound: "Toggle sound effects on or off"
@@ -69,9 +68,6 @@ en:
               suggestion:
                 pre: "Run"
                 post: "after configuring to start the OAuth2 flow"
-            voyage:
-              keys:
-                api_key: "Voyage AI API key"
             igdb:
               keys:
                 client_id: "IGDB / Twitch client ID"
@@ -89,7 +85,6 @@ en:
           section:
             ai: "AI provider (OpenCode Zen)"
             google: "Google credentials"
-            voyage: "Voyage credentials"
             igdb: "IGDB credentials"
             webhook: "Webhook URLs"
         updated: "Updated %{provider} credentials (%{keys}). Changes take effect immediately."
@@ -105,7 +100,7 @@ en:
           updated: "Time zone set to %{zone}. Timestamps now read in local time; clocks stay UTC under the hood."
           status: "Time zone: %{zone}."
         errors:
-          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, me, sound, timezone."
+          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, igdb, webhook, me, sound, timezone."
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
           ai_unknown_provider: "Unknown AI provider %{provider} — see the picker (/config ai) for the registry."
           ai_unknown_model: "%{provider} has no model %{model} in its catalog — pick from /config ai."

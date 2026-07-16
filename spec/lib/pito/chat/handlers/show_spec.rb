@@ -221,28 +221,28 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
   end
 
-  # ── Game branch — title refs are REJECTED (id-only resolution) ───────────────
+  # ── Game branch — title refs resolve through the shared ladder (P36) ─────────
+  # Was "REJECTED (id-only resolution)" — flipped under the owner's directive:
+  # a non-numeric ref now resolves via Game.resolve_by_title (Pito::TitleResolve),
+  # exactly like `show game <its id>` would for the same record.
 
-  it "returns not-found when a title ref is given — NOT a detail card (id-only resolution)" do
+  it "resolves a multi-word title ref to the game's detail card (exact match, no quotes)" do
     result = handler_for("game", "lies", "of", "p").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    # not-found text is present; no detail card
-    expect(result.events.first[:payload]["text"]).to be_present
-    expect(result.events.first[:payload]["game_id"]).to be_nil
+    expect(result.events.first[:payload]["game_id"]).to eq(game.id)
+    expect(result.events.first[:payload]["body"]).to include("Lies of P")
   end
 
-  it "returns not-found for a double-quoted title (id-only — quotes do not help)" do
+  it "resolves a double-quoted title ref (the token-match tier ignores the quotes)" do
     result = show_real('show game "Lies of P"')
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload]["text"]).to be_present
-    expect(result.events.first[:payload]["game_id"]).to be_nil
+    expect(result.events.first[:payload]["game_id"]).to eq(game.id)
   end
 
-  it "returns not-found for a multi-word title (no quotes)" do
+  it "resolves a multi-word title ref through the real lexer/parser (no quotes)" do
     result = show_real("show game Lies of P")
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload]["text"]).to be_present
-    expect(result.events.first[:payload]["game_id"]).to be_nil
+    expect(result.events.first[:payload]["game_id"]).to eq(game.id)
   end
 
   # No-guess (owner 2026-06-29): a bare `show` (no entity noun at all) is not the
@@ -395,20 +395,21 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
     end
 
-    # ── Video title refs are REJECTED (id-only resolution) ────────────────────
+    # ── Video title refs resolve through the shared ladder (P36) ──────────────
+    # Was "REJECTED (id-only resolution)" — flipped under the owner's directive:
+    # a non-numeric ref now resolves via Video.resolve_by_title (Pito::TitleResolve),
+    # exactly like `show video <its id>` would for the same record.
 
-    it "returns not-found when a title ref is given — NOT a detail card (id-only resolution)" do
+    it "resolves a multi-word title ref to the video's detail card (exact match, no quotes)" do
       result = handler_for("video", "my", "gaming", "highlights").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload]["text"]).to be_present
-      expect(result.events.first[:payload]["video_id"]).to be_nil
+      expect(result.events.first[:payload]["video_id"]).to eq(video.id)
     end
 
-    it "returns not-found for a double-quoted video title (id-only — quotes do not help)" do
+    it "resolves a double-quoted video title ref (the token-match tier ignores the quotes)" do
       result = show_real('show video "My Gaming Highlights"')
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload]["text"]).to be_present
-      expect(result.events.first[:payload]["video_id"]).to be_nil
+      expect(result.events.first[:payload]["video_id"]).to eq(video.id)
     end
 
     it "returns a usage hint when only the noun is given (no ref)" do
@@ -944,6 +945,78 @@ RSpec.describe Pito::Chat::Handlers::Show do
     it "footer uses 'segments' as the noun" do
       payload = handler_for("game", "##{game.id}").call.events.first[:payload]
       expect(payload["list_footer"].to_s).to include("segments")
+    end
+  end
+
+  # ── P36 owner phrasings (2026-07-15) ─────────────────────────────────────────
+  #
+  # Pins the exact owner-typed phrasings from the P36 sign-off: case-insensitive
+  # game/vid title resolution, the `show game for vid|video <ref>` pivot under
+  # both spellings, and the shared title-resolution ladder's exact-first tier
+  # (Pito::TitleResolve) disambiguating "Mortal Kombat" from "Mortal Kombat 2",
+  # plus its acronym-of-initials tier ("mk2" → "Mortal Kombat 2").
+
+  describe "P36 owner phrasings (2026-07-15)" do
+    let!(:pragmata)          { create(:game, title: "Pragmata") }
+    let!(:mortal_kombat)     { create(:game, title: "Mortal Kombat") }
+    let!(:mortal_kombat_2)   { create(:game, title: "Mortal Kombat 2") }
+    let!(:p36_channel)       { create(:channel) }
+    let!(:my_first_computer) { create(:video, channel: p36_channel, title: "My First Computer") }
+    let!(:p36_vgl)           { create(:video_game_link, video: my_first_computer, game: pragmata) }
+
+    it "'show game Pragmata' resolves to Pragmata's detail card" do
+      result = show_real("show game Pragmata")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["game_id"]).to eq(pragmata.id)
+      expect(result.events.first[:payload]["body"]).to include("Pragmata")
+    end
+
+    it "'show game pragmata' resolves the same game, case-insensitively" do
+      result = show_real("show game pragmata")
+      expect(result.events.first[:payload]["game_id"]).to eq(pragmata.id)
+    end
+
+    it "'show vid my first computer' resolves to the vid's detail card" do
+      result = show_real("show vid my first computer")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["video_id"]).to eq(my_first_computer.id)
+      expect(result.events.first[:payload]["body"]).to include("My First Computer")
+    end
+
+    it "'show vid My First Computer' resolves to the same vid" do
+      result = show_real("show vid My First Computer")
+      expect(result.events.first[:payload]["video_id"]).to eq(my_first_computer.id)
+    end
+
+    it "'show vid My first Computer' (mixed case) resolves to the same vid" do
+      result = show_real("show vid My first Computer")
+      expect(result.events.first[:payload]["video_id"]).to eq(my_first_computer.id)
+    end
+
+    it "'show game for vid My First Computer' resolves to the linked game (reply_target game_detail)" do
+      result = show_real("show game for vid My First Computer")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      payload = result.events.first[:payload]
+      expect(payload["game_id"]).to eq(pragmata.id)
+      expect(payload["reply_target"]).to eq("game_detail")
+    end
+
+    it "'show game for video my first computer' resolves the same via the 'video' keyword" do
+      result = show_real("show game for video my first computer")
+      payload = result.events.first[:payload]
+      expect(payload["game_id"]).to eq(pragmata.id)
+      expect(payload["reply_target"]).to eq("game_detail")
+    end
+
+    it "'show game Mortal Kombat' resolves to Mortal Kombat, NEVER Mortal Kombat 2 (exact-first rule)" do
+      result = show_real("show game Mortal Kombat")
+      expect(result.events.first[:payload]["game_id"]).to eq(mortal_kombat.id)
+      expect(result.events.first[:payload]["game_id"]).not_to eq(mortal_kombat_2.id)
+    end
+
+    it "'show game mk2' resolves to Mortal Kombat 2 (acronym+trailing-digit tier)" do
+      result = show_real("show game mk2")
+      expect(result.events.first[:payload]["game_id"]).to eq(mortal_kombat_2.id)
     end
   end
 end

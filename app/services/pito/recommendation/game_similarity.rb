@@ -36,7 +36,7 @@ module Pito
       def self.between(game_a, game_b)
         breakdown = breakdown_for(
           facets_of(game_a), facets_of(game_b),
-          cosine_distance(game_a&.summary_embedding, game_b&.summary_embedding)
+          cosine_distance(game_a&.embedding_vector, game_b&.embedding_vector)
         )
         { score: Weights.blend(breakdown), breakdown: breakdown }
       end
@@ -149,11 +149,11 @@ module Pito
       end
 
       def embedding_pool_ids
-        return [] if @game.summary_embedding.blank?
+        return [] if @game.embedding_vector.blank?
 
         ::Game.where.not(id: @game.id)
-              .where.not(summary_embedding: nil)
-              .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
+              .where.not(::Game::EMBEDDING_COLUMN => nil)
+              .nearest_neighbors(::Game::EMBEDDING_COLUMN, @game.embedding_vector, distance: "cosine")
               .limit(CANDIDATE_POOL)
               .pluck(:id)
       end
@@ -180,10 +180,10 @@ module Pito
       # but scoring must be exact and deterministic: an approximate distance miss
       # would drop the `e` signal from a candidate's breakdown and flip its score.
       def embedding_distances(candidates)
-        return {} if @game.summary_embedding.blank?
+        return {} if @game.embedding_vector.blank?
 
         candidates.each_with_object({}) do |cand, acc|
-          dist = self.class.cosine_distance(@game.summary_embedding, cand.summary_embedding)
+          dist = self.class.cosine_distance(@game.embedding_vector, cand.embedding_vector)
           acc[cand.id] = dist unless dist.nil?
         end
       end

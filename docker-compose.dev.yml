@@ -1,11 +1,18 @@
-# Dev database — used by bin/dev (local Ruby + Docker Postgres).
+# Dev services — used by bin/dev (local Ruby + Docker Postgres + AI sidecars).
 # No name: field → inherits project name "pito" from the directory,
 # which preserves the existing pito_postgres_data volume.
 #
-# Host port 54327 → container 5432. Only postgres; Rails runs on the host.
+# Host port 54327 → container 5432. Rails runs on the host, so every
+# service here publishes on 127.0.0.1. Strict env separation: these
+# volumes belong to the dev project namespace — nothing is shared with
+# the pito-boot production stack.
 
 volumes:
   postgres_data:
+  # One dedicated model-cache volume per sidecar (owner 2026-07-15: avoid
+  # coupling). Only re-downloadable GGUF weights live here, never app data.
+  embedder_models:
+  nlmapper_models:
 
 services:
   postgres:
@@ -23,3 +30,46 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Dev embeddings sidecar (3.0.0) — llama.cpp serving embeddinggemma-300m
+  # on the OpenAI-compatible /v1/embeddings API. Host Puma reaches it at
+  # PITO_EMBEDDER_URL=http://127.0.0.1:8091. The model (~350MB) downloads
+  # once into the dev-scoped embedder_models volume. CPU-only, mirroring
+  # production (no GPU assumptions anywhere).
+  embedder:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: -hf ggml-org/embeddinggemma-300m-qat-q8_0-GGUF --embeddings --host 0.0.0.0 --port 8081
+    ports:
+      - "127.0.0.1:8091:8081"
+    restart: unless-stopped
+    mem_limit: 1g
+    volumes:
+      - embedder_models:/root/.cache/llama.cpp
+    healthcheck:
+      # 200 once the model is loaded; start_period covers the one-time
+      # first-boot download.
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 10m
+
+  # Dev NL command mapper sidecar (3.0.0) — Qwen3-0.6B (Q8) typing pito
+  # commands under the tools.yml-compiled GBNF grammar. Host Puma reaches
+  # it at PITO_NLMAPPER_URL=http://127.0.0.1:8092. Cold path: consulted
+  # only when input matches no tool.
+  nlmapper:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: -hf Qwen/Qwen3-0.6B-GGUF:Q8_0 --host 0.0.0.0 --port 8082 --ctx-size 2048
+    ports:
+      - "127.0.0.1:8092:8082"
+    restart: unless-stopped
+    mem_limit: 1g
+    volumes:
+      - nlmapper_models:/root/.cache/llama.cpp
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 10m

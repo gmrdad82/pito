@@ -28,9 +28,13 @@ module Pito
           # (NOT a hardcoded check). `show` needs its own no-follow-up-context dispatch.
           return undeclared_action(action) unless declared?(action)
 
-          # Dispatch as free-chat (no follow_up context) so that `show game #<id>`
-          # resolves the SIMILAR game by id — not the source card's game_id.
-          # id_only_resolution! already gates non-numeric refs before any DB call.
+          # Dispatch as free-chat (no follow_up context) so `show game <ref>`
+          # resolves against the whole library — the SIMILAR game the user
+          # names, not the source card's game_id. `ref` is a numeric id OR
+          # (since P36) a game title: this path inherits `show`'s title
+          # resolution because it dispatches the same free-chat input a user
+          # would type; a ref matching neither an id nor a title returns the
+          # standard not-found Ok.
           result = Pito::Dispatch::Router.call(
             input:          "show game #{args}",
             conversation:   conversation,

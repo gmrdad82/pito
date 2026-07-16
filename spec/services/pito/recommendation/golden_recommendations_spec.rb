@@ -15,30 +15,30 @@ RSpec.describe "Golden recommendation rankings (frozen corpus)", type: :service 
   expected = {
     "Pragmata" => {
       "Scars Above" => 70, "Dead Space" => 67, "Ghosts 'n Goblins Resurrection" => 36,
-      "Elden Ring" => 45, "Mad Max" => 43
+      "Elden Ring" => 46, "Mad Max" => 43
     },
     "Dead Space" => {
       "Scars Above" => 72, "Pragmata" => 67, "Mad Max" => 46,
-      "Elden Ring" => 43, "Ghosts 'n Goblins Resurrection" => 21
+      "Elden Ring" => 43, "Ghosts 'n Goblins Resurrection" => 22
     },
     "Scars Above" => {
       "Dead Space" => 72, "Pragmata" => 70, "Elden Ring" => 43,
-      "Mad Max" => 42, "Ghosts 'n Goblins Resurrection" => 22
+      "Mad Max" => 43, "Ghosts 'n Goblins Resurrection" => 23
     },
     "Mad Max" => {
-      "Dead Space" => 46, "Elden Ring" => 46, "Ghosts 'n Goblins Resurrection" => 20,
-      "Pragmata" => 43, "Scars Above" => 42
+      "Dead Space" => 46, "Elden Ring" => 47, "Ghosts 'n Goblins Resurrection" => 21,
+      "Pragmata" => 43, "Scars Above" => 43
     },
     "Elden Ring" => {
-      "Mad Max" => 46, "Pragmata" => 45, "Dead Space" => 43,
+      "Mad Max" => 47, "Pragmata" => 46, "Dead Space" => 43,
       "Scars Above" => 43, "Ghosts 'n Goblins Resurrection" => 22
     },
     "Ghosts 'n Goblins Resurrection" => {
-      "Pragmata" => 36, "Elden Ring" => 22, "Scars Above" => 22,
-      "Dead Space" => 21, "Mad Max" => 20, "Super Meat Boy" => 12
+      "Pragmata" => 36, "Elden Ring" => 22, "Scars Above" => 23,
+      "Dead Space" => 22, "Mad Max" => 21, "Super Meat Boy" => 13
     },
     "Super Meat Boy" => {
-      "Ghosts 'n Goblins Resurrection" => 12
+      "Ghosts 'n Goblins Resurrection" => 13
     }
   }
 

@@ -26,7 +26,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
         "game_list", "video_list", "channel_list",
         "game_detail", "video_detail", "channel_detail",
         "analytics_glance", "analyze_message",
-        "confirmation", "resume_missing"
+        "confirmation", "resume_missing", "video_search"
       )
     end
 
@@ -121,6 +121,17 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       # Tool-level aliases (yes/y/ok/approve/true, no/n/false/discard) are
       # intentionally excluded from actions_for — they are chat-context synonyms
       # and would pollute the follow-up suggestion palette.
+    end
+
+    it "video_search mirrors video_list MINUS next/more/sort/order/analyze" do
+      expect(described_class.actions_for("video_search")).to include(
+        "show", "delete", "schedule", "publish", "unlist",
+        "link", "unlink", "with", "without", "at-a-glance", "game", "shinies",
+        "rm", "del", "pub"
+      )
+      expect(described_class.actions_for("video_search")).not_to include(
+        "next", "more", "sort", "order", "analyze"
+      )
     end
   end
 

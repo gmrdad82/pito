@@ -250,11 +250,13 @@ export default class extends Controller {
   }
 
   // ONE template per side (owner 2026-07-13): "%{count} msgs before" /
-  // "%{count} msgs after" — no variant pool, no direction word.
+  // "%{count} msgs after" — no variant pool, no direction word. Counts
+  // 1–10 render exactly; above ten the short form "10+" (owner 2026-07-15).
   #format(side, count) {
     const tmpl = side === "top" ? this.beforeValue : this.afterValue
-    if (!tmpl) return String(count)
-    return tmpl.replace(/%\{count\}/g, count)
+    const shown = count > 10 ? "10+" : count
+    if (!tmpl) return String(shown)
+    return tmpl.replace(/%\{count\}/g, shown)
   }
 
   // True when the sidebar panel or the Ctrl+K command palette is open.

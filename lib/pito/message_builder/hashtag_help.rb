@@ -28,6 +28,7 @@ module Pito
         "game_list"     => "list-games",
         "video_detail"  => "show-video",
         "video_list"    => "list-videos",
+        "video_search"  => "search-videos",
         "channel_list"  => "list-channels",
         "channel_detail" => "show-channel",
         "channel_games" => "channel-games",

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Loads the frozen, hand-validated game corpus from
-# spec/fixtures/recommendation_games.yml into the test DB — exact Voyage
+# spec/fixtures/recommendation_games.yml into the test DB — exact embeddinggemma-300m (768-dim, 3.0.0)
 # embeddings, IGDB scores, genres, themes, player_perspectives, developers and
 # publishers. This is the golden data behind the recommendation contract specs;
 # it is independent of the dev database (those games may be deleted).
@@ -27,7 +27,7 @@ module RecommendationFixture
         themes:              row["themes"],
         player_perspectives: row["player_perspectives"]
       )
-      game.update_column(:summary_embedding, row["summary_embedding"])
+      game.update_column(::Game::EMBEDDING_COLUMN, row["summary_embedding"])
       row["genres"].each     { |n| ::GameGenre.create!(game: game, genre: genres.fetch(n)) }
       row["developers"].each { |n| ::GameDeveloper.create!(game: game, company: companies.fetch(n)) }
       row["publishers"].each { |n| ::GamePublisher.create!(game: game, company: companies.fetch(n)) }

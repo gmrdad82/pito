@@ -20,6 +20,6 @@ RSpec.describe Pito::Stack::Local, type: :service do
   end
 
   it "Pito::Stack.usage includes local" do
-    expect(Pito::Stack.usage.keys).to include(:local, :voyage, :youtube, :igdb)
+    expect(Pito::Stack.usage.keys).to include(:local, :youtube, :igdb)
   end
 end

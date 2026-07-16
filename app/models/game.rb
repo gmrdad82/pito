@@ -55,28 +55,41 @@ class Game < ApplicationRecord
     # card cover box). resize_to_limit preserves aspect ratio and never
     # upscales below the natural size (t_1080p masters cover 2× comfortably).
     attachable.variant :detail, resize_to_limit: [ 900, 1200 ]
-    # :strip — displayed exactly 180×240 (similar-games strip card).
+    # :strip — displayed exactly 216×288 (similar-games strip card; owner
+    # 2026-07-16 bumped 20% from 180×240 now that the strip shows 4 covers).
     # resize_to_fill crops to 2× the display box; the CSS box + object-fit do
     # the clean 2:1 downscale on 1× screens.
-    attachable.variant :strip,  resize_to_fill:  [ 360, 480 ]
+    attachable.variant :strip,  resize_to_fill:  [ 432, 576 ]
   end
 
-  has_neighbors :summary_embedding
+  # Embedding column seam (3.0.0 local-embedder migration): the retired
+  # 1024-dim `summary_embedding` (Voyage AI) column was dropped and the
+  # 768-dim local-embedder column was promoted onto the canonical
+  # `summary_embedding` name (2026-07-15 decommission migration). The seam
+  # remains as the single-point column reference — every reader —
+  # has_neighbors/nearest_neighbors, nil-guards, cosine-distance inputs —
+  # goes through this ONE seam (`EMBEDDING_COLUMN` + `#embedding_vector`)
+  # instead of naming a column literally, so a future embedder swap only
+  # touches this constant.
+  EMBEDDING_COLUMN = :summary_embedding
 
-  # Resolve a free-text title to a Game for the `search games like <title>` seed:
-  # exact case-insensitive match first, then a pg_trgm fuzzy fallback
-  # (best match above the trigram threshold), backed by index_games_on_title_trigram.
+  has_neighbors EMBEDDING_COLUMN
+
+  # The seam accessor for this instance's own vector — reader call sites use
+  # this instead of naming `summary_embedding` directly, so they don't need
+  # to change if EMBEDDING_COLUMN ever flips again.
+  def embedding_vector
+    self[self.class::EMBEDDING_COLUMN]
+  end
+
+  # Resolve a free-text title to a Game for the `search games like <title>`
+  # seed — via the shared exact-first ladder (`Pito::TitleResolve`, see its
+  # docstring for the tier order): exact match, then prefix, then anchored
+  # token-run scoring — all three considering `title` AND
+  # `alternative_names` — then a title-only acronym-of-initials fallback.
   # Returns nil when nothing matches.
   def self.resolve_by_title(query)
-    q = query.to_s.strip
-    return nil if q.blank?
-
-    exact = find_by("title ILIKE ?", q)
-    return exact if exact
-
-    where("title % ?", q)
-      .order(Arel.sql("similarity(title, #{connection.quote(q)}) DESC"))
-      .first
+    Pito::TitleResolve.call(all, query, names: ->(game) { [ game.title, *game.alternative_names ] })
   end
 
   validates :title, presence: true

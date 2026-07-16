@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_16_082319) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -114,7 +114,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
     t.text "totp_seed_encrypted"
     t.datetime "updated_at", null: false
     t.text "value"
-    t.text "voyage_api_key"
     t.index ["key"], name: "index_app_settings_on_key", unique: true
   end
 
@@ -161,6 +160,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
   create_table "events", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.string "embedded_digest"
+    t.vector "embedding", limit: 768
     t.string "kind", null: false
     t.jsonb "payload", default: {}, null: false
     t.integer "position", null: false
@@ -168,6 +169,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
     t.datetime "updated_at", null: false
     t.index ["conversation_id", "position"], name: "index_events_on_conversation_id_and_position", unique: true
     t.index ["conversation_id"], name: "index_events_on_conversation_id"
+    t.index ["embedding"], name: "index_events_on_embedding_hnsw", opclass: :vector_cosine_ops, where: "(embedding IS NOT NULL)", using: :hnsw
     t.index ["turn_id"], name: "index_events_on_turn_id"
   end
 
@@ -241,7 +243,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
     t.integer "score"
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(summary, ''::text)))", stored: true
     t.text "summary"
-    t.vector "summary_embedding", limit: 1024
+    t.vector "summary_embedding", limit: 768
     t.text "themes", default: [], null: false, array: true
     t.string "title", default: "Untitled game", null: false
     t.decimal "total_rating", precision: 5, scale: 2
@@ -271,6 +273,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
     t.string "slug"
     t.datetime "updated_at", null: false
     t.index ["igdb_id"], name: "index_genres_on_igdb_id", unique: true
+  end
+
+  create_table "nl_examples", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "digest", null: false
+    t.vector "embedding", limit: 768
+    t.text "phrase", null: false
+    t.string "tool", null: false
+    t.datetime "updated_at", null: false
+    t.index ["digest"], name: "index_nl_examples_on_digest", unique: true
+    t.index ["embedding"], name: "index_nl_examples_on_embedding_hnsw", opclass: :vector_cosine_ops, where: "(embedding IS NOT NULL)", using: :hnsw
   end
 
   create_table "notifications", force: :cascade do |t|
@@ -512,11 +525,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_000001) do
     t.integer "duration_seconds"
     t.string "embedded_digest"
     t.datetime "last_synced_at"
+    t.datetime "link_suggested_at"
     t.integer "privacy_status", default: 0, null: false
     t.datetime "publish_at"
     t.datetime "published_at"
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(description, ''::text)))", stored: true
-    t.vector "summary_embedding", limit: 1024
+    t.vector "summary_embedding", limit: 768
     t.text "tags", default: [], null: false, array: true
     t.string "title", null: false
     t.datetime "updated_at", null: false

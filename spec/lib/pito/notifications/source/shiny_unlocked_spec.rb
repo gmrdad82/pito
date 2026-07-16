@@ -3,7 +3,30 @@
 require "rails_helper"
 
 RSpec.describe Pito::Notifications::Source::ShinyUnlocked do
+  include ActiveJob::TestHelper
+
   describe ".report!" do
+    context "skip_webhook (default false — real-time callers keep their own webhook)" do
+      let(:video)       { create(:video, title: "Speed Run") }
+      let(:achievement) { create(:achievement, achievable: video, metric: "views", threshold: 1_000) }
+
+      it "enqueues the individual webhook delivery job by default" do
+        expect { described_class.report!(achievement) }
+          .to have_enqueued_job(NotificationWebhookDeliverJob)
+      end
+
+      it "does not enqueue the individual webhook delivery job when skip_webhook: true" do
+        expect { described_class.report!(achievement, skip_webhook: true) }
+          .not_to have_enqueued_job(NotificationWebhookDeliverJob)
+      end
+
+      it "still creates the in-app Notification record when skip_webhook: true" do
+        expect { described_class.report!(achievement, skip_webhook: true) }
+          .to change(Notification, :count).by(1)
+        expect(Notification.last.level).to eq("shiny")
+      end
+    end
+
     context "with a Video achievable (general steps key)" do
       let(:video)       { create(:video, title: "Speed Run") }
       let(:achievement) { create(:achievement, achievable: video, metric: "views", threshold: 1_000) }
@@ -133,6 +156,31 @@ RSpec.describe Pito::Notifications::Source::ShinyUnlocked do
           expect(Notification.last.message).not_to include("Subs")
         end
       end
+    end
+  end
+
+  describe ".digest_row" do
+    it "returns [witty achievement name, entity display name] for a Video achievable" do
+      video       = create(:video, title: "Speed Run")
+      achievement = create(:achievement, achievable: video, metric: "views", threshold: 1_000)
+
+      witty = Pito::Copy.render("pito.copy.shinies.steps.1000")
+      expect(described_class.digest_row(achievement)).to eq([ witty, "Speed Run" ])
+    end
+
+    it "returns [witty achievement name, entity display name] for a Game achievable" do
+      game        = create(:game, title: "Hollow Knight")
+      achievement = create(:achievement, achievable: game, metric: "views", threshold: 1_000)
+
+      witty = Pito::Copy.render("pito.copy.shinies.steps_game.1000")
+      expect(described_class.digest_row(achievement)).to eq([ witty, "Hollow Knight" ])
+    end
+
+    it "uses the channel's at_handle as the entity name for a Channel achievable" do
+      channel     = create(:channel, handle: "mygamechannel")
+      achievement = create(:achievement, achievable: channel, metric: "subs", threshold: 1_000)
+
+      expect(described_class.digest_row(achievement).last).to eq("@mygamechannel")
     end
   end
 end

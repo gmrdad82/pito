@@ -277,4 +277,53 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(footage_cell[:text]).to eq("0h")
     end
   end
+
+  # ── Scores (search's `like` path) ────────────────────────────────────────────
+
+  describe ".call with scores:" do
+    let(:games)  { ::Game.order(:title) }
+    let(:scores) { { lies.id => 87, zelda.id => 42 } }
+
+    subject(:payload) { described_class.call(games, conversation: conversation, scores: scores) }
+
+    it "appends a trailing Score heading" do
+      expect(payload["table_heading"]).to eq([
+        { "text" => "#", "class" => "text-right" },
+        "Game",
+        "Score"
+      ])
+    end
+
+    it "appends a trailing { score: } cell matching each record's score" do
+      lies_row  = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{lies.id}" }
+      zelda_row = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{zelda.id}" }
+      expect(lies_row[:cells].last).to eq({ score: 87 })
+      expect(zelda_row[:cells].last).to eq({ score: 42 })
+    end
+
+    context "when a record's id is absent from the scores hash" do
+      let(:scores) { { lies.id => 87 } }
+
+      it "renders { score: nil } for the record missing from the hash" do
+        zelda_row = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{zelda.id}" }
+        expect(zelda_row[:cells].last).to eq({ score: nil })
+      end
+    end
+  end
+
+  describe ".call with scores: nil (explicit) — identical to omitting scores" do
+    let(:games) { ::Game.order(:title) }
+
+    subject(:payload) { described_class.call(games, conversation: conversation, scores: nil) }
+
+    it "does not append a Score heading" do
+      expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Game" ])
+    end
+
+    it "does not append a score cell to any row" do
+      payload["table_rows"].each do |row|
+        expect(row[:cells].size).to eq(2)
+      end
+    end
+  end
 end

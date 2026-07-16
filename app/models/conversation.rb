@@ -110,7 +110,12 @@ class Conversation < ApplicationRecord
   # construction, so the append container under the Older section is always
   # the right home. Aggregate keyset: the HAVING row-value compare matches the
   # (last_activity_at DESC, id DESC) order above.
-  def self.recency_page(after: nil)
+  #
+  # `limit` defaults to SIDEBAR_PAGE_SIZE — callers that don't pass it
+  # (ChatController, the turbo_stream branch) see unchanged behavior.
+  # ConversationsController#resume clamps the pito-tui viewport-driven `limit`
+  # param before it reaches here (owner 2026-07-15).
+  def self.recency_page(after: nil, limit: SIDEBAR_PAGE_SIZE)
     scope = by_recent_activity
     if (cursor = Pito::ListCursor.decode(after))
       ts, id = cursor
@@ -120,9 +125,9 @@ class Conversation < ApplicationRecord
       )
     end
 
-    rows = scope.limit(SIDEBAR_PAGE_SIZE + 1).to_a
-    more = rows.size > SIDEBAR_PAGE_SIZE
-    rows = rows.first(SIDEBAR_PAGE_SIZE)
+    rows = scope.limit(limit + 1).to_a
+    more = rows.size > limit
+    rows = rows.first(limit)
     next_cursor = more ? recency_cursor_for(rows.last) : nil
 
     if after.present?

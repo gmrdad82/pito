@@ -108,20 +108,6 @@ RSpec.describe Pito::Slash::HelpBuilder do
     end
   end
 
-  # ── /config voyage --help ────────────────────────────────────────────────────
-
-  describe ".call — /config voyage --help (provider key table)" do
-    subject(:result) do
-      described_class.call(invocation: build_invocation(raw: "/config voyage --help", args: [ "voyage" ]))
-    end
-
-    include_examples "man-page result"
-
-    it "body includes api_key= token" do
-      expect(result.events.first[:payload]["body"]).to include("api_key=")
-    end
-  end
-
   # ── /config webhook --help ───────────────────────────────────────────────────
 
   describe ".call — /config webhook --help (provider key table)" do
@@ -183,7 +169,7 @@ RSpec.describe Pito::Slash::HelpBuilder do
 
     it "body lists every known provider with its description line" do
       body = result.events.first[:payload]["body"]
-      %w[ai tavily google voyage igdb webhook sound timezone].each do |p|
+      %w[ai tavily google igdb webhook sound timezone].each do |p|
         expect(body).to include(p)
         expect(body).to include(
           ERB::Util.html_escape(I18n.t("pito.slash.config.help.general.providers.#{p}"))

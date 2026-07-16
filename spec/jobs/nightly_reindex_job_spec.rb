@@ -14,33 +14,27 @@ RSpec.describe NightlyReindexJob, type: :job do
     let!(:video_a) { create(:video, channel: channel) }
     let!(:video_b) { create(:video, channel: channel) }
 
-    it "enqueues GameVoyageIndexJob for every game" do
+    it "enqueues GameEmbedIndexJob for every game" do
       expect {
         job.perform
-      }.to have_enqueued_job(GameVoyageIndexJob).with(game_a.id)
-         .and have_enqueued_job(GameVoyageIndexJob).with(game_b.id)
+      }.to have_enqueued_job(GameEmbedIndexJob).with(game_a.id)
+         .and have_enqueued_job(GameEmbedIndexJob).with(game_b.id)
     end
 
-    it "enqueues VideoVoyageIndexJob for every video" do
+    it "enqueues VideoEmbedIndexJob for every video" do
       expect {
         job.perform
-      }.to have_enqueued_job(VideoVoyageIndexJob).with(video_a.id)
-         .and have_enqueued_job(VideoVoyageIndexJob).with(video_b.id)
+      }.to have_enqueued_job(VideoEmbedIndexJob).with(video_a.id)
+         .and have_enqueued_job(VideoEmbedIndexJob).with(video_b.id)
     end
 
     it "enqueues exactly N_games + N_videos index jobs" do
       job.perform
-      game_jobs  = enqueued_jobs.count { |j| j["job_class"] == "GameVoyageIndexJob" }
-      video_jobs = enqueued_jobs.count { |j| j["job_class"] == "VideoVoyageIndexJob" }
+      game_jobs  = enqueued_jobs.count { |j| j["job_class"] == "GameEmbedIndexJob" }
+      video_jobs = enqueued_jobs.count { |j| j["job_class"] == "VideoEmbedIndexJob" }
 
       expect(game_jobs).to eq(Game.count)
       expect(video_jobs).to eq(Video.count)
-    end
-
-    it "does NOT enqueue BulkVoyageIndexJob (uses per-entity atomic fan-out)" do
-      job.perform
-      bulk_jobs = enqueued_jobs.select { |j| j["job_class"] == "BulkVoyageIndexJob" }
-      expect(bulk_jobs).to be_empty
     end
 
     it "is a no-op (enqueues nothing) when there are no games or videos" do

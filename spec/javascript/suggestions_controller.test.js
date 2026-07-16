@@ -515,7 +515,6 @@ describe("pito--suggestions controller", () => {
         stage: "tool",
         menu_items: [
           { label: "google",  insert: "google ",  description: "" },
-          { label: "voyage",  insert: "voyage ",  description: "" },
           { label: "igdb",    insert: "igdb ",    description: "" },
           { label: "webhook", insert: "webhook ", description: "" },
         ],
@@ -546,7 +545,7 @@ describe("pito--suggestions controller", () => {
 
       expect(palette.classList.contains("hidden")).toBe(false)
       const rows = palette.querySelectorAll(".pito-suggestions-row")
-      expect(rows.length).toBe(4)
+      expect(rows.length).toBe(3)
     })
 
     it("surfaces the provider names in the palette", async () => {
@@ -554,7 +553,7 @@ describe("pito--suggestions controller", () => {
       await ctrl._fetchArgSuggestions("/config ", 8)
 
       const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
-      expect(labels).toEqual(expect.arrayContaining(["google", "voyage", "igdb", "webhook"]))
+      expect(labels).toEqual(expect.arrayContaining(["google", "igdb", "webhook"]))
     })
 
     it("Tab accepts the highlighted provider → '/config google '", async () => {
@@ -611,7 +610,7 @@ describe("pito--suggestions controller", () => {
           {
             label: "sources",
             insert: "",
-            description: "google · igdb · voyage",
+            description: "google · igdb",
             children: [
               { label: "google", insert: "google ", description: "" },
               { label: "igdb",   insert: "igdb ",   description: "" },

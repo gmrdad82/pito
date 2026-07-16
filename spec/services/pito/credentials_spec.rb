@@ -57,24 +57,6 @@ RSpec.describe Pito::Credentials do
     end
   end
 
-  describe ".voyage_api_key" do
-    context "when AppSetting has a value" do
-      before { AppSetting.singleton_row.update!(voyage_api_key: "pa-key-from-db") }
-
-      it "returns the AppSetting value" do
-        expect(described_class.voyage_api_key).to eq("pa-key-from-db")
-      end
-    end
-
-    context "when unset" do
-      before { AppSetting.singleton_row.update!(voyage_api_key: nil) }
-
-      it "returns nil" do
-        expect(described_class.voyage_api_key).to be_nil
-      end
-    end
-  end
-
   describe ".google_oauth_configured?" do
     context "when both client_id and client_secret are present" do
       before do

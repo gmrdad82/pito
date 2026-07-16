@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
 class Game
-  # Builds the multi-field text embedded by Voyage for a Game — the single
-  # source of truth shared by `Game::VoyageIndexer` and `BulkVoyageIndexJob`
-  # (so the per-record and bulk paths can never drift).
+  # Builds the multi-field text embedded for a Game — the single
+  # source of truth shared by `Game::EmbeddingIndexer` and the
+  # `pito:embeddings:reindex` bulk sweep (so the per-record and bulk paths
+  # can never drift).
   #
   # Fields (em-dash joined, blank slots skipped): title · alt names · genres ·
   # developer(s) · publisher(s) · platforms · time-to-beat · rating · summary.

@@ -55,7 +55,15 @@ module Pito
           { label_key: "pito.palette.ctrl_k.commands.connect",
             insert:    "/connect" },
           { label_key: "pito.palette.ctrl_k.commands.disconnect",
-            insert:    "/disconnect <@handle>" }
+            insert:    "/disconnect <@handle>" },
+          { label_key: "pito.palette.ctrl_k.commands.search_games_for",
+            insert:    "search games for " },
+          { label_key: "pito.palette.ctrl_k.commands.search_games_like",
+            insert:    "search games like " },
+          { label_key: "pito.palette.ctrl_k.commands.search_vids_for",
+            insert:    "search vids for " },
+          { label_key: "pito.palette.ctrl_k.commands.search_vids_like",
+            insert:    "search vids like " }
         ]
       end
 
@@ -65,8 +73,6 @@ module Pito
             insert:    "/config ai" },
           { label_key: "pito.palette.ctrl_k.commands.config_google",
             insert:    "/config google" },
-          { label_key: "pito.palette.ctrl_k.commands.config_voyage",
-            insert:    "/config voyage" },
           { label_key: "pito.palette.ctrl_k.commands.config_igdb",
             insert:    "/config igdb" },
           { label_key: "pito.palette.ctrl_k.commands.config_webhook",
@@ -77,7 +83,11 @@ module Pito
       def conversation_items
         [
           { label_key: "pito.palette.ctrl_k.commands.new",    insert: "/new" },
-          { label_key: "pito.palette.ctrl_k.commands.resume", insert: "/resume" }
+          { label_key: "pito.palette.ctrl_k.commands.resume", insert: "/resume" },
+          { label_key: "pito.palette.ctrl_k.commands.search_conversations_for",
+            insert:    "search conversations for " },
+          { label_key: "pito.palette.ctrl_k.commands.search_conversations_like",
+            insert:    "search conversations like " }
         ]
       end
 

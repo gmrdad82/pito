@@ -18,6 +18,9 @@ en:
       video_list:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: show <id>, schedule <id> <when>, publish <id>, unlist <id>, delete <id>, link/unlink, sort by <col>, or with/without <col>."
+      video_search:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: show <id>, schedule <id> <when>, publish <id>, unlist <id>, delete <id>, link/unlink, or with/without <col>."
       video_detail:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: game, analyze, reindex, schedule <when>, publish, unlist, link/unlink, or delete."

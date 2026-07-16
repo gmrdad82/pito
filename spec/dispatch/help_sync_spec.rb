@@ -141,6 +141,14 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
       "del",     # per-target alias of delete (rm IS documented)
       "shinies"  # thumbnail breakdown from video list; help entry not yet authored
     ],
+    # video_search (search-videos indicator)
+    "video_search" => [
+      "publish", # publish from search results; help entry not yet authored
+      "pub",     # per-target alias of publish on video_search
+      "unlist",  # unlist from search results; help entry not yet authored
+      "del",     # per-target alias of delete (rm IS documented)
+      "shinies"  # thumbnail breakdown from search results; help entry not yet authored
+    ],
     # channel_list (list-channels indicator)
     "channel_list" => [
       "sort" # sort on channel list; help entry not yet authored

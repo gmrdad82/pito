@@ -1,16 +1,26 @@
 # frozen_string_literal: true
 
 # A single outbound external-API request, logged by the instrumentation shims
-# at each provider chokepoint (Voyage / IGDB / YouTube). Pito::Stack counts
+# at each provider chokepoint: IGDB (Game::Igdb::Client), YouTube
+# (Channel::Youtube::Auditor), the local embedder (Pito::Embedding::Client),
+# the NL mapper (Pito::Nl::CompletionClient), and the AI wire
+# (Ai::Wire::AnthropicMessages / Ai::Wire::OpenAiChat). Pito::Stack counts
 # these over rolling 24h and current-month windows.
 #
 #   ApiRequest.record!(provider: "igdb", endpoint: "/games")
-#   ApiRequest.voyage.last_24h.count
+#   ApiRequest.igdb.last_24h.count
 #
-# `units` is optional (YouTube quota units); request COUNT is what Pito::Stack
-# reports. Rows are pruned to ~2 months by Pito::Stack housekeeping.
+# `units` is optional (YouTube quota units, embed/completion/token counts for
+# the other providers); request COUNT is what Pito::Stack reports. Rows are
+# pruned to ~2 months by Pito::Stack housekeeping.
+#
+# PROVIDERS must mirror every literal string passed as `Pito::Stack.track`'s
+# first arg — `Stack.track` rescues StandardError, so a provider missing here
+# makes `ApiRequest.create!`'s RecordInvalid raise and get silently swallowed
+# (no row, no error surfaced). grep `Pito::Stack.track(` across app/ lib/ to
+# re-verify this list after adding a new instrumented client.
 class ApiRequest < ApplicationRecord
-  PROVIDERS = %w[voyage igdb youtube].freeze
+  PROVIDERS = %w[igdb youtube embedding nlmapper ai].freeze
 
   validates :provider, presence: true, inclusion: { in: PROVIDERS }
 

@@ -64,7 +64,7 @@ class ChatController < ApplicationController
       end
 
       if Pito::InputMasking.config_credential_command?(input)
-        # /config google|voyage|igdb|webhook carries secrets → handle
+        # /config google|igdb|webhook carries secrets → handle
         # SYNCHRONOUSLY so the raw value is applied in-request and NEVER persisted:
         # the turn stores the masked form while the dispatcher receives the raw
         # input from memory. EVERY OTHER /config form (fx, motion, me, sound,
@@ -470,6 +470,11 @@ class ChatController < ApplicationController
     input.strip.match?(%r{\A/resume(\s|\z)}i)
   end
 
+  # Shape of a Conversation#uuid (SecureRandom.uuid) — used to tell
+  # `/resume <uuid>` apart from `/resume <name>` (a title never collides with
+  # this format in practice).
+  RESUME_UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i.freeze
+
   # True for `/themes`, `/themes list`, and `/themes ls` — all open the sidebar.
   # `/themes apply <name>`, `/themes preview <name>`, and other subcommands go
   # through the async pipeline.
@@ -618,8 +623,15 @@ class ChatController < ApplicationController
 
     # `/resume <name>`: exact (case-insensitive) title match → open it; no match →
     # broadcast a repliable "create it?" message + up to-5 similarly-named convos.
+    #
+    # `/resume <uuid>` / `/resume <uuid> <event_id>`: checked FIRST — a uuid is
+    # never a valid title — switches straight to that conversation (optionally
+    # jumping to one message on arrival).
     name = slash_arg(input, "resume")
     if name.present?
+      arg, event_id = name.split(/\s+/)
+      return handle_resume_uuid(input, conversation, uuid: arg, event_id: event_id) if RESUME_UUID_PATTERN.match?(arg)
+
       target = ::Conversation.find_by_title_ci(name)
       return render_turbo_navigate(conversation_path(target)) if target
 
@@ -651,6 +663,36 @@ class ChatController < ApplicationController
              next_cursor:  page[:next_cursor],
              current_uuid: current_uuid
            }
+  end
+
+  # `/resume <uuid>` / `/resume <uuid> <event_id>` — switches straight to that
+  # conversation via the same GET /chat/:uuid load `#show` already serves. A
+  # numeric event_id rides along as a `#event_<id>` URL anchor: on the fresh
+  # page load, pito--anchor-jump (app/javascript/controllers/pito/
+  # anchor_jump_controller.js) reads that hash and reuses its existing
+  # scroll+flash jump — the SAME behavior a search-hit click triggers. No
+  # server-side check that the event belongs to the conversation: a stale or
+  # cross-conversation id just means the client-side jump no-ops (element not
+  # found), never an error. A missing/unknown uuid degrades to a plain error
+  # reply instead of the 500 `Conversation.find_by!` would raise.
+  def handle_resume_uuid(input, conversation, uuid:, event_id:)
+    target = ::Conversation.find_by(uuid: uuid)
+    unless target
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: input
+        ),
+        kind:    :error,
+        payload: { text: Pito::Copy.render("pito.copy.resume.not_found", uuid: uuid) }
+      )
+      return respond_to_client(conversation)
+    end
+
+    anchor = "event_#{event_id}" if event_id&.match?(/\A\d+\z/)
+    render_turbo_navigate(conversation_path(target, anchor:))
   end
 
   # Renders a Turbo Stream that populates #pito-sidebar with the theme picker.

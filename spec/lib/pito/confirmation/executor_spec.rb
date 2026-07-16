@@ -168,10 +168,10 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
   describe ".confirm — game_reindex" do
     let!(:game) { create(:game, title: "Bloodborne") }
 
-    it "calls Game::VoyageIndexer with force: true and returns outcome text" do
-      allow(::Game::VoyageIndexer).to receive(:call)
+    it "calls Game::EmbeddingIndexer with force: true and returns outcome text" do
+      allow(::Game::EmbeddingIndexer).to receive(:call)
       text = described_class.confirm("game_reindex", { "game_id" => game.id, "game_title" => "Bloodborne" })
-      expect(::Game::VoyageIndexer).to have_received(:call).with(game, force: true)
+      expect(::Game::EmbeddingIndexer).to have_received(:call).with(game, force: true)
       expect(text).to include("Bloodborne")
     end
 
@@ -203,8 +203,8 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
   describe ".cancel — game_reindex" do
     let!(:game) { create(:game, title: "Reindex Target") }
 
-    it "does NOT call Game::VoyageIndexer" do
-      expect(::Game::VoyageIndexer).not_to receive(:call)
+    it "does NOT call Game::EmbeddingIndexer" do
+      expect(::Game::EmbeddingIndexer).not_to receive(:call)
       described_class.cancel("game_reindex", { "game_id" => game.id, "game_title" => "Reindex Target" })
     end
 
@@ -220,10 +220,10 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     let!(:v_channel) { create(:channel) }
     let!(:video)     { create(:video, channel: v_channel, title: "Let's Play Bloodborne") }
 
-    it "calls Video::VoyageIndexer with force: true and returns outcome text" do
-      allow(::Video::VoyageIndexer).to receive(:call)
+    it "calls Video::EmbeddingIndexer with force: true and returns outcome text" do
+      allow(::Video::EmbeddingIndexer).to receive(:call)
       text = described_class.confirm("video_reindex", { "video_id" => video.id, "video_title" => "Let's Play Bloodborne" })
-      expect(::Video::VoyageIndexer).to have_received(:call).with(video, force: true)
+      expect(::Video::EmbeddingIndexer).to have_received(:call).with(video, force: true)
       expect(text).to include("Let's Play Bloodborne")
     end
 
@@ -239,8 +239,8 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     let!(:v_channel) { create(:channel) }
     let!(:video)     { create(:video, channel: v_channel, title: "Video Reindex Target") }
 
-    it "does NOT call Video::VoyageIndexer" do
-      expect(::Video::VoyageIndexer).not_to receive(:call)
+    it "does NOT call Video::EmbeddingIndexer" do
+      expect(::Video::EmbeddingIndexer).not_to receive(:call)
       described_class.cancel("video_reindex", { "video_id" => video.id, "video_title" => "Video Reindex Target" })
     end
 
@@ -685,6 +685,73 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
         })
       }.to raise_error(ArgumentError)
       expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
+  # ── confirm / nl_run ──────────────────────────────────────────────────────
+  # The NL gate's did-you-mean confirm: re-enters Pito::Dispatch::Router with
+  # the stamped `nl_command`, then projects the resulting events into one
+  # outcome_text string via Pito::Mcp::EventText (mirrors the AI orchestrator's
+  # own events→text projection).
+
+  describe ".confirm — nl_run" do
+    let!(:conversation) { create(:conversation) }
+    let(:nl_payload) do
+      {
+        "command"         => "nl_run",
+        "nl_command"      => "list vids",
+        "conversation_id" => conversation.id
+      }
+    end
+
+    it "re-enters Pito::Dispatch::Router with the nl_command and the resolved conversation" do
+      allow(Pito::Dispatch::Router).to receive(:call).and_return(
+        Pito::Chat::Result::Ok.new(events: [ { kind: :list, payload: { rows: [] } } ])
+      )
+      described_class.confirm("nl_run", nl_payload)
+      expect(Pito::Dispatch::Router).to have_received(:call)
+        .with(input: "list vids", conversation: conversation)
+    end
+
+    it "returns the text projected via Pito::Mcp::EventText over the dispatched events" do
+      events = [ { kind: :list, payload: { rows: [] } } ]
+      allow(Pito::Dispatch::Router).to receive(:call).and_return(
+        Pito::Chat::Result::Ok.new(events: events)
+      )
+      allow(Pito::Mcp::EventText).to receive(:call).and_return("Projected outcome")
+
+      text = described_class.confirm("nl_run", nl_payload)
+
+      expect(Pito::Mcp::EventText).to have_received(:call).with(events)
+      expect(text).to eq("Projected outcome")
+    end
+  end
+
+  describe ".confirm — nl_run (conversation vanished)" do
+    let(:vanished_payload) do
+      { "command" => "nl_run", "nl_command" => "list vids", "conversation_id" => 0 }
+    end
+
+    it "does not re-enter Pito::Dispatch::Router" do
+      allow(Pito::Dispatch::Router).to receive(:call)
+      described_class.confirm("nl_run", vanished_payload)
+      expect(Pito::Dispatch::Router).not_to have_received(:call)
+    end
+
+    it "degrades to the generic huh copy" do
+      text = described_class.confirm("nl_run", vanished_payload)
+      expect(I18n.t("pito.copy.huh")).to include(text)
+    end
+  end
+
+  # ── cancel / nl_run ───────────────────────────────────────────────────────
+
+  describe ".cancel — nl_run" do
+    it "falls through to the generic confirmation-cancelled copy (no per-command branch)" do
+      text = described_class.cancel("nl_run", {
+        "command" => "nl_run", "nl_command" => "list vids", "conversation_id" => 1
+      })
+      expect(text).to eq(Pito::Copy.render("pito.copy.confirmation.cancelled"))
     end
   end
 end

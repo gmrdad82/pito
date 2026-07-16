@@ -3,16 +3,17 @@
 require "rails_helper"
 
 RSpec.describe Pito::Recommendation::GameSimilarity, type: :service do
-  # 1024-dim unit vector with one hot dimension → predictable cosine distance:
-  # identical hot dim ⇒ distance 0 (E=100); orthogonal hot dims ⇒ distance 1 (E=0).
+  # Unit vector, sized to whatever column Game::EMBEDDING_COLUMN currently
+  # seams to, with one hot dimension → predictable cosine distance: identical
+  # hot dim ⇒ distance 0 (E=100); orthogonal hot dims ⇒ distance 1 (E=0).
   def vec(index, value: 1.0)
-    Array.new(1024, 0.0).tap { |a| a[index] = value }
+    Array.new(Game.columns_hash[Game::EMBEDDING_COLUMN.to_s].limit, 0.0).tap { |a| a[index] = value }
   end
 
   def make_game(embedding: nil, genres: [], developers: [], publishers: [], score: nil,
                 themes: [], perspectives: [])
     g = create(:game)
-    g.update_column(:summary_embedding, embedding) unless embedding.nil?
+    g.update_column(Game::EMBEDDING_COLUMN, embedding) unless embedding.nil?
     g.update_column(:score, score) unless score.nil?
     g.update_columns(themes: themes, player_perspectives: perspectives)
     genres.each     { |ge| create(:game_genre,     game: g, genre: ge) }

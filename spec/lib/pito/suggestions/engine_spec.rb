@@ -111,7 +111,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to eq(%w[ai sources profile])
 
       child_labels = result[:menu_items].flat_map { |i| i[:children].map { |c| c[:label] } }
-      expect(child_labels).to include("google", "voyage", "igdb", "webhook")
+      expect(child_labels).to include("google", "igdb", "webhook")
     end
 
     it "matches a namespace by prefix too — '/config sour' offers the sources drill-down" do
@@ -119,14 +119,14 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       ns = items.find { |i| i[:label] == "sources" }
       expect(ns).to be_present
       expect(ns[:insert]).to eq("")
-      expect(ns[:children].map { |c| c[:label] }).to eq(%w[google voyage igdb])
+      expect(ns[:children].map { |c| c[:label] }).to eq(%w[google igdb])
     end
 
     it "filters providers by partial prefix" do
       result = call(input: "/config g", cursor: 9, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("google")
-      expect(labels).not_to include("voyage")
+      expect(labels).not_to include("webhook")
     end
 
     it "insert for a provider ends with a space (children of the namespace rows)" do
@@ -198,7 +198,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     # Bug B — the palette must empty out so Enter SUBMITS instead of re-selecting
     # a key the user already supplied / is currently filling in.
     it "suggests nothing while typing a value (key=…)" do
-      input = "/config voyage api_key=pa-secret"
+      input = "/config google api_key=pa-secret"
       expect(call(input:, cursor: input.length, authenticated: true)[:menu_items]).to be_empty
     end
 
@@ -1153,10 +1153,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to include("google")
     end
 
-    it "does not include 'voyage' for '/config goo'" do
+    it "does not include 'webhook' for '/config goo'" do
       result = call(input: "/config goo", cursor: 11, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).not_to include("voyage")
+      expect(labels).not_to include("webhook")
     end
 
     it "suggests 'google' via menu_items for '/config g'" do

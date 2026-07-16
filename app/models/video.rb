@@ -48,7 +48,34 @@ class Video < ApplicationRecord
     attachable.variant :display, resize_to_fill: [ 900, 506 ]
   end
 
-  has_neighbors :summary_embedding
+  # Embedding column seam (3.0.0 local-embedder migration): the retired
+  # 1024-dim `summary_embedding` (Voyage AI) column was dropped and the
+  # 768-dim local-embedder column was promoted onto the canonical
+  # `summary_embedding` name (2026-07-15 decommission migration). The seam
+  # remains as the single-point column reference — every reader —
+  # has_neighbors/nearest_neighbors, nil-guards, cosine-distance inputs —
+  # goes through this ONE seam (`EMBEDDING_COLUMN` + `#embedding_vector`)
+  # instead of naming a column literally, so a future embedder swap only
+  # touches this constant.
+  EMBEDDING_COLUMN = :summary_embedding
+
+  has_neighbors EMBEDDING_COLUMN
+
+  # The seam accessor for this instance's own vector — reader call sites use
+  # this instead of naming `summary_embedding` directly, so they don't need
+  # to change if EMBEDDING_COLUMN ever flips again.
+  def embedding_vector
+    self[self.class::EMBEDDING_COLUMN]
+  end
+
+  # Resolve a free-text title to a Video via the shared exact-first ladder
+  # (`Pito::TitleResolve`, see its docstring for the tier order): exact
+  # match, then prefix, then anchored token-run scoring, then
+  # acronym-of-initials. Vids have no `alternative_names` column, so every
+  # tier considers `title` alone. Returns nil when nothing matches.
+  def self.resolve_by_title(query)
+    Pito::TitleResolve.call(all, query, names: ->(video) { [ video.title ] })
+  end
 
   # Host-less ActiveStorage proxy path for the :display thumbnail variant
   # (450×253, 16:9), or nil when none is attached.

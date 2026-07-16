@@ -30,8 +30,12 @@ module Pito
 
       # Renders one data-grid cell <span>. Carries any per-cell `data:` (the
       # chat-prefill seam for clickable `#id` cells). HTML cells render their
-      # text raw; plain cells are escaped. (Renders instantly.)
+      # text raw; plain cells are escaped. A `score:` cell (Integer 0..100,
+      # from SystemComponent#normalized_cell) renders the score bar instead —
+      # see #render_score_cell. (Renders instantly.)
       def render_cell_span(cell)
+        return render_score_cell(cell) if cell[:score].present?
+
         data    = cell[:data].present? ? cell[:data].to_h.dup : {}
         content = cell[:html] ? raw(cell[:text].to_s) : cell[:text].to_s
         tag.span(content, class: cell[:class], data: data.presence)
@@ -50,6 +54,22 @@ module Pito
           end
         end.join
         html.html_safe
+      end
+
+      private
+
+      # Renders a SCORE-BAR cell (table_rows `{ score: }` shape) as the SAME
+      # `[====83====]`-style bar the similar-games / channel-recommendation
+      # cards render (Pito::ScoreBarComponent, show_label: false) — built from
+      # the numeric value at render time, so nothing but the integer score is
+      # ever persisted in the event payload (the jsonb-payload-never-HTML
+      # invariant holds; a re-render always reflects current bar
+      # styling/translations). The `pito-cell-score` wrapper class caps the
+      # max-content grid column at a legible bar width.
+      def render_score_cell(cell)
+        data = cell[:data].present? ? cell[:data].to_h.dup : {}
+        bar  = render(Pito::ScoreBarComponent.new(score: cell[:score].to_i, show_label: false))
+        tag.span(bar, class: cell[:class], data: data.presence)
       end
     end
   end

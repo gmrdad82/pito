@@ -64,11 +64,11 @@ class Game
           Rails.logger.warn "[Game::Igdb::SyncGame] cover normalization failed for game id=#{game.id}: #{e.class}: #{e.message}"
         end
 
-        # Enqueue Voyage embedding for the freshly synced row. Async so the
-        # user-facing sync POST doesn't block on Voyage HTTP. The job is
-        # idempotent (re-embeds + re-writes) so a duplicate enqueue from any
+        # Enqueue an embedding refresh for the freshly synced row. Async so the
+        # user-facing sync POST doesn't block on the embedder HTTP call. The job
+        # is idempotent (re-embeds + re-writes) so a duplicate enqueue from any
         # other path (rake backfill, manual console call) is safe.
-        GameVoyageIndexJob.perform_later(game.id)
+        GameEmbedIndexJob.perform_later(game.id)
 
         game
       rescue Game::Igdb::Client::ValidationError => e

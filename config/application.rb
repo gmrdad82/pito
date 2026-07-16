@@ -15,6 +15,13 @@ require "action_cable/engine"
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
 
+# PB-1: referenced by class name below (config.middleware.insert_before) while
+# the Pito::Application class body is still evaluating — before Zeitwerk's
+# autoloader for app/middleware is engaged (that happens later, during
+# Rails.application.initialize!). Require it explicitly so the constant
+# resolves at boot; Zeitwerk still owns eager-loading/reloading it afterward.
+require_relative "../app/middleware/pito/bad_request_guard"
+
 module Pito
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
@@ -54,11 +61,6 @@ module Pito
     # ruby-vips is faster, lower-memory, and sidesteps the warning entirely.
     config.active_storage.variant_processor = :vips
 
-    # Voyage AI embedding call gating moved to AppSetting (DB-backed) so the
-    # Settings UI flips it at runtime without a Rails restart. See
-    # `AppSetting.voyage_configured?` — credentials presence is the only
-    # gate now that the per-target Notes flag is gone (Notes dropped D17).
-
     # Route 404/422/500 through the Rails app so the 404 page renders the
     # full start screen with the suggestions-enabled chatbox, instead of
     # the static public/404.html fallback.
@@ -72,5 +74,11 @@ module Pito
     Rails.autoloaders.main.ignore(
       Rails.root.join("lib/pito/themes/definitions")
     )
+
+    # PB-1: return 400 (not 500) for malformed bot-probe requests (bogus
+    # multipart boundaries, unparseable params) that Rack::MethodOverride
+    # raises on while reading params. Must sit ABOVE MethodOverride so it
+    # wraps the call where the parse raises — see Pito::BadRequestGuard.
+    config.middleware.insert_before Rack::MethodOverride, Pito::BadRequestGuard
   end
 end

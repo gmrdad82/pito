@@ -5,11 +5,11 @@ module Pito
     # Shared request-count reads for an external-API provider module.
     # The extending module must define a `PROVIDER` string constant.
     #
-    #   module Pito::Stack::Voyage
-    #     PROVIDER = "voyage"
+    #   module Pito::Stack::Igdb
+    #     PROVIDER = "igdb"
     #     extend Pito::Stack::ProviderCounts
     #   end
-    #   Pito::Stack::Voyage.requests_24h   # => Integer
+    #   Pito::Stack::Igdb.requests_24h   # => Integer
     module ProviderCounts
       def requests_24h
         ApiRequest.for_provider(self::PROVIDER).last_24h.count

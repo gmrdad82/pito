@@ -10,7 +10,7 @@ module Pito
       #
       #   #<handle> reindex
       #     → Emit a confirmation event (`command: "video_reindex"`) whose executor
-      #       branch calls `Video::VoyageIndexer.call(video, force: true)`.
+      #       branch calls `Video::EmbeddingIndexer.call(video, force: true)`.
       #       Mode: :append — the confirmation lands as a new event below the card.
       #
       #   #<handle> rm / delete

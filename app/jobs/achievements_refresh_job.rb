@@ -42,6 +42,20 @@
 #   for other channels. Per-video errors in `write_video` are similarly
 #   isolated. Game rollup errors are isolated per game.
 #
+# == One digest webhook, not N
+#
+#   A single run can unlock many shinies at once, so each Notification is
+#   created via `ShinyUnlocked.report!(achievement, skip_webhook: true)` — the
+#   in-app record and mini-status broadcast still land per shiny, only the
+#   individual `NotificationWebhookDeliverJob` is suppressed. Every shiny's
+#   `[witty, entity]` pair (`ShinyUnlocked.digest_row`) is collected into
+#   `rows` and, once the run finishes, sent as ONE
+#   `Pito::Notifications::WebhookDigest` call — a single colored Slack/Discord
+#   message listing every shiny earned this run instead of a flood of
+#   individual webhooks. Real-time (non-batch) unlock paths are untouched:
+#   `report!`'s `skip_webhook:` default is false, so they keep firing their
+#   own webhook immediately.
+#
 # == Assumptions (not live-validated — stubs only in specs)
 #
 #   - The Analytics API accepts `channel==<youtube_channel_id>` for owned
@@ -76,9 +90,19 @@ class AchievementsRefreshJob < ApplicationJob
     sync_games(game_accumulator)
 
     # Emit one notification per newly-unlocked shiny in ascending-threshold
-    # order (stable tiebreak: metric → achievable_type → achievable_id).
+    # order (stable tiebreak: metric → achievable_type → achievable_id),
+    # collecting each shiny's digest row (see "One digest webhook" above).
     sorted = @all_unlocked.sort_by { |a| [ a.threshold, a.metric, a.achievable_type, a.achievable_id ] }
-    sorted.each { |a| Pito::Notifications::Source::ShinyUnlocked.report!(a) }
+    digest_rows = sorted.map do |a|
+      Pito::Notifications::Source::ShinyUnlocked.report!(a, skip_webhook: true)
+      Pito::Notifications::Source::ShinyUnlocked.digest_row(a)
+    end
+
+    Pito::Notifications::WebhookDigest.call(
+      title:  "🏆 Achievements",
+      accent: Pito::Notifications::WebhookDigest::ACHIEVEMENTS,
+      rows:   digest_rows
+    )
   end
 
   private

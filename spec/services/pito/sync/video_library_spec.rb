@@ -526,7 +526,7 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
     end
 
     it "leaves a returned-unchanged video untouched and un-indexed" do
-      expect { service.reconcile }.not_to have_enqueued_job(VideoVoyageIndexJob).with(keep_unchanged.id)
+      expect { service.reconcile }.not_to have_enqueued_job(VideoEmbedIndexJob).with(keep_unchanged.id)
       expect(Video.exists?(keep_unchanged.id)).to be(true)
     end
 
@@ -604,7 +604,7 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
     end
   end
 
-  # ── Thumbnail + Voyage index enqueues, gated to avoid wasted work ────────────
+  # ── Thumbnail + embed index enqueues, gated to avoid wasted work ─────────────
   describe "indexing + thumbnail jobs" do
     let(:attrs) do
       {
@@ -625,22 +625,22 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
         .not_to have_enqueued_job(VideoThumbnailJob)
     end
 
-    it "enqueues a Voyage index on a newly-created video" do
-      expect { service.upsert(attrs.dup) }.to have_enqueued_job(VideoVoyageIndexJob)
+    it "enqueues an embed index on a newly-created video" do
+      expect { service.upsert(attrs.dup) }.to have_enqueued_job(VideoEmbedIndexJob)
     end
 
     it "re-indexes when an embedded field (title) changes" do
       service.upsert(attrs.dup)
 
       expect { service.upsert(attrs.merge(title: "Retitled")) }
-        .to have_enqueued_job(VideoVoyageIndexJob)
+        .to have_enqueued_job(VideoEmbedIndexJob)
     end
 
     it "does NOT re-index when only a non-embedded field (privacy) changes" do
       service.upsert(attrs.dup)
 
       expect { service.upsert(attrs.merge(privacy_status: :unlisted)) }
-        .not_to have_enqueued_job(VideoVoyageIndexJob)
+        .not_to have_enqueued_job(VideoEmbedIndexJob)
     end
   end
 
