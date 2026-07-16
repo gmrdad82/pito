@@ -362,6 +362,132 @@ RSpec.describe Pito::Embedding::Client, type: :service do
     end
   end
 
+  # 3.0.1 density-adaptive retry: VERIFIED prod failure was 11 conversation
+  # events (dense markdown tables — pipes, digits, ids) whose CHUNK_BUDGET
+  # (char) chunk still overflowed the sidecar's 512-token physical batch
+  # because table content tokenizes far worse than prose. A fixed char
+  # budget can't win for every density, so a chunk that 500s with the
+  # sidecar's specific too-large signature gets its WHOLE input re-chunked
+  # at ever-smaller budgets and retried, down to a floor.
+  describe "density-adaptive chunk retry" do
+    # A single unbroken "word" so #chunk_text force-splits it evenly by
+    # length at any budget — mirrors the verified prod shape (one
+    # CHUNK_BUDGET-sized chunk whose density trips the sidecar even though
+    # it is within the character envelope).
+    let(:dense_text) { "x" * described_class::CHUNK_BUDGET }
+
+    def expected_adaptive_request_count(client_class)
+      budgets = [ client_class::CHUNK_BUDGET, client_class::ADAPTIVE_RETRY_BUDGET ]
+      while budgets.last > client_class::MIN_CHUNK_BUDGET
+        budgets << [ budgets.last / 2, client_class::MIN_CHUNK_BUDGET ].max
+      end
+      budgets.length
+    end
+
+    def stub_too_large_until_quarter_budget(sent_batches)
+      stub_request(:post, embeddings_endpoint).to_return do |request|
+        raw = JSON.parse(request.body)["input"].map { |i| i.delete_prefix(described_class::PROMPT_PREFIX) }
+        sent_batches << raw
+
+        if raw.any? { |chunk| chunk.length >= described_class::ADAPTIVE_RETRY_BUDGET }
+          { status: 500, body: "input (1589 tokens) is too large to process — current batch size: 512" }
+        else
+          data = raw.each_index.map { |i| { index: i, embedding: [ i + 1.0, i + 2.0 ] } }
+          { status: 200, body: { data: data }.to_json, headers: { "Content-Type" => "application/json" } }
+        end
+      end
+    end
+
+    def expected_pooled_vector(chunk_count)
+      mean = [
+        (0...chunk_count).sum { |i| i + 1.0 } / chunk_count,
+        (0...chunk_count).sum { |i| i + 2.0 } / chunk_count
+      ]
+      norm = Math.sqrt(mean.sum { |v| v**2 })
+      mean.map { |v| v / norm }
+    end
+
+    context "when the default budget 500s too-large but a smaller budget fits" do
+      before { set_embedder_url(base_url) }
+
+      it "#embed re-chunks at ever-smaller budgets and pools the vectors from the retry that fit" do
+        sent_batches = []
+        stub_too_large_until_quarter_budget(sent_batches)
+
+        result = described_class.new.embed([ dense_text ]).first
+
+        expect(sent_batches.length).to eq(3)
+        lengths = sent_batches.map { |batch| batch.map(&:length).max }
+        expect(lengths[0]).to be > lengths[1]
+        expect(lengths[1]).to be > lengths[2]
+        expect(lengths[2]).to be < described_class::ADAPTIVE_RETRY_BUDGET
+
+        expected = expected_pooled_vector(sent_batches.last.length)
+        expect(result.length).to eq(2)
+        result.each_with_index { |v, i| expect(v).to be_within(0.0001).of(expected[i]) }
+      end
+
+      it "#embed_batch re-chunks at ever-smaller budgets and pools the vectors from the retry that fit" do
+        sent_batches = []
+        stub_too_large_until_quarter_budget(sent_batches)
+
+        result = described_class.new.embed_batch(inputs: [ dense_text ]).first
+
+        expect(sent_batches.length).to eq(3)
+        lengths = sent_batches.map { |batch| batch.map(&:length).max }
+        expect(lengths[0]).to be > lengths[1]
+        expect(lengths[1]).to be > lengths[2]
+
+        expected = expected_pooled_vector(sent_batches.last.length)
+        expect(result.length).to eq(2)
+        result.each_with_index { |v, i| expect(v).to be_within(0.0001).of(expected[i]) }
+      end
+    end
+
+    context "when the too-large failure persists all the way to MIN_CHUNK_BUDGET" do
+      before do
+        set_embedder_url(base_url)
+        stub_request(:post, embeddings_endpoint).to_return(
+          status: 500,
+          body:   "input (9999 tokens) is too large to process — current batch size: 512"
+        )
+      end
+
+      it "#embed returns a nil slot without raising, bounded by MIN_CHUNK_BUDGET" do
+        result = described_class.new.embed([ dense_text ])
+        expect(result).to eq([ nil ])
+        expect(a_request(:post, embeddings_endpoint))
+          .to have_been_made.times(expected_adaptive_request_count(described_class))
+      end
+
+      it "#embed_batch raises Error, bounded by MIN_CHUNK_BUDGET" do
+        expect { described_class.new.embed_batch(inputs: [ dense_text ]) }
+          .to raise_error(Pito::Embedding::Client::Error, /missing/)
+        expect(a_request(:post, embeddings_endpoint))
+          .to have_been_made.times(expected_adaptive_request_count(described_class))
+      end
+    end
+
+    context "when a 500 is not the too-large signature" do
+      before do
+        set_embedder_url(base_url)
+        stub_request(:post, embeddings_endpoint).to_return(status: 500, body: "boom")
+      end
+
+      it "#embed does not adapt — a single request, nil slot" do
+        result = described_class.new.embed([ dense_text ])
+        expect(result).to eq([ nil ])
+        expect(a_request(:post, embeddings_endpoint)).to have_been_made.once
+      end
+
+      it "#embed_batch does not adapt — a single request, raises immediately" do
+        expect { described_class.new.embed_batch(inputs: [ dense_text ]) }
+          .to raise_error(Pito::Embedding::Client::Error)
+        expect(a_request(:post, embeddings_endpoint)).to have_been_made.once
+      end
+    end
+  end
+
   describe "#healthy?" do
     let(:health_endpoint) { "#{base_url}/health" }
 

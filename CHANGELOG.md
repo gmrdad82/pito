@@ -6,6 +6,19 @@ All notable changes to PITO are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.0.2] — 2026-07-17
+
+### Fixed
+
+- **Dense conversations embed too** — eleven conversation events (markdown
+  tables full of pipes, digits, and ids) still failed to embed after 3.0.1's
+  chunk-and-pool: table-heavy text tokenizes about four times worse than
+  prose, so a chunk sized for ~300 English tokens landed at ~1,589 and the
+  sidecar refused it. Chunking is now density-adaptive — when the embedder
+  answers "too large", the input is re-chunked at half the budget and
+  retried, down to a floor sized for the worst density observed. Prose-sized
+  inputs keep the exact fast path; only the dense stragglers pay the retry.
+
 ## [3.0.1] — 2026-07-17
 
 ### Fixed
