@@ -286,11 +286,11 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
     subject(:payload) { described_class.call(games, conversation: conversation, scores: scores) }
 
-    it "appends a trailing Score heading" do
+    it "appends a trailing Match heading (games' blended like-score, distinct from vids/conversations' Similarity)" do
       expect(payload["table_heading"]).to eq([
         { "text" => "#", "class" => "text-right" },
         "Game",
-        "Score"
+        "Match"
       ])
     end
 
@@ -316,7 +316,7 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
     subject(:payload) { described_class.call(games, conversation: conversation, scores: nil) }
 
-    it "does not append a Score heading" do
+    it "does not append a Match heading" do
       expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Game" ])
     end
 

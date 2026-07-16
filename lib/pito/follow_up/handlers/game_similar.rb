@@ -34,13 +34,17 @@ module Pito
           # (since P36) a game title: this path inherits `show`'s title
           # resolution because it dispatches the same free-chat input a user
           # would type; a ref matching neither an id nor a title returns the
-          # standard not-found Ok.
+          # standard not-found Ok. nl_eligible: false — this body is
+          # RECONSTRUCTED from the reply, never owner-typed free text, so a
+          # title-ladder miss must stay that crisp not-found (consume: false),
+          # never soft-fail into the NL gate (3.0.1 reconciliation fix).
           result = Pito::Dispatch::Router.call(
             input:          "show game #{args}",
             conversation:   conversation,
             channel:        channel,
             period:         period,
-            viewport_width: viewport_width
+            viewport_width: viewport_width,
+            nl_eligible:    false
           )
           Pito::FollowUp::ChatResultAdapter.call(result)
         end

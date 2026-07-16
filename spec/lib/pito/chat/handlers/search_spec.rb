@@ -214,11 +214,11 @@ RSpec.describe Pito::Chat::Handlers::Search do
 
     before { seed.genres << create(:genre) }
 
-    it "carries a Score heading and { score: } cells: seed=100, others = their GameSimilarity score" do
+    it "carries a Match heading and { score: } cells: seed=100, others = their GameSimilarity score" do
       stub_similar([ result_for(high_g, score: 68, breakdown: { g: 100 }) ])
 
       payload = search("search games like tekken 7").events.first[:payload]
-      expect(payload["table_heading"]).to include("Score")
+      expect(payload["table_heading"]).to include("Match")
 
       rows     = payload["table_rows"]
       seed_row = rows.find { |r| r[:cells][0][:text] == "##{seed.id}" }
@@ -229,8 +229,14 @@ RSpec.describe Pito::Chat::Handlers::Search do
   end
 
   context "search vids like <title> (SUX5)" do
-    def vec(*dims)
-      Array.new(768, 0.0).tap { |a| dims.each { |d| a[d] = 1.0 } }
+    # `dim0`/`dim1` weighted (not one-hot) so the seed/close/far cosine
+    # similarities can be placed deliberately on either side of
+    # Pito::Recommendation::DisplayScore::VID_FLOOR (0.85) — proving the
+    # rescale actually discriminates, unlike the pre-rescale formula where
+    # near-orthogonal test vectors were enough (every raw cosine looked
+    # similar in the real embedding space too, which was the whole bug).
+    def weighted_vec(dim0:, dim1: 0.0)
+      Array.new(768, 0.0).tap { |a| a[0] = dim0; a[1] = dim1 }
     end
 
     def cosine_distance(a, b)
@@ -244,18 +250,22 @@ RSpec.describe Pito::Chat::Handlers::Search do
     let!(:close) { create(:video, title: "Speedrun Special") }
     let!(:far)   { create(:video, title: "Cooking Stream") }
 
+    let(:seed_vec)  { weighted_vec(dim0: 1.0) }
+    let(:close_vec) { weighted_vec(dim0: 1.0, dim1: 0.2) } # cosine ≈ .981 — above VID_FLOOR
+    let(:far_vec)   { weighted_vec(dim0: 1.0, dim1: 2.0) } # cosine ≈ .447 — below VID_FLOOR
+
     before do
-      seed.update_column(:summary_embedding, vec(0))
-      close.update_column(:summary_embedding, vec(0, 1))
-      far.update_column(:summary_embedding, vec(1))
+      seed.update_column(:summary_embedding, seed_vec)
+      close.update_column(:summary_embedding, close_vec)
+      far.update_column(:summary_embedding, far_vec)
     end
 
-    it "orders similar vids by cosine distance and carries score cells, seed leading at 100" do
+    it "orders similar vids by cosine distance and carries a floor-rescaled Similarity score, seed leading at 100" do
       payload = search("search vids like boss rush marathon").events.first[:payload]
 
       expect(payload["reply_target"]).to eq("video_search")
       expect(payload["video_ids"]).to eq([ seed.id, close.id, far.id ])
-      expect(payload["table_heading"]).to include("Score")
+      expect(payload["table_heading"]).to include("Similarity")
 
       rows      = payload["table_rows"]
       seed_row  = rows.find { |r| r[:cells][0][:text] == "##{seed.id}" }
@@ -264,11 +274,22 @@ RSpec.describe Pito::Chat::Handlers::Search do
 
       expect(seed_row[:cells].last).to eq(score: 100)
       expect(close_row[:cells].last).to eq(
-        score: Pito::Recommendation::Signals.embedding(cosine_distance(vec(0), vec(0, 1))).round
+        score: Pito::Recommendation::DisplayScore.display_score(
+          1.0 - cosine_distance(seed_vec, close_vec), floor: Pito::Recommendation::DisplayScore::VID_FLOOR
+        ).round
       )
       expect(far_row[:cells].last).to eq(
-        score: Pito::Recommendation::Signals.embedding(cosine_distance(vec(0), vec(1))).round
+        score: Pito::Recommendation::DisplayScore.display_score(
+          1.0 - cosine_distance(seed_vec, far_vec), floor: Pito::Recommendation::DisplayScore::VID_FLOOR
+        ).round
       )
+    end
+
+    it "clamps a below-VID_FLOOR similarity's score to 0 rather than a misleadingly high raw-cosine number (the SUX bug this fixes)" do
+      payload = search("search vids like boss rush marathon").events.first[:payload]
+      far_row = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{far.id}" }
+
+      expect(far_row[:cells].last).to eq(score: 0)
     end
 
     it "renders the list-filter-empty copy when the seed has no embedding" do

@@ -55,10 +55,22 @@ RSpec.describe "config/recurring.yml smoke check", type: :service do
 
   it "removed data-sync entries are absent" do
     # game_igdb_nightly_refresh is now folded into NightlySyncJob's fan-out.
-    removed = %w[game_igdb_nightly_refresh sync_channel_stats nightly_reindex
+    # nightly_reindex is NOT in this list — it's scheduled again (see below).
+    removed = %w[game_igdb_nightly_refresh sync_channel_stats
                  reindex_voyage sync_starred_channels]
     removed.each do |key|
       expect(env_config.key?(key)).to be(false), "expected #{key} to be removed from production recurring schedule"
+    end
+  end
+
+  # P4: NightlyReindexJob was enqueued by nothing since commit 3ed9318c
+  # (2026-06-09) dropped this entry — restored here, in BOTH environments.
+  it "NightlyReindexJob (embedding reindex fan-out) is scheduled at 2am UTC in BOTH environments" do
+    %w[production development].each do |env|
+      entry = config[env]["nightly_reindex"]
+      expect(entry).not_to be_nil, "expected nightly_reindex in #{env}"
+      expect(entry["class"]).to eq("NightlyReindexJob")
+      expect(entry["schedule"]).to eq("0 2 * * *")
     end
   end
 end

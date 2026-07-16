@@ -292,8 +292,8 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
     MCP_TOOL_ROWS   = TOOLS.filter_map { |tool, body| { tool: tool.to_s, block: body[:mcp] } if body[:mcp] }.freeze
     MCP_READER_ROWS = (DOC[:mcp_readers] || {}).map { |key, body| { key: key.to_s, block: body } }.freeze
 
-    # The EXACT set of tools allowed to carry an `mcp:` block (the 11 readers in
-    # docs/claude/mcp.md). Adding a tool is a reviewed act: a new mcp block on a
+    # The EXACT set of tools allowed to carry an `mcp:` block (the 11 documented
+    # MCP reader tools). Adding a tool is a reviewed act: a new mcp block on a
     # tool NOT listed here is red until the author adds it — the guard against an
     # accidental exposure. (The add-a-tool proof exercises config extensibility
     # via injection, bypassing this shipped-config allowlist.)
@@ -395,6 +395,52 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
           end
         end
       end
+    end
+  end
+
+  # ══ LAYER 5 — NL AUTO-RUN (3.0.1 P13) ════════════════════════════════════════
+  # The NL gate (Pito::Chat::Handlers::Unknown) auto-runs a high-confidence
+  # free-text match ONLY for read-only tools: the tool-level `read_only:`
+  # declaration when present, else the `mcp.read_only` fallback. That predicate
+  # decides what executes WITHOUT the owner confirming — so the exact effective
+  # set is pinned here: a tools.yml edit that widens it is red until this
+  # allowlist is deliberately, reviewably updated.
+  describe "NL auto-run — the read-only auto-runnable set is pinned" do
+    # Mirrors Pito::Chat::Handlers::Unknown#read_only? (tool-level key
+    # authoritative when present — an explicit false wins — else mcp fallback).
+    NL_AUTO_RUNNABLE = TOOLS.filter_map do |tool, body|
+      effective = body.key?(:read_only) ? body[:read_only] == true : body.dig(:mcp, :read_only) == true
+      tool.to_s if effective
+    end.freeze
+
+    # The EXACT set allowed to auto-run at high confidence (P13, locked): the
+    # seven pure-read chat tools declaring tool-level `read_only: true`, plus
+    # the seven tools already `mcp.read_only: true`.
+    NL_AUTO_RUN_ALLOWLIST = %w[
+      analyze at-a-glance breakdowns channels help linked search
+      list show videos game similar shinies games
+    ].freeze
+
+    # Write-capable tools that must NEVER auto-run from NL (P13's explicit
+    # list) — a belt to the exact-match suspenders, so the security intent is
+    # legible even when the allowlist churns.
+    NL_WRITE_TOOLS = %w[
+      delete publish unlist schedule update link unlink import sync reindex
+      footage price platform
+    ].freeze
+
+    it "the effective auto-runnable set is EXACTLY the pinned allowlist" do
+      expect(NL_AUTO_RUNNABLE).to match_array(NL_AUTO_RUN_ALLOWLIST)
+    end
+
+    it "no write-capable tool is NL-auto-runnable" do
+      runnable_writes = NL_AUTO_RUNNABLE & NL_WRITE_TOOLS
+      expect(runnable_writes).to(eq([]), -> { "write tools auto-runnable from NL: #{runnable_writes.inspect}" })
+    end
+
+    it "every tool-level read_only declaration in the shipped file is `true` on a pinned tool" do
+      declared = TOOLS.filter_map { |tool, body| tool.to_s if body[:read_only] == true }
+      expect(declared - NL_AUTO_RUN_ALLOWLIST).to eq([])
     end
   end
 end

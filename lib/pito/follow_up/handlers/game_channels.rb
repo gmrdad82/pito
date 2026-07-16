@@ -30,13 +30,17 @@ module Pito
           # Dispatch as free-chat (no follow_up context) with the "channel" noun
           # so that Show's `channel_noun?` check fires and `channel_ref` reads
           # the @handle directly from message.raw — independent of the source
-          # event's game_id context.
+          # event's game_id context. nl_eligible: false — RECONSTRUCTED body,
+          # never owner-typed free text; the channel branch doesn't opt into
+          # nl_soft_fail today, but this keeps the contract future-proof
+          # (mirrors GameSimilar; 3.0.1 reconciliation fix).
           result = Pito::Dispatch::Router.call(
             input:          "show channel #{args}",
             conversation:   conversation,
             channel:        channel,
             period:         period,
-            viewport_width: viewport_width
+            viewport_width: viewport_width,
+            nl_eligible:    false
           )
           Pito::FollowUp::ChatResultAdapter.call(result)
         end

@@ -6,6 +6,158 @@ All notable changes to PITO are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.0.1] — 2026-07-17
+
+### Fixed
+
+- **The digest gate now re-embeds a row with a NULL vector** — `Game::EmbeddingIndexer`,
+  `Video::EmbeddingIndexer`, and `Pito::Embedding::EventIndexer` used to skip
+  re-embedding whenever the text digest matched the stored one, even if the
+  embedding column itself was empty. Every 2.x → 3.0.0 upgrader hit this
+  automatically: the 1024→768-dim column promotion left `summary_embedding`
+  NULL on every existing row while `embedded_digest` carried over unchanged,
+  so the first post-upgrade `pito rake pito:embeddings:reindex` silently
+  no-opped — dead similarity search and recommendations until a manual
+  `FORCE=1` sweep. The gate now skips only when the digest matches AND a
+  vector is already present. 3.0.1 also changes the embedding prompt itself
+  (every input is now wrapped in a task-specific prefix before it reaches
+  the embedder, putting every vector in a new space) and salts every digest
+  with that prompt (`Pito::Embedding::Client::VECTOR_SPACE`), so a stored
+  vector's digest now identifies which prompt space produced it, not just
+  its source text — a same-text row embedded under the old prompt no longer
+  looks unchanged. **The first `pito rake pito:embeddings:reindex` after
+  upgrading to 3.0.1 — or simply the next 02:00 nightly reindex — re-embeds
+  every game, video, conversation event, and NL-corpus row automatically**;
+  no `FORCE=1`, no manual steps, and any future prompt change self-heals the
+  same way.
+- **Large conversations no longer permanently fail to embed** — the local
+  embedder sidecar rejects any single input over its ~512-token physical
+  batch with an HTTP 500; at 3.0.0 this silently dropped 23 of 189
+  conversation events. `Pito::Embedding::Client` now chunks over-budget text
+  on whitespace boundaries, embeds each chunk, and pools the vectors
+  (element-wise mean, L2-normalized) — content is never truncated, and a
+  single short input still returns byte-identical results to before.
+- **The nightly reindex actually runs again** — `NightlyReindexJob` had been
+  enqueued by nothing since 2026-06-09 (a promised chat trigger never
+  shipped), and even a manual run only ever covered games and videos, never
+  conversation events, so a failed event embed was permanent. It's back on
+  the recurring schedule (02:00 UTC, both environments) and now sweeps
+  never-embedded events too; the manual `pito:embeddings:reindex` sweep also
+  correctly reports a still-nil event embed as `failed` instead of the
+  misleadingly benign `skipped`.
+- **Chat edits keep their embeddings current** — adding or removing a game's
+  platform and editing a video's description or tags used to change the
+  exact fields the embedder indexes without ever re-embedding, so the
+  stored vector silently drifted from the visible text. Both paths now
+  enqueue the matching re-embed job (digest-gated, so a same-turn double
+  enqueue is harmless).
+- **`find` no longer dead-ends every time** — `find vids about tekken` (the
+  tool's own documented example) always returned "not implemented": the
+  tool declared a chat-recognized verb with no handler behind it, which
+  also meant the natural-language gate could never see a "find …" input
+  either, since the verb had already claimed it. The `find:` chat
+  recognition is gone (the tool's `nl_examples:` stay, feeding the NL
+  corpus); "find …" now falls through to the natural-language router, which
+  typically resolves it to `search` or `list` with a did-you-mean.
+- Rake task `pito:images:regenerate` no longer tries to build a phantom
+  `:lg` avatar variant (channel avatars only ever define `:sm`/`:xs`).
+
+- **The MCP container stops fighting itself at boot** — `config/puma.rb`
+  gated the in-Puma SolidQueue supervisor on the mere _presence_ of
+  `SOLID_QUEUE_IN_PUMA`, and compose passes the literal string `"false"` to
+  `pito-mcp` — which is truthy in Ruby. The MCP Puma booted a job supervisor
+  it was explicitly configured never to run; its thread crash-raced the slim
+  boot and died as the `NameError`/`NoMethodError` pair AppSignal kept
+  reporting. The gate now compares against `"true"`.
+- **`analyze @handle` works** — `analyze @yourhandle` used to answer
+  "Analyze what?", dropping the handle on the floor; a leading `@handle` now
+  resolves to the channel through the same exact+fuzzy lookup
+  `show channel` uses.
+
+### Added
+
+- **`pito:images:purge_orphans`** — a new rake task that finds
+  `ActiveStorage::VariantRecord`s whose variation digest no longer matches
+  any currently-defined named variant (leftovers from 3.0.0's cover-art
+  resize and the removed `:lg` avatar). Dry-run by default (prints what it
+  would purge); pass `PURGE=1` to actually delete the orphaned variant
+  blobs and records.
+- **`/config embeddings`** — a new status block showing embedder
+  reachability plus embedded/total counts for games, vids, conversation
+  events, and NL router examples, closing a gap since 3.0.0 shipped local
+  AI with zero operator visibility beyond `logger.warn` lines. The NL
+  router also now logs one decision line per call (score, matched tool,
+  nearest phrase, branch) so a low-confidence miss is debuggable after the
+  fact instead of just a silent "huh?".
+- **pito-tui: the conversation-search hit picker actually opens** — Shift+J
+  was built against a JSON contract the server had already replaced before
+  the picker shipped, so it could never decode a real hit and never opened.
+  It now reads the real list-card payload (`table_rows` with
+  `anchor_event_id` / `conversation_uuid`), jumps in-conversation on a
+  same-thread hit, and submits `/resume <uuid>` for a hit in another
+  conversation. The dead `/config voyage` command palette entry (removed
+  from the server in 3.0.0) is gone from the tui too.
+- pitomd's marketing site retexted its last few "Voyage" comments to "local
+  AI" (source comments only — the built site never named Voyage, so nothing
+  visitor-facing changes).
+
+- **Verb-first free text finally reaches the language brain** — "show me my
+  tekken vids" used to be captured by the `show` handler on its first word
+  alone and die with a literal `can't find a video called "me my tekken
+vids"`; the NL gate was only reachable when the first word matched no
+  command at all. A handler that recognizes its verb but can't act on a
+  free-text body now soft-fails back into the full NL pipeline (router →
+  mapper → auto-run / did-you-mean), while numeric misses (`show game 99999`)
+  and follow-up replies keep their crisp errors. Typo'd leading verbs
+  ("impory", "seach") get snapped to the intended command before scoring,
+  and `ls draft vids` filters like the private list it always meant.
+- **Pure-read tools may auto-run** — the NL gate used to conflate
+  "read-only" with "MCP-exposed", so `search`, `analyze`, `at-a-glance`,
+  `breakdowns`, `channels`, `linked`, and `help` could never auto-run at any
+  confidence. tools.yml now carries an explicit per-tool `read_only:`
+  declaration the gate honors (write-capable tools remain confirm-only,
+  pinned by a guard spec that fails if the auto-runnable set ever widens).
+- **The NL corpus keeps itself in sync** — tools.yml phrase edits used to
+  reach a populated production table never (the only sync path fired on an
+  empty table). `pito rake pito:nl:sync` pushes edits on demand, the 02:00
+  nightly heals drift automatically, and ten thin tools gained fresh
+  owner-voice phrasings.
+- **CI validates the compose stacks and the copy dictionary** — both
+  docker-compose files now trigger CI and get `config -q` validated, and
+  `rake pito:copy:audit` runs on every build (all were release-gate claims
+  that nothing actually enforced).
+
+### Changed
+
+- **Every embedding speaks EmbeddingGemma's trained dialect** — the model
+  was trained with task prompts; raw text is out-of-distribution. Every
+  vector (games, vids, conversation events, NL corpus) now carries the
+  documented sentence-similarity prompt at the wire, invisibly to callers.
+  A measured A/B on the routing surface: more genuine reads clear the
+  auto-run bar while the noise ceiling _drops_. Confidence thresholds were
+  recalibrated on live prefixed measurements (`suggest` 0.75 → 0.72, with
+  the calibration fixture restructured into honest tiers).
+- **The command mapper picks its examples per utterance** — the qwen mapper
+  used to receive all few-shot exemplars on every call, which made it
+  brittle: adding any exemplar reshuffled unrelated compositions. It now
+  embeds the exemplar pool once (cache invalidated on tools.yml change),
+  retrieval-picks the eight nearest for each utterance, and falls back to
+  the full static prompt if the embedder is unreachable. Together with a
+  re-tuned repeat penalty (1.3 → 1.1, digit-safety re-verified live),
+  indirect phrasings compose measurably better — and a new live-gated
+  calibration harness guards every future grammar or exemplar edit.
+- **Score columns tell the truth** — game "like" results are a ten-signal
+  blend and now say **Match**; vid and conversation results are pure
+  semantic similarity and now say **Similarity**, rescaled against measured
+  practical bands (an unrelated vid pair used to display ~88/100 because
+  raw cosine never goes near zero; it now reads ~19, and true garbage
+  clamps to 0).
+- **`docs/footage.md` left the repo** — the footage reference lives with
+  the terminal client now; the in-app behavior (per-game manual
+  `footage_hours`) is unchanged.
+
+## [3.0.0] — 2026-07-16
+
 ### Added
 
 - **Local AI replaces Voyage AI** — two CPU-only [llama.cpp](https://github.com/ggml-org/llama.cpp)

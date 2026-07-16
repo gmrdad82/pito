@@ -94,7 +94,10 @@ module Pito
           normalized = Pito::Games::PlatformInput.normalize(value)
           return bad_value("platform", value) if normalized.blank?
 
-          game.update!(platforms: game.platforms + [ normalized ]) unless game.platforms.include?(normalized)
+          unless game.platforms.include?(normalized)
+            game.update!(platforms: game.platforms + [ normalized ])
+            GameEmbedIndexJob.perform_later(game.id)
+          end
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system,
               payload: Pito::MessageBuilder::Game::PlatformSet.call(game, platform: normalized, removed: false) }

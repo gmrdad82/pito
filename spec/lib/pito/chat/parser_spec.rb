@@ -40,10 +40,15 @@ RSpec.describe Pito::Chat::Parser do
       expect(result.tool).to eq(:import)
     end
 
-    it "recognises :find as a new-turn verb" do
+    # 3.0.1 P6: `find:` no longer declares a `chat:` block in tools.yml (it's
+    # NL-corpus-only now — see spec/dispatch/chat/find_matrix_spec.rb) — no
+    # grammar spec captures the "find" token at all, so it falls straight
+    # through to :unknown (nil tool), where the NL gate can see the full
+    # utterance instead of dead-ending on a handler-less verb match.
+    it "does NOT recognise :find as a verb — falls through to :unknown (no chat: block since 3.0.1 P6)" do
       result = described_class.call(lex("find items"), raw: "find items", conversation:)
-      expect(result.tool).to eq(:find)
-      expect(result.kind).to eq(:new_turn)
+      expect(result.tool).to be_nil
+      expect(result.kind).to eq(:unknown)
     end
 
     it "canonicalizes the `rm` alias to the :delete verb" do

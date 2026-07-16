@@ -7,7 +7,7 @@ en:
       list:
         usage: "list games  |  list vids  |  list channels"
       search:
-        usage: "search games|vids|conversations like <x>  |  search games|vids for <x>"
+        usage: "search games|vids|conversations like <x>  |  search games|vids|conversations for <x>"
       "@ai":
         usage: "@ai <question about your games, vids, or channels>"
       update:

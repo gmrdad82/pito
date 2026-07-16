@@ -45,8 +45,9 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
   # ── Derived tables ────────────────────────────────────────────────────────────
 
   # Chat verbs that have a dispatch string (a handler class name).
-  # `find` has a chat: block but NO dispatch key — it is partially wired and
-  # excluded here; when it gains a handler this list will automatically include it.
+  # `find` declares no chat: block at all (3.0.1 P6) — it exists purely to
+  # feed nl_examples: into the NL corpus, so it never appears here; when it
+  # gains a real handler this list will automatically include it.
   HELP_DISPATCH_VERBS = HELP_VERBS.select { |_, body|
     body.dig(:chat, :dispatch).is_a?(String)
   }.keys.map(&:to_s).freeze

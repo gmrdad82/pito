@@ -750,7 +750,6 @@ And when you want the guided-strut version of all this,
 - [`docs/architecture.md`](docs/architecture.md) — topology, models, namespaces
 - [`docs/design.md`](docs/design.md) — visual system: typography, theming, color/message palette, component rules
 - [`docs/extending.md`](docs/extending.md) — how to add a theme, a language, a new message-content type, or a new fx
-- [`docs/footage.md`](docs/footage.md) — per-game manual footage total + `footage snippet` ffprobe one-liner
 
 ## Sponsor
 

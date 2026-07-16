@@ -283,6 +283,38 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     end
   end
 
+  # Tool-level `read_only:` (3.0.1 P13) — the NL auto-run gate's declaration
+  # that executing the tool mutates no owner data. Deliberately distinct from
+  # `mcp.read_only` (the strict MCP readOnlyHint); the schema-integrity suite
+  # pins the exact effective auto-runnable set the two keys yield together.
+  describe ".validate — tool-level read_only (NL auto-run declaration)" do
+    def read_only_doc(value)
+      doc = valid_doc
+      doc[:tools][:greet][:read_only] = value
+      doc
+    end
+
+    it "accepts read_only: true" do
+      expect(described_class.validate(read_only_doc(true))).to eq([])
+    end
+
+    it "accepts an explicit read_only: false (overrides any mcp fallback)" do
+      expect(described_class.validate(read_only_doc(false))).to eq([])
+    end
+
+    it "rejects a non-boolean value at its path" do
+      expect(messages(read_only_doc("yes"))).to include(
+        "tools.greet.read_only: expected true/false, got String"
+      )
+    end
+
+    it "suggests read_only for a near-miss key" do
+      doc = valid_doc
+      doc[:tools][:greet][:read_onli] = true
+      expect(messages(doc)).to include("tools.greet.read_onli: unknown key (did you mean read_only?)")
+    end
+  end
+
   describe ".validate — universal_reply kinds: and except:" do
     def universal_doc(entry)
       doc = valid_doc
@@ -561,6 +593,143 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     it "accepts a capabilities filter declaring only vocabulary:" do
       doc = cap_doc(filters: { games: { genre: { vocabulary: "genres", desc: "d" } } })
       expect(described_class.validate(doc)).to eq([])
+    end
+  end
+
+  describe ".validate — nl_examples (per-tool NL phrasing corpus)" do
+    # A well-formed nl_examples array on a chat verb; the verb keeps its chat
+    # branch so only the nl_examples key is under test.
+    def nl_examples_doc(examples)
+      doc = valid_doc
+      doc[:tools][:show] = { chat: { slots: [] }, nl_examples: examples }
+      doc
+    end
+
+    it "accepts a non-empty array of phrasing strings" do
+      expect(described_class.validate(nl_examples_doc([ "show me my games", "list the library" ]))).to eq([])
+    end
+
+    it "accepts an empty nl_examples array" do
+      expect(described_class.validate(nl_examples_doc([]))).to eq([])
+    end
+
+    it "rejects a non-Array nl_examples" do
+      expect(messages(nl_examples_doc("show me my games"))).to include(
+        "tools.show.nl_examples: expected an Array, got String"
+      )
+    end
+
+    it "rejects a non-String entry, naming its index" do
+      expect(messages(nl_examples_doc([ "fine", 42 ]))).to include(
+        "tools.show.nl_examples[1]: expected a String, got Integer"
+      )
+    end
+
+    it "rejects a blank string entry" do
+      expect(messages(nl_examples_doc([ "   " ]))).to include(
+        "tools.show.nl_examples[0]: nl_examples entries must not be blank"
+      )
+    end
+  end
+
+  describe ".validate — nl.synonyms (lexical pre-embedding snapping)" do
+    def nl_synonyms_doc(synonyms)
+      doc = valid_doc
+      doc[:nl] = { synonyms: synonyms }
+      doc
+    end
+
+    it "accepts a well-formed word => canonical mapping" do
+      expect(described_class.validate(nl_synonyms_doc("clips" => "vids"))).to eq([])
+    end
+
+    it "rejects a non-Hash synonyms section" do
+      expect(messages(nl_synonyms_doc([ "clips", "vids" ]))).to include(
+        "nl.synonyms: expected a Hash, got Array"
+      )
+    end
+
+    it "rejects a blank synonym key" do
+      expect(messages(nl_synonyms_doc("" => "vids"))).to include(
+        "nl.synonyms.: synonym key must not be blank"
+      )
+    end
+
+    it "rejects a non-String synonym value" do
+      expect(messages(nl_synonyms_doc("clips" => 1))).to include(
+        "nl.synonyms.clips: expected a String value, got Integer"
+      )
+    end
+
+    it "rejects a blank synonym value" do
+      expect(messages(nl_synonyms_doc("clips" => "   "))).to include(
+        "nl.synonyms.clips: synonym value must not be blank"
+      )
+    end
+
+    # Closed gap (3.0.1 P13 rider): the key used to be checked only via
+    # `from.to_s.strip.empty?`, so a non-String key (e.g. a bare Integer from
+    # YAML's `5: vids`) stringified non-blank and sailed through with zero
+    # errors. The validator now types the key like it types the value.
+    it "rejects a non-String synonym key, naming its type" do
+      expect(messages(nl_synonyms_doc(5 => "vids"))).to include(
+        "nl.synonyms.5: expected a String key, got Integer"
+      )
+    end
+
+    it "accepts a Symbol synonym key (Config's symbolize_names load produces them)" do
+      expect(described_class.validate(nl_synonyms_doc(clips: "vids"))).to eq([])
+    end
+  end
+
+  describe ".validate — nl.exemplars (mapper few-shot say/run corpus)" do
+    def nl_exemplars_doc(exemplars)
+      doc = valid_doc
+      doc[:nl] = { exemplars: exemplars }
+      doc
+    end
+
+    it "accepts a well-formed say/run exemplar" do
+      doc = nl_exemplars_doc([ { say: "show me my games library", run: "ls games" } ])
+      expect(described_class.validate(doc)).to eq([])
+    end
+
+    it "rejects a non-Array exemplars section" do
+      expect(messages(nl_exemplars_doc(say: "x", run: "y"))).to include(
+        "nl.exemplars: expected an Array, got Hash"
+      )
+    end
+
+    it "reports a non-Hash exemplar entry at its index" do
+      expect(messages(nl_exemplars_doc([ "not a hash" ]))).to include(
+        "nl.exemplars[0]: expected a Hash, got String"
+      )
+    end
+
+    it "requires both say and run" do
+      expect(messages(nl_exemplars_doc([ {} ]))).to include(
+        "nl.exemplars[0].say: missing required key",
+        "nl.exemplars[0].run: missing required key"
+      )
+    end
+
+    it "rejects a blank say" do
+      expect(messages(nl_exemplars_doc([ { say: "   ", run: "ls games" } ]))).to include(
+        "nl.exemplars[0].say: must not be blank"
+      )
+    end
+
+    it "rejects a non-String run" do
+      expect(messages(nl_exemplars_doc([ { say: "show games", run: 42 } ]))).to include(
+        "nl.exemplars[0].run: expected a String, got Integer"
+      )
+    end
+
+    it "rejects an unknown key inside an exemplar with a did-you-mean hint" do
+      doc = nl_exemplars_doc([ { say: "x", run: "y", sayy: "typo" } ])
+      expect(messages(doc)).to include(
+        a_string_matching(/nl\.exemplars\[0\]\.sayy: unknown key \(did you mean say\?\)/)
+      )
     end
   end
 

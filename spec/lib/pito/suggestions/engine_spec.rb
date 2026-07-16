@@ -433,7 +433,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
 
     it "offers the vids visibility filters among the openers" do
-      expect(labels("ls vids ")).to eq([ "private", "published", "scheduled", "sorted by", "unlisted", "with" ])
+      # 3.0.1 P11: `draft` joined the list tool's private-vids filter tokens
+      # (config/pito/tools.yml) alongside published/unlisted/scheduled/private.
+      expect(labels("ls vids ")).to eq([ "draft", "private", "published", "scheduled", "sorted by", "unlisted", "with" ])
     end
 
     it "consumes a committed filter token" do
@@ -1492,40 +1494,23 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  describe "free mode — find status/genre/platform slots" do
-    it "suggests release_status members, genre names, and 'for' after 'find '" do
+  # 3.0.1 P6: `find:` no longer declares a `chat:` block (NL-corpus-only now —
+  # see spec/lib/pito/chat/parser_spec.rb + spec/dispatch/chat/find_matrix_spec.rb),
+  # so Pito::Grammar::ConfigSource#chat_specs builds NO grammar spec named
+  # :find at all — the engine can't find a spec to suggest slots from, exactly
+  # like the unknown-tool case below ('frobnicate '). The release_status/
+  # genre/platform enum vocabularies these examples used to exercise are NOT
+  # declared as a chat slot `source:` on any OTHER tool (confirmed via
+  # config/pito/tools.yml — `genres`/`platforms`/`release_status` remain used
+  # by GameListFilter, --help, and MCP, just never as a suggestible slot), so
+  # there is nothing to port these completion examples to; the generic
+  # enum-slot completion MECHANISM itself stays covered by other tools'
+  # `kind: enum` slots (show_segments, game_titles, nouns, etc. — see the
+  # earlier describes in this file).
+  describe "free mode — find (no chat: block since 3.0.1 P6, offers no completions)" do
+    it "returns empty menu_items for 'find ' (no grammar spec exists for :find)" do
       result = call(input: "find ", cursor: 5, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("released", "upcoming", "tba")
-      expect(labels).to include("Shooter", "RPG", "Racing")
-      expect(labels).to include("for")
-    end
-
-    it "returns items sorted alphabetically" do
-      result = call(input: "find ", cursor: 5, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to eq(labels.sort_by(&:downcase))
-    end
-
-    it "suggests platform names after 'find for '" do
-      result = call(input: "find for ", cursor: 9, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("PlayStation 5", "Nintendo Switch", "PC")
-      expect(labels).not_to include("released", "upcoming", "Shooter")
-    end
-
-    it "filters platform names by partial ('find for pl' → PlayStation names)" do
-      result = call(input: "find for pl", cursor: 11, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("PlayStation 5", "PlayStation 4")
-      expect(labels).not_to include("PC", "Nintendo Switch")
-    end
-
-    it "filters 'for' introducer by partial ('find fo' → for)" do
-      result = call(input: "find fo", cursor: 7, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("for")
-      expect(labels).not_to include("released", "Shooter")
+      expect(result[:menu_items]).to be_empty
     end
   end
 

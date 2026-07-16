@@ -10,7 +10,12 @@
 # tool handlers themselves.
 #
 # Does NOT register a tool — invoked directly by the dispatcher's `:unknown`
-# branch after all other dispatch paths are exhausted.
+# branch after all other dispatch paths are exhausted, and (since 3.0.1 P7) by
+# Pito::Dispatch::Router#route_verb's soft-fail fallback: a handler that
+# recognised its verb but couldn't act on a free-text-looking body returns the
+# `nl_fallback: true` error marker, and the Router re-invokes this handler with
+# the ORIGINAL raw utterance so the gate below runs as if the verb had never
+# been captured. Both entries run the identical gate; the policy is unchanged.
 #
 # ── NL gate (3.0.0, locked policy — 2026-07-15) ──────────────────────────────
 #
@@ -48,8 +53,10 @@
 #      leading verb token to the parsed canonical tool name (cheap — the parse
 #      that validated the command already resolved it) so the SAME string is
 #      both displayed and executed everywhere below.
-#   5. Router >= `auto_run` AND the mapped tool's `mcp.read_only` config flag
-#      is `true` AND the mapped tool == the router's tool → execute the
+#   5. Router >= `auto_run` AND the mapped tool is read-only (its tool-level
+#      `read_only:` declaration in tools.yml — falling back to `mcp.read_only`
+#      when the tool doesn't declare one; see #read_only?, 3.0.1 P13) AND the
+#      mapped tool == the router's tool → execute the
 #      canonical command directly through Pito::Dispatch::Router (the real
 #      dispatch path — same one FollowUp::ToolDelegator and the AI orchestrator
 #      re-enter commands through), prefixing the reply with an attribution
@@ -63,6 +70,15 @@
 #   7. Any sidecar down at any step degrades to the `huh` copy (K2 — never an
 #      error surface) — steps 1/2/3 above already fold that in via
 #      Router/Mapper's own forgiving nil contracts.
+#
+# ── Loop guard (3.0.1 P7 addendum — the policy above is unchanged) ───────────
+#
+# Step 5's re-entry passes `nl_retry: true`, so a mapped command that ITSELF
+# soft-fails (its handler returns the `nl_fallback` marker) comes back here
+# instead of re-entering the gate inside the nested dispatch — #run_now
+# degrades it to the step-6 did-you-mean copy, never a recursive gate pass.
+# Pito::Confirmation::Executor#confirm_nl_run (step 6's confirm) passes the
+# same flag and renders the returned marker's own crisp error text.
 module Pito
   module Chat
     module Handlers
@@ -128,8 +144,20 @@ module Pito
           read_only?(tool)
         end
 
+        # Read-only in the AUTO-RUN sense: executing the tool mutates no owner
+        # data. The tool-level `read_only:` declaration (tools.yml, 3.0.1 P13)
+        # is authoritative when present — an explicit `false` wins over any mcp
+        # flag. Absent, fall back to `mcp.read_only`: a tool exposed to MCP as
+        # strictly side-effect-free is trivially safe to auto-run too. (The two
+        # keys answer different questions — the analytics four warm caches /
+        # call the YouTube API, so they are `mcp.read_only: false` for the
+        # client readOnlyHint yet `read_only: true` here.) The schema-integrity
+        # suite pins the exact effective set this predicate yields.
         def read_only?(tool)
-          Pito::Dispatch::Config.tool(tool).dig(:mcp, :read_only) == true
+          config = Pito::Dispatch::Config.tool(tool)
+          return config[:read_only] == true if config.key?(:read_only)
+
+          config.dig(:mcp, :read_only) == true
         rescue KeyError
           false
         end
@@ -139,15 +167,26 @@ module Pito
         # Re-enters the SAME uniform dispatch path a typed command runs
         # through (mirrors Pito::FollowUp::ToolDelegator / the AI orchestrator's
         # `render_command` — never a bespoke re-implementation of dispatch).
+        # `nl_retry: true` is the loop guard (see the header addendum): a mapped
+        # command that itself soft-fails returns its marker here and degrades to
+        # the did-you-mean copy — the gate never recurses.
         def run_now(command)
           result = Pito::Dispatch::Router.call(
             input: command, conversation: conversation, channel: channel,
-            period: period, viewport_width: viewport_width
+            period: period, viewport_width: viewport_width, nl_retry: true
           )
+          return did_you_mean(command) if soft_failed?(result)
           return result unless result.is_a?(Pito::Chat::Result::Ok)
 
           attribution = { kind: :system, payload: { text: Pito::Copy.render("pito.copy.nl.ran", command: command) } }
           Pito::Chat::Result::Ok.new(events: [ attribution ] + result.events)
+        end
+
+        # The nested dispatch's "verb recognized, body not actionable" marker
+        # (Pito::Chat::Result::Error#nl_fallback), returned un-fallen-back
+        # because run_now dispatches with `nl_retry: true`.
+        def soft_failed?(result)
+          result.is_a?(Pito::Chat::Result::Error) && result.nl_fallback
         end
 
         # ── did-you-mean ──────────────────────────────────────────────────────

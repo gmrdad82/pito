@@ -222,11 +222,11 @@ RSpec.describe Pito::MessageBuilder::Video::List do
 
     subject(:payload) { described_class.call(videos, conversation: conversation, scores: scores) }
 
-    it "appends a trailing Score heading" do
+    it "appends a trailing Similarity heading (raw rescaled cosine, distinct from games' Match)" do
       expect(payload["table_heading"]).to eq([
         { "text" => "#", "class" => "text-right" },
         "Title",
-        "Score"
+        "Similarity"
       ])
     end
 
@@ -252,7 +252,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
 
     subject(:payload) { described_class.call(videos, conversation: conversation, scores: nil) }
 
-    it "does not append a Score heading" do
+    it "does not append a Similarity heading" do
       expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Title" ])
     end
 

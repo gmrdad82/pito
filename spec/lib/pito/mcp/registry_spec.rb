@@ -104,7 +104,11 @@ RSpec.describe Pito::Mcp::Registry do
         expect(filter_desc).to match(/vids: published, unlisted, scheduled, private/)
         # vids filters carry no `vocabulary:` — their tokens are already literal,
         # so nothing to expand; pin the noun's list is exactly this and no more.
-        expect(filter_desc).to end_with("vids: published, unlisted, scheduled, private.")
+        # 3.0.1 P11: `draft` joined the list tool's private-vids filter tokens
+        # (config/pito/tools.yml) — this description is derived LIVE from
+        # Pito::Grammar::Capability, so the new token appears here mechanically,
+        # not by design choice made in this spec.
+        expect(filter_desc).to end_with("vids: published, unlisted, scheduled, private, draft.")
       end
 
       # capability_tokens' `filters` branch now expands each filter through

@@ -241,4 +241,58 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
       expect(AppSetting.get("tavily_api_key")).to eq("tvly-secret")
     end
   end
+
+  # ── Embeddings status provider (P8, 3.0.1) ───────────────────────────────────
+  # Read-only: embedder reachability (stubbed — never hits the real sidecar)
+  # + embedded/total counts for games, vids, conversation events, nl_examples.
+
+  describe "#call — /config embeddings (getter, read-only status block)" do
+    def row_value(result, label)
+      result.events.first[:payload][:table_rows].find { |r| r[:key] == "#{label}:" }&.dig(:value)
+    end
+
+    it "shows OK + embedded/total counts when the sidecar is reachable" do
+      allow_any_instance_of(Pito::Embedding::Client).to receive(:healthy?).and_return(true)
+
+      create(:game, Game::EMBEDDING_COLUMN => Array.new(768, 0.1))
+      create(:game)
+
+      create(:video, Video::EMBEDDING_COLUMN => Array.new(768, 0.1))
+      create(:video)
+      create(:video)
+
+      embeddable_kind = Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS.first
+      create(:event, kind: embeddable_kind, embedding: Array.new(768, 0.1))
+      create(:event, kind: embeddable_kind)
+      create(:event, kind: "thinking") # not embeddable — excluded from the scope entirely
+
+      Pito::Nl::Router::Example.create!(tool: "list", phrase: "embedded phrase", digest: "d-embedded",
+                                         embedding: Array.new(768, 0.1))
+      Pito::Nl::Router::Example.create!(tool: "list", phrase: "pending phrase", digest: "d-pending")
+
+      result = build_handler(args: [ "embeddings" ], raw: "/config embeddings").call
+
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(row_value(result, "Embedder")).to eq(I18n.t("pito.slash.config.status.ok"))
+      expect(row_value(result, "Games")).to eq("1/2")
+      expect(row_value(result, "Vids")).to eq("1/3")
+      expect(row_value(result, "Conversation events")).to eq("1/2")
+      expect(row_value(result, "NL examples")).to eq("1/2")
+    end
+
+    it "shows MISSING for the embedder when the sidecar is unreachable" do
+      allow_any_instance_of(Pito::Embedding::Client).to receive(:healthy?).and_return(false)
+
+      result = build_handler(args: [ "embeddings" ], raw: "/config embeddings").call
+
+      expect(row_value(result, "Embedder")).to eq(I18n.t("pito.slash.config.status.missing"))
+    end
+
+    it "/config embeddings foo=bar (stray kwarg) → unknown_keys error, not a crash" do
+      result = build_handler(args: [ "embeddings" ], kwargs: { foo: "bar" }).call
+
+      expect(result).to be_a(Pito::Slash::Result::Error)
+      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
+    end
+  end
 end

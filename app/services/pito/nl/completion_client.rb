@@ -59,7 +59,7 @@ module Pito
       # 2026-07-15: Pito::Nl::Mapper's unbounded (1.0) sampling was observed
       # padding digit runs — a two-token answer like "link 14 3" kept
       # decoding past the valid command instead of stopping — so Mapper now
-      # calls with 1.3 to discourage the decoder from repeating itself.
+      # calls with 1.1 to discourage the decoder from repeating itself.
       #
       # K2 distinction (mirrors Pito::Embedding::Client's forgiving path):
       # this method never raises and never calls Appsignal.report_error.

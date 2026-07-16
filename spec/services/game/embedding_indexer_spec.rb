@@ -23,8 +23,46 @@ RSpec.describe Game::EmbeddingIndexer, type: :service do
     expect(game.embedding_vector).to be_present
   end
 
+  it "salts the stored digest with Pito::Embedding::Client::VECTOR_SPACE (3.0.1 vector-space fix)" do
+    described_class.call(game)
+
+    expected = Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + Game::EmbedText.call(game.reload))
+    expect(game.reload.embedded_digest).to eq(expected)
+    expect(game.embedded_digest).not_to eq(Digest::SHA256.hexdigest(Game::EmbedText.call(game)))
+  end
+
+  it "re-embeds when the stored digest was computed under a different VECTOR_SPACE, even though the text and vector are otherwise unchanged" do
+    described_class.call(game)
+    stale_digest = Digest::SHA256.hexdigest("some-other-vector-space" + Game::EmbedText.call(game.reload))
+    game.update_column(:embedded_digest, stale_digest)
+    expect(game.reload.embedding_vector).to be_present
+
+    expect(client).to receive(:embed_batch).and_return([ Array.new(768, 0.5) ])
+    described_class.call(game.reload)
+
+    expect(game.reload.embedded_digest)
+      .to eq(Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + Game::EmbedText.call(game)))
+  end
+
   it "no-ops when the indexed text is unchanged" do
     described_class.call(game)
+    expect(client).not_to receive(:embed_batch)
+    described_class.call(game.reload)
+  end
+
+  it "re-embeds when the digest matches but the vector is nil (2.x -> 3.0.0 upgrade state)" do
+    described_class.call(game)
+    game.reload.update_column(Game::EMBEDDING_COLUMN, nil)
+
+    expect(client).to receive(:embed_batch).and_return([ Array.new(768, 0.4) ])
+    expect { described_class.call(game.reload) }
+      .to change { game.reload.embedding_vector }.from(nil)
+  end
+
+  it "still skips when the digest matches and a vector is already present" do
+    described_class.call(game)
+    expect(game.reload.embedding_vector).to be_present
+
     expect(client).not_to receive(:embed_batch)
     described_class.call(game.reload)
   end

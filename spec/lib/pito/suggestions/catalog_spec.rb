@@ -87,9 +87,17 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
   describe ".to_h chat" do
     subject(:chat) { described_class.to_h(authenticated: true)[:chat] }
 
-    it "includes list, show, and find" do
+    it "includes list and show" do
       names = chat.map { |e| e[:name] }
-      expect(names).to include("list", "show", "find")
+      expect(names).to include("list", "show")
+    end
+
+    # `find` declares no chat: branch (3.0.1 P6) — it exists only to feed
+    # nl_examples: into the NL corpus, so the ctrl+k palette must not offer
+    # it as a typeable command (it would never dispatch).
+    it "does not include find (NL-corpus-only tool, no chat branch)" do
+      names = chat.map { |e| e[:name] }
+      expect(names).not_to include("find")
     end
 
     it "includes the analyze verb" do

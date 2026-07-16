@@ -127,12 +127,20 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
   # ── availability gating (chat surface) ───────────────────────────────────────
 
   describe "chat-surface availability" do
-    it "returns tool_not_implemented for a recognised verb with no chat dispatch (find)" do
-      result = described_class.call(input: "find something", conversation:)
+    # No tool in config/pito/tools.yml exhibits "recognised verb, chat: block,
+    # no chat.dispatch" today — `find` was the last one (see 3.0.1 P6: it now
+    # declares no chat: branch at all, so it never reaches route_verb). The
+    # Router's own defensive gate stays live code (Schema permits a chat:
+    # block without a dispatch: key — see spec/dispatch/schema_integrity_spec.rb),
+    # so pin it here against a stubbed config rather than a real tool.
+    it "returns tool_not_implemented for a recognised verb whose chat block declares no dispatch" do
+      allow(Pito::Dispatch::Config).to receive(:tool).with(:list).and_return({ chat: {} })
+
+      result = described_class.call(input: "list videos", conversation:)
 
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.errors.tool_not_implemented")
-      expect(result.message_args).to eq({ tool: :find })
+      expect(result.message_args).to eq({ tool: :list })
     end
   end
 
@@ -239,6 +247,69 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
 
       expect(body).to include("delete game")
       expect(body).to include("#id")
+    end
+  end
+
+  # ── NL soft-fail fallback (3.0.1 P7) ─────────────────────────────────────────
+  #
+  # A handler that recognised its verb but couldn't act on a free-text-looking
+  # body returns Result::Error(nl_fallback: true); route_verb re-invokes the
+  # Unknown NL gate with the ORIGINAL raw utterance. Pito::Nl::Router is stubbed
+  # at the module level (same idiom as unknown_spec) — returning nil makes the
+  # gate degrade to the huh copy, which is enough to observe the re-entry.
+  describe "NL soft-fail fallback" do
+    it "re-runs the ORIGINAL utterance through the NL gate when show captures free text (non-numeric ref miss)" do
+      allow(Pito::Nl::Router).to receive(:route).and_return(nil)
+
+      result = described_class.call(input: "show me my tekken vids", conversation:)
+
+      expect(Pito::Nl::Router).to have_received(:route).with("show me my tekken vids")
+      expect(result).to be_a(Pito::Chat::Result::Ok) # the gate's huh copy, not the crisp not-found
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "re-runs the ORIGINAL utterance through the NL gate when list hits an unrecognized head token" do
+      allow(Pito::Nl::Router).to receive(:route).and_return(nil)
+
+      result = described_class.call(input: "list asd", conversation:)
+
+      expect(Pito::Nl::Router).to have_received(:route).with("list asd")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "never consults NL for a numeric not-found (show game 999999 keeps its crisp copy)" do
+      expect(Pito::Nl::Router).not_to receive(:route)
+
+      result = described_class.call(input: "show game 999999", conversation:)
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false) # the unchanged soft not-found
+    end
+
+    it "loop guard: an nl_retry dispatch returns the soft-fail marker to its caller instead of re-entering the gate" do
+      expect(Pito::Nl::Router).not_to receive(:route)
+
+      result = described_class.call(input: "show me my tekken vids", conversation:, nl_retry: true)
+
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.copy.videos.not_found")
+      expect(result.message_args).to eq({ ref: "me my tekken vids" })
+    end
+
+    it "a fallback that maps to a write-capable tool never auto-runs — it lands on did-you-mean" do
+      allow(Pito::Nl::Router).to receive(:route)
+        .and_return({ tool: :delete, confidence: 0.999, nearest_phrase: "some phrase" })
+      allow(Pito::Nl::Mapper).to receive(:map).with("show me my tekken vids")
+                                              .and_return(command: "rm games", tool: :delete)
+
+      result = described_class.call(input: "show me my tekken vids", conversation:)
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["nl_command"]).to eq("delete games")
     end
   end
 end

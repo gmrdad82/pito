@@ -12,6 +12,8 @@ module Pito
     #   analyze channel            → shift+tab (@all → all channels; else that one)
     #   analyze channel @h         → that channel (ignore shift+tab)
     #   analyze channels @h1,@h2   → those channels (ignore shift+tab)
+    #   analyze @h                 → same as `analyze channel @h` (no noun
+    #                                needed — a bare @handle is unambiguous)
     #   analyze vids               → == analyze channel (shift+tab)
     #   analyze vids #1,#2         → those vids (ignore shift+tab)
     #   analyze games #1,#2        → those games (presented at game level)
@@ -126,6 +128,15 @@ module Pito
           canonical = vocab.resolve(token)
           return canonical if canonical
         end
+
+        # No noun word typed ("analyze @gmrdad82", no "channel"/"channels"):
+        # an @handle unambiguously names a channel — vids/games resolve by
+        # numeric id only, so a bare handle can never mean anything else.
+        # Without this (3.0.1 P11), a leading @handle with no noun silently
+        # fell through to `suggest` ("Analyze what?"), dropping the typed
+        # handle on the floor.
+        return "channels" if explicit_handles.any?
+
         nil
       end
 
@@ -158,11 +169,13 @@ module Pito
         [ found, missing ]
       end
 
+      # Mirrors the SAME resolution `::Channel.resolve_handle` already gives
+      # `show channel <handle>` and the `:channel_by_handle` reply resolver
+      # (3.0.1 P11) — exact @-agnostic match, then a pg_trgm fuzzy fallback —
+      # instead of the narrower exact-only query this method used to
+      # reimplement inline.
       def lookup_channel(handle)
-        norm = handle.to_s.sub(/\A@+/, "")
-        return nil if norm.blank?
-
-        ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+        ::Channel.resolve_handle(handle)
       end
 
       # ── result builders ──────────────────────────────────────────────────────────

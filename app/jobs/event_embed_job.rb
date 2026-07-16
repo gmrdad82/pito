@@ -12,7 +12,7 @@
 # re-running this job (or re-embedding a turn that had only one embeddable
 # event) is a no-op past the first successful embed.
 #
-# Queue is `:search` — same lane as `GameEmbedIndexJob` / `SearchIndexJob`.
+# Queue is `:search` — same lane as `GameEmbedIndexJob` / `VideoEmbedIndexJob`.
 class EventEmbedJob < ApplicationJob
   queue_as :search
 
@@ -29,6 +29,13 @@ class EventEmbedJob < ApplicationJob
     turn = Turn.find_by(id: turn_id)
     return unless turn
 
-    turn.events.find_each { |event| Pito::Embedding::EventIndexer.call(event) }
+    turn.events.find_each do |event|
+      Pito::Embedding::EventIndexer.call(event)
+    rescue StandardError => e
+      # One bad event (a malformed payload, a transient client blip that
+      # somehow escaped EventIndexer's own forgiving contract) must not
+      # starve the rest of the turn's events out of their embed pass.
+      Rails.logger.warn("[EventEmbedJob] event ##{event.id} embed failed: #{e.class}: #{e.message}")
+    end
   end
 end

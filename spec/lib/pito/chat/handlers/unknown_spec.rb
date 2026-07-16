@@ -87,7 +87,8 @@ RSpec.describe Pito::Chat::Handlers::Unknown do
         result = build_handler(raw: "show my vids").call
 
         expect(Pito::Dispatch::Router).to have_received(:call).with(
-          input: "list vids", conversation: conversation, channel: nil, period: nil, viewport_width: nil
+          input: "list vids", conversation: conversation, channel: nil, period: nil, viewport_width: nil,
+          nl_retry: true # the P7 loop guard: a mapped command never re-enters the gate
         )
         expect(result).to be_a(Pito::Chat::Result::Ok)
         expect(result.events.length).to eq(2)
@@ -96,6 +97,50 @@ RSpec.describe Pito::Chat::Handlers::Unknown do
           payload: { text: Pito::Copy.render("pito.copy.nl.ran", command: "list vids") }
         )
         expect(result.events.last).to eq(kind: :list, payload: { rows: [] })
+      end
+    end
+
+    # ── The read-only declaration (3.0.1 P13) ─────────────────────────────────
+    # :list above exercises the mcp.read_only FALLBACK (list declares no
+    # tool-level key). The pure-read chat tools (analyze, at-a-glance,
+    # breakdowns, channels, linked, search, help) declare tool-level
+    # `read_only: true` while their mcp.read_only is false (the strict MCP
+    # readOnlyHint counts cache warming / external API calls) — pre-P13 the
+    # gate read only the mcp flag, so they could NEVER auto-run.
+    context "agreement at auto_run confidence on a tool-level read_only tool (analyze — mcp.read_only false)" do
+      it "auto-runs: the tool-level declaration wins over the mcp flag" do
+        allow(Pito::Nl::Router).to receive(:route).and_return(route(tool: :analyze, confidence: auto_run_threshold))
+        allow(Pito::Nl::Mapper).to receive(:map).with("how are my views doing?")
+                                                 .and_return(command: "stats", tool: :analyze)
+        dispatched = Pito::Chat::Result::Ok.new(events: [ { kind: :enhanced, payload: { text: "numbers" } } ])
+        allow(Pito::Dispatch::Router).to receive(:call).and_return(dispatched)
+
+        result = build_handler(raw: "how are my views doing?").call
+
+        expect(Pito::Dispatch::Router).to have_received(:call)
+          .with(hash_including(input: "analyze", nl_retry: true))
+        expect(result.events.length).to eq(2)
+        expect(result.events.first).to eq(
+          kind: :system,
+          payload: { text: Pito::Copy.render("pito.copy.nl.ran", command: "analyze") }
+        )
+      end
+    end
+
+    context "an explicit tool-level read_only: false, even with mcp.read_only true underneath" do
+      it "never auto-runs — the tool-level declaration is authoritative, not a mere default" do
+        allow(Pito::Dispatch::Config).to receive(:tool).and_call_original
+        allow(Pito::Dispatch::Config).to receive(:tool).with(:list)
+          .and_return({ read_only: false, mcp: { read_only: true } })
+        allow(Pito::Nl::Router).to receive(:route).and_return(route(tool: :list, confidence: auto_run_threshold))
+        allow(Pito::Nl::Mapper).to receive(:map).with("show my vids").and_return(command: "ls vids", tool: :list)
+        allow(Pito::Dispatch::Router).to receive(:call)
+
+        result = build_handler(raw: "show my vids").call
+
+        expect(Pito::Dispatch::Router).not_to have_received(:call)
+        expect(result.events.first[:kind]).to eq(:confirmation)
+        expect(result.events.first[:payload]["nl_command"]).to eq("list vids")
       end
     end
 
@@ -115,6 +160,31 @@ RSpec.describe Pito::Chat::Handlers::Unknown do
         expect(event[:payload]["command"]).to eq("nl_run")
         expect(event[:payload]["nl_command"]).to eq("list vids")
         expect(event[:payload]["conversation_id"]).to eq(conversation.id)
+      end
+    end
+
+    # ── Loop guard (3.0.1 P7): a mapped command that itself soft-fails ────────
+    # run_now dispatches with nl_retry: true, so the nested Router returns the
+    # nl_fallback marker instead of re-entering the gate; run_now degrades it
+    # to the step-6 did-you-mean copy — never a recursive gate pass.
+    context "auto-run whose mapped command itself soft-fails (nl_fallback marker returned)" do
+      it "degrades to the did-you-mean confirmation for the mapped command, never recursing" do
+        allow(Pito::Nl::Router).to receive(:route).and_return(route(tool: :show, confidence: auto_run_threshold))
+        allow(Pito::Nl::Mapper).to receive(:map).with("show me my tekken vids")
+                                                 .and_return(command: "show vids tekken", tool: :show)
+        marker = Pito::Chat::Result::Error.new(
+          message_key: "pito.copy.videos.not_found", message_args: { ref: "tekken" }, nl_fallback: true
+        )
+        allow(Pito::Dispatch::Router).to receive(:call).and_return(marker)
+
+        result = build_handler(raw: "show me my tekken vids").call
+
+        expect(Pito::Dispatch::Router).to have_received(:call)
+          .with(hash_including(input: "show vids tekken", nl_retry: true)).once
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        event = result.events.first
+        expect(event[:kind]).to eq(:confirmation)
+        expect(event[:payload]["nl_command"]).to eq("show vids tekken")
       end
     end
 

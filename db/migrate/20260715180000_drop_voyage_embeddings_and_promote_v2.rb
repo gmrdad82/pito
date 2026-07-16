@@ -7,8 +7,13 @@
 # the canonical name in one migration chain dissolves the deferred "finalize"
 # step entirely — there is no longer a straggler migration waiting on a
 # manual go-ahead. `rake pito:embeddings:reindex` after deploy repopulates
-# `summary_embedding` from source text; nothing here needs the actual
-# vectors to survive.
+# `summary_embedding` from source text — true as of 3.0.1: the indexers'
+# digest gate now also requires a present vector, not just a matching
+# digest (P9, 3.0.1), so a row exactly like this migration leaves behind
+# (unchanged digest, NULL vector) still re-embeds. Before that fix the gate
+# skipped these rows outright, so the very first post-drop reindex silently
+# did nothing for every already-digested game/video. Nothing here needs the
+# actual vectors to survive.
 #
 # Ordering proof (per table): `db/schema.rb` shows the canonical index name
 # `index_{games,videos}_on_summary_embedding_hnsw` currently belongs to the

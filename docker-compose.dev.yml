@@ -37,7 +37,10 @@ services:
   # once into the dev-scoped embedder_models volume. CPU-only, mirroring
   # production (no GPU assumptions anywhere).
   embedder:
-    image: ghcr.io/ggml-org/llama.cpp:server
+    # Pinned on purpose (2026-07-16, P9/3.0.1): the rolling `:server` tag
+    # silently swaps the inference build out from under a running fleet.
+    # This digest is what production runs today.
+    image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
     command: -hf ggml-org/embeddinggemma-300m-qat-q8_0-GGUF --embeddings --host 0.0.0.0 --port 8081
     ports:
       - "127.0.0.1:8091:8081"
@@ -59,7 +62,10 @@ services:
   # it at PITO_NLMAPPER_URL=http://127.0.0.1:8092. Cold path: consulted
   # only when input matches no tool.
   nlmapper:
-    image: ghcr.io/ggml-org/llama.cpp:server
+    # Pinned on purpose (2026-07-16, P9/3.0.1): the rolling `:server` tag
+    # silently swaps the inference build out from under a running fleet.
+    # This digest is what production runs today.
+    image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
     command: -hf Qwen/Qwen3-0.6B-GGUF:Q8_0 --host 0.0.0.0 --port 8082 --ctx-size 2048
     ports:
       - "127.0.0.1:8092:8082"

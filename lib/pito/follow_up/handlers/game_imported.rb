@@ -23,12 +23,17 @@ module Pito
 
           game_id = event.payload["game_id"]
 
+          # nl_eligible: false — RECONSTRUCTED body, never owner-typed free
+          # text; the id is always numeric here so nl_soft_fail_ref? would
+          # never fire anyway, but this keeps the contract consistent with the
+          # other show-dispatching follow-up handlers (3.0.1 reconciliation fix).
           result = Pito::Dispatch::Router.call(
             input:          "show game ##{game_id}",
             conversation:   conversation,
             channel:        channel,
             period:         period,
-            viewport_width: viewport_width
+            viewport_width: viewport_width,
+            nl_eligible:    false
           )
           Pito::FollowUp::ChatResultAdapter.call(result)
         end

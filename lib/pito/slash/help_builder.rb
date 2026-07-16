@@ -26,7 +26,11 @@ module Pito
       CONFIG_PROVIDER_GROUPS = {
         "ai"      => %w[ai tavily],
         "sources" => %w[google igdb],
-        "profile" => %w[webhook sound timezone]
+        # `embeddings` (P11, 3.0.1) is a getter-only status readout (embedder
+        # reachability + embedded/total counts) — grouped with the other
+        # install-wide settings rather than "sources" (external data
+        # credentials) or "ai" (LLM provider config).
+        "profile" => %w[webhook sound timezone embeddings]
       }.freeze
 
       # Ordered provider list for /config --help; derived from the groups so the

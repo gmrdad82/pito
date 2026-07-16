@@ -30,7 +30,9 @@ vocabularies:
   config_providers:
     # AI config has exactly ONE slash surface: `/config ai` (+ kwargs). The
     # per-provider names deliberately do NOT appear here — no spillage.
-    members: [ai, tavily, google, igdb, webhook, sound, timezone]
+    # `embeddings` (P8, 3.0.1) is getter-only — a status readout (embedder
+    # reachability + embedded/total counts), never a credential provider.
+    members: [ai, tavily, google, igdb, webhook, sound, timezone, embeddings]
   config_keys:
     members: [client_id, client_secret, redirect_uri, api_key, slack, discord, model]
   genres:
@@ -131,14 +133,26 @@ vocabularies:
 # (spec/fixtures/nl_calibration.yml) measures the thresholds empirically —
 # these starting values hold only until that suite pins better ones.
 nl:
-  # Measured 2026-07-15 against the live sidecar (see the calibration corpus):
-  # held-out positives scored 0.71-0.92; short-text noise floors at 0.67-0.73
-  # ("asdfghjkl" 0.67, "do the thing" 0.73); the worst wrong-tool hit was 0.88
-  # (a write tool — the gate never auto-runs those anyway). auto_run keeps the
-  # 0.917 true paraphrase and excludes every measured wrong-tool; suggest
-  # rejects all measured noise at the cost of one 0.71 positive the corpus
-  # will grow to cover. The calibration suite re-measures on every change.
-  thresholds: { auto_run: 0.90, suggest: 0.75 }
+  # Measured 2026-07-16 against the live sidecar, PREFIXED embeddings (the
+  # EmbeddingGemma `task: sentence similarity | query: ` prompt prefix now
+  # applied at the wire level to every vector — see
+  # app/services/pito/embedding/client.rb) — a full live run of the 58-entry
+  # calibration fixture against the 189-phrase corpus, both sides prefixed.
+  # True-garbage ceiling is now ~0.709 ("do the thing"; "asdfghjkl" 0.57);
+  # domain-adjacent rejects reach as high as 0.81 ("write a description for
+  # vid 3") but are TOLERATED by design — a confirm-first did-you-mean for
+  # those is correct behavior, not a false positive (see
+  # spec/fixtures/nl_calibration.yml's tolerated_suggest: tier). The
+  # genuine-positive floor recovered at 0.72 (three positives now live
+  # between 0.72-0.754, previously swallowed whole by the old 0.75 floor).
+  # auto_run's top band holds >=0.88, all correct-tool; the worst wrong-tool
+  # score measured was ~0.75 — comfortably below 0.90, so auto_run is
+  # unchanged. DECISION (X6, 3.0.1): suggest 0.75 -> 0.72; auto_run stays
+  # 0.90. Two of the hardest positives ("dig up the clip where I rage quit
+  # tekken" 0.7078, "tekken 8 just dropped to 39.99" 0.7169) still fall short
+  # even at 0.72 — moved to nl_calibration.yml's known_gaps: for corpus
+  # growth to rescue later. The calibration suite re-measures on every change.
+  thresholds: { auto_run: 0.90, suggest: 0.72 }
   # Lexical snapping BEFORE embedding — the cheap normalization pass.
   synonyms:
     clips: vids
@@ -183,6 +197,15 @@ nl:
     - { say: "bring hades 2 in from igdb", run: "import game hades 2" }
     - { say: "pull the freshest data for my vids from youtube", run: "sync vids" }
     - { say: "how close am I to my next subs shiny", run: "shinies" }
+    # X7 (3.0.1) — indirect/no-verb-cue phrasings for the 5 patterns measured
+    # live as mapper blind spots (spec/fixtures/nl_mapper_calibration.yml
+    # known_gaps:). Distinct wording from those fixture `say:` strings on
+    # purpose (teach the PATTERN, don't memorize the held-out test).
+    - { say: "surface whatever info you're holding on vid 8", run: "show vid 8" }
+    - { say: "give me the two-second version of how vid 9 is doing", run: "at-a-glance vid 9" }
+    - { say: "go see if there are any new uploads waiting to be pulled in", run: "sync vids" }
+    - { say: "what else in my library scratches the same itch as game 11", run: "similar game 11" }
+    - { say: "vid 14 must belong to some title in my library, which one", run: "game vid 14" }
 
 tools:
   # ─── Chat tools ──────────────────────────────────────────────────────────────
@@ -276,7 +299,11 @@ tools:
           published: { tokens: [published], scope: published, desc: pito.copy.help.filters.vids.published }
           unlisted:  { tokens: [unlisted],  scope: unlisted,  desc: pito.copy.help.filters.vids.unlisted }
           scheduled: { tokens: [scheduled], scope: scheduled, desc: pito.copy.help.filters.vids.scheduled }
-          private:   { tokens: [private],   scope: private_unscheduled, desc: pito.copy.help.filters.vids.private }
+          # `draft` is a token ALIAS for the same private_unscheduled scope,
+          # not a separate filter (3.0.1 P11) — YouTube Studio's own UI calls
+          # an unpublished, not-yet-scheduled upload a "draft", so an owner
+          # typing `ls draft vids` means exactly what `ls private vids` means.
+          private:   { tokens: [private, draft], scope: private_unscheduled, desc: pito.copy.help.filters.vids.private }
 
   show:
     description: pito.grammar.chat.show
@@ -290,6 +317,10 @@ tools:
       - "open game 9"
       - "bring up vid 21"
       - "pull up game 3's details"
+      - "pull up my channel"
+      - "open @gmrdad82"
+      - "show the channel page for @gmrdad82"
+      - "what does game 7 look like?"
     mcp:
       tool: pito_show
       read_only: true
@@ -466,6 +497,10 @@ tools:
   analyze:
     aliases: [analytics, stats]
     description: pito.grammar.chat.analyze
+    # NL auto-run gate (P13): executing this mutates no owner data — distinct
+    # from mcp.read_only, the strict MCP readOnlyHint (cache warming / external
+    # API calls count there, not here). See Pito::Dispatch::Schema::TOOL_KEYS.
+    read_only: true
     nl_examples:
       - "analyze my channel"
       - "how is vid 12 performing?"
@@ -594,6 +629,7 @@ tools:
   "at-a-glance":
     aliases: [glance, overview]
     description: pito.grammar.chat.at-a-glance
+    read_only: true # NL auto-run gate (P13): mutates no owner data (≠ mcp.read_only — see analyze)
     nl_examples:
       - "give me the overview"
       - "quick summary of my channel"
@@ -604,6 +640,9 @@ tools:
       - "the quick rundown please"
       - "give me a glance at vid 2"
       - "the rundown for vid 2"
+      - "what's the tl;dr on vid 9?"
+      - "give me the snapshot for game 4"
+      - "quick peek at my channel numbers"
     mcp:
       tool: pito_glance
       read_only: false
@@ -750,6 +789,7 @@ tools:
   channels:
     aliases: [handles]
     description: pito.grammar.chat.channels
+    read_only: true # NL auto-run gate (P13): mutates no owner data (≠ mcp.read_only — see analyze)
     nl_examples:
       - "who publishes this game?"
       - "which channels cover game 42?"
@@ -784,6 +824,7 @@ tools:
   breakdowns:
     aliases: [breakdown, lifetime, life]
     description: pito.grammar.chat.breakdowns
+    read_only: true # NL auto-run gate (P13): mutates no owner data (≠ mcp.read_only — see analyze)
     nl_examples:
       - "lifetime breakdown for my channel"
       - "how do views distribute over time?"
@@ -824,6 +865,7 @@ tools:
   # branch `aliases:` mirror the `nouns` vocabulary synonyms (videos → vids, …).
   linked:
     description: pito.grammar.chat.linked
+    read_only: true # NL auto-run gate (P13): mutates no owner data (see analyze)
     nl_examples:
       - "what's linked to vid 12?"
       - "show the links for game 42"
@@ -908,6 +950,10 @@ tools:
       - "I recorded 3 more hours of game 42"
       - "update the footage on tekken"
       - "log 2 hours of footage for game 7"
+      - "another hour and a half of tekken footage"
+      - "footage on game 9 is now 12 hours"
+      - "add half an hour of footage to game 4"
+      - "bump game 6's footage up to 20"
     auth: session
     chat:
       dispatch: Chat::Handlers::Footage
@@ -931,6 +977,10 @@ tools:
       - "game 42 cost me 20 euros"
       - "clear the price on game 7"
       - "price game 3 at 15 euros"
+      - "tekken 8 is 49.99 now"
+      - "no charge for game 9 anymore"
+      - "game 6 dropped to 9.99"
+      - "put a 25 dollar price tag on game 2"
     auth: session
     chat:
       dispatch: Chat::Handlers::Price
@@ -1027,6 +1077,10 @@ tools:
       - "game 42 is also on switch"
       - "remove pc from game 7"
       - "set game 3's platform to xbox"
+      - "tekken 8 just came out on switch"
+      - "game 9 isn't on xbox anymore"
+      - "add pc as a platform for game 4"
+      - "game 6 also plays on ps5"
     auth: session
     chat:
       dispatch: Chat::Handlers::Platform
@@ -1087,6 +1141,10 @@ tools:
       - "unlist vid 12"
       - "hide vid 7 from the public"
       - "take vid 3 off the listing"
+      - "make vid 5 unlisted"
+      - "vid 8 shouldn't be public anymore"
+      - "pull vid 2 out of public view"
+      - "switch vid 6 to unlisted"
     auth: session
     chat:
       dispatch: Chat::Handlers::Unlist
@@ -1113,6 +1171,10 @@ tools:
       - "publish vid 7 next monday"
       - "set vid 3 to go live on the slate"
       - "queue vid 9 for release"
+      - "vid 5 should drop next tuesday"
+      - "put vid 2 on the calendar for the weekend"
+      - "let's go live with vid 8 tomorrow"
+      - "vid 4 goes out the 20th"
     auth: session
     chat:
       dispatch: Chat::Handlers::Schedule
@@ -1143,6 +1205,19 @@ tools:
           args:
             when: { resolver: schedule_expression }   # `<when>` after the sliced row id
 
+  # `find:` intentionally declares NO chat/slash branch (3.0.1 P6) — it exists
+  # ONLY to keep its nl_examples: feeding the NL corpus. Its old chat: block
+  # first-token-captured every "find …" input with no chat.dispatch handler
+  # behind it, so "find vids about tekken" (its own documented example)
+  # permanently returned tool_not_implemented and the NL gate never got a
+  # chance to route it. Removing the branch lets "find …" fall through to
+  # :unknown, where the NL gate (router score → mapper → auto-run /
+  # did-you-mean) actually resolves it — typically to search/list.
+  # `reply: {}` is a deliberate no-op stub, not a real branch: Schema requires
+  # every tool to declare at least one of chat/slash/reply
+  # (Pito::Dispatch::Schema "tool declares no branch"), and an empty targets-
+  # less reply block satisfies that without generating a grammar Spec (only
+  # chat:/slash: keys do — Pito::Grammar::ConfigSource) or a real reply target.
   find:
     description: pito.grammar.chat.find
     nl_examples:
@@ -1150,23 +1225,11 @@ tools:
       - "which vids are rpg?"
       - "find my videos on ps5 games"
       - "find vids titled boss fight"
-    auth: session
-    chat:
-      slots:
-        - name: status
-          kind: enum
-          source: release_status
-          optional: true
-        - name: genre
-          kind: enum
-          source: genres
-          optional: true
-          repeatable: true
-        - name: platform
-          kind: enum
-          source: platforms
-          optional: true
-          introducer: for
+      - "find that boss fight clip"
+      - "find vids where I talk about controller settings"
+      - "any vids about the tekken 8 launch?"
+      - "find the highlight reel from last month"
+    reply: {}
 
   # `search games like <title>` — similarity search. The free `query` slot
   # slurps "[games] like <title>"; the handler extracts the seed after `like`,
@@ -1174,6 +1237,7 @@ tools:
   # replies, sort/with, and more/next paging all work via the existing pager).
   search:
     description: pito.grammar.chat.search
+    read_only: true # NL auto-run gate (P13): mutates no owner data (see analyze)
     nl_examples:
       - "search games like tekken"
       - "find games similar to street fighter"
@@ -1259,6 +1323,10 @@ tools:
       - "vid 7 belongs to tekken"
       - "connect that vid to game 3"
       - "attach vid 9 to game 5"
+      - "vid 4 is actually elden ring, link it up"
+      - "hook vid 8 up with game 5"
+      - "tie vid 2 to the tekken 8 entry"
+      - "this vid goes with game 11"
     auth: session
     chat:
       dispatch: Chat::Handlers::Link
@@ -1305,6 +1373,10 @@ tools:
       - "unlink vid 12 from game 42"
       - "detach that vid from its game"
       - "remove the link on vid 7"
+      - "vid 9 isn't actually tekken, unlink it"
+      - "pull vid 4 off of game 2"
+      - "that vid got linked to the wrong game, unlink 6"
+      - "break the connection between vid 3 and its game"
     auth: session
     chat:
       dispatch: Chat::Handlers::Unlink
@@ -1352,6 +1424,7 @@ tools:
     # Chat branch: displays all follow-up targets grouped by entity.
     # Slash branch: full sectioned help (authenticated) or login hint (unauthenticated).
     description: pito.grammar.chat.help
+    read_only: true # NL auto-run gate (P13): mutates no owner data (see analyze)
     nl_examples:
       # (no bare "help" phrase — the literal word parses via the grammar; as
       # a router row it was a single-token similarity magnet, like greet's.)

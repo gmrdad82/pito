@@ -14,9 +14,14 @@ module Pito
       # SearchConversations#build_hits: "score" rides on the `like` path,
       # "occurrence_count" on the `for`/bare path, the other left nil).
       #
-      #   like: "Conversation" | "Score"       — a 0-100 score bar (the SAME
+      #   like: "Conversation" | "Similarity"  — a 0-100 score bar (the SAME
       #         { score: } cell shape/ScoreBarComponent the similar-games /
-      #         channel-recommendation cards use).
+      #         channel-recommendation cards use), rescaled from the measured
+      #         embedding-space floor (see Pito::Recommendation::DisplayScore)
+      #         so it actually discriminates real hits from background noise.
+      #         Labeled "Similarity", not "Score"/"Match": this number is raw
+      #         cosine similarity (rescaled), unlike games' 10-signal blended
+      #         "Match" score (lib/pito/message_builder/game/list.rb).
       #   for:  "Conversation" | "Occurrences" — how many matching events
       #         grouped into that conversation within the candidate pool.
       #
@@ -62,7 +67,7 @@ module Pito
       module Hits
         module_function
 
-        LIKE_TABLE_HEADING = [ "Conversation", "Score" ].freeze
+        LIKE_TABLE_HEADING = [ "Conversation", "Similarity" ].freeze
         FOR_TABLE_HEADING  = [ "Conversation", "Occurrences" ].freeze
 
         # @param hits         [Array<Hash>]  non-empty; each a string-keyed hit

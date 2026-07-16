@@ -31,7 +31,19 @@ module Pito
       TOP_KEYS             = %i[schema_version universal_reply vocabularies tools mcp_readers nl].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      TOOL_KEYS            = %i[aliases description availability auth internal universal_reply chat slash reply segments concerns mcp capabilities nl_examples].freeze
+      TOOL_KEYS            = %i[aliases description availability auth internal universal_reply read_only chat slash reply segments concerns mcp capabilities nl_examples].freeze
+
+      # A tool-level `read_only:` boolean (3.0.1 P13) — declares whether EXECUTING
+      # the tool mutates owner data. This is the NL auto-run gate's question
+      # (Pito::Chat::Handlers::Unknown#read_only?): a high-confidence NL match may
+      # auto-run a tool only when it is read-only in THIS sense. Deliberately
+      # distinct from `mcp.read_only` below — that key is the strict MCP
+      # readOnlyHint each client sees, where warming a persistent cache or calling
+      # an external API counts as an effect (the analytics four declare
+      # `mcp.read_only: false` yet mutate no owner data, so they carry
+      # `read_only: true` here). When the tool-level key is absent the gate falls
+      # back to `mcp.read_only`. The schema-integrity suite pins the EXACT
+      # effective auto-runnable set — widening it is a reviewed act.
 
       # A top-level `nl:` block — the NL mapper's ontology-owned knobs (content
       # is authored separately in tools.yml by the orchestrator; this key only
@@ -310,6 +322,7 @@ module Pito
           validate_enum(body[:auth], Schema::TOOL_AUTH, join(path, "auth"), "auth") if body.key?(:auth)
           validate_boolean(body[:internal], join(path, "internal")) if body.key?(:internal)
           validate_boolean(body[:universal_reply], join(path, "universal_reply")) if body.key?(:universal_reply)
+          validate_boolean(body[:read_only], join(path, "read_only")) if body.key?(:read_only)
           validate_chat(body[:chat], join(path, "chat")) if body.key?(:chat)
           validate_slash(body[:slash], join(path, "slash")) if body.key?(:slash)
           validate_reply(body[:reply], join(path, "reply")) if body.key?(:reply)
@@ -429,15 +442,21 @@ module Pito
           err(path, "auto_run (#{auto_run}) must be >= suggest (#{suggest})") if auto_run < suggest
         end
 
-        # synonyms: { <word> => <canonical> } — non-empty key + a non-empty
-        # String value; the NL router folds the key token into the value before
-        # matching.
+        # synonyms: { <word> => <canonical> } — a non-blank String key (a Symbol
+        # after Config's symbolize_names load) + a non-empty String value; the
+        # NL router folds the key token into the value before matching.
         def validate_nl_synonyms(synonyms, path)
           return err(path, "expected a Hash, got #{synonyms.class}") unless synonyms.is_a?(Hash)
 
           synonyms.each do |from, to|
             pair_path = join(path, from)
-            err(pair_path, "synonym key must not be blank") if from.to_s.strip.empty?
+            if from.is_a?(String) || from.is_a?(Symbol)
+              err(pair_path, "synonym key must not be blank") if from.to_s.strip.empty?
+            else
+              # YAML happily parses `5: vids` — an Integer key stringifies
+              # non-blank, so without this check it sailed through untyped.
+              err(pair_path, "expected a String key, got #{from.class}")
+            end
             if to.is_a?(String)
               err(pair_path, "synonym value must not be blank") if to.strip.empty?
             else

@@ -523,7 +523,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
     it "includes the expected chat tools" do
       names = specs.map(&:name)
       expect(names).to include(
-        :list, :show, :analyze, :import, :sync, :footage, :find,
+        :list, :show, :analyze, :import, :sync, :footage,
         :price, :delete, :reindex, :platform, :publish, :unlist,
         :schedule, :link, :unlink, :help, :shinies, :greet, :farewell
       )
@@ -532,6 +532,15 @@ RSpec.describe Pito::Grammar::ConfigSource do
     it "does not include reply-only tools (next, visit, sort, with, without, confirm, cancel)" do
       names = specs.map(&:name)
       expect(names).not_to include(:next, :visit, :sort, :with, :without, :confirm, :cancel)
+    end
+
+    # `find` declares no chat: branch (3.0.1 P6) — it exists only to feed
+    # nl_examples: into the NL corpus, so it must never produce a grammar spec
+    # (that was the 3.0.0 bug: a chat: block first-token-captured "find …"
+    # with no chat.dispatch handler behind it, a permanent dead end).
+    it "does not include :find (NL-corpus-only tool, no chat branch)" do
+      names = specs.map(&:name)
+      expect(names).not_to include(:find)
     end
 
     context ":list spec" do
@@ -624,33 +633,6 @@ RSpec.describe Pito::Grammar::ConfigSource do
       it ":title slot is a :free optional slot" do
         slot = spec.slot(:title)
         expect(slot.kind).to eq(:free)
-        expect(slot.optional?).to be(true)
-      end
-    end
-
-    context ":find spec (shared chat slots)" do
-      subject(:spec) { specs.find { |s| s.name == :find } }
-
-      it "has slots :status, :genre, :platform in order" do
-        expect(spec.slots.map(&:name)).to eq([ :status, :genre, :platform ])
-      end
-
-      it ":status slot is optional and sourced from :release_status" do
-        slot = spec.slot(:status)
-        expect(slot.kind).to eq(:enum)
-        expect(slot.source).to eq(:release_status)
-        expect(slot.optional?).to be(true)
-      end
-
-      it ":genre slot is repeatable and optional" do
-        slot = spec.slot(:genre)
-        expect(slot.repeatable?).to be(true)
-        expect(slot.optional?).to be(true)
-      end
-
-      it ":platform slot has introducer :for" do
-        slot = spec.slot(:platform)
-        expect(slot.introducer).to eq(:for)
         expect(slot.optional?).to be(true)
       end
     end

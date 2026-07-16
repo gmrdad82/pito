@@ -9,15 +9,16 @@ name: CI
 # via top-level `if:` conditions; the other workflows under
 # `.github/workflows/` carry the same guard.
 #
-# Trigger model: fire ONLY when something the Rails suite can break has
-# changed. Path filter is exhaustive: everything
-# Rails touches at runtime, plus the build/lint/test inputs that can change
-# suite behavior. Files NOT listed (e.g. `docs/**`, `Dockerfile`,
-# `docker-compose.yml`, `mise.toml`, `HANDOFF.md`, `README.md`, `LICENSE`,
-# `.editorconfig`, `.prettierrc.json`, `.gitignore`, `.gitattributes`,
-# `.dockerignore`, `.env.example`, `Procfile.dev`) cannot affect the Rails
-# CI run and are intentionally excluded so Rails CI stops firing on docs /
-# infra-only commits.
+# Trigger model: fire ONLY when something the Rails suite (or the compose
+# config validation in the `compose` job below) can break has changed. Path
+# filter is exhaustive: everything Rails touches at runtime, plus the
+# build/lint/test inputs that can change suite behavior, plus both compose
+# stacks. Files NOT listed (e.g. `docs/**`, `Dockerfile`, `mise.toml`,
+# `HANDOFF.md`, `README.md`, `LICENSE`, `.editorconfig`, `.prettierrc.json`,
+# `.gitignore`, `.gitattributes`, `.dockerignore`, `.env.example`,
+# `Procfile.dev`) cannot affect the Rails CI run or the compose config and
+# are intentionally excluded so CI stops firing on docs / infra-only
+# commits.
 
 on:
   pull_request:
@@ -69,6 +70,12 @@ on:
       - ".rubocop_todo.yml"
       # `config.ru` — Rack entrypoint; boot path.
       - "config.ru"
+      # --- Infra --------------------------------------------------------
+      # `docker-compose.yml` / `docker-compose.dev.yml` — the prod / dev
+      # compose stacks (the 3.0.0 flagship deliverable). Validated by the
+      # `compose` job's `docker compose config -q` steps below.
+      - "docker-compose.yml"
+      - "docker-compose.dev.yml"
       # --- Self-reference ---------------------------------------------------
       # Editing the workflow itself must re-run it so changes are validated
       # before they go quiet.
@@ -95,6 +102,8 @@ on:
       - ".rubocop.yml"
       - ".rubocop_todo.yml"
       - "config.ru"
+      - "docker-compose.yml"
+      - "docker-compose.dev.yml"
       - ".github/workflows/ci.yml"
       - ".github/actions/**"
   schedule:
@@ -189,6 +198,11 @@ jobs:
       - name: Scan for security vulnerabilities in JavaScript dependencies
         run: bin/importmap audit
 
+      - name: Audit the pito.copy.* dictionary
+        # Pure I18n-tree walk (lib/pito/copy/audit.rb) — no ActiveRecord
+        # calls, so it runs before the database exists.
+        run: bundle exec rake pito:copy:audit
+
       - name: Set up database
         run: bin/rails db:setup
 
@@ -282,6 +296,36 @@ jobs:
             sh -n "$f" || bash -n "$f"
             shellcheck -S warning "$f"
           done
+
+      - name: Notify Slack
+        if: failure()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
+
+  compose:
+    # Validates both compose stacks parse + interpolate cleanly. The 3.0.0
+    # flagship deliverable (docker-compose.yml / docker-compose.dev.yml) had
+    # zero CI coverage before this — `paths:` above now includes both files.
+    # `docker compose` ships preinstalled on ubuntu-latest; no setup step
+    # needed. Runs on pull_request/push, not the weekly schedule.
+    if: |
+      github.event_name != 'schedule' &&
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker-compose.yml config -q
+
+      - name: Validate docker-compose.dev.yml
+        run: docker compose -f docker-compose.dev.yml config -q
 
       - name: Notify Slack
         if: failure()

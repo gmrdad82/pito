@@ -31,8 +31,10 @@ module Pito
       #                                its nearest embedding neighbors
       #                                (Video::EMBEDDING_COLUMN, cosine),
       #                                scored via Pito::Recommendation::
-      #                                Signals.embedding — the seed leads at
-      #                                100, same shape as games' `like`.
+      #                                DisplayScore (raw cosine similarity
+      #                                rescaled from the measured VID_FLOOR —
+      #                                NOT games' blended `like` formula) —
+      #                                the seed leads at 100.
       #   search vids for <text>     → lexical multi-field match over title,
       #                                description, and tags (mirrors games'
       #                                `for` EXISTS-query style, one
@@ -256,9 +258,23 @@ module Pito
           # Same 100 stand-in as games' seed score (see search_like) — the
           # seed IS the query, not a ranked neighbor, so it never comes back
           # from nearest_neighbors with a distance of its own.
-          scores = { seed.id => 100, **similar.to_h { |v| [ v.id, Pito::Recommendation::Signals.embedding(v.neighbor_distance).round ] } }
+          scores = { seed.id => 100, **similar.to_h { |v| [ v.id, vid_score(v.neighbor_distance) ] } }
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: build_video_payload([ seed, *similar ], scores: scores) } ])
+        end
+
+        # A vid's `like` score is 100% raw cosine similarity — no blend to
+        # dilute it, unlike games' 10-signal score (Pito::Recommendation::
+        # Signals.embedding, untouched, feeds THAT blend only). Measured prod
+        # data (2026-07-16) showed the vid embedding space is tight enough
+        # that two random unrelated vids already score ~88/100 under the old
+        # raw-cosine-×100 formula — so this rescales from
+        # Pito::Recommendation::DisplayScore::VID_FLOOR (the measured
+        # random-pair baseline) instead, so the bar actually discriminates.
+        def vid_score(distance)
+          Pito::Recommendation::DisplayScore.display_score(
+            1.0 - distance.to_f, floor: Pito::Recommendation::DisplayScore::VID_FLOOR
+          ).round
         end
 
         # ── vids `for` path (lexical multi-field matching) ──────────────────

@@ -868,9 +868,10 @@ class ChatController < ApplicationController
     channel        = params[:channel].presence || "@all"
     period         = params[:period].presence
     viewport_width = params[:viewport_width].presence
-    # Request origin (scheme + host + port, e.g. "https://dev.pitomd.com") so the
-    # async `share` tool mints a /share URL on the host the owner is actually using
-    # — NOT the static PublicHosts.app_base (localhost in a tunnelled dev setup).
+    # Request origin (scheme + host + port, e.g. "https://your-tunnel.example") so
+    # the async `share` tool mints a /share URL on the host the owner is actually
+    # using — NOT the static PublicHosts.app_base (localhost in a tunnelled dev
+    # setup).
     origin         = request.base_url
 
     case mode

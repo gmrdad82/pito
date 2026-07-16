@@ -2,7 +2,7 @@
 
 # Read-only mirror of a YouTube video, populated by `/import videos`
 # (smart pull) + the nightly sync. A video-edit/publish pipeline is
-# deferred and will be (re)designed later (see docs/follow-up.md).
+# deferred and will be (re)designed later.
 class Video < ApplicationRecord
   # One picker page (PICKER_PAGE_SIZE rows) in case-stable title order plus
   # the opaque next-page cursor (nil on the last page) — feeds the `show vid`

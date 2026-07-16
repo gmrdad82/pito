@@ -21,10 +21,10 @@ module Pito
         # @param conversation [Conversation] used to generate the reply handle.
         # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
         # @param scores       [Hash{Integer => Integer}, nil] optional video_id => 0..100 score
-        #   map (search's `like` path). When present, a trailing Score column is appended to
-        #   the heading and every row via the `{ score: }` data-grid cell contract (renders a
-        #   score bar — see Pito::Event::SystemComponent#normalized_cell). nil (every other
-        #   caller: `list vids`, follow-up pagers) → no Score column, output identical to
+        #   map (search's `like` path). When present, a trailing Similarity column is appended
+        #   to the heading and every row via the `{ score: }` data-grid cell contract (renders
+        #   a score bar — see Pito::Event::SystemComponent#normalized_cell). nil (every other
+        #   caller: `list vids`, follow-up pagers) → no Similarity column, output identical to
         #   before this param existed.
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
         def call(videos, conversation:, columns: [], scores: nil)
@@ -41,10 +41,15 @@ module Pito
               "Title",
               *ListColumns.heading_cells(cols),
               # Search's `like` path only (scores present) — a literal structural
-              # label, same as the plain-string "Title" heading above and the
-              # "Score" heading Conversation::Hits already uses for its own
-              # score column (lib/pito/message_builder/conversation/hits.rb).
-              *(scores ? [ "Score" ] : [])
+              # label, same as the plain-string "Title" heading above. "Similarity",
+              # not "Score"/"Match": a vid like-score is 100% raw cosine similarity,
+              # rescaled from the embedding space's measured "everything looks
+              # alike" floor (see Pito::Recommendation::DisplayScore) — unlike
+              # games' 10-signal blended "Match" score, this number IS a
+              # similarity, so it's labeled as one. Conversation::Hits uses the
+              # same "Similarity" heading for its own `like`-path score column
+              # (lib/pito/message_builder/conversation/hits.rb).
+              *(scores ? [ "Similarity" ] : [])
             ],
             "shimmer_heading" => true,
             "table_rows"    => videos.map { |video| row_for(video, cols, scores: scores) },

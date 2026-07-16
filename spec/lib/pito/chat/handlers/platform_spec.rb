@@ -91,6 +91,11 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     expect(payload["game_id"]).to eq(game.id)
   end
 
+  it "enqueues GameEmbedIndexJob (platforms feed Game::EmbedText) when a platform is set" do
+    expect { reply_call("game_detail", "platform ps5", game_id: game.id) }
+      .to have_enqueued_job(GameEmbedIndexJob).with(game.id)
+  end
+
   # ── Context 3: reply to `list games` (leading id) ───────────────────────────────
 
   it "sets the platform via a game_list reply (leading id + name)" do
@@ -104,6 +109,13 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     game.update!(platforms: [ "PlayStation 5" ])
     reply_call("game_detail", "platform PlayStation5", game_id: game.id)
     expect(game.reload.platforms).to eq([ "PlayStation 5" ])
+  end
+
+  it "does not enqueue GameEmbedIndexJob on a de-duped no-op set" do
+    game.update!(platforms: [ "PlayStation 5" ])
+
+    expect { reply_call("game_detail", "platform PlayStation5", game_id: game.id) }
+      .not_to have_enqueued_job(GameEmbedIndexJob)
   end
 
   it "appends (does not replace) existing platforms" do
@@ -127,12 +139,26 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     expect(result.events.first[:payload]["body"]).to include("Removed")
   end
 
+  it "enqueues GameEmbedIndexJob (platforms feed Game::EmbedText) when a platform is unset" do
+    game.update!(platforms: [ "PlayStation 5", "Nintendo Switch" ])
+
+    expect { reply_call("game_detail", "platform unset ps5", game_id: game.id) }
+      .to have_enqueued_job(GameEmbedIndexJob).with(game.id)
+  end
+
   it "unset is a no-op (still Ok) when the platform is not present" do
     game.update!(platforms: [ "Nintendo Switch" ])
     result = reply_call("game_detail", "platform unset ps5", game_id: game.id)
 
     expect(result).to be_a(Pito::FollowUp::Result::Append)
     expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
+  end
+
+  it "does not enqueue GameEmbedIndexJob when unset is a no-op (platform not present)" do
+    game.update!(platforms: [ "Nintendo Switch" ])
+
+    expect { reply_call("game_detail", "platform unset ps5", game_id: game.id) }
+      .not_to have_enqueued_job(GameEmbedIndexJob)
   end
 
   it "removes via a game_detail reply (`#<handle> platform unset ps5`)" do

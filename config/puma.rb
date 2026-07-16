@@ -37,7 +37,12 @@ port ENV.fetch("PORT", 3027)
 plugin :tmp_restart
 
 # Run the Solid Queue supervisor inside of Puma for single-server deployments.
-plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
+# String compare on purpose: compose passes the literal "false" for pito-mcp
+# (which must never run a second supervisor), and any non-empty ENV string —
+# including "false" — is truthy in Ruby. That footgun booted the SolidQueue
+# plugin inside the MCP puma, where its thread raced the slim boot and died
+# (the NameError/NoMethodError pair AppSignal caught, 3.0.1).
+plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"] == "true"
 
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.

@@ -42,7 +42,7 @@ module Pito
 
       attr_reader :message, :conversation, :channel, :period, :follow_up, :viewport_width, :kwargs
 
-      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil, kwargs: {})
+      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil, kwargs: {}, nl_eligible: true)
         @message = message
         @conversation = conversation
         @channel = channel
@@ -50,6 +50,7 @@ module Pito
         @follow_up = follow_up
         @viewport_width = viewport_width
         @kwargs = kwargs
+        @nl_eligible = nl_eligible
       end
 
       # True when this tool was invoked from a `#<handle>` follow-up reply rather
@@ -57,6 +58,19 @@ module Pito
       # result-wrapping branch on it.
       def follow_up?
         !@follow_up.nil?
+      end
+
+      # True (the default) when this dispatch's body may be soft-failed into the
+      # NL gate (Pito::Chat::Result::Error#nl_fallback, 3.0.1 P7) if a handler
+      # can't act on it. False only on a RECONSTRUCTED follow-up re-dispatch
+      # (Pito::Dispatch::Router#call nl_eligible: false — see its class header)
+      # — the body was built by pito, not typed by the owner, so a title-ladder
+      # miss there must stay the crisp not-found, never be treated as free
+      # text. Distinct from follow_up?: that ALSO turns off resolve_title/
+      # ordinal resolution; nl_eligible? leaves those untouched and gates
+      # ONLY the soft-fail marker.
+      def nl_eligible?
+        @nl_eligible
       end
 
       def call
@@ -84,7 +98,8 @@ module Pito
             period:         context.period,
             follow_up:      context.follow_up,
             viewport_width: context.viewport_width,
-            kwargs:         kwargs
+            kwargs:         kwargs,
+            nl_eligible:    context.nl_eligible
           ).call
         end
 

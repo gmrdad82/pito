@@ -349,6 +349,15 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
         expect(VideoRemoteStatusSync).to have_received(:perform_later).with(md_video.id, fields: [ "description" ])
       end
 
+      it "enqueues VideoEmbedIndexJob (description feeds Video::EmbedText)" do
+        expect {
+          described_class.confirm("video_metadata", {
+            "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+            "field" => "description", "staged_value" => "New words"
+          })
+        }.to have_enqueued_job(VideoEmbedIndexJob).with(md_video.id)
+      end
+
       it "returns outcome text mentioning the title" do
         text = described_class.confirm("video_metadata", {
           "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
@@ -374,22 +383,37 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
         })
         expect(VideoRemoteStatusSync).to have_received(:perform_later).with(md_video.id, fields: [ "tags" ])
       end
+
+      it "enqueues VideoEmbedIndexJob (tags feed Video::EmbedText)" do
+        expect {
+          described_class.confirm("video_metadata", {
+            "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+            "field" => "tags", "staged_value" => [ "a", "b" ]
+          })
+        }.to have_enqueued_job(VideoEmbedIndexJob).with(md_video.id)
+      end
     end
 
     it "returns not_found text and enqueues nothing when the video is missing" do
-      text = described_class.confirm("video_metadata", {
-        "video_id" => 0, "video_title" => "Ghost",
-        "field" => "description", "staged_value" => "New words"
-      })
+      text = nil
+      expect {
+        text = described_class.confirm("video_metadata", {
+          "video_id" => 0, "video_title" => "Ghost",
+          "field" => "description", "staged_value" => "New words"
+        })
+      }.not_to have_enqueued_job(VideoEmbedIndexJob)
       expect(text).to be_present
       expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
     end
 
     it "returns the generic confirmed copy, does NOT write, and enqueues nothing for a field outside the allowlist" do
-      text = described_class.confirm("video_metadata", {
-        "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
-        "field" => "title", "staged_value" => "Sneaky New Title"
-      })
+      text = nil
+      expect {
+        text = described_class.confirm("video_metadata", {
+          "video_id" => md_video.id, "video_title" => "Let's Play Elden Ring",
+          "field" => "title", "staged_value" => "Sneaky New Title"
+        })
+      }.not_to have_enqueued_job(VideoEmbedIndexJob)
       expect(text).to be_present
       expect(md_video.reload.title).to eq("Let's Play Elden Ring")
       expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
@@ -704,13 +728,29 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       }
     end
 
-    it "re-enters Pito::Dispatch::Router with the nl_command and the resolved conversation" do
+    it "re-enters Pito::Dispatch::Router with the nl_command and the resolved conversation, guarded as an NL retry" do
       allow(Pito::Dispatch::Router).to receive(:call).and_return(
         Pito::Chat::Result::Ok.new(events: [ { kind: :list, payload: { rows: [] } } ])
       )
       described_class.confirm("nl_run", nl_payload)
       expect(Pito::Dispatch::Router).to have_received(:call)
-        .with(input: "list vids", conversation: conversation)
+        .with(input: "list vids", conversation: conversation, nl_retry: true)
+    end
+
+    # P7 loop guard: a confirmed mapped command that itself soft-fails comes
+    # back as the nl_fallback marker (thanks to nl_retry: true) and renders as
+    # its own crisp error text — never another gate pass / did-you-mean.
+    it "renders a soft-failing confirmed command as its crisp error text (no gate re-entry)" do
+      marker = Pito::Chat::Result::Error.new(
+        message_key: "pito.copy.videos.not_found", message_args: { ref: "tekken" }, nl_fallback: true
+      )
+      allow(Pito::Dispatch::Router).to receive(:call).and_return(marker)
+      expect(Pito::Nl::Router).not_to receive(:route)
+
+      text = described_class.confirm("nl_run", nl_payload)
+
+      expect(text).to be_a(String)
+      expect(text).to be_present
     end
 
     it "returns the text projected via Pito::Mcp::EventText over the dispatched events" do
