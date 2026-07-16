@@ -61,7 +61,7 @@ RSpec.describe Pito::Grammar::Vocabularies do
     end
 
     it "still includes the credential providers" do
-      expect(config_providers.canonical).to include("google", "voyage", "igdb", "webhook")
+      expect(config_providers.canonical).to include("google", "igdb", "webhook")
     end
   end
 

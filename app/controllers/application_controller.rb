@@ -82,6 +82,34 @@ class ApplicationController < ActionController::Base
     Time.zone = "Etc/UTC"
   end
 
+  # Client-driven page size for pito-tui's viewport-driven cursor feeds
+  # (owner 2026-07-15): the tui sends its visible-row count as `limit` so the
+  # server never over- or under-fetches a page. Shared by
+  # NotificationsController#index, ConversationsController#resume, and
+  # Games::SearchController#create — the one mechanism behind all three.
+  #
+  # Present + a valid integer → clamped to `tool`'s configured max_page_size
+  # (Pito::Dispatch::Config, `config/pito/tools.yml`). Absent, non-numeric, or
+  # otherwise unparsable → `default` unchanged — the compatibility contract:
+  # limit-less callers (browsers, older tui builds) see identical behavior to
+  # before this param existed.
+  def client_page_limit(tool:, default:)
+    raw = params[:limit]
+    return default if raw.nil? || (raw.respond_to?(:empty?) && raw.empty?)
+
+    # `.to_s` first so BOTH shapes parse: a query-string `limit` (always a
+    # String, e.g. GET /notifications.json?limit=20) AND a JSON-body `limit`
+    # (Rails parses it to a real Integer, e.g. POST /games/search from the
+    # pito-tui import sidebar). `Integer(<Integer>, 10)` raises "base specified
+    # for non string value", so parsing the Integer directly silently dropped
+    # every JSON-number limit to `default` — the clamp never engaged on
+    # /games/search. Normalizing to a String first fixes that; base 10 still
+    # rejects "0x1F"/"08"-style junk into the rescue.
+    Integer(raw.to_s, 10).clamp(1..Pito::Dispatch::Config.max_page_size(tool: tool))
+  rescue ArgumentError, TypeError
+    default
+  end
+
   def render_not_found
     # Defensive: authenticate_session! may not have run if this is called
     # from a middleware-level error path (before before_actions fire).

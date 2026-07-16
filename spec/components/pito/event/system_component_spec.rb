@@ -343,6 +343,28 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  describe "table_rows row-level data: — stamped onto every cell span of the row" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        "html" => true,
+        "table_rows" => [
+          { "cells" => [ { "text" => "Alpha Convo" }, { "text" => "#7" } ], "data" => { "anchor_event_id" => 7 } },
+          { "cells" => [ { "text" => "Beta Convo" }, { "text" => "#9" } ] }
+        ]
+      }))
+    end
+
+    it "renders the row's data-* attribute on every cell span (no per-row DOM wrapper exists)" do
+      spans = node.css("div.pito-data-grid span").select { |s| s["data-anchor-event-id"] == "7" }
+      expect(spans.map(&:text)).to contain_exactly("Alpha Convo", "#7")
+    end
+
+    it "leaves a row without a row-level data: key with no data-anchor-event-id spans" do
+      spans = node.css("div.pito-data-grid span").select { |s| [ "Beta Convo", "#9" ].include?(s.text) }
+      expect(spans.map { |s| s["data-anchor-event-id"] }).to all(be_nil)
+    end
+  end
+
   describe "table_rows legacy {key, value, value2} — 3-column back-compat" do
     subject(:node) do
       render_inline(described_class.new(payload: {

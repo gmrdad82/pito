@@ -18,7 +18,6 @@ class AppSetting < ApplicationRecord
   encrypts :totp_seed_encrypted
   encrypts :google_oauth_client_id
   encrypts :google_oauth_client_secret
-  encrypts :voyage_api_key
 
   validates :key,
             uniqueness: { case_sensitive: false },
@@ -126,15 +125,11 @@ class AppSetting < ApplicationRecord
     set(DISCORD_WEBHOOK_URL_KEY, url)
   end
 
-  def self.voyage_api_key
-    singleton_row.voyage_api_key
-  end
-
-  # True when a Voyage API key is configured — gates every Voyage embedding call
-  # (Game/Channel VoyageIndexer, Voyage::Stats).
-  def self.voyage_configured?
-    voyage_api_key.present?
-  end
+  # The `/config voyage` credential surface (accessors AND the encrypted
+  # column, dropped by the owner's 3.0.0 ruling) is gone — the local embedder (see
+  # `Pito::Embedding::Client`) needs no key. The encrypted `voyage_api_key`
+  # column above stays on `app_settings`: dropping stored data is the
+  # owner-gated finalize step's business, not this purge's.
 
   # ── AI picker lists ───────────────────────────────────────────────────
   #

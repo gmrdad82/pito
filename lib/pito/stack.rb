@@ -2,13 +2,13 @@
 
 module Pito
   # Stack — usage/resource tracking across the external API providers
-  # (Voyage / YouTube / IGDB) and the local Postgres store.
+  # (YouTube / IGDB) and the local Postgres store.
   #
   # Per-provider request counts come from the `api_requests` log (written by the
   # instrumentation shims at each client chokepoint); `Pito::Stack::Local`
   # reports Postgres size + record counts.
   #
-  #   Pito::Stack.providers  # => { voyage: {...}, youtube: {...}, igdb: {...} }
+  #   Pito::Stack.providers  # => { youtube: {...}, igdb: {...} }
   #   Pito::Stack.usage      # => providers + { local: {...} }
   module Stack
     module_function
@@ -16,7 +16,6 @@ module Pito
     # Per-provider request usage (24h + current month).
     def providers
       {
-        voyage:  Voyage.to_h,
         youtube: Youtube.to_h,
         igdb:    Igdb.to_h
       }

@@ -15,10 +15,11 @@ module Pito
         Pito::Copy.render_html("pito.copy.games.similar_games_header")
       end
 
-      # Top 5 so the cover strip fits the 964px conversation column on one row
-      # (5×180 + 4×4px gap = 916; see the strip CSS) — 13.40.
+      # Top 4 (owner 2026-07-16) — 4 covers at the 20%-bumped 216px width fit the
+      # 964px conversation column on one row (4×216 + 3×4px gap = 876), and wrap
+      # to a clean 2,2 on mobile (no 2,2,1 orphan). See the strip CSS.
       def similar_game_results
-        @similar_game_results ||= Pito::Recommendations.similar_games(@game, limit: 5)
+        @similar_game_results ||= Pito::Recommendations.similar_games(@game, limit: 4)
       end
 
       def similar_games?

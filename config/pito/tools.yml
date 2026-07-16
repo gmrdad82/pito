@@ -30,7 +30,7 @@ vocabularies:
   config_providers:
     # AI config has exactly ONE slash surface: `/config ai` (+ kwargs). The
     # per-provider names deliberately do NOT appear here — no spillage.
-    members: [ai, tavily, google, voyage, igdb, webhook, sound, timezone]
+    members: [ai, tavily, google, igdb, webhook, sound, timezone]
   config_keys:
     members: [client_id, client_secret, redirect_uri, api_key, slack, discord, model]
   genres:
@@ -116,11 +116,73 @@ vocabularies:
     synonyms: {similars: similar, vids: videos, "linked-vids": videos}
   analyze_segments:
     members: [numbers, breakdowns]
+  search_nouns:
+    members: [games, conversations, vids]
+    synonyms: {game: games, conversation: conversations, vid: vids, video: vids, videos: vids}
   # Dynamic vocabularies — resolved at runtime via Grammar::Vocabulary resolver lambdas.
   channels:      { resolver: channels }
   conversations: { resolver: conversations }
   game_titles:   { resolver: game_titles }
   video_titles:  { resolver: video_titles }
+
+# NL mapper knobs (3.0.0, Fable-authored) — one ontology, three consumers:
+# the router reads thresholds + synonyms; the GBNF mapper retrieval-picks
+# the nearest exemplars for its few-shot prompt; the calibration suite
+# (spec/fixtures/nl_calibration.yml) measures the thresholds empirically —
+# these starting values hold only until that suite pins better ones.
+nl:
+  # Measured 2026-07-15 against the live sidecar (see the calibration corpus):
+  # held-out positives scored 0.71-0.92; short-text noise floors at 0.67-0.73
+  # ("asdfghjkl" 0.67, "do the thing" 0.73); the worst wrong-tool hit was 0.88
+  # (a write tool — the gate never auto-runs those anyway). auto_run keeps the
+  # 0.917 true paraphrase and excludes every measured wrong-tool; suggest
+  # rejects all measured noise at the cost of one 0.71 positive the corpus
+  # will grow to cover. The calibration suite re-measures on every change.
+  thresholds: { auto_run: 0.90, suggest: 0.75 }
+  # Lexical snapping BEFORE embedding — the cheap normalization pass.
+  synonyms:
+    clips: vids
+    films: vids
+    collection: library
+    catalogue: library
+    catalog: library
+    subscriptions: subs
+    achievements: shinies
+    milestones: shinies
+    trophies: shinies
+    recommendations: similar
+    lookalikes: similar
+    remove: delete
+    erase: delete
+  # Worked examples for the mapper's few-shot prompt — HARD cases on
+  # purpose: numeral-bearing titles, number words, filler-heavy phrasing,
+  # multi-slot composition. Disjoint from every tool's nl_examples (the
+  # router's neighbors) and from the calibration corpus (the held-out
+  # test set) — three sets, three jobs.
+  exemplars:
+    - { say: "could you please show me everything in my games library", run: "ls games" }
+    - { say: "hey pito can you list only the rpg ones", run: "ls rpg games" }
+    - { say: "show game twelve", run: "show game 12" }
+    - { say: "similar stuff to game forty two", run: "similar 42" }
+    - { say: "is there anything like tekken 8 in my library", run: "search games like tekken 8" }
+    - { say: "exact matches for games named tekken", run: "search games for tekken" }
+    - { say: "search my chats for that time we talked about mortal kombat 2", run: "search conversations for mortal kombat 2" }
+    - { say: "what did we decide about thumbnails last month", run: "search conversations for thumbnails" }
+    - { say: "link that new vid 14 to elden ring which is game 3", run: "link 14 3" }
+    - { say: "unhook vid 9 from whatever game it's on", run: "unlink 9" }
+    - { say: "how many hours did I sink into game 8? set it to 12", run: "update game footage 8 12" }
+    - { say: "make game 5 cost 19.99", run: "update game price 5 19.99" }
+    - { say: "game 7 also runs on the switch", run: "platform set 7 switch" }
+    - { say: "take ps5 off game 7", run: "platform unset 7 ps5" }
+    - { say: "queue vid 3 to go live saturday", run: "schedule 3 saturday" }
+    - { say: "get vid eleven off youtube's public listing", run: "unlist 11" }
+    - { say: "the analytics for the last week on vid 4", run: "analyze vid 4" }
+    - { say: "give me the lifetime spread for game 2", run: "breakdowns game 2" }
+    - { say: "vids for my main channel please", run: "videos" }
+    - { say: "who publishes game 3?", run: "channels 3" }
+    - { say: "bring hades 2 in from igdb", run: "import game hades 2" }
+    - { say: "pull the freshest data for my vids from youtube", run: "sync vids" }
+    - { say: "how close am I to my next subs shiny", run: "shinies" }
 
 tools:
   # ─── Chat tools ──────────────────────────────────────────────────────────────
@@ -129,10 +191,25 @@ tools:
     # Aliases sourced from lib/pito/grammar/specs.rb — :list spec, aliases: [:ls]
     aliases: [ls]
     description: pito.grammar.chat.list
+    nl_examples:
+      - "list me the vids"
+      - "show me my games"
+      - "what's in my library?"
+      - "what rpg games do I have?"
+      - "list all my channels"
+      - "show me everything I've got"
+      - "can you list my videos"
+      - "what games do I own?"
+      - "gimme the game list"
+      - "what vids are there?"
+      - "list some shooters"
+      - "show me my platformer games"
+      - "any racing games in the library?"
+      - "list all my fighting games"
     mcp:
       tool: pito_list
       read_only: true
-      description: "List your library — games, vids (videos), or channels. Prefer this over repeated pito_show calls: append extra `columns`, restrict with `filter`, and `sort` in ONE call — the valid values for each are enumerated per-noun in the param descriptions. `ids` restricts to specific numeric ids."
+      description: "List your library — games, vids (videos), or channels — for browsing/filtering, not single-entity detail (use pito_show for one item). Prefer this over repeated pito_show calls: append extra `columns`, restrict with `filter`, and `sort` in ONE call — the valid values for each are enumerated per-noun in the param descriptions. `ids` restricts to specific numeric ids. E.g. \"what rpg games do I have?\" → \"list games rpg\"; \"list all my channels\" → \"list channels\"; \"show me my platformer games\" → \"list games platformer\"."
       params:
         noun:    { type: string, enum: [games, vids, channels], required: true, hint: "what to list" }
         columns: { type: array,  items: string, required: false, capability: columns, hint: "extra kv-table columns to append to the table" }
@@ -203,13 +280,23 @@ tools:
 
   show:
     description: pito.grammar.chat.show
+    nl_examples:
+      - "show me game 42"
+      - "open vid 17"
+      - "details for game 42"
+      - "what do we know about vid 9?"
+      - "pull up game 12"
+      - "let me see vid 3"
+      - "open game 9"
+      - "bring up vid 21"
+      - "pull up game 3's details"
     mcp:
       tool: pito_show
       read_only: true
-      description: "Show one game, vid, or channel. `ref` is a numeric id (games/vids) or an @handle (channels). Optionally request extra segments such as similar, videos, channels, games, or at-a-glance."
+      description: "Open one game, vid, or channel in full detail by id — for a quick read use pito_glance, for metrics over time use pito_analyze. `ref` is a numeric id (games/vids), an @handle (channels), or — for games/vids — a title resolved exact-first (falls back to a looser match). Optionally request extra segments such as similar, videos, channels, games, or at-a-glance. E.g. \"show me game 42\" → \"show game 42\"; \"open vid 17\" → \"show vid 17\"; \"pull up game 3's details\" → \"show game 3\"."
       params:
         noun:     { type: string, enum: [game, vid, channel], required: true }
-        ref:      { type: string, required: true, hint: "numeric id (e.g. 3) or @handle" }
+        ref:      { type: string, required: true, hint: "numeric id (e.g. 3); an @handle for channels; or, for games/vids, a title resolved exact-first (falls back to a looser match)" }
         segments: { type: array, items: string, required: false, hint: "extra sections, e.g. [similar, at-a-glance]" }
       input: "show %{noun} %{ref}"
       input_suffixes:
@@ -372,14 +459,28 @@ tools:
         video_list:
           mode: append
           ref: { resolver: id_among_rows }        # `show <id>` scoped to the listed vids
+        video_search:
+          mode: append
+          ref: { resolver: id_among_rows }        # `show <id>` scoped to the ranked vids
 
   analyze:
     aliases: [analytics, stats]
     description: pito.grammar.chat.analyze
+    nl_examples:
+      - "analyze my channel"
+      - "how is vid 12 performing?"
+      - "stats for game 42"
+      - "run the numbers on my channel"
+      - "how are my views doing?"
+      - "analytics for vid 7"
+      - "how is the channel doing lately?"
+      - "are my subs trending up?"
+      - "crunch the numbers on vid 4"
+      - "how did that vid do?"
     mcp:
       tool: pito_analyze
       read_only: false
-      description: "YouTube analytics numbers for a game, vid, or channel over a period. Bare (no noun/ref) analyzes all your channels. `period` accepts e.g. 7d, 28d, or lifetime. First call for a period computes and caches the numbers (may query the YouTube Analytics API); repeat calls read the cache."
+      description: "YouTube analytics numbers for a game, vid, or channel over a period — trends over time; for lifetime shape use pito_breakdowns, for a one-screen snapshot use pito_glance. Bare (no noun/ref) analyzes all your channels. `period` accepts e.g. 7d, 28d, or lifetime. First call for a period computes and caches the numbers (may query the YouTube Analytics API); repeat calls read the cache. E.g. \"how is vid 12 performing?\" → \"analyze vid 12\"; \"stats for game 42\" → \"analyze game 42\"."
       params:
         noun:   { type: string, enum: [game, vid, channel], required: false }
         ref:    { type: string, required: false, hint: "numeric id or @handle" }
@@ -493,10 +594,20 @@ tools:
   "at-a-glance":
     aliases: [glance, overview]
     description: pito.grammar.chat.at-a-glance
+    nl_examples:
+      - "give me the overview"
+      - "quick summary of my channel"
+      - "how do things look at a glance?"
+      - "glance at vid 12"
+      - "quick look at game 3"
+      - "just the highlights please"
+      - "the quick rundown please"
+      - "give me a glance at vid 2"
+      - "the rundown for vid 2"
     mcp:
       tool: pito_glance
       read_only: false
-      description: "At-a-glance analytics snapshot for one game, vid, or channel. `period` accepts e.g. 7d, 28d, or lifetime. First call for a period computes and caches the numbers (may query the YouTube Analytics API); repeat calls read the cache."
+      description: "Quick one-screen analytics snapshot for one game, vid, or channel — no deep dive; for trends use pito_analyze, for lifetime shape use pito_breakdowns. `period` accepts e.g. 7d, 28d, or lifetime. First call for a period computes and caches the numbers (may query the YouTube Analytics API); repeat calls read the cache. E.g. \"glance at vid 12\" → \"at-a-glance vid 12\"; \"quick look at game 3\" → \"at-a-glance game 3\"."
       params:
         noun:   { type: string, enum: [game, vid, channel], required: true }
         ref:    { type: string, required: true, hint: "numeric id or @handle" }
@@ -522,6 +633,7 @@ tools:
         channel_list:   { mode: append }
         game_list:      { mode: append }
         video_list:     { mode: append }
+        video_search:   { mode: append }
 
   # `videos channel @h` AND `vids game #3` — the flat form
   # drives the `videos` segment on whatever entity the noun resolves. Absorbs
@@ -529,10 +641,17 @@ tools:
   videos:
     aliases: [vids, linked-vids]
     description: pito.grammar.chat.videos
+    nl_examples:
+      - "what vids does this channel have?"
+      - "show the vids linked to game 42"
+      - "videos for my channel"
+      - "which vids belong to that game?"
+      - "list the channel's videos"
+      - "the linked vids for game 7"
     mcp:
       tool: pito_videos
       read_only: true
-      description: "List the videos of a channel (by @handle) or the videos linked to a game (by numeric id)."
+      description: "List the videos of a channel (by @handle) or the videos linked to a game (by numeric id) — a listing, not analytics (use pito_analyze/pito_glance for metrics). E.g. \"what vids does this channel have?\" → \"videos channel @handle\"; \"show the vids linked to game 42\" → \"videos game 42\"."
       params:
         noun: { type: string, enum: [channel, game], required: true }
         ref:  { type: string, required: true, hint: "numeric game id or channel @handle" }
@@ -563,10 +682,17 @@ tools:
   # the two-word `linked game #7` keyed form below is unaffected.
   game:
     description: pito.grammar.chat.game
+    nl_examples:
+      - "which game is vid 12 about?"
+      - "what game is linked to that vid?"
+      - "the game for vid 7 please"
+      - "what's vid 3's game?"
+      - "which game does vid 5 belong to?"
+      - "the game behind vid 8"
     mcp:
       tool: pito_game_of_vid
       read_only: true
-      description: "Show the game linked to a given video."
+      description: "Show which game a given video is linked to. E.g. \"which game is vid 12 about?\" → \"game vid 12\"; \"the game for vid 7 please\" → \"game vid 7\"."
       params:
         vid_ref: { type: string, required: true, hint: "numeric video id" }
       input: "game vid %{vid_ref}"
@@ -586,14 +712,21 @@ tools:
       targets:
         video_detail: { mode: append }
         video_list:   { mode: append }
+        video_search: { mode: append }
 
   similar:
     aliases: [similars]
     description: pito.grammar.chat.similar
+    nl_examples:
+      - "games like game 42"
+      - "what's similar to tekken?"
+      - "recommend games similar to 12"
+      - "show me lookalikes for game 7"
+      - "anything else like this game?"
     mcp:
       tool: pito_similar
       read_only: true
-      description: "Show games similar to a given game."
+      description: "Show games similar to a given game, by numeric id. To seed by title instead of an id, use the chat `search games like <title>` flow (not exposed to MCP). E.g. \"games like game 42\" → \"similar game 42\"; \"show me lookalikes for game 7\" → \"similar game 7\"."
       params:
         game_ref: { type: string, required: true, hint: "numeric game id" }
       input: "similar game %{game_ref}"
@@ -617,10 +750,17 @@ tools:
   channels:
     aliases: [handles]
     description: pito.grammar.chat.channels
+    nl_examples:
+      - "who publishes this game?"
+      - "which channels cover game 42?"
+      - "channels for tekken"
+      - "who else plays this game?"
+      - "which channels play game 9?"
+      - "who covers game 3?"
     mcp:
       tool: pito_channels_of_game
       read_only: false
-      description: "Show the channels that cover a given game (channel distribution). First call computes watch-time via the YouTube Analytics API and caches it for a day; repeat calls read the cache."
+      description: "Show which channels cover a given game (channel distribution), by numeric game id. First call computes watch-time via the YouTube Analytics API and caches it for a day; repeat calls read the cache. E.g. \"which channels cover game 42?\" → \"channels game 42\"; \"who covers game 3?\" → \"channels game 3\"."
       params:
         game_ref: { type: string, required: true, hint: "numeric game id" }
       input: "channels game %{game_ref}"
@@ -644,10 +784,16 @@ tools:
   breakdowns:
     aliases: [breakdown, lifetime, life]
     description: pito.grammar.chat.breakdowns
+    nl_examples:
+      - "lifetime breakdown for my channel"
+      - "how do views distribute over time?"
+      - "breakdown of vid 12"
+      - "lifetime stats for game 42"
+      - "show me the distribution"
     mcp:
       tool: pito_breakdowns
       read_only: false
-      description: "Lifetime analytics breakdowns (percentages by dimension) for a game, vid, or channel. First call computes and caches the numbers; repeat calls read the cache."
+      description: "Lifetime analytics breakdowns (percentages by dimension) for a game, vid, or channel — the whole-life shape, not a bounded window (use pito_analyze for a period). First call computes and caches the numbers; repeat calls read the cache. E.g. \"breakdown of vid 12\" → \"breakdowns vid 12\"; \"lifetime stats for game 42\" → \"breakdowns game 42\"."
       params:
         noun: { type: string, enum: [game, vid, channel], required: false }
         ref:  { type: string, required: false, hint: "numeric id or @handle" }
@@ -678,6 +824,11 @@ tools:
   # branch `aliases:` mirror the `nouns` vocabulary synonyms (videos → vids, …).
   linked:
     description: pito.grammar.chat.linked
+    nl_examples:
+      - "what's linked to vid 12?"
+      - "show the links for game 42"
+      - "is that vid linked to anything?"
+      - "what vids hang off game 7?"
     auth: session
     chat:
       dispatch: Chat::Handlers::SegmentTool
@@ -695,6 +846,12 @@ tools:
 
   import:
     description: pito.grammar.chat.import
+    nl_examples:
+      - "import tekken 8 from igdb"
+      - "add a new game called hades"
+      - "bring in elden ring"
+      - "import game inscryption"
+      - "add that game to my library"
     auth: session
     # Import progress/result messages are operational chatter — not shareable.
     universal_reply: false
@@ -714,6 +871,12 @@ tools:
 
   sync:
     description: pito.grammar.chat.sync
+    nl_examples:
+      - "sync my vids"
+      - "pull the latest from youtube"
+      - "refresh my channels"
+      - "sync everything from youtube"
+      - "update my library from youtube"
     auth: session
     # Sync status messages are operational chatter — not shareable (see the
     # HOW-TO on the universal_reply block at the top of this file).
@@ -740,6 +903,11 @@ tools:
 
   footage:
     description: pito.grammar.chat.footage
+    nl_examples:
+      - "set footage for game 12 to 8.5 hours"
+      - "I recorded 3 more hours of game 42"
+      - "update the footage on tekken"
+      - "log 2 hours of footage for game 7"
     auth: session
     chat:
       dispatch: Chat::Handlers::Footage
@@ -758,6 +926,11 @@ tools:
 
   price:
     description: pito.grammar.chat.price
+    nl_examples:
+      - "set the price of game 12 to 59.99"
+      - "game 42 cost me 20 euros"
+      - "clear the price on game 7"
+      - "price game 3 at 15 euros"
     auth: session
     chat:
       dispatch: Chat::Handlers::Price
@@ -785,6 +958,11 @@ tools:
   delete:
     aliases: [rm, del]
     description: pito.grammar.chat.delete
+    nl_examples:
+      - "delete vid 12"
+      - "remove game 42 from my library"
+      - "get rid of that game"
+      - "drop vid 9"
     auth: session
     chat:
       dispatch: Chat::Handlers::Delete
@@ -811,9 +989,20 @@ tools:
           mode: append
           aliases: [rm, del]
           ref: { resolver: id_among_rows }   # `delete <id>` scoped to the listed vids
+        video_search:
+          mode: append
+          aliases: [rm, del]
+          ref: { resolver: id_among_rows }   # `delete <id>` scoped to the ranked vids
 
   reindex:
     description: pito.grammar.chat.reindex
+    nl_examples:
+      - "reindex game 42"
+      - "re-embed vid 12"
+      - "refresh the embedding for tekken"
+      - "rebuild game 7's index"
+      - "re-embed that game again"
+      - "refresh vid 4's embedding"
     auth: session
     chat:
       dispatch: Chat::Handlers::Reindex
@@ -833,6 +1022,11 @@ tools:
 
   platform:
     description: pito.grammar.chat.platform
+    nl_examples:
+      - "add ps5 to game 12"
+      - "game 42 is also on switch"
+      - "remove pc from game 7"
+      - "set game 3's platform to xbox"
     auth: session
     chat:
       dispatch: Chat::Handlers::Platform
@@ -860,6 +1054,11 @@ tools:
   publish:
     aliases: [pub]
     description: pito.grammar.chat.publish
+    nl_examples:
+      - "publish vid 12"
+      - "make vid 7 public"
+      - "push that vid live"
+      - "release vid 3 now"
     auth: session
     chat:
       dispatch: Chat::Handlers::Publish
@@ -877,9 +1076,17 @@ tools:
           mode: append
           aliases: [pub]
           ref: { resolver: id_among_rows }   # `publish <id>` scoped to the listed vids
+        video_search:
+          mode: append
+          aliases: [pub]
+          ref: { resolver: id_among_rows }   # `publish <id>` scoped to the ranked vids
 
   unlist:
     description: pito.grammar.chat.unlist
+    nl_examples:
+      - "unlist vid 12"
+      - "hide vid 7 from the public"
+      - "take vid 3 off the listing"
     auth: session
     chat:
       dispatch: Chat::Handlers::Unlist
@@ -895,9 +1102,17 @@ tools:
         video_list:
           mode: append
           ref: { resolver: id_among_rows }   # `unlist <id>` scoped to the listed vids
+        video_search:
+          mode: append
+          ref: { resolver: id_among_rows }   # `unlist <id>` scoped to the ranked vids
 
   schedule:
     description: pito.grammar.chat.schedule
+    nl_examples:
+      - "schedule vid 12 for friday"
+      - "publish vid 7 next monday"
+      - "set vid 3 to go live on the slate"
+      - "queue vid 9 for release"
     auth: session
     chat:
       dispatch: Chat::Handlers::Schedule
@@ -922,9 +1137,19 @@ tools:
           ref: { resolver: id_among_rows }   # row id sliced from the leading token
           args:
             when: { resolver: schedule_expression }   # `<when>` after the sliced row id
+        video_search:
+          mode: append
+          ref: { resolver: id_among_rows }   # row id sliced from the leading token
+          args:
+            when: { resolver: schedule_expression }   # `<when>` after the sliced row id
 
   find:
     description: pito.grammar.chat.find
+    nl_examples:
+      - "find vids about tekken"
+      - "which vids are rpg?"
+      - "find my videos on ps5 games"
+      - "find vids titled boss fight"
     auth: session
     chat:
       slots:
@@ -949,13 +1174,31 @@ tools:
   # replies, sort/with, and more/next paging all work via the existing pager).
   search:
     description: pito.grammar.chat.search
+    nl_examples:
+      - "search games like tekken"
+      - "find games similar to street fighter"
+      - "search games for tekken"
+      - "which games are called tekken something?"
+      - "search conversations for tekken combos"
+      - "find the chat where we discussed thumbnails"
+      - "look up conversations about pricing"
+      - "where did we talk about that game?"
     auth: session
     chat:
       dispatch: Chat::Handlers::Search
       slots:
+        - name: noun
+          kind: enum
+          source: search_nouns
+          optional: true
         - name: query
           kind: free
           optional: true
+    concerns:
+      pager:
+        page_size: 20
+        more_tool: next
+        max_page_size: 100
 
   # The consolidated metadata-setter tool — the commands the AI suggests and
   # only the owner runs. Game fields (footage/price/platform) write locally at
@@ -965,6 +1208,13 @@ tools:
   # are unchanged. `<id>` + the raw rest-of-line value parse from message.raw.
   update:
     description: pito.grammar.chat.update
+    nl_examples:
+      - "update game 12 price to 20"
+      - "change vid 7's description"
+      - "set new tags on vid 3"
+      - "change game 5's price to 30"
+      - "set the footage on game 2"
+      - "update the footage on game 42"
     auth: session
     chat:
       dispatch: Chat::Handlers::Update
@@ -1004,6 +1254,11 @@ tools:
 
   link:
     description: pito.grammar.chat.link
+    nl_examples:
+      - "link vid 12 to game 42"
+      - "vid 7 belongs to tekken"
+      - "connect that vid to game 3"
+      - "attach vid 9 to game 5"
     auth: session
     chat:
       dispatch: Chat::Handlers::Link
@@ -1038,9 +1293,18 @@ tools:
           ref: { resolver: link_source }              # source video (id LEFT of the connector)
           args:
             linked_ref: { resolver: link_targets }    # target game(s) after `to`/`with`
+        video_search:
+          mode: append
+          ref: { resolver: link_source }              # source video (id LEFT of the connector)
+          args:
+            linked_ref: { resolver: link_targets }    # target game(s) after `to`/`with`
 
   unlink:
     description: pito.grammar.chat.unlink
+    nl_examples:
+      - "unlink vid 12 from game 42"
+      - "detach that vid from its game"
+      - "remove the link on vid 7"
     auth: session
     chat:
       dispatch: Chat::Handlers::Unlink
@@ -1078,11 +1342,26 @@ tools:
           ref: { resolver: link_source }              # source video (id LEFT of the connector)
           args:
             linked_ref: { resolver: link_targets }    # target game(s) after `from`
+        video_search:
+          mode: append
+          ref: { resolver: link_source }              # source video (id LEFT of the connector)
+          args:
+            linked_ref: { resolver: link_targets }    # target game(s) after `from`
 
   help:
     # Chat branch: displays all follow-up targets grouped by entity.
     # Slash branch: full sectioned help (authenticated) or login hint (unauthenticated).
     description: pito.grammar.chat.help
+    nl_examples:
+      # (no bare "help" phrase — the literal word parses via the grammar; as
+      # a router row it was a single-token similarity magnet, like greet's.)
+      - "what can you do?"
+      - "show me the commands"
+      - "how does this work?"
+      - "list the tools"
+      - "what are you capable of?"
+      - "how do I use this thing?"
+      - "what is pito able to do?"
     auth: session
     # Help pages are reference chrome — not shareable.
     universal_reply: false
@@ -1097,10 +1376,16 @@ tools:
 
   shinies:
     description: pito.grammar.chat.shinies
+    nl_examples:
+      - "show my shinies"
+      - "what achievements do I have?"
+      - "any new milestones?"
+      - "achievement progress for my channel"
+      - "how close am I to the next shiny?"
     mcp:
       tool: pito_shinies
       read_only: true
-      description: "Show the shinies (achievement chips / award ladders) earned by a game, vid, or channel."
+      description: "Show the shinies (achievement chips / award ladders) earned by a game, vid, or channel. E.g. \"achievement progress for my channel\" → \"shinies channel @handle\"; \"what achievements do I have?\" → \"shinies channel @handle\" (swap noun/ref for a game or vid)."
       params:
         noun: { type: string, enum: [game, vid, channel], required: true }
         ref:  { type: string, required: true, hint: "numeric id or @handle" }
@@ -1135,9 +1420,18 @@ tools:
         video_list:
           mode: append
           ref: { resolver: id_among_rows }        # `shinies <id>` scoped to the listed vids
+        video_search:
+          mode: append
+          ref: { resolver: id_among_rows }        # `shinies <id>` scoped to the ranked vids
 
   greet:
     description: pito.grammar.chat.greet
+    nl_examples:
+      - "hi"
+      - "hello pito"
+      - "hey there"
+      - "good morning"
+      - "yo"
     auth: session
     chat:
       dispatch: Chat::Handlers::Greeting
@@ -1147,6 +1441,12 @@ tools:
 
   farewell:
     description: pito.grammar.chat.farewell
+    nl_examples:
+      - "bye"
+      - "goodnight pito"
+      - "see you later"
+      - "I'm off"
+      - "cya"
     auth: session
     chat:
       dispatch: Chat::Handlers::Farewell
@@ -1240,6 +1540,10 @@ tools:
           mode: mutate
           args:
             columns: { resolver: column_list }
+        video_search:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
         channel_list:
           mode: mutate
           args:
@@ -1266,6 +1570,10 @@ tools:
           args:
             columns: { resolver: column_list }
         video_list:
+          mode: mutate
+          args:
+            columns: { resolver: column_list }
+        video_search:
           mode: mutate
           args:
             columns: { resolver: column_list }
@@ -1363,11 +1671,25 @@ tools:
       auth: authenticated_only
       description: pito.grammar.slash.resume
       slots:
+        # `name` doubles as a conversation title OR a uuid (controller detects the
+        # shape); `event_id` only applies in the uuid form — the message to jump
+        # to on arrival (anchor-jump reuse, see ChatController#handle_resume_uuid).
         - name: name
+          kind: free
+          optional: true
+        - name: event_id
           kind: free
           optional: true
       dispatch:
         controller: resume
+    # GET /resume.json is a cursor feed for the pito-tui conversation picker
+    # (viewport-driven `limit`, owner 2026-07-15) — page_size mirrors
+    # Conversation::SIDEBAR_PAGE_SIZE so limit-less callers see no change.
+    concerns:
+      pager:
+        page_size: 50
+        more_tool: next
+        max_page_size: 100
 
   # Slash tools with handler files in lib/pito/slash/handlers/
 
@@ -1380,10 +1702,15 @@ tools:
     # `games channel @h` drives the channel's games grid — shape-routing keeps
     # the two surfaces apart (`/games …` slash vs bare `games …` chat).
     description: pito.grammar.chat.games
+    nl_examples:
+      - "show the channel's games"
+      - "cover grid please"
+      - "which games does my channel have?"
+      - "game covers for my channel"
     mcp:
       tool: pito_games
       read_only: true
-      description: "List the games a channel plays (by @handle)."
+      description: "List the games a channel plays, as its linked-games cover grid, by @handle. E.g. \"which games does my channel have?\" → \"games channel @handle\"; \"show the channel's games\" → \"games channel @handle\"."
       params:
         channel_ref: { type: string, required: true, hint: "channel @handle" }
       input: "games channel %{channel_ref}"
@@ -1415,6 +1742,15 @@ tools:
           kind: free
           optional: true
       dispatch: Slash::Handlers::Games
+    # POST /games/search is a cursor feed for the /games import sidebar's IGDB
+    # search (viewport-driven `limit`, owner 2026-07-15) — page_size mirrors
+    # Pito::Search::Modules::IgdbGames' own default so limit-less callers see
+    # no change; max_page_size stays well under IGDB's documented 500-row cap.
+    concerns:
+      pager:
+        page_size: 10
+        more_tool: next
+        max_page_size: 50
 
   config:
     # `/config <provider> [key=value …]` — credential + toggle provider management.
@@ -1440,7 +1776,7 @@ tools:
           optional: true
           repeatable: true
           when:
-            provider: [ai, google, voyage, igdb, webhook, me]
+            provider: [ai, google, igdb, webhook, me]
       dispatch: Slash::Handlers::Config
 
   disconnect:
@@ -1476,6 +1812,14 @@ tools:
       description: pito.grammar.slash.notifications
       slots: []
       dispatch: Slash::Handlers::Notifications
+    # GET /notifications.json is a cursor feed for the pito-tui notifications
+    # panel (viewport-driven `limit`, owner 2026-07-15) — page_size mirrors
+    # Notification::PAGE_SIZE so limit-less callers see no change.
+    concerns:
+      pager:
+        page_size: 50
+        more_tool: next
+        max_page_size: 100
 
   rename:
     slash:
@@ -1507,11 +1851,11 @@ mcp_readers:
   pito_conversations:
     tool: pito_conversations
     read_only: true
-    description: "List your saved conversations (recency-grouped): uuid, title, and last activity. Pass a uuid to pito_messages to read one."
+    description: "List your saved conversations, recency-grouped: uuid, title, and last activity — use this to find which conversation to read, then pass its uuid to pito_messages."
   pito_messages:
     tool: pito_messages
     read_only: true
-    description: "Read recent messages from a conversation, newest last. Defaults to the latest active conversation. Call again for fresher state — pito is pull-only, there is no push."
+    description: "Read recent messages from one conversation, newest last. Defaults to the latest active conversation when no uuid is given — call pito_conversations first if you need a different one. Call again for fresher state: pito is pull-only, there is no push."
     params:
       conversation_uuid: { type: string,  required: false, hint: "from pito_conversations; defaults to the latest active conversation" }
       limit:             { type: integer, required: false, hint: "how many recent messages (default 30)" }

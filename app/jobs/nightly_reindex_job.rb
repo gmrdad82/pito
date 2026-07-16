@@ -9,13 +9,13 @@
 #
 # Fan-out strategy — atomic-jobs principle:
 #
-#   - `GameVoyageIndexJob.perform_later(id)` per game
-#   - `VideoVoyageIndexJob.perform_later(id)` per video
+#   - `GameEmbedIndexJob.perform_later(id)` per game
+#   - `VideoEmbedIndexJob.perform_later(id)` per video
 #
-# Both indexers are digest-gated (`Game::VoyageIndexer` /
-# `Video::VoyageIndexer`): unchanged rows are no-ops so the nightly cost
-# is only the actually-changed records. `BulkVoyageIndexJob` is left for
-# manual operator full-reindex runs; this master uses per-entity fan-out
+# Both indexers are digest-gated (`Game::EmbeddingIndexer` /
+# `Video::EmbeddingIndexer`): unchanged rows are no-ops so the nightly cost
+# is only the actually-changed records. `pito:embeddings:reindex` is left
+# for manual operator full-reindex runs; this master uses per-entity fan-out
 # per the atomic-jobs locked decision.
 #
 # Design B (locked): channels have NO embedding of their own. Channel↔game
@@ -28,11 +28,11 @@ class NightlyReindexJob < ApplicationJob
 
   def perform
     ::Game.find_each do |game|
-      ::GameVoyageIndexJob.perform_later(game.id)
+      ::GameEmbedIndexJob.perform_later(game.id)
     end
 
     ::Video.find_each do |video|
-      ::VideoVoyageIndexJob.perform_later(video.id)
+      ::VideoEmbedIndexJob.perform_later(video.id)
     end
   end
 end

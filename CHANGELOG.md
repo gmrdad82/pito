@@ -4,6 +4,200 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Local AI replaces Voyage AI** — two CPU-only [llama.cpp](https://github.com/ggml-org/llama.cpp)
+  sidecars ship in both compose files: `embedder` (embeddinggemma-300m, Q8,
+  768-dim, the OpenAI-compatible `/v1/embeddings` API) and `nlmapper`
+  (Qwen3-0.6B, Q8, grammar-constrained to PITO's own command set). No
+  signup, no API key, nothing leaves your machine — see the README's "Local
+  AI" section for the ports, env vars, and troubleshooting curls.
+  `Pito::Embedding::Client` (`app/services/pito/embedding/client.rb`) is the
+  single HTTP seam every caller goes through, with the same two contracts
+  the Voyage client grew up on: forgiving `#embed` (nil on any failure,
+  never raises) and strict `#embed_batch` (raises, naming the real cause,
+  for bulk/reindex jobs that want a visible failure).
+- **Talk to PITO in your own words** — chat input that matches no tool now
+  routes through an embedding router (`Pito::Nl::Router`, a cheap
+  cosine-nearest lookup against every tool's `nl_examples:`) and, when
+  nothing trained is close enough, a grammar-constrained mapper
+  (`Pito::Nl::Mapper`) asks the `nlmapper` sidecar to compose a real PITO
+  command, then proves it by round-tripping through the actual chat parser
+  — LLM output that doesn't parse to a known tool never reaches you.
+  Read-only mappings at confidence ≥ 0.90 auto-run immediately with an
+  attribution line ("Ran `<command>`."); everything else — lower
+  confidence, or any write-capable tool, regardless of confidence — asks
+  "Did you mean `<command>`?" first. Thresholds, lexical synonyms, and the
+  few-shot worked examples all live in `config/pito/tools.yml`'s `nl:`
+  block; a held-out calibration corpus (`spec/fixtures/nl_calibration.yml`)
+  measures the thresholds empirically instead of guessing them.
+- **`search conversations like <text>` / `search conversations for <text>`**
+  (bare = `for`) — semantic (`like`, cosine-nearest over a new
+  `events.embedding` column) and exact-substring (`for`/bare) search over
+  your own scrollback, grouped into one hit per conversation and ranked by
+  best match. Clicking a hit row jumps the scrollback straight to that
+  message with a brief highlight flash. Declared in `config/pito/tools.yml`
+  under the existing `search` tool (`search_nouns: [games, conversations]`);
+  handled by `Pito::Chat::Handlers::SearchConversations`. Only allowlisted,
+  owner-searchable event kinds get embedded, over a partial HNSW index.
+- **Title lookups** — `show game <title>`, `show vid <title>`, and
+  `show game for vid <title>` resolve free text through one shared
+  exact-first ladder (`lib/pito/title_resolve.rb` + `lib/pito/title_match.rb`):
+  an exact (including IGDB `alternative_names`) or prefix match wins
+  outright, then anchored token-run scoring, then an acronym-of-initials
+  tier ("mk2" → "Mortal Kombat 2"). Every tier breaks ties toward the
+  shortest title, so "mortal kombat" always finds "Mortal Kombat" over
+  "Mortal Kombat 2".
+- **Link suggestions after a video sync** — a freshly-synced, still-unlinked
+  video gets up to 5 numeral-aware game-link nudges ("Mortal Kombat 2:
+  Was it really that good?" correctly favors a library "Mortal Kombat 2"
+  over "Mortal Kombat"), scored by the same token-run matcher the title
+  ladder uses, with embedding cosine similarity as a tiebreak only
+  (`app/services/video/game_link_suggester.rb`). Offered once per video —
+  `videos.link_suggested_at` — as ready-to-run `link` commands in a
+  notification, never an auto-link.
+- **Viewport-driven paging** — pagers for notifications, `/resume`, and the
+  games-import search sidebar now accept a client-sent page size (pito-tui
+  sends its actual visible row count via `limit=`), clamped to each tool's
+  configured `max_page_size` in `config/pito/tools.yml`; a limit-less
+  caller (browsers, older builds) sees identical behavior to before.
+- **An F9 FPS overlay on every surface** — a top-left chip, hidden until
+  toggled, readable in every environment (not just development); its
+  sampler only runs while the chip is visible, so an untoggled chip costs
+  nothing. The DEVELOPMENT ribbon at the bottom goes back to being a plain
+  wordmark now that the fps meter that briefly lived inside it (2.1.0) has
+  its own home.
+- **MCP tool descriptions got a rewrite** — every remote-AI tool exposed
+  over `/mcp` now carries intent framing (when to reach for this tool vs. a
+  sibling) plus worked "owner asks this → the tool call that answers it"
+  example utterances, so a connected AI assistant picks the right tool on
+  the first try instead of guessing from a bare noun.
+- **AppSignal now hears about broken embedding batches** — a strict
+  `embed_batch` failure (a sidecar down mid-sweep, a malformed response) is
+  reported to AppSignal as an incident; the forgiving `embed` path (search-
+  like matching, link-suggestion tiebreaks) stays log-only, since a sidecar
+  hiccup there is designed degradation, not an incident.
+- **Search results are first-class, config-driven lists** — every search
+  result (games, conversations, vids) renders through the same list-card
+  mechanism as `list games`/`list vids`, with a display mode set by the
+  `like`/`for` grammar split: `like` (similarity) adds a **Score** column, a
+  0–100 gradient bar rendered from a structured `{ score: }` cell at display
+  time — never HTML baked into the stored payload; `for` (mentions) adds an
+  **Occurrences** count (conversations) or matches across multiple lexical
+  fields (games, vids), with no score bar at all.
+- **`search vids like <title>` / `search vids for <text>`** — vids join
+  games and conversations as a searchable noun for the first time. `like`
+  resolves a seed vid and ranks its nearest embedding neighbors (same shape
+  as games' `like`, seed leading at a 100 score); `for` matches title,
+  description, and tags. Because a search result is a single-page similarity
+  ranking, its card carries a dedicated `video_search` reply target: every
+  per-vid reply still works (`show`/`rm`/`schedule`/`publish`/`unlist`/`link`/
+  `unlink`/`glance`/`game`/`shinies` and column `with`/`without`), but the
+  pager (`next`/`more`) and `sort`/`order` are deliberately absent — they'd
+  paginate or re-order a ranking that only makes sense as the one page it was
+  returned as. That result card has its own `#<handle> --help` page listing
+  exactly those replies, and `search vids for`/`search vids like` now appear
+  in the Ctrl+K command palette next to the games and conversations forms.
+- **Conversation search drops its snippet for a resume shortcut** — the hit
+  card's second column is now mode-dependent: `for`/bare shows an
+  **occurrence count**, sorted most-mentioned-first (ties break on recency);
+  `like` shows the same **Score** bar every other search result gets. The
+  conversation name itself is now the click affordance — clicking it fills
+  the chatbox with `/resume <uuid>` (or `/resume <uuid> <event_id>` for a
+  `for` hit, so the click both switches conversations and jumps straight to
+  the matched message) and submits immediately.
+- **`/resume <uuid>`** and **`/resume <uuid> <event_id>`** — switch straight
+  to a conversation by uuid, optionally landing on one message via a
+  `#event_<id>` anchor jump (the same smooth-scroll-and-flash a
+  conversation-search hit click triggers). `/resume <name>` keeps its
+  existing exact-title behavior.
+- **`search games for <title>` now matches genres, developer, and
+  publisher** too, on top of the existing title/summary/alternative_names/
+  platforms/themes/player_perspectives fields — "capcom" or "beat 'em up"
+  now finds a game via its detail card even when neither word is in the
+  title.
+
+### Changed
+
+- **Scheduled Slack/Discord notifications arrive as one digest, not a flood** —
+  the two recurring jobs that used to fan a separate webhook out per item now
+  each send a single grouped message: one **Upcoming releases** digest (blue
+  accent) and one **Achievements** digest (gold accent), each a monospace
+  two-column table (days-until │ game title; achievement │ who earned it),
+  sorted soonest-first / by unlock order. In-app notifications, their
+  per-event records, the real-time single-achievement webhook, and the job
+  schedules are all unchanged — only the scheduled webhook fan-out is
+  collapsed. Delivery is best-effort: a webhook outage is logged, never raised.
+- **Scroll pills stop counting past ten** — the ctrl+home / ctrl+end
+  pills now read "10+ msgs before/after" once more than ten messages sit
+  out of view; counts one through ten stay exact. Same short form in the
+  TUI.
+- **Game and vid embeddings retired Voyage AI for good** — every live
+  path that (re)embeds a game or vid (IGDB sync, game import, the nightly
+  reindex fan-out, the video library sync, and the chat `reindex`
+  confirmation) now calls the local-embedder indexers end to end; the
+  Voyage AI indexer/client/stats files and their two bulk/reindex jobs
+  are gone, renamed live per-record jobs are `GameEmbedIndexJob` /
+  `VideoEmbedIndexJob`.
+- **The rest of Voyage AI is decommissioned** — the `voyage` gem is gone
+  from the Gemfile; `app/services/voyage/*`, both Voyage indexer files, and
+  `lib/pito/stack/voyage.rb` are deleted; the `/config voyage` credential
+  surface (its accessors, its input-masking rule, its usage-dashboard tile)
+  is gone along with it. `app_settings.voyage_api_key` is dropped for good
+  (an owner-ruled, deliberately destructive migration — see
+  `db/migrate/20260715170000_*`). The retired 1024-dim `summary_embedding`
+  columns on `games`/`videos` are dropped and the 768-dim `_v2` columns
+  promoted to the canonical column and index names in the same migration
+  chain (`db/migrate/20260715180000_*`) — no straggler "finalize" step left
+  waiting on a manual go-ahead.
+- **`search games for <title>` is now an exact match, and bare defaults to
+  it** — `search games for tekken` (or the bare `search games tekken`) now
+  returns only games actually titled Tekken-something (matched against
+  title and IGDB `alternative_names`), never a genre/theme neighbor; `search
+games like <title>` keeps its unchanged similarity ranking. Previously a
+  bare query behaved like `like`.
+- **Breaking for self-hosters: the first boot after `pito update` downloads
+  new AI weights** — `pito up` now pulls the `embedder` and `nlmapper`
+  sidecars' GGUF weights (~850MB combined) from Hugging Face into their own
+  per-sidecar volumes (`embedder_models` / `nlmapper_models`) before either
+  reports healthy; budget a few extra
+  minutes on a slow connection (both healthchecks' `start_period: 10m`
+  covers it). New `PITO_EMBEDDER_URL` / `PITO_NLMAPPER_URL` env vars point
+  the app at the sidecars — the compose files set both for you, no `.env`
+  edit needed. Run the chat `reindex` command once after upgrading
+  (`reindex game <id>` / `reindex vid <id>`, or `pito rake
+pito:embeddings:reindex` for a full games+videos+events sweep) so your
+  library re-embeds at the new 768-dim width; until then, similarity search
+  and search-like results ride whatever finished re-embedding. The Voyage
+  API key setting is simply gone — no action needed, the column drop above
+  is automatic.
+- **Similar-games card shows 4 covers, 20% bigger** — was 5 covers at
+  180×240; the strip variant grows to 432×576 (displayed 216×288) so 4
+  covers fill one clean desktop row and wrap to a tidy 2×2 on mobile with no
+  orphaned third card. Existing covers regenerate at the new size
+  automatically on your next `pito update` — a one-off backfill enqueued on
+  deploy (derived from each cover's stored master image), so there is no
+  manual step and no CSS/HTML upscaling.
+
+### Fixed
+
+- **Backfilled achievement tiers land in the right order** — when a channel
+  or vid is first tracked with history behind it, a metric can clear several
+  milestone tiers in one shot (connect a channel already past its tier-3 subs
+  mark and tiers 1–3 all unlock at once). Those lower tiers were always
+  created, but they shared a single unlock timestamp, so the per-metric
+  timeline (ordered by `unlocked_at`) couldn't sort them. They're now stamped
+  one second apart — the top tier at the unlock moment, each lower tier a
+  second earlier — so the history reads tier-1-oldest up to the highest tier
+  newest. Single-tier unlocks are unchanged.
+- **Embedding failures now say why** — when the local embedder can't
+  produce a vector for a game or vid (a sidecar hiccup, a malformed
+  response, a missing key), the recorded error carries the real cause
+  instead of a bare "returned nil", so an incident names its culprit on
+  sight.
+
 ## [2.4.0] — 2026-07-14
 
 ### Added

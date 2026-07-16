@@ -37,17 +37,23 @@ module Pito
       end
     end
 
-    # Raised when Voyage AI returns nil for an embedding request.
-    class VoyageEmbeddingNil < Base
-      def initialize(resource_type:, resource_id:)
-        super(resource_type: resource_type, resource_id: resource_id)
+    # Raised when the embedder returns nil for an embedding request.
+    # `detail` carries the underlying client failure (a 429, a missing
+    # key, a network error) so the incident names its cause instead of
+    # a bare nil. This class was Voyage-named before the 3.0.0 decommission
+    # sweep renamed it to EmbeddingNil.
+    class EmbeddingNil < Base
+      def initialize(resource_type:, resource_id:, detail: nil)
+        super(resource_type: resource_type, resource_id: resource_id, detail: detail)
       end
 
       private
 
       def build_message
-        "Voyage embedding returned nil for " \
+        message = "Embedding returned nil for " \
           "#{@attrs[:resource_type]} ##{@attrs[:resource_id]}"
+        message += " — #{@attrs[:detail]}" if @attrs[:detail]
+        message
       end
     end
 

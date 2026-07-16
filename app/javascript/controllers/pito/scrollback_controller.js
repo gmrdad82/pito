@@ -26,12 +26,17 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   connect() {
     this.abort = new AbortController()
-    // (1) Resume at the end — instant, before paint matters.
-    this.#jumpToEnd()
-    // Late-settling layout (fonts, first images) can grow the scrollback
-    // right after load; one follow-up jump next frame keeps "the end"
-    // honest. This is still the LOAD jump, not a follow feature.
-    requestAnimationFrame(() => this.#jumpToEnd())
+    // (1) Resume at the end — instant, before paint matters. EXCEPT when the
+    // URL carries an #event_<id> anchor (resume-to-a-specific-event, e.g.
+    // /resume <uuid> <event_id>): pito--anchor-jump owns the scroll position
+    // then, and this jump-to-end must not yank focus away from it.
+    if (!this.#hasEventAnchor()) {
+      this.#jumpToEnd()
+      // Late-settling layout (fonts, first images) can grow the scrollback
+      // right after load; one follow-up jump next frame keeps "the end"
+      // honest. This is still the LOAD jump, not a follow feature.
+      requestAnimationFrame(() => this.#jumpToEnd())
+    }
     this.#bindMutationBus()
     this.#bindSubmit()
     this.#bindKeyScroll()
@@ -46,6 +51,12 @@ export default class extends Controller {
 
   #jumpToEnd() {
     this.element.scrollTo({ top: this.element.scrollHeight, behavior: "instant" })
+  }
+
+  // True when the URL hash targets a specific event (resume-to-anchor). The
+  // pito--anchor-jump controller owns scroll position in that case.
+  #hasEventAnchor() {
+    return /^#event_\d+$/.test(window.location.hash)
   }
 
   // Event bus ONLY (owner purge): announces appended segments for the

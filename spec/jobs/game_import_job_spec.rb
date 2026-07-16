@@ -28,8 +28,8 @@ RSpec.describe GameImportJob, type: :job do
     allow(Game::Igdb::Importer).to receive(:call).with(igdb_id: igdb_id, title: title)
                                                  .and_return({ game: game, action: :import })
 
-    # Stub VoyageIndexer (skips actual Voyage HTTP call)
-    allow(::Game::VoyageIndexer).to receive(:call)
+    # Stub EmbeddingIndexer (skips actual embedder HTTP call)
+    allow(::Game::EmbeddingIndexer).to receive(:call)
 
     # Stub ScoreCalculator
     allow(Pito::Games::ScoreCalculator).to receive(:call).and_return(80.0)
@@ -194,8 +194,8 @@ RSpec.describe GameImportJob, type: :job do
     perform
   end
 
-  it "calls Game::VoyageIndexer for step 4" do
-    expect(::Game::VoyageIndexer).to receive(:call)
+  it "calls Game::EmbeddingIndexer for step 4" do
+    expect(::Game::EmbeddingIndexer).to receive(:call)
     perform
   end
 
@@ -271,26 +271,26 @@ RSpec.describe GameImportJob, type: :job do
     end
   end
 
-  # ── BUG A: VoyageEmbeddingNil propagates (not swallowed) ─────────────────────
+  # ── BUG A: EmbeddingNil propagates (not swallowed) ─────────────────────
 
-  context "when Game::VoyageIndexer raises VoyageEmbeddingNil" do
+  context "when Game::EmbeddingIndexer raises EmbeddingNil" do
     before do
-      allow(::Game::VoyageIndexer).to receive(:call)
-        .and_raise(Pito::Error::VoyageEmbeddingNil.new(resource_type: "game", resource_id: game.id))
+      allow(::Game::EmbeddingIndexer).to receive(:call)
+        .and_raise(Pito::Error::EmbeddingNil.new(resource_type: "game", resource_id: game.id))
     end
 
-    it "raises VoyageEmbeddingNil (not swallowed) so retry_on can handle it" do
-      expect { perform }.to raise_error(Pito::Error::VoyageEmbeddingNil)
+    it "raises EmbeddingNil (not swallowed) so retry_on can handle it" do
+      expect { perform }.to raise_error(Pito::Error::EmbeddingNil)
     end
 
     it "does NOT raise StandardError (the generic rescue does not eat embedding failures)" do
-      # retry_on only intercepts VoyageEmbeddingNil; it must not be re-wrapped
+      # retry_on only intercepts EmbeddingNil; it must not be re-wrapped
       begin
         perform
-      rescue Pito::Error::VoyageEmbeddingNil
+      rescue Pito::Error::EmbeddingNil
         # expected
       rescue StandardError => e
-        raise "Unexpected StandardError raised instead of VoyageEmbeddingNil: #{e.class}: #{e.message}"
+        raise "Unexpected StandardError raised instead of EmbeddingNil: #{e.class}: #{e.message}"
       end
     end
   end

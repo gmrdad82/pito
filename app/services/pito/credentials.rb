@@ -46,10 +46,6 @@ module Pito
       end
 
 
-      def voyage_api_key
-        fetch(:voyage_api_key) { AppSetting.voyage_api_key.presence }
-      end
-
       def igdb_client_id
         fetch(:igdb_client_id) { AppSetting.igdb_client_id.presence }
       end
@@ -80,7 +76,6 @@ module Pito
           google_oauth_client_secret
           google_oauth_redirect_uri
           google_api_key
-          voyage_api_key
           igdb_client_id
           igdb_client_secret
           slack_webhook_url

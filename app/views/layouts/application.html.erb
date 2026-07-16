@@ -91,6 +91,12 @@
     <%= render(Pito::DevelopmentBannerComponent.new) %>
   <% end %>
 
+  <%# F9 FPS chip (3.0.0) — hidden until toggled, so it costs nothing until the
+      owner presses F9. Mounted in EVERY environment (owner 2026-07-15: wanted in
+      dev AND production), which is why it lives OUTSIDE the dev-only banner guard
+      above — the sampler is visibility-gated, so an untoggled chip is inert. %>
+  <%= render(Pito::FpsOverlayComponent.new) %>
+
   <%# "Get the app" top banner — Android browsers only (the component's
       render? bows out for non-Android UAs and inside the Hotwire Native
       shell; a localStorage dismissal keeps it hidden client-side). %>

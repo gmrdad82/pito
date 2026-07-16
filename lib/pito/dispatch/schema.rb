@@ -28,10 +28,21 @@ module Pito
     # / reply) no token may map to two tools.
     module Schema
       # ── Allowed keys, per level (unknown key ⇒ rejected) ──────────────────────
-      TOP_KEYS             = %i[schema_version universal_reply vocabularies tools mcp_readers].freeze
+      TOP_KEYS             = %i[schema_version universal_reply vocabularies tools mcp_readers nl].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      TOOL_KEYS            = %i[aliases description availability auth internal universal_reply chat slash reply segments concerns mcp capabilities].freeze
+      TOOL_KEYS            = %i[aliases description availability auth internal universal_reply chat slash reply segments concerns mcp capabilities nl_examples].freeze
+
+      # A top-level `nl:` block — the NL mapper's ontology-owned knobs (content
+      # is authored separately in tools.yml by the orchestrator; this key only
+      # says the SHAPE is legal). Distinct from the per-tool `nl_examples:`
+      # above: nl.exemplars are the mapper's say → run few-shot corpus for the
+      # WHOLE ontology, nl_examples are per-tool authored phrasings. The router
+      # reads thresholds + synonyms; the mapper retrieval-picks exemplars for
+      # its few-shot prompt.
+      NL_KEYS              = %i[thresholds synonyms exemplars].freeze
+      NL_THRESHOLD_KEYS    = %i[auto_run suggest].freeze
+      NL_EXEMPLAR_KEYS     = %i[say run].freeze
 
       # Capability blocks (v1.6 unified grammar) — a per-tool `capabilities:` declares
       # the CONFIG vocabulary that --help, MCP, and autocomplete all read: per-noun
@@ -42,6 +53,14 @@ module Pito
       CAPABILITY_KEYS       = %i[columns filters].freeze
       CAP_COLUMN_KEYS       = %i[aliases desc sortable requires_with internal default].freeze
       CAP_FILTER_KEYS       = %i[tokens vocabulary scope desc].freeze
+
+      # A per-tool `nl_examples:` — an optional Array of natural-language phrasings
+      # a chatting owner might type for this tool. One ontology, three consumers:
+      # the NL router embeds these phrasings to route free-text chat; the MCP tool
+      # descriptions surface them so a client model knows when to call this tool;
+      # and the mapper's few-shot prompt reads them as worked examples. The corpus
+      # itself is authored separately in tools.yml — this key only says the SHAPE
+      # is legal (non-empty Strings) when a tool declares one.
 
       # MCP tool blocks — a per-tool `mcp:` promotes a READ-ONLY tool into an
       # MCP tool; the top-level `mcp_readers:` declares tools with no backing tool
@@ -82,7 +101,7 @@ module Pito
       SEGMENT_KEYS         = %i[builder kind default fill reply_target emit_if aliases].freeze
       SEGMENT_REQUIRED     = %i[builder kind reply_target].freeze
       CONCERNS_KEYS        = %i[pager].freeze
-      PAGER_KEYS           = %i[page_size more_tool].freeze
+      PAGER_KEYS           = %i[page_size more_tool max_page_size].freeze
       # A `dispatch:` Hash routes a tool either client-side (`{ client: … }`) or
       # through the chat_controller slash path (`{ controller: … }`, no handler class).
       DISPATCH_HASH_KEYS   = %i[client controller].freeze
@@ -204,6 +223,7 @@ module Pito
           validate_vocabularies(@doc[:vocabularies]) if @doc.key?(:vocabularies)
           validate_tools(@doc[:tools]) if @doc.key?(:tools)
           validate_mcp_readers(@doc[:mcp_readers]) if @doc.key?(:mcp_readers)
+          validate_nl(@doc[:nl]) if @doc.key?(:nl)
           self
         end
 
@@ -297,6 +317,7 @@ module Pito
           validate_concerns(body[:concerns], join(path, "concerns")) if body.key?(:concerns)
           validate_mcp(body[:mcp], join(path, "mcp")) if body.key?(:mcp)
           validate_capabilities(body[:capabilities], join(path, "capabilities")) if body.key?(:capabilities)
+          validate_nl_examples(body[:nl_examples], join(path, "nl_examples")) if body.key?(:nl_examples)
         end
 
         # ── Capability blocks (v1.6) ────────────────────────────────────────────
@@ -361,6 +382,83 @@ module Pito
           return if has_tokens || has_vocabulary
 
           err(path, "filter must declare tokens (non-empty Array) or vocabulary (String)")
+        end
+
+        # ── NL examples ───────────────────────────────────────────────────────────
+        # An optional Array of non-empty phrasing Strings (see the nl_examples
+        # comment at the constant definition for why three consumers read this).
+        def validate_nl_examples(examples, path)
+          return err(path, "expected an Array, got #{examples.class}") unless examples.is_a?(Array)
+
+          examples.each_with_index do |example, i|
+            ex_path = "#{path}[#{i}]"
+            if !example.is_a?(String)
+              err(ex_path, "expected a String, got #{example.class}")
+            elsif example.strip.empty?
+              err(ex_path, "nl_examples entries must not be blank")
+            end
+          end
+        end
+
+        # ── NL ontology (top-level `nl:` block) ──────────────────────────────────
+        # See the NL_KEYS comment at the constant definition for the shape + why
+        # this is distinct from per-tool nl_examples above.
+        def validate_nl(section)
+          return unless expect_hash(section, "nl")
+
+          check_keys(section, Schema::NL_KEYS, "nl")
+          validate_nl_thresholds(section[:thresholds], "nl.thresholds") if section.key?(:thresholds)
+          validate_nl_synonyms(section[:synonyms], "nl.synonyms") if section.key?(:synonyms)
+          validate_nl_exemplars(section[:exemplars], "nl.exemplars") if section.key?(:exemplars)
+        end
+
+        # thresholds: { auto_run:, suggest: } — both Numeric 0..1; auto_run must
+        # be >= suggest when both are present (a lower auto-run bar than the
+        # suggest bar would let the router fire before ever surfacing a suggestion).
+        def validate_nl_thresholds(thresholds, path)
+          return unless expect_hash(thresholds, path)
+
+          check_keys(thresholds, Schema::NL_THRESHOLD_KEYS, path)
+          Schema::NL_THRESHOLD_KEYS.each do |key|
+            validate_unit_float(thresholds[key], join(path, key.to_s)) if thresholds.key?(key)
+          end
+
+          auto_run, suggest = thresholds[:auto_run], thresholds[:suggest]
+          return unless auto_run.is_a?(Numeric) && suggest.is_a?(Numeric)
+
+          err(path, "auto_run (#{auto_run}) must be >= suggest (#{suggest})") if auto_run < suggest
+        end
+
+        # synonyms: { <word> => <canonical> } — non-empty key + a non-empty
+        # String value; the NL router folds the key token into the value before
+        # matching.
+        def validate_nl_synonyms(synonyms, path)
+          return err(path, "expected a Hash, got #{synonyms.class}") unless synonyms.is_a?(Hash)
+
+          synonyms.each do |from, to|
+            pair_path = join(path, from)
+            err(pair_path, "synonym key must not be blank") if from.to_s.strip.empty?
+            if to.is_a?(String)
+              err(pair_path, "synonym value must not be blank") if to.strip.empty?
+            else
+              err(pair_path, "expected a String value, got #{to.class}")
+            end
+          end
+        end
+
+        # exemplars: [ { say:, run: }, … ] — the mapper's say → run few-shot
+        # corpus for the whole ontology; both keys required, both non-empty Strings.
+        def validate_nl_exemplars(exemplars, path)
+          return err(path, "expected an Array, got #{exemplars.class}") unless exemplars.is_a?(Array)
+
+          exemplars.each_with_index do |exemplar, i|
+            ex_path = "#{path}[#{i}]"
+            next unless expect_hash(exemplar, ex_path)
+
+            check_keys(exemplar, Schema::NL_EXEMPLAR_KEYS, ex_path, required: Schema::NL_EXEMPLAR_KEYS)
+            validate_nonblank_string(exemplar[:say], join(ex_path, "say")) if exemplar.key?(:say)
+            validate_nonblank_string(exemplar[:run], join(ex_path, "run")) if exemplar.key?(:run)
+          end
         end
 
         # ── MCP tool blocks ──────────────────────────────────────────────────────
@@ -703,6 +801,7 @@ module Pito
           check_keys(body, Schema::PAGER_KEYS, path)
           validate_integer(body[:page_size], join(path, "page_size")) if body.key?(:page_size)
           validate_string(body[:more_tool], join(path, "more_tool")) if body.key?(:more_tool)
+          validate_integer(body[:max_page_size], join(path, "max_page_size")) if body.key?(:max_page_size)
         end
 
         # ── leaf validators ───────────────────────────────────────────────────────
@@ -774,6 +873,18 @@ module Pito
 
         def validate_integer(value, path)
           err(path, "expected an Integer, got #{value.class}") unless value.is_a?(Integer)
+        end
+
+        def validate_unit_float(value, path)
+          return err(path, "expected a Numeric 0..1, got #{value.class}") unless value.is_a?(Numeric)
+
+          err(path, "expected a Numeric 0..1, got #{value.inspect}") unless (0..1).cover?(value)
+        end
+
+        def validate_nonblank_string(value, path)
+          return err(path, "expected a String, got #{value.class}") unless value.is_a?(String)
+
+          err(path, "must not be blank") if value.strip.empty?
         end
 
         # ── shared helpers ────────────────────────────────────────────────────────

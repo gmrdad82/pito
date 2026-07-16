@@ -79,13 +79,29 @@ module Pito
       end
 
       # Returns table_rows as an array of cell arrays: each row becomes an ordered
-      # Array of { text:, class: } hashes. Supports the new `:cells` key (arbitrary
-      # N columns) and falls back to the legacy { key:, value:, value2: } shape so
-      # every existing caller renders identically.
+      # Array of { text:, class: } hashes (or { score:, class: } — see below).
+      # Supports the new `:cells` key (arbitrary N columns) and falls back to
+      # the legacy { key:, value:, value2: } shape so every existing caller
+      # renders identically.
+      #
+      # A `:cells` entry may carry `score:` (Integer 0..100) instead of
+      # `text:` to render a score bar — see #normalized_cell.
+      #
+      # A row may also carry an opaque row-level `:data` key (a sibling of
+      # `:cells`) — arbitrary HTML data-* attributes a handler wants stamped
+      # onto its row. The data-grid has no single per-row DOM element (rows
+      # are flat sibling grid-item spans laid out by CSS grid, not wrapped in
+      # a row `<div>` — see `.pito-data-grid` in application.css), so "the row
+      # carries an attribute" means every cell span of that row carries it.
+      # Domain-agnostic and reusable by any handler/builder emitting
+      # `cells`-shaped rows, not specific to any one caller. Per-cell `:data`
+      # (set on an individual cell) wins over the row-level value on key
+      # collision. Rows without a `:data` key render byte-identical to before.
       def normalized_table_rows
         @normalized_table_rows ||= table_rows.map do |row|
           if row[:cells].present?
-            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim", html: c[:html] == true, data: c[:data].presence } }
+            row_data = row[:data].presence
+            row[:cells].map { |c| normalized_cell(c, row_data) }
           else
             cells = [
               { text: row[:key].to_s,   class: "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap" },
@@ -148,6 +164,37 @@ module Pito
       end
 
       private
+
+      # Normalizes one :cells entry into the shape DataGridComponent renders.
+      #
+      # A cell may carry `score:` (Integer 0..100) INSTEAD of `text:` — that
+      # renders the SAME score bar the similar-games / channel-recommendation
+      # cards use (Pito::ScoreBarComponent), built from the numeric value at
+      # DISPLAY time (see DataGridComponent#render_score_cell) — the event
+      # payload only ever stores the integer, never the bar's HTML, so a
+      # re-render always reflects the current bar styling/translations. The
+      # `pito-cell-score` wrapper class (grid-column width cap) is added
+      # automatically; any caller-supplied `class:` is appended alongside it.
+      # A cell without `score:` renders exactly as before (byte-identical).
+      def normalized_cell(c, row_data)
+        data = merged_cell_data(c[:data], row_data)
+        return { score: c[:score].to_i, class: [ "pito-cell-score", c[:class] ].compact.join(" "), data: } if c[:score].present?
+
+        { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim", html: c[:html] == true, data: }
+      end
+
+      # Merges a row's opaque `:data` hash onto one cell's own `:data` hash —
+      # cell wins on key collision. Returns `cell_data.presence` unchanged
+      # when the row carries no `:data` (the pre-existing expression, so
+      # every row without the new key renders byte-identical), else a plain
+      # Hash so `tag.span`'s `data:` option (Pito::Event::DataGridComponent
+      # #render_cell_span) dasherizes every key the same way regardless of
+      # source.
+      def merged_cell_data(cell_data, row_data)
+        return cell_data.presence if row_data.blank?
+
+        row_data.to_h.merge((cell_data.presence || {}).to_h)
+      end
 
       # Returns a stable DOM id for anchorable system messages.
       #

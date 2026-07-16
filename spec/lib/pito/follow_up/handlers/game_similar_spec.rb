@@ -60,8 +60,17 @@ RSpec.describe Pito::FollowUp::Handlers::GameSimilar do
       expect(result.consume).to be(false)
     end
 
-    it "returns a not-found Ok for a non-numeric ref (id-only resolution)" do
+    it "resolves a non-numeric ref by title now that `show` accepts titles (P36)" do
+      # The follow-up dispatches `show game <ref>` as free-chat, so it inherits
+      # `show`'s P36 title resolution: "lies of p" matches the "Lies of P" game
+      # above and opens it (consume: true), no longer id-only.
       result = handler.call(event:, rest: "show lies of p", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(true)
+    end
+
+    it "returns a not-found Ok for a ref matching no id and no title" do
+      result = handler.call(event:, rest: "show no such game anywhere", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Append)
       expect(result.consume).to be(false)
     end

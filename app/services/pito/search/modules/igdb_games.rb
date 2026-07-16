@@ -17,7 +17,13 @@ module Pito
 
         CACHE_TTL = 1.day
 
-        def call(query:, limit: 10)
+        # The IGDB search's default hit count — mirrors the :games tool's
+        # pager `page_size` in config/pito/tools.yml (kept identical so
+        # limit-less callers, e.g. Games::SearchController without a `limit`
+        # param, see unchanged behavior).
+        DEFAULT_LIMIT = 10
+
+        def call(query:, limit: DEFAULT_LIMIT)
           q = query.to_s.strip
           return empty if q.empty?
 

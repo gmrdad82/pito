@@ -20,8 +20,14 @@ module Pito
         # @param videos       [ActiveRecord::Relation | Array<::Video>] non-empty, pre-fetched.
         # @param conversation [Conversation] used to generate the reply handle.
         # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
+        # @param scores       [Hash{Integer => Integer}, nil] optional video_id => 0..100 score
+        #   map (search's `like` path). When present, a trailing Score column is appended to
+        #   the heading and every row via the `{ score: }` data-grid cell contract (renders a
+        #   score bar — see Pito::Event::SystemComponent#normalized_cell). nil (every other
+        #   caller: `list vids`, follow-up pagers) → no Score column, output identical to
+        #   before this param existed.
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
-        def call(videos, conversation:, columns: [])
+        def call(videos, conversation:, columns: [], scores: nil)
           cols    = Array(columns).map(&:to_sym)
           payload = {
             "body"          => Pito::Copy.render_html(
@@ -30,9 +36,18 @@ module Pito
               shimmer: [ :count, :noun ]
             ),
             "html"          => true,
-            "table_heading" => [ { "text" => "#", "class" => "text-right" }, "Title", *ListColumns.heading_cells(cols) ],
+            "table_heading" => [
+              { "text" => "#", "class" => "text-right" },
+              "Title",
+              *ListColumns.heading_cells(cols),
+              # Search's `like` path only (scores present) — a literal structural
+              # label, same as the plain-string "Title" heading above and the
+              # "Score" heading Conversation::Hits already uses for its own
+              # score column (lib/pito/message_builder/conversation/hits.rb).
+              *(scores ? [ "Score" ] : [])
+            ],
             "shimmer_heading" => true,
-            "table_rows"    => videos.map { |video| row_for(video, cols) },
+            "table_rows"    => videos.map { |video| row_for(video, cols, scores: scores) },
             # Stamped for with/without column mutations: allows the handler to
             # reload the same videos and rebuild with an updated column set.
             "video_ids"     => videos.map(&:id),
@@ -43,7 +58,7 @@ module Pito
           payload
         end
 
-        def row_for(video, columns = [])
+        def row_for(video, columns = [], scores: nil)
           id_text = "##{video.id}"
           {
             cells: [
@@ -56,7 +71,10 @@ module Pito
                 data:  Pito::Shimmer::TokenComponent.prefill_data("show vid #{id_text}", submit: true)
               },
               { text: video.title, class: "text-fg pito-cell-title" },
-              *ListColumns.cells(video, columns)
+              *ListColumns.cells(video, columns),
+              # { score: } cell contract (SystemComponent#normalized_cell) —
+              # renders a ScoreBarComponent instead of plain text.
+              *(scores ? [ { score: scores[video.id] } ] : [])
             ]
           }
         end

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 class Video
-  # Builds the multi-field text embedded by Voyage for a Video — the single
-  # source of truth shared by `Video::VoyageIndexer` and any bulk path (so the
-  # per-record and bulk paths can never drift). Mirrors `Game::EmbedText`.
+  # Builds the multi-field text embedded for a Video — the single
+  # source of truth shared by `Video::EmbeddingIndexer` and any bulk path (so
+  # the per-record and bulk paths can never drift). Mirrors `Game::EmbedText`.
   #
   # Fields (em-dash joined, blank slots skipped): title · description · tags ·
   # category. Category is the YouTube numeric `categoryId` mapped to a name via

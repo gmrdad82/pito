@@ -34,14 +34,52 @@ RSpec.describe "GET /notifications.json", type: :request do
     expect(unread_row["created_at"]).to eq(unread.created_at.iso8601)
   end
 
-  it "ignores a limit param and keeps the server's PAGE_SIZE" do
+  # ── ?limit= (viewport-driven paging, 3.0.0) ─────────────────────────────────
+  # pito-tui sends its visible-row count as `limit`; the server honors it via
+  # ApplicationController#client_page_limit, clamped to the :notifications
+  # tool's configured max_page_size (config/pito/tools.yml).
+
+  it "honors a limit within range" do
     login!
     create_list(:notification, 3)
 
     get "/notifications", params: { limit: 1 }, headers: { "Accept" => "application/json" }
 
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body["rows"].size).to eq(3)
+    expect(response.parsed_body["rows"].size).to eq(1)
+  end
+
+  it "falls back to Notification::PAGE_SIZE when limit is absent" do
+    stub_const("Notification::PAGE_SIZE", 2)
+    login!
+    create_list(:notification, 3)
+
+    get "/notifications", headers: { "Accept" => "application/json" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["rows"].size).to eq(2)
+  end
+
+  it "falls back to Notification::PAGE_SIZE when limit is invalid" do
+    stub_const("Notification::PAGE_SIZE", 2)
+    login!
+    create_list(:notification, 3)
+
+    get "/notifications", params: { limit: "abc" }, headers: { "Accept" => "application/json" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["rows"].size).to eq(2)
+  end
+
+  it "clamps an over-cap limit to the notifications tool's max_page_size" do
+    allow(Pito::Dispatch::Config).to receive(:max_page_size).with(tool: :notifications).and_return(2)
+    login!
+    create_list(:notification, 3)
+
+    get "/notifications", params: { limit: 999 }, headers: { "Accept" => "application/json" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["rows"].size).to eq(2)
   end
 
   it "pages via after= and exhausts with a null next_cursor" do

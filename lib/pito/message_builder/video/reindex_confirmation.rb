@@ -7,7 +7,7 @@ module Pito
       #
       # Emitted when the user replies `#<handle> reindex` to a video-detail event.
       # The executor branch (`video_reindex` in Pito::Confirmation::Executor) calls
-      # Video::VoyageIndexer.call(video, force: true) on confirm.
+      # Video::EmbeddingIndexer.call(video, force: true) on confirm.
       module ReindexConfirmation
         module_function
 

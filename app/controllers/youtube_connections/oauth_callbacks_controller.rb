@@ -146,7 +146,13 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       # (false for re-auths where discovery returned only duplicates).
       ChannelInfoJob.perform_later(connection.id, turn.id, import_videos: import_videos)
     else
-      # Error / partial grant: complete immediately
+      # Error / partial grant: complete immediately. This deliberately stamps
+      # completed_at directly instead of routing through
+      # Pito::Stream::Broadcaster#complete_turn, so it does NOT enqueue
+      # EventEmbedJob — this "connect failed" system turn is intentionally left
+      # out of the conversation-search index (owner 2026-07-15: accepted edge,
+      # no value in semantic-searching a failed reconnect). Not a bug; if that
+      # ever changes, route this through complete_turn like the success path.
       turn.update_columns(completed_at: Time.current)
     end
   end

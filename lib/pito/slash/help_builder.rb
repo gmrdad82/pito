@@ -25,7 +25,7 @@ module Pito
       # AI config has exactly ONE entry here (owner: no per-provider spillage).
       CONFIG_PROVIDER_GROUPS = {
         "ai"      => %w[ai tavily],
-        "sources" => %w[google voyage igdb],
+        "sources" => %w[google igdb],
         "profile" => %w[webhook sound timezone]
       }.freeze
 

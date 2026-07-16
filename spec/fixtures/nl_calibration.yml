@@ -1,0 +1,86 @@
+# NL mapper calibration corpus (3.0.0, Fable-authored 2026-07-15).
+#
+# The held-out test set for the `nl:` thresholds — every phrasing here is
+# DELIBERATELY absent from the tools.yml nl_examples corpus (those are the
+# router's training neighbors; these prove generalization). Three tiers:
+#
+#   auto_run   — clearly one read-only tool; the router must map these with
+#                confidence >= nl.thresholds.auto_run and the gate must run
+#                them directly (attribution shown).
+#   suggest    — mappable, but must NEVER auto-run: write-capable tools
+#                (regardless of confidence) or honest ambiguity. The gate
+#                asks "did you mean `<run>`?".
+#   reject     — must fall through to the unknown-input copy: out-of-scope
+#                chatter, pito-can't-do-that asks, fragments, and questions
+#                that belong to @ai rather than a grammar command.
+#
+# The calibration spec (rides with the router) runs each tier through
+# Pito::Nl::Router + the confidence gate and pins the tier boundaries —
+# thresholds become measured numbers, not guesses. Reject entries carry no
+# `run`; a router hit on one of them above the suggest threshold is a
+# calibration failure.
+auto_run:
+  - { say: "show me all my vids",                     run: "ls vids" }
+  - { say: "list every game I own",                   run: "ls games" }
+  - { say: "what channels do I have?",                run: "ls channels" }
+  - { say: "list rpg games please",                   run: "ls rpg games" }
+  - { say: "how did my channel do this week?",        run: "analyze channel" }
+  - { say: "check my subs trend",                     run: "analyze channel" }
+  - { say: "quick overview please",                   run: "glance" }
+  - { say: "open vid 21",                             run: "show vid 21" }
+  - { say: "anything similar to game 3?",             run: "similar 3" }
+  - { say: "who else covers game 9?",                 run: "channels 9" }
+  - { say: "which vids are linked to game 4?",        run: "videos 4" }
+  - { say: "what game goes with vid 5?",              run: "game 5" }
+  - { say: "find my boss fight vids",                 run: "find boss fight" }
+  - { say: "search for games called zelda",           run: "search games for zelda" }
+  - { say: "games that feel like dark souls",         run: "search games like dark souls" }
+  - { say: "where did we discuss thumbnails?",        run: "search conversations for thumbnails" }
+  - { say: "find the chat about pricing strategy",    run: "search conversations for pricing strategy" }
+  - { say: "show my achievements",                    run: "shinies" }
+  - { say: "lifetime numbers for my channel",         run: "breakdowns channel" }
+  - { say: "the cover grid for my channel",           run: "games" }
+  - { say: "what can pito do?",                       run: "help" }
+  # greet/farewell entries removed 2026-07-15: those tools are GRAMMAR-DIRECT
+  # (literal phrases parse upstream) and deliberately excluded from the
+  # router corpus (ROUTER_EXCLUDED_TOOLS) — they can never route, so they
+  # test the wrong layer here.
+
+suggest:
+  - { say: "get rid of vid 3",                        run: "delete vid 3" }
+  - { say: "throw away game 9",                       run: "delete game 9" }
+  - { say: "link vid 2 to game 8",                    run: "link 2 8" }
+  - { say: "detach vid 6 from its game",              run: "unlink 6" }
+  - { say: "make vid 6 public",                       run: "publish 6" }
+  - { say: "hide vid 4 from the public",              run: "unlist 4" }
+  - { say: "push vid 9 out on friday",                run: "schedule 9 friday" }
+  - { say: "sync everything from youtube",            run: "sync" }
+  - { say: "add hades to my library",                 run: "import game hades" }
+  - { say: "set game 5's price to 30",                run: "update game price 5 30" }
+  - { say: "I recorded two more hours of game 7",     run: "update game footage 7" }
+  - { say: "re-embed game 2",                         run: "reindex game 2" }
+
+reject:
+  - { say: "what's the weather like?" }
+  - { say: "who won the world cup?" }
+  - { say: "how do I cook pasta" }
+  - { say: "make me famous" }
+  - { say: "delete everything" }
+  - { say: "upload my new video" }
+  - { say: "can you edit my thumbnail?" }
+  - { say: "write a description for vid 3" }
+  - { say: "why are my views down this month?" }
+  - { say: "what should I play next?" }
+  - { say: "show me that thing from before" }
+  - { say: "sync my bank account" }
+  - { say: "vid" }
+  - { say: "asdfghjkl" }
+  - { say: "do the thing" }
+
+# Known gaps (2026-07-15, measured after two corpus-growth rounds): phrasings
+# that SHOULD ideally auto-run but genuinely don't route correctly under
+# embeddinggemma-300m — listed for visibility, asserted by nothing. Both
+# degrade safely (nil -> unknown copy; wrong-tool -> did-you-mean ask).
+known_gaps:
+  - { say: "gimme the rundown on vid 11",             run: "glance vid 11" }   # -> nil
+  - { say: "pull up the details for game 7",          run: "show game 7" }     # -> videos @0.79

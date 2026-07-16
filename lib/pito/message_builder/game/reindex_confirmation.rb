@@ -7,7 +7,7 @@ module Pito
       #
       # Emitted when the user replies `#<handle> reindex` to a game-enhanced event.
       # The executor branch (`game_reindex` in Pito::Confirmation::Executor) calls
-      # Game::VoyageIndexer.call(game, force: true) on confirm.
+      # Game::EmbeddingIndexer.call(game, force: true) on confirm.
       module ReindexConfirmation
         module_function
 

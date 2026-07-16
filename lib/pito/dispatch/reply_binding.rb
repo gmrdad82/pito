@@ -102,7 +102,8 @@ module Pito
         "game_channels"      => { entity: "::Channel", id_key: :channel_id },
         "game_linked_videos" => { entity: "::Video",   id_key: :video_id },
         "video_detail"       => { entity: "::Video",   id_key: :video_id },
-        "video_list"         => { entity: "::Video",   id_key: :video_id }
+        "video_list"         => { entity: "::Video",   id_key: :video_id },
+        "video_search"       => { entity: "::Video",   id_key: :video_id }
       }.freeze
 
       # Per-entity column vocabulary provider (only column_list uses it).

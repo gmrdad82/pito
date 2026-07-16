@@ -180,6 +180,19 @@ RSpec.describe Pito::Mcp::Executor do
       expect(result.is_error).to be(false)
       expect(result.text).to eq("This channel has no linked games yet.")
     end
+
+    # Same T16.14 class of bug, other side of the pair: `game vid <ref>`
+    # (pito_game_of_vid) on a vid with no linked game used to return "" — the
+    # guarded `game` segment was silently skipped. Now covered by
+    # Show::SEGMENT_EMPTY_COPY[:vid]["game"].
+    it "runs pito_game_of_vid and returns a friendly line (not empty) when the vid has no linked game" do
+      video = create(:video) # no game link
+
+      result = described_class.call(tool: "pito_game_of_vid", arguments: { "vid_ref" => video.id.to_s })
+
+      expect(result.is_error).to be(false)
+      expect(result.text).to eq("No game linked to this vid yet — `link vid <id> to game <id>` wires it.")
+    end
   end
 
   # ── the non-persistence invariant ─────────────────────────────────────────────

@@ -10,9 +10,16 @@ class Notification < ApplicationRecord
   validates :message, presence: true
   validates :level, inclusion: { in: LEVELS }
 
+  # Transient (non-persisted) escape hatch for callers that create many
+  # Notification rows in one batch (e.g. a scheduled digest job) and want to
+  # send ONE combined digest webhook themselves instead of N individual
+  # per-record ones. Default (unset/false) leaves today's behavior untouched.
+  attr_accessor :skip_webhook
+
   # Fan the message out to any configured outbound webhooks (Slack, Discord)
   # once the row is committed. Delivery is isolated per platform in the job.
-  after_create_commit { NotificationWebhookDeliverJob.perform_later(id) }
+  # Suppressed when skip_webhook is set (see attr_accessor above).
+  after_create_commit { NotificationWebhookDeliverJob.perform_later(id) unless skip_webhook }
 
   # Push the refreshed unread count to every open window the moment a
   # notification lands, so the mini-status badge updates without a refresh
@@ -54,7 +61,12 @@ class Notification < ApplicationRecord
   # controller (HTTP) and the Broadcaster (cable) so the paging logic lives in
   # exactly one place. The cursor's tuple shape — [read_bucket, created_at, id] —
   # is this model's concern; the pager JS treats the token as opaque.
-  def self.panel_page(after: nil)
+  #
+  # `limit` defaults to PAGE_SIZE — callers that don't pass it (the Broadcaster,
+  # older clients) see unchanged behavior. NotificationsController#index clamps
+  # the pito-tui viewport-driven `limit` param before it reaches here (owner
+  # 2026-07-15).
+  def self.panel_page(after: nil, limit: PAGE_SIZE)
     scope =
       if (cursor = Pito::ListCursor.decode(after))
         bucket, created_at, id = cursor
@@ -63,9 +75,9 @@ class Notification < ApplicationRecord
         panel_ordered
       end
 
-    rows = scope.limit(PAGE_SIZE + 1).to_a
-    more = rows.size > PAGE_SIZE
-    rows = rows.first(PAGE_SIZE)
+    rows = scope.limit(limit + 1).to_a
+    more = rows.size > limit
+    rows = rows.first(limit)
     [ rows, (more ? cursor_for(rows.last) : nil) ]
   end
 

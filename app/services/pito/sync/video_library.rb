@@ -17,7 +17,7 @@ module Pito
     #   - #sync       — #import_new then #reconcile, merged into one Result; the
     #     canonical full per-channel sync. `import` and `sync` tools both use it.
     #
-    # Counters persist via `Pito::Stats`; thumbnail + Voyage-index jobs are
+    # Counters persist via `Pito::Stats`; thumbnail + embed-index jobs are
     # enqueued as needed. Per-page and per-video errors are rescued + logged so a
     # single bad API call or row never aborts the whole sync.
     class VideoLibrary
@@ -149,12 +149,16 @@ module Pito
         ::VideoThumbnailJob.perform_later(video.id, thumb_url) if thumb_url.present?
 
         # (Re)embed the video when it's new or an embedded field changed.
-        # `Video::VoyageIndexer` is digest-gated, and `VideoVoyageIndexJob` only
-        # refreshes the channel centroid when the video actually re-embeds, so
-        # an unchanged re-import enqueues nothing wasteful here.
+        # `Video::EmbeddingIndexer` is digest-gated, so an unchanged re-import
+        # enqueues nothing wasteful here.
         if video.previously_new_record? || video.saved_changes.keys.intersect?(EMBED_FIELDS)
-          ::VideoVoyageIndexJob.perform_later(video.id)
+          ::VideoEmbedIndexJob.perform_later(video.id)
         end
+
+        # Suggest game links once, right at import, only while still unlinked —
+        # never on a later resync (`previously_new_record?` is the `:created`
+        # path only; see LinkSuggestionJob for the once-only guard).
+        ::LinkSuggestionJob.perform_later(video.id) if video.previously_new_record?
 
         upsert_status(video)
       rescue StandardError => e

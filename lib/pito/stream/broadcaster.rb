@@ -666,6 +666,9 @@ module Pito
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)
+        # Conversation search (3.0.0) — embed the turn's events in the background
+        # now that they're final.
+        EventEmbedJob.perform_later(turn.id)
         broadcast_done(dom_id: "turn_#{turn.id}")
       end
 

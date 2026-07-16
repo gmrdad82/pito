@@ -46,11 +46,11 @@ random SaaS company the keys to my business. My laptop, my data, my rules. It sc
 my own itch first — if it scratches yours, wonderful. That's what the AGPL is for.
 
 And hey — if this saves you a headache (or fifty euros), the nicest possible "thank
-you" is a click on one of the channels that dragged this tool into existence in the
-first place:
+you" is a click on the channel that dragged this tool into existence in the first
+place:
 
 <!-- prettier-ignore -->
-<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a> <a href="https://www.youtube.com/@gmrdad82good"><img src="docs/avatars/@gmrdad82good.png" width="80" alt="@gmrdad82good"></a> <a href="https://www.youtube.com/@gmrdad82hard"><img src="docs/avatars/@gmrdad82hard.png" width="80" alt="@gmrdad82hard"></a> <a href="https://www.youtube.com/@gmrdad82fighter"><img src="docs/avatars/@gmrdad82fighter.png" width="80" alt="@gmrdad82fighter"></a> <a href="https://www.youtube.com/@gmrdad82survivor"><img src="docs/avatars/@gmrdad82survivor.png" width="80" alt="@gmrdad82survivor"></a> <a href="https://www.youtube.com/@gmrdad82strategist"><img src="docs/avatars/@gmrdad82strategist.png" width="80" alt="@gmrdad82strategist"></a></p>
+<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a></p>
 
 ---
 
@@ -111,8 +111,8 @@ audience.
 <p align="center"><img src="docs/media/03-linkage.gif" width="760" alt="PITO — game/video/channel linkage demo"></p>
 
 Explicitly `link` a video to a game and PITO builds the graph: which games you cover,
-which channels they fit, and — via Voyage embeddings — the similar games and best-fit
-channels you hadn't thought of. It never guesses from titles; the links are yours.
+which channels they fit, and — via a local embedding sidecar — the similar games and
+best-fit channels you hadn't thought of. It never guesses from titles; the links are yours.
 
 <p align="center"><img src="docs/media/mkt-01-linkage.png" width="760" alt="Game–video linkage"></p>
 
@@ -165,8 +165,8 @@ green. The YouTube API doesn't even offer this dimension; PITO does the math its
 
 <p align="center"><img src="docs/media/mkt-13-similar.png" width="760" alt="Similar games"></p>
 
-**Similar games** — Voyage embeddings surface what sits near your library, right on
-the game card, with the channels each one fits.
+**Similar games** — a local embedding sidecar surfaces what sits near your library,
+right on the game card, with the channels each one fits.
 
 <p align="center"><img src="docs/media/mkt-09-share.png" width="760" alt="Shareable message"></p>
 
@@ -226,7 +226,8 @@ full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
   views, likes). Set fields with `platform`, `price set/unset`, and a manual
   `footage` total.
 - **Recommendations** — every game card surfaces **similar games** and the
-  **channels** it best fits, powered by Voyage embeddings.
+  **channels** it best fits, powered by a local embedding sidecar — no API key,
+  no cloud call.
 - **Linking** — explicit `link` / `unlink` between a video and a game, both
   directions; **PITO** never guesses from titles.
 - **Planning** — `schedule <id> slate` shows what's already on the calendar so you can
@@ -283,7 +284,7 @@ right to you, the tokens are right there: tune them to your preference.
 
 ## Stack
 
-Rails 8 · Hotwire · Postgres · Voyage AI · IGDB · YouTube API · Tailwind CSS.
+Rails 8 · Hotwire · Postgres · llama.cpp · IGDB · YouTube API · Tailwind CSS.
 
 ## Requirements
 
@@ -440,9 +441,12 @@ local self-host.
 
 ## Accounts & API keys
 
-**PITO** needs three sets of credentials. Grab them, then paste them into the chatbox
+**PITO** needs two sets of credentials. Grab them, then paste them into the chatbox
 with `/config` (stored encrypted). Only Google is strictly required to do anything
-useful; IGDB and Voyage unlock the game features.
+useful; IGDB unlocks the game features. Similar games, channel recommendations, and
+the natural-language chat mapper run on local AI sidecars baked into the compose
+stack — no signup, no key, nothing to `/config` (see
+[Local AI](#local-ai-embeddings-and-language-mapping) under Operating PITO).
 
 **1. Google / YouTube** _(required — it's the whole point)_
 
@@ -462,11 +466,6 @@ useful; IGDB and Voyage unlock the game features.
    Application** (any name; OAuth redirect `http://localhost` is fine).
 2. Copy the **Client ID** and generate a **Client Secret**.
 3. In **PITO**: `/config igdb client_id=… client_secret=…`.
-
-**3. Voyage AI** _(embeddings — similar games + channel recommendations)_
-
-1. Sign up at [voyageai.com](https://www.voyageai.com/) → **API Keys** → create one.
-2. In **PITO**: `/config voyage api_key=…`.
 
 **Optional — Slack / Discord notifications:** create an incoming webhook in each, then
 `/config webhook slack=… discord=…`.
@@ -639,6 +638,43 @@ Push & deploy → Push API key**), set `APPSIGNAL_PUSH_API_KEY=<key>` in the ins
 dir's `.env`, then `pito up -d` to pick it up. The key never touches the image, the
 repo, or Rails credentials — just that one `.env` line. No key, no AppSignal — the
 app boots exactly as before.
+
+### Local AI (embeddings and language mapping)
+
+Two CPU-only [llama.cpp](https://github.com/ggml-org/llama.cpp) sidecars ship in the
+compose stack — no signup, no API key, nothing leaves your machine:
+
+- **`embedder`** — embeddinggemma-300m (Q8), serving the OpenAI-compatible
+  `/v1/embeddings` API (768-dim vectors, stored in Postgres via pgvector). Powers
+  search-like matching, similar games, and channel-fit recommendations.
+- **`nlmapper`** — Qwen3-0.6B (Q8), grammar-constrained to PITO's own command set.
+  Maps free-text chat ("list me the vids") onto a real command when nothing else in
+  the grammar matches it — a cold path that never touches normal typing.
+
+Both pull their GGUF weights from Hugging Face on first boot into their own model
+volumes (`embedder_models` / `nlmapper_models`), then never again — the embedder's is
+~350MB, so give the first `pito up` a
+few extra minutes while it downloads (the healthchecks' generous `start_period`
+covers it). Each sidecar is capped at **1g RAM**, worth knowing if you're running
+PITO on a small box.
+
+The app reaches them over `PITO_EMBEDDER_URL` / `PITO_NLMAPPER_URL` — the compose
+stack sets both for you; native dev's host-Puma uses the published
+`http://127.0.0.1:8091` / `http://127.0.0.1:8092`. Either one blank or absent and the
+matching feature just quietly degrades (search-like/similar/link-suggestions, or the
+NL mapper) — nothing crashes, nothing bad persists.
+
+Upgrading an existing instance? After `pito update`, re-embed your library with the
+chat `reindex` command (`reindex game <id>` / `reindex vid <id>`) — or, for
+everything at once, run `pito rake pito:embeddings:reindex`.
+
+Troubleshooting (dev; both ports are published to `127.0.0.1` there):
+
+```bash
+curl http://127.0.0.1:8091/health   # embedder — 200 once the model's loaded
+curl http://127.0.0.1:8092/health   # nlmapper — same
+docker compose logs embedder        # watch the model download
+```
 
 ## Exposing PITO (HTTPS)
 

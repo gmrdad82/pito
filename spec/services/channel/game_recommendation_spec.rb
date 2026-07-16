@@ -5,6 +5,12 @@ require "rails_helper"
 RSpec.describe Channel::GameRecommendation, type: :service do
   # Helpers ----------------------------------------------------------------
 
+  # Unit vector, sized to whatever column Game::EMBEDDING_COLUMN currently
+  # seams to, with one hot dimension.
+  def vec(index, value: 1.0)
+    Array.new(Game.columns_hash[Game::EMBEDDING_COLUMN.to_s].limit, 0.0).tap { |a| a[index] = value }
+  end
+
   # Publish a video on channel that links to game. Returns the video.
   def publish_link(channel, game)
     video = create(:video, :public, channel: channel)
@@ -148,12 +154,12 @@ RSpec.describe Channel::GameRecommendation, type: :service do
       channel   = create(:channel, title: "RPG Hub")
       profile_game = create(:game, title: "Profile anchor")
       create(:game_genre, game: profile_game, genre: rpg_genre)
-      profile_game.update_column(:summary_embedding, Array.new(1024, 0.0).tap { |a| a[0] = 1.0 })
+      profile_game.update_column(Game::EMBEDDING_COLUMN, vec(0))
       publish_link(channel, profile_game)
 
       embedding_candidate = create(:game, title: "Embedding Near")
       # No shared genre — reaches the pool only via embedding proximity
-      embedding_candidate.update_column(:summary_embedding, Array.new(1024, 0.0).tap { |a| a[0] = 1.0 })
+      embedding_candidate.update_column(Game::EMBEDDING_COLUMN, vec(0))
 
       results = described_class.call(channel)
       expect(results.map(&:game)).to include(embedding_candidate)

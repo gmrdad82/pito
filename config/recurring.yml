@@ -25,7 +25,6 @@
 #   - SyncChannelStatsJob         — triggered via chat `sync` verb
 #   - NightlyReindexJob           — triggered via chat `sync` verb
 #   - SyncStarredChannelsJob      — triggered via chat `sync` verb
-#   - VoyageReindexJob            — triggered via chat `sync` verb
 
 production:
   # Version heartbeat — every 5 minutes (G80): pushes the running build onto

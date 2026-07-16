@@ -30,7 +30,7 @@ module Pito
         bd[:s]   = Signals.score_smile(game.score, profile.score)                  if game.score && profile.score
         bd[:ttb] = Signals.ttb_smile(game.ttb_main_seconds, profile.ttb_seconds)   if game.ttb_main_seconds && profile.ttb_seconds
         bd[:era] = Signals.era(game.release_year, profile.year)                    if game.release_year && profile.year
-        bd[:e]   = Signals.embedding(GameSimilarity.cosine_distance(game.summary_embedding, profile.embedding)) if game.summary_embedding && profile.embedding
+        bd[:e]   = Signals.embedding(GameSimilarity.cosine_distance(game.embedding_vector, profile.embedding)) if game.embedding_vector && profile.embedding
         bd
       end
 

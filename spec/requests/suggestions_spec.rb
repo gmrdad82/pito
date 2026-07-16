@@ -69,7 +69,7 @@ RSpec.describe "POST /suggestions", type: :request do
       expect(body["stage"]).to eq("tool")
       expect(labels).to include("ai", "sources", "profile")
       sources = body["menu_items"].find { |i| i["label"] == "sources" }
-      expect(sources["children"].map { |c| c["label"] }).to include("google", "voyage", "igdb")
+      expect(sources["children"].map { |c| c["label"] }).to include("google", "igdb")
     end
 
     # `/config google ` arg stage returns the per-provider credential keys as a

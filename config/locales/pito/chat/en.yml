@@ -49,7 +49,7 @@ en:
         needs_ref: "Which game or vid? Use `list games` to see ids, then `rm game <id>` or `rm vid <id>`."
       reindex:
         descriptions:
-          reindex: "Re-embed a game or vid in Voyage (by id or title)"
+          reindex: "Re-embed a game or vid (by id or title)"
         needs_ref: "Which game or vid? Use `list games` to see ids, then `reindex game <id>` or `reindex vid <id>`."
       platform:
         descriptions:

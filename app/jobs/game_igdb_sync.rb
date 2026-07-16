@@ -86,11 +86,11 @@ class GameIgdbSync < ApplicationJob
 
     game.reload
 
-    # Reindex with Voyage so recommendations are fresh before the enhanced message.
+    # Reindex so recommendations are fresh before the enhanced message.
     begin
-      ::Game::VoyageIndexer.call(game)
-    rescue Pito::Error::VoyageEmbeddingNil => e
-      Rails.logger.warn("[GameIgdbSync] Voyage embedding failed after resync for game id=#{game.id}: #{e.message}")
+      ::Game::EmbeddingIndexer.call(game)
+    rescue Pito::Error::EmbeddingNil => e
+      Rails.logger.warn("[GameIgdbSync] Embedding failed after resync for game id=#{game.id}: #{e.message}")
       # Continue — enhanced message will render intro-only (no recs). Acceptable.
     end
 

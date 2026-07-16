@@ -62,7 +62,7 @@ RSpec.describe Pito::Chat::Handlers::Search do
     end
 
     it "stamps a ranked_ids cursor + more footer when results exceed a page" do
-      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :list)
+      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
         .and_return(page_size: 1, more_tool: "next")
       stub_similar([
         result_for(high_g, score: 68, breakdown: { g: 100 }),
@@ -90,6 +90,236 @@ RSpec.describe Pito::Chat::Handlers::Search do
 
       payload = search("search games like tekken 7").events.first[:payload]
       expect(payload["game_ids"]).to eq([ seed.id, above_floor.id ])
+    end
+  end
+
+  context "search games for <title> (exact-name match)" do
+    let!(:tekken8)    { create(:game, title: "Tekken 8") }
+    let!(:tekken_tag) { create(:game, title: "Tekken Tag Tournament") }
+    let!(:decoy)      { create(:game, title: "Street Fighter 6") }
+
+    it "returns only title-matching games, title-ascending" do
+      payload = search("search games for tekken").events.first[:payload]
+      expect(payload["reply_target"]).to eq("game_list")
+      expect(payload["game_ids"]).to eq([ tekken8.id, tekken_tag.id ])
+    end
+
+    it "matches via alternative_names when the title itself doesn't contain the term" do
+      aliased = create(:game, title: "Iron Fist Tournament", alternative_names: [ "Tekken" ])
+
+      payload = search("search games for tekken").events.first[:payload]
+      expect(payload["game_ids"]).to include(aliased.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "treats a bare query exactly like the `for` form" do
+      for_ids  = search("search games for tekken").events.first[:payload]["game_ids"]
+      bare_ids = search("search games tekken").events.first[:payload]["game_ids"]
+      expect(bare_ids).to eq(for_ids)
+    end
+
+    it "renders the list-filter-empty copy for a `for` query with no matches" do
+      expected = Pito::Copy.render("pito.copy.games.list_filter_empty")
+      result   = search("search games for nonexistent")
+      expect(result.events.first[:payload]["text"]).to eq(expected)
+    end
+  end
+
+  context "search games for <title> beyond a page" do
+    let!(:many) { (1..21).map { |n| create(:game, title: "Tekken #{n}") } }
+
+    it "caps page 1 at 20 rows and stamps a more cursor + footer" do
+      payload = search("search games for tekken").events.first[:payload]
+      expect(payload["game_ids"].size).to eq(20)
+      expect(payload["list_cursor"]["ranked_ids"].size).to eq(21)
+      expect(payload["list_cursor"]["offset"]).to eq(20)
+      expect(payload["list_footer"].to_s).to include("next")
+    end
+  end
+
+  context "search games for <x> multi-field matching (SUX7)" do
+    let!(:decoy) { create(:game, title: "Decoy Game") }
+
+    it "surfaces a game whose genre (not its title/summary) carries the term" do
+      hit = create(:game, title: "Mystery Title")
+      hit.genres << create(:genre, name: "Beat 'em Up")
+
+      payload = search("search games for beat 'em up").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a game whose developer company name (not its title/summary) carries the term" do
+      hit = create(:game, title: "Mystery Title")
+      create(:game_developer, game: hit, company: create(:company, name: "Capcom"))
+
+      payload = search("search games for capcom").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a game whose publisher company name (not its title/summary) carries the term" do
+      hit = create(:game, title: "Mystery Title")
+      create(:game_publisher, game: hit, company: create(:company, name: "Bandai Namco"))
+
+      payload = search("search games for bandai namco").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a game whose summary (not its title) carries the term" do
+      hit = create(:game, title: "Mystery Title", summary: "A gritty survival horror experience")
+
+      payload = search("search games for gritty survival horror").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a game whose platforms array (not its title) carries the term" do
+      hit = create(:game, title: "Mystery Title", platforms: [ "Nintendo Switch" ])
+
+      payload = search("search games for nintendo switch").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a game whose themes array (not its title) carries the term" do
+      hit = create(:game, title: "Mystery Title", themes: [ "Horror" ])
+
+      payload = search("search games for horror").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a game whose player_perspectives array (not its title) carries the term" do
+      hit = create(:game, title: "Mystery Title", player_perspectives: [ "Bird view / Isometric" ])
+
+      payload = search("search games for isometric").events.first[:payload]
+      expect(payload["game_ids"]).to include(hit.id)
+      expect(payload["game_ids"]).not_to include(decoy.id)
+    end
+
+    it "does not surface any game when the term appears nowhere on its detail surfaces" do
+      create(:game, title: "Mystery Title", summary: "Nothing to see here")
+
+      expected = Pito::Copy.render("pito.copy.games.list_filter_empty")
+      result   = search("search games for zzznotpresentanywhere")
+      expect(result.events.first[:payload]["text"]).to eq(expected)
+    end
+  end
+
+  context "search games like <title> score threading (SUX11)" do
+    let!(:seed)   { create(:game, title: "Tekken 7") }
+    let!(:high_g) { create(:game, title: "Street Fighter 6") }
+
+    before { seed.genres << create(:genre) }
+
+    it "carries a Score heading and { score: } cells: seed=100, others = their GameSimilarity score" do
+      stub_similar([ result_for(high_g, score: 68, breakdown: { g: 100 }) ])
+
+      payload = search("search games like tekken 7").events.first[:payload]
+      expect(payload["table_heading"]).to include("Score")
+
+      rows     = payload["table_rows"]
+      seed_row = rows.find { |r| r[:cells][0][:text] == "##{seed.id}" }
+      high_row = rows.find { |r| r[:cells][0][:text] == "##{high_g.id}" }
+      expect(seed_row[:cells].last).to eq(score: 100)
+      expect(high_row[:cells].last).to eq(score: 68)
+    end
+  end
+
+  context "search vids like <title> (SUX5)" do
+    def vec(*dims)
+      Array.new(768, 0.0).tap { |a| dims.each { |d| a[d] = 1.0 } }
+    end
+
+    def cosine_distance(a, b)
+      dot    = a.zip(b).sum { |x, y| x * y }
+      norm_a = Math.sqrt(a.sum { |x| x**2 })
+      norm_b = Math.sqrt(b.sum { |x| x**2 })
+      1 - (dot / (norm_a * norm_b))
+    end
+
+    let!(:seed)  { create(:video, title: "Boss Rush Marathon") }
+    let!(:close) { create(:video, title: "Speedrun Special") }
+    let!(:far)   { create(:video, title: "Cooking Stream") }
+
+    before do
+      seed.update_column(:summary_embedding, vec(0))
+      close.update_column(:summary_embedding, vec(0, 1))
+      far.update_column(:summary_embedding, vec(1))
+    end
+
+    it "orders similar vids by cosine distance and carries score cells, seed leading at 100" do
+      payload = search("search vids like boss rush marathon").events.first[:payload]
+
+      expect(payload["reply_target"]).to eq("video_search")
+      expect(payload["video_ids"]).to eq([ seed.id, close.id, far.id ])
+      expect(payload["table_heading"]).to include("Score")
+
+      rows      = payload["table_rows"]
+      seed_row  = rows.find { |r| r[:cells][0][:text] == "##{seed.id}" }
+      close_row = rows.find { |r| r[:cells][0][:text] == "##{close.id}" }
+      far_row   = rows.find { |r| r[:cells][0][:text] == "##{far.id}" }
+
+      expect(seed_row[:cells].last).to eq(score: 100)
+      expect(close_row[:cells].last).to eq(
+        score: Pito::Recommendation::Signals.embedding(cosine_distance(vec(0), vec(0, 1))).round
+      )
+      expect(far_row[:cells].last).to eq(
+        score: Pito::Recommendation::Signals.embedding(cosine_distance(vec(0), vec(1))).round
+      )
+    end
+
+    it "renders the list-filter-empty copy when the seed has no embedding" do
+      create(:video, title: "No Vector Vid")
+
+      expected = Pito::Copy.render("pito.copy.games.list_filter_empty")
+      result   = search("search vids like no vector vid")
+      expect(result.events.first[:payload]["text"]).to eq(expected)
+    end
+
+    it "renders the vid not-found reply when the title resolves to no vid" do
+      result = search("search vids like zzznonexistentvid")
+      expect(result.events.first[:payload]["text"]).to include("zzznonexistentvid")
+    end
+
+    it "does not stamp a list_cursor or a next/more footer even when results exceed a page (deliberately single-page, unlike games)" do
+      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
+        .and_return(page_size: 1, more_tool: "next")
+
+      payload = search("search vids like boss rush marathon").events.first[:payload]
+      expect(payload["video_ids"]).to eq([ seed.id ])
+      expect(payload).not_to have_key("list_cursor")
+      expect(payload["list_footer"].to_s).not_to include("next")
+    end
+  end
+
+  context "search vids for <x> (SUX5)" do
+    let!(:decoy) { create(:video, title: "Decoy Vid") }
+
+    it "surfaces a vid whose description (not its title) carries the term" do
+      hit = create(:video, title: "Mystery Vid", description: "A deep dive into speedrun tech")
+
+      payload = search("search vids for speedrun tech").events.first[:payload]
+      expect(payload["video_ids"]).to include(hit.id)
+      expect(payload["video_ids"]).not_to include(decoy.id)
+    end
+
+    it "surfaces a vid whose tags array (not its title) carries the term" do
+      hit = create(:video, title: "Mystery Vid", tags: [ "boss rush" ])
+
+      payload = search("search vids for boss rush").events.first[:payload]
+      expect(payload["video_ids"]).to include(hit.id)
+      expect(payload["video_ids"]).not_to include(decoy.id)
+    end
+
+    it "renders the list-filter-empty copy when nothing matches" do
+      create(:video, title: "Mystery Vid")
+
+      expected = Pito::Copy.render("pito.copy.games.list_filter_empty")
+      result   = search("search vids for zzznotpresentanywhere")
+      expect(result.events.first[:payload]["text"]).to eq(expected)
     end
   end
 end

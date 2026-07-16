@@ -7,7 +7,7 @@ en:
       list:
         usage: "list games  |  list vids  |  list channels"
       search:
-        usage: "search games like <title>"
+        usage: "search games|vids|conversations like <x>  |  search games|vids for <x>"
       "@ai":
         usage: "@ai <question about your games, vids, or channels>"
       update:
@@ -28,7 +28,7 @@ en:
               "--help": "Print this help message"
             Segments:
               "detail": "Game header and metadata (the bare-form default)"
-              "similar": "Voyage-powered similar-game recommendations"
+              "similar": "Embedding-powered similar-game recommendations"
               "videos": "Vids linked to this game (aliases: vids, linked-vids; shown only when linked videos exist)"
               "channels": "Channels that publish this game (pending-fill)"
               "at-a-glance": "Pending analytics summary for the current period (pending-fill)"
@@ -222,7 +222,7 @@ en:
           sections:
             Arguments:
               "game": "Target noun"
-              "#id": "Local numeric game id — Voyage re-embeds the record"
+              "#id": "Local numeric game id — re-embeds the record"
             Options:
               "--help": "Print this help message"
         video:
@@ -230,7 +230,7 @@ en:
           sections:
             Arguments:
               "video": "Target noun"
-              "#id": "Local numeric video id — Voyage re-embeds the record"
+              "#id": "Local numeric video id — re-embeds the record"
             Options:
               "--help": "Print this help message"
       footage:
@@ -502,7 +502,7 @@ en:
             usage: "#<show-game-hashtag> similar"
             sections:
               Description:
-                "similar": "Voyage-powered similar-game recommendations (alias: similars)"
+                "similar": "Embedding-powered similar-game recommendations (alias: similars)"
               Options:
                 "--help": "Print this help message"
           channels:
@@ -566,7 +566,7 @@ en:
             usage: "#<show-game-hashtag> reindex"
             sections:
               Description:
-                "reindex": "Re-embed this game in Voyage"
+                "reindex": "Re-embed this game"
               Options:
                 "--help": "Print this help message"
 
@@ -722,7 +722,7 @@ en:
             usage: "#<show-vid-hashtag> reindex"
             sections:
               Description:
-                "reindex": "Re-embed this vid in the Voyage index"
+                "reindex": "Re-embed this vid"
               Options:
                 "--help": "Print this help message"
           link:
@@ -844,6 +844,84 @@ en:
             sections:
               Description:
                 "next": "Load the next batch of vids (only available when the list is capped)"
+              Options:
+                "--help": "Print this help message"
+
+      search-videos:
+        target_usage: "#<search-vids-hashtag> <action>"
+        actions:
+          'at-a-glance':
+            usage: "#<search-vids-hashtag> at-a-glance <id>"
+            sections:
+              Description:
+                "at-a-glance": "Pending analytics summary for a listed vid (aliases: glance, overview)"
+              Options:
+                "--help": "Print this help message"
+          game:
+            usage: "#<search-vids-hashtag> game <id>"
+            sections:
+              Description:
+                "game": "The game linked to a listed vid"
+              Options:
+                "--help": "Print this help message"
+          show:
+            usage: "#<search-vids-hashtag> show <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+              Options:
+                "--help": "Print this help message"
+          schedule:
+            usage: "#<search-vids-hashtag> schedule <id> <when>  |  schedule <id> slate"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+                "<when>": "Publish time — see `schedule --help` for forms"
+                "slate": "Show your upcoming schedule (this week + the rest of the shift+space period), excluding this vid"
+              Options:
+                "--help": "Print this help message"
+          delete:
+            usage: "#<search-vids-hashtag> delete <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list (alias: rm)"
+              Options:
+                "--help": "Print this help message"
+          rm:
+            usage: "#<search-vids-hashtag> rm <id>"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list (alias: delete)"
+              Options:
+                "--help": "Print this help message"
+          with:
+            usage: "#<search-vids-hashtag> with <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to add: channel, visibility, game, duration, views, likes, category"
+              Options:
+                "--help": "Print this help message"
+          without:
+            usage: "#<search-vids-hashtag> without <columns>"
+            sections:
+              Arguments:
+                "<columns>": "Comma-separated column names to remove: channel, visibility, game, duration, views, likes, category"
+              Options:
+                "--help": "Print this help message"
+          link:
+            usage: "#<search-vids-hashtag> link <vid id> to <game id>[,id…]"
+            sections:
+              Arguments:
+                "<video id>": "Row id of the vid to link"
+                "to <game id>[,id…]": "One or more local numeric game ids to link to (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          unlink:
+            usage: "#<search-vids-hashtag> unlink <vid id> from <game id>[,id…]"
+            sections:
+              Arguments:
+                "<video id>": "Row id of the vid to unlink"
+                "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
               Options:
                 "--help": "Print this help message"
 

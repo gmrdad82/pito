@@ -87,5 +87,33 @@ RSpec.describe ReleaseCountdownJob, type: :job do
       release_in(31)
       expect { run! }.not_to change(Notification, :count)
     end
+
+    # ─── notification digest (skip_webhook + one WebhookDigest.call) ─────────
+
+    it "does not enqueue an individual webhook delivery job per release (digested instead)" do
+      release_in(10)
+      expect { run! }.not_to have_enqueued_job(NotificationWebhookDeliverJob)
+    end
+
+    it "still creates the in-app Notification records even though the per-record webhook is skipped" do
+      release_in(5, game: create(:game, title: "Game Soon"))
+      release_in(12, game: create(:game, title: "Game Later"))
+      expect { run! }.to change(Notification, :count).by(2)
+    end
+
+    it "sends ONE WebhookDigest.call with a [countdown, title] row per due release, soonest first" do
+      release_in(12, game: create(:game, title: "Game Later"))
+      release_in(5, game: create(:game, title: "Game Soon"))
+
+      allow(Pito::Notifications::WebhookDigest).to receive(:call)
+
+      run!
+
+      expect(Pito::Notifications::WebhookDigest).to have_received(:call).once.with(
+        title:  "🎮 Upcoming releases",
+        accent: Pito::Notifications::WebhookDigest::RELEASES,
+        rows:   [ [ "in 5 days", "Game Soon" ], [ "in 12 days", "Game Later" ] ]
+      )
+    end
   end
 end

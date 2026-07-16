@@ -17,14 +17,14 @@ module Pito
     # with their values shown in the clear.
     # AI keys travel ONLY through `/config ai api_key=…` — the per-provider
     # slash forms are gone, so `ai` is the only AI entry here.
-    CREDENTIAL_PROVIDERS = %w[ai tavily google voyage igdb webhook].freeze
+    CREDENTIAL_PROVIDERS = %w[ai tavily google igdb webhook].freeze
 
     # `/config …` (tool-bounded, any case).
     def config_command?(input)
       input.to_s.strip.match?(%r{\A/config(\s|\z)}i)
     end
 
-    # `/config google|voyage|igdb|webhook …` — the credential-bearing form whose
+    # `/config google|igdb|webhook …` — the credential-bearing form whose
     # first arg names a secret provider. (`--help` is filtered out upstream by the
     # controller's help_flag? guard, so it still routes async.)
     def config_credential_command?(input)
@@ -42,7 +42,7 @@ module Pito
 
     # Mask EVERY kwarg value of a credential /config command to "***" (the whole
     # value after each `key=`). Applies ONLY to the credential providers
-    # (google/voyage/igdb/webhook) — so google's redirect_uri and webhook's
+    # (google/igdb/webhook) — so google's redirect_uri and webhook's
     # slack/discord URLs are masked too, with one uniform rule — and is a no-op for
     # every other input (non-credential /config, chat, hashtags). Example:
     #   /config google client_id=abc client_secret=xyz redirect_uri=http://… api_key=k

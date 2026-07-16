@@ -14,7 +14,10 @@ class NotificationsController < ApplicationController
   # that APPENDS the next page's rows and REPLACES the sentinel. Keyset/cursor
   # paging lives in Notification.panel_page; the cursor token is opaque.
   def index
-    @notifications, @next_cursor = Notification.panel_page(after: params[:after])
+    @notifications, @next_cursor = Notification.panel_page(
+      after: params[:after],
+      limit: client_page_limit(tool: :notifications, default: Notification::PAGE_SIZE)
+    )
     @append = params[:after].present?
 
     respond_to do |format|
@@ -22,9 +25,11 @@ class NotificationsController < ApplicationController
       format.html         { redirect_to root_path }
 
       # The notifications panel for non-browser clients (pito-tui): the same
-      # keyset page the turbo-stream branch renders, as data. `limit` is
-      # accepted but ignored — page size stays the server's PAGE_SIZE. Auth is
-      # enforced by the concern (anonymous JSON → 401 before this runs).
+      # keyset page the turbo-stream branch renders, as data. `limit` (the
+      # tui's viewport row count, owner 2026-07-15) is honored via
+      # client_page_limit — clamped to the :notifications tool's
+      # max_page_size; absent/invalid falls back to Notification::PAGE_SIZE.
+      # Auth is enforced by the concern (anonymous JSON → 401 before this runs).
       format.json do
         render json: {
           rows: @notifications.map { |n|

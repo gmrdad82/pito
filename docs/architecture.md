@@ -171,6 +171,252 @@ the owner runs himself.
   the chatbox bar while typing `ai …` (`pito--ai-accent`), the turn's echo, and
   the `:ai` answer.
 
+## Local AI stack (3.0.0)
+
+PITO embeds text and maps free-text chat with two self-hosted `llama.cpp`
+sidecars — no cloud API key, no per-token cost, nothing leaves the box. This
+retired Voyage AI (the previous embeddings vendor) end to end. It is unrelated
+to the AI assistant's cloud providers above (`config/pito/ai_providers.yml`) —
+that loop still calls out to whichever provider `/config ai` selected; this
+stack is entirely local infrastructure the assistant doesn't touch.
+
+### Sidecars
+
+- **`embedder`** — `llama.cpp:server` serving `embeddinggemma-300m` (Q8 GGUF,
+  ~350MB) over the OpenAI-compatible `/v1/embeddings` endpoint.
+  `Pito::Embedding::Client` (`app/services/pito/embedding/client.rb`) is the
+  sole HTTP wrapper: `ENV["PITO_EMBEDDER_URL"]` (`http://embedder:8081` in
+  `docker-compose.yml`, `http://127.0.0.1:8091` for host-Puma dev via
+  `docker-compose.dev.yml`). Model + dimension are LOCKED at 768
+  (`Pito::Embedding::Client::DIMENSIONS`) to match the pgvector columns below
+  — changing either needs a coordinated re-embed + column migration.
+- **`nlmapper`** — a second `llama.cpp:server` holding `Qwen/Qwen3-0.6B-GGUF:
+Q8_0` (`--ctx-size 2048`) over `/v1/chat/completions`.
+  `Pito::Nl::CompletionClient` (`app/services/pito/nl/completion_client.rb`)
+  is its sole wrapper: `ENV["PITO_NLMAPPER_URL"]` (`http://nlmapper:8082`
+  prod, `http://127.0.0.1:8092` dev). It calls the CHAT endpoint, not the raw
+  `/completion` one, so Qwen3's own chat template applies; `chat_template_
+kwargs: { enable_thinking: false }` plus a trailing `/no_think` prompt suffix
+  (belt-and-suspenders, two mechanisms) suppress its `<think>` reasoning
+  preamble, which was otherwise strangled mid-think by the GBNF grammar.
+- Both are CPU-only (no GPU assumed), 1GB memory-capped, and each own a
+  dedicated model-cache volume (`embedder_models` / `nlmapper_models`, dev and
+  prod scoped separately by compose project) — no coupling between the two.
+  No host port in production — `web`/`pito-mcp` reach them over the compose
+  network only; dev publishes 8091/8092 for the host-Puma app.
+- **Forgiving vs strict, mirrored on both clients (K2 data honesty).**
+  `Client#embed` and `CompletionClient#chat` never raise — an unconfigured
+  URL, non-2xx, malformed body, or network error all degrade to nil (or an
+  array of nils): a sidecar hiccup degrades a feature, it never crashes a
+  turn. `Client#embed_batch` is the STRICT counterpart the catalog indexers
+  use: it raises `Pito::Embedding::Client::Error` naming the real cause,
+  which `Game::EmbeddingIndexer`/`Video::EmbeddingIndexer` convert to
+  `Pito::Error::EmbeddingNil` so a job records a visible, retryable failure
+  instead of a silent zero.
+
+### Embedding topology
+
+- **Canonical columns**: `games.summary_embedding` / `videos.summary_embedding`
+  / `events.embedding` — all `vector(768)` with an HNSW (`vector_cosine_ops`)
+  index (`events.embedding`'s index is partial, `WHERE embedding IS NOT
+NULL`, since most event kinds never embed — see EMBEDDABLE_KINDS below).
+  Reached through one seam per model, `EMBEDDING_COLUMN` + `#embedding_vector`
+  (`Game`/`Video`), so no caller nil-guards or casts a vector by hand.
+- **What gets embedded**: `Game::EmbedText.call` / `Video::EmbedText.call`
+  build one em-dash-joined string per record (game: title · alt names ·
+  genres · developer(s) · publisher(s) · platforms · time-to-beat · rating ·
+  summary; video: title · description · tags · category) — the single source
+  of truth shared by the per-record indexer and the bulk reindex sweep so the
+  two paths can never drift.
+- **Digest gating**: `Game::EmbeddingIndexer` / `Video::EmbeddingIndexer` /
+  `Pito::Embedding::EventIndexer` each SHA256 the built text into
+  `embedded_digest` and no-op when it's unchanged since the last successful
+  embed (`force:` bypasses it) — a cover-art-only resync or a stats-only
+  re-sync never burns an embedder call. Writes go through `update_column` on
+  both the vector and the digest, skipping validations/callbacks so embedding
+  never re-triggers a model's own `after_save` chain or rebroadcasts an event.
+- **Enqueue points**: `GameEmbedIndexJob` (queue `:search`) from
+  `Game::Igdb::SyncGame#call`'s success path and `NightlyReindexJob`;
+  `VideoEmbedIndexJob` (queue `:search`) from `Pito::Sync::VideoLibrary#upsert`
+  (created or changed) and `NightlyReindexJob`; `EventEmbedJob` (queue
+  `:search`) from `Pito::Stream::Broadcaster#complete_turn` — one job per
+  finished turn, embedding every embeddable event of it
+  (`Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS`: `echo system enhanced ai
+system_follow_up enhanced_follow_up` — chrome kinds like
+  `thinking`/`confirmation`/`theme_diff` never embed). `NightlyReindexJob`
+  fans out one job per game/video (atomic-jobs principle) at 2:00 UTC, ≥1h
+  after the nightly sync — both indexers are digest-gated so an unchanged
+  catalog costs nothing that night. The chat `reindex <game/video>`
+  confirmation (`Pito::Confirmation::Executor#confirm_game_reindex`/
+  `#confirm_video_reindex`) instead calls its indexer INLINE with `force:
+true` (it already runs inside a worker job) so the "reindexed" outcome text
+  is accurate — done, not queued.
+- **Manual reindex**: `rake pito:embeddings:reindex` (`FORCE=1`,
+  `THROTTLE=<secs>`) sweeps games → videos → events through the same three
+  indexers; resumable for free (the digest gate IS the checkpoint), and
+  aborts up front when `PITO_EMBEDDER_URL` is unset.
+- **Design B (locked, unaffected by 3.0.0)**: channels carry no embedding of
+  their own — channel↔game recommendations are computed on demand from video
+  vectors.
+
+### NL input flow (chat input the grammar can't classify)
+
+Free-text chat `Pito::Chat::Parser` can't classify at all falls to
+`Pito::Chat::Handlers::Unknown`, which gives it ONE shot at the NL gate before
+the witty `huh` fallback:
+
+1. **Router** (`Pito::Nl::Router.route`, the CHEAP path) embeds the utterance
+   and cosine-searches `nl_examples` — a materialized, digest-synced cache of
+   every chat tool's `nl_examples:` corpus in `config/pito/tools.yml`
+   (`Router.sync!`: upserts rows keyed by phrase digest, prunes phrases
+   removed from the YAML, then embeds only rows still missing a vector — ONE
+   batched forgiving `embed` call, never a per-row round trip). `greet`/
+   `farewell` are excluded (`ROUTER_EXCLUDED_TOOLS`) — their short literal
+   phrases magnetize false positives on garbled input (measured: "asdfghjkl"
+   hit `greet` at 0.785). Below the `suggest` threshold (0.75, `tools.yml`'s
+   `nl:` block) — or no `nl:` block, or the sidecar's down — the mapper is
+   never even consulted; out-of-domain input dies here as the `huh` copy.
+2. **Mapper** (`Pito::Nl::Mapper.map`, the EXPENSIVE path) asks the `nlmapper`
+   sidecar to rewrite the utterance as one PITO command line, constrained to
+   a GBNF grammar (`Pito::Nl::GbnfBuilder`, compiled fresh from `tools.yml` on
+   every `Config.data` identity change — a new chat tool "just appears" with
+   zero changes to the builder) covering every chat-mappable tool (declares a
+   `chat:` block; `@ai` and chitchat excluded). The prompt is a real
+   multi-turn few-shot array — one system instruction turn, then EVERY
+   `nl.exemplars:` entry (23, disjoint from the router's `nl_examples` and
+   from the calibration corpus below) as an alternating user/assistant pair,
+   ending on the owner's own utterance as the final open turn — a 0.6B model
+   imitates alternating chat turns far better than worked examples buried in
+   one system string. `temperature: 0`, `repeat_penalty: 1.3` (vs the 1.0
+   default every other caller keeps), `max_tokens: 24` — all three tuned
+   against a live finding where unbounded sampling padded digit runs past the
+   valid command instead of stopping. The raw completion is round-tripped
+   through the REAL chat parser (`Pito::Lex::Lexer` → `KeywordSanitizer` →
+   `Pito::Chat::Parser`) — nothing the parser would reject ever reaches the
+   owner.
+3. **Mismatch retry**: when the router's tool and the mapper's tool disagree,
+   ONE retry re-runs the mapper constrained to a SINGLE-tool grammar
+   (`GbnfBuilder.call(only: route[:tool])`) — the model then has no legal
+   completion for any tool but the router's. Fixes a live finding where "what
+   rpgs do I have" routed to `:list` at 0.966 confidence but the unconstrained
+   mapper composed "rm games" (a `:delete` command); re-constraining fixes the
+   SUGGESTION quality, not just the refusal to auto-run a mismatch.
+4. **Canonicalize**: the leading verb token (which may be an alias the mapper
+   spelled out, e.g. `ls`) is re-serialized to the parsed canonical tool name,
+   so the same string is both displayed and executed.
+5. **Auto-run vs did-you-mean**: auto-run (re-enters `Pito::Dispatch::Router`
+   directly — the same path `FollowUp::ToolDelegator` and the AI orchestrator
+   use — prefixed with an attribution line, `pito.copy.nl.ran`) fires only
+   when ALL THREE hold: router confidence ≥ the `auto_run` threshold (0.90),
+   router and mapper agree on the tool, and the tool's `mcp.read_only` config
+   flag is `true` (never auto-run a write). Otherwise a `did_you_mean`
+   confirmation event fires — `#<handle> confirm` re-enters
+   `Pito::Confirmation::Executor#confirm_nl_run`, which replays the canonical
+   command through `Pito::Dispatch::Router` exactly like a typed one; cancel
+   falls through to the generic cancellation copy.
+6. A sidecar failure at any step degrades to the `huh` copy — never an error
+   surface.
+
+Lexical normalization (`Router#normalize` / `Mapper#normalize`, deliberately
+duplicated rather than shared — the two consumers may legitimately diverge
+later) downcases, squeezes whitespace, and folds `tools.yml`'s
+`nl.synonyms:` (e.g. "clips"/"films" → "vids") onto the corpus's own
+vocabulary before either the embed or the prompt is built. Three corpora feed
+the stack and must never blur: per-tool `nl_examples:` (the router's
+neighbors), top-level `nl.exemplars:` (the mapper's few-shot pairs), and
+`spec/fixtures/nl_calibration.yml` (the held-out set that MEASURES, never
+trains, the thresholds).
+
+### Search grammar (`search` chat tool)
+
+One tool, two nouns (`search_nouns` vocabulary: `games` default,
+`conversations`), two keyword modes each:
+
+- **`search games like <title>`** — unchanged relevance ranking: resolves
+  the seed through the title ladder (below), runs
+  `Pito::Recommendation::GameSimilarity`, then gates to genuinely relevant
+  results (shares a genre with the seed, or a blended-score floor when the
+  seed has no genres on record).
+- **`search games for <title>`** / bare **`search games <title>`** (bare =
+  `for`, 3.0.0) — exact-name matching: case-insensitive substring over
+  `games.title` OR any `games.alternative_names` entry, title-ordered.
+  "tekken" returns games actually titled Tekken-something, never a
+  genre/theme neighbor (that's what `like` is for).
+- **`search conversations like <text>`** (`Pito::Chat::Handlers::
+SearchConversations`, delegated from `Search#call` rather than registered as
+  its own tool — `search` keeps one dispatch slot in `tools.yml`/the
+  registry) — embeds the text and cosine-searches `events.embedding` (HNSW)
+  over a 200-row candidate pool of owner-scoped (`conversations.source ==
+"app"`), embeddable-kind events; degrades to the lexical path when the
+  embedder has no opinion.
+- **`search conversations for <text>`** / bare — `events.payload::text
+ILIKE`, the honest fallback with no relevance score (events carry no
+  tsvector column). Both conversation paths group hits by conversation
+  (anchor = the chronologically first hit in the pool), then rank — `like`
+  by nearest cosine distance, `for`/bare by the anchor's recency.
+- Both `games` paths share one card/pager (`Search#build_payload`, page size
+  20 — the `search` tool's own `concerns.pager` in `tools.yml`, not
+  `list`'s 50).
+
+The GBNF grammar mirrors the clause shape directly: `search`'s `query` slot
+compiles to `( "like" | "for" )? text?` (`GbnfBuilder#search_query_body`) —
+the one tool-specific carve-out in an otherwise generic slot compiler.
+
+### Link-suggestion pipeline
+
+`Video::GameLinkSuggester` (`app/services/video/game_link_suggester.rb`)
+nudges — never auto-links — a freshly-imported, still-unlinked video toward
+the library game it probably belongs to:
+
+- Fires only for a video with no `video_game_links` and a nil
+  `link_suggested_at` (the once-only gate).
+- Strips `[bracketed]`/`(parenthesized)` noise, tries the lead segment before
+  a `:`/`—`/`|` separator first (falling back to the whole title only when
+  the lead scores zero overlap), then scores every LIBRARY game (never IGDB)
+  by the longest contiguous anchored token run against its title +
+  `alternative_names` (`Pito::TitleMatch` — the same DP `Pito::TitleResolve`
+  uses below).
+- Numeral awareness falls OUT of run-length scoring rather than being a
+  special case: "Mortal Kombat 2: Was it really that good?" anchors a
+  3-token run onto "Mortal Kombat 2" vs. only 2 for "Mortal Kombat", so the
+  numbered title wins outright — no embedding tiebreak needed.
+- A unique top scorer wins alone; a genuine tie is broken by embedding cosine
+  similarity (the forgiving `#embed` call — a sidecar hiccup just keeps title
+  order) and capped at `MAX_SUGGESTIONS` (5).
+- Enqueued by `LinkSuggestionJob` from `Pito::Sync::VideoLibrary#upsert`,
+  ONLY on the `:created` path (never a resync), right beside that video's own
+  `VideoEmbedIndexJob` enqueue. The JOB — never the suggester — stamps
+  `link_suggested_at`, and only when it found candidates, so a quiet run (no
+  match scored) can retry once a matching game is later imported.
+- Surfaces as a `Notification` (turn-less sync/cron context, no live
+  scrollback to append to) — `Pito::Notifications::Source::LinkSuggestion`
+  renders an HTML list of ranked candidates as ready-to-paste `link vid <id>
+to game <id>` commands the owner can confirm or ignore.
+
+### Title resolution (`Pito::TitleResolve`)
+
+The shared exact-first ladder every free-text title lookup composes
+(`Game.resolve_by_title` / `Video.resolve_by_title`), so a typed title means
+the same thing everywhere. Four tiers, first non-empty tier wins, every tier
+breaks its own ties by shortest title:
+
+1. Exact case-insensitive full-name match (title OR, for games, any
+   `alternative_names` entry) — wins OUTRIGHT over a same-tier prefix match.
+2. Case-insensitive prefix match (the query is the literal lead of the name).
+3. Anchored token-run scoring (`Pito::TitleMatch`, shared with
+   `Video::GameLinkSuggester` above).
+4. Acronym-of-initials ("mk" → Mortal Kombat, "mk2" → Mortal Kombat 2, "kcd"
+   → Kingdom Come Deliverance) — TITLE ONLY (alt names already resolve in
+   tiers 1-2), with a trailing standalone numeral bound onto the acronym
+   whole rather than reduced to a digit-initial.
+
+No match at any tier → nil. Hooked in by `Pito::Chat::Handlers::Show` for a
+non-numeric `show game <title>` / `show vid <title>` ref
+(`#resolve_id_or_title` — a numeric ref resolves by id first, never through
+this ladder) — including the `show game for vid <title>` pivot, which
+resolves the named VID through this same ladder and then answers with THAT
+vid's linked game — and by `Search#search_like`'s seed resolution.
+
 ## UI stack
 
 - **CSS**: Tailwind v4 via `tailwindcss-rails`. Theme tokens as CSS custom
@@ -388,9 +634,9 @@ until a second source exists).
   client, toolset/executor, history, blocks, content registry. Chat-OS-grade;
   `Ai::` namespace.
 - **`app/services/`** — the adapter/domain: `channel/`, `game/`, `video/`,
-  `google/`, `voyage/`, `conversation/`, and the domain-flavored
+  `google/`, `conversation/`, and the domain-flavored
   `pito/{analytics, auth, games, achievements, recommendation, schedule,
-search, stats, sync, showcase, credentials}`.
+search, stats, sync, showcase, credentials, embedding, nl}`.
 - **`app/{components,controllers,jobs,models,views}`** — Rails surfaces;
   `config/pito/` — the ontologies (`tools.yml`, `content.yml`,
   `ai_providers.yml`).

@@ -86,8 +86,8 @@ class Channel
     def embedding_candidate_ids(profile)
       return [] if profile.embedding.blank?
 
-      ::Game.where.not(summary_embedding: nil)
-            .nearest_neighbors(:summary_embedding, profile.embedding, distance: "cosine")
+      ::Game.where.not(::Game::EMBEDDING_COLUMN => nil)
+            .nearest_neighbors(::Game::EMBEDDING_COLUMN, profile.embedding, distance: "cosine")
             .limit(CANDIDATE_POOL)
             .pluck(:id)
     end

@@ -8,7 +8,7 @@ module Pito
   #
   # `Pito::ActionDispatcher.dispatch(name, params = {}, confirm: false)`
   #
-  # - `name` (Symbol) — registered action key (e.g., `:reindex_voyage`)
+  # - `name` (Symbol) — registered action key (e.g., `:calendar_next_month`)
   # - `params` (Hash) — action-specific parameters
   # - `confirm` (Boolean) — for destructive actions; first call returns
   #   a confirmation payload, second call with `confirm: true` executes

@@ -27,7 +27,7 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     allow(client).to receive(:fetch_game).with(1020).and_return([ game_json ])
     allow(client).to receive(:fetch_time_to_beat).with(1020).and_return({ "hastily" => 3600 })
     allow(Game::CoverArt::Normalizer).to receive(:new).and_return(instance_double(Game::CoverArt::Normalizer, call: nil))
-    allow(GameVoyageIndexJob).to receive(:perform_later)
+    allow(GameEmbedIndexJob).to receive(:perform_later)
   end
 
   it "populates the game end-to-end against the reconciled schema" do
@@ -69,9 +69,9 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     expect(game.footage_hours.to_f).to eq(12.5)
   end
 
-  it "enqueues the Voyage index after sync" do
+  it "enqueues the embed index after sync" do
     described_class.new(client: client).call(game)
-    expect(GameVoyageIndexJob).to have_received(:perform_later).with(game.id)
+    expect(GameEmbedIndexJob).to have_received(:perform_later).with(game.id)
   end
 
   describe "idempotent re-sync (E11 — false nightly \"updated\" flags)" do

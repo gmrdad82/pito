@@ -67,8 +67,8 @@ RSpec.describe GameIgdbSync, type: :job do
       # Stub update_column on game reload to avoid missing-column errors
       allow(game).to receive(:reload).and_return(game)
 
-      # Stub VoyageIndexer
-      allow(::Game::VoyageIndexer).to receive(:call)
+      # Stub EmbeddingIndexer
+      allow(::Game::EmbeddingIndexer).to receive(:call)
 
       # Stub DetailMessage
       allow(Pito::MessageBuilder::Game::Detail).to receive(:call)
@@ -95,8 +95,8 @@ RSpec.describe GameIgdbSync, type: :job do
       expect(conversation.events.where(kind: "enhanced").count).to eq(1)
     end
 
-    it "calls Game::VoyageIndexer to reindex before emitting" do
-      expect(::Game::VoyageIndexer).to receive(:call).with(game)
+    it "calls Game::EmbeddingIndexer to reindex before emitting" do
+      expect(::Game::EmbeddingIndexer).to receive(:call).with(game)
       described_class.new.perform(game.id, conversation_id: conversation.id)
     end
 

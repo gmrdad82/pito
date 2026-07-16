@@ -9,7 +9,7 @@ module Games
   # shape: `{ hits: [...], error: nil | { kind:, message: } }`.
   #
   # Request body (JSON):
-  #   { "query": "Hollow Knight" }
+  #   { "query": "Hollow Knight", "limit": 25 }
   #
   # Response (JSON):
   #   { "hits": [ { "id":, "name":, "cover": { "url": } }, … ],
@@ -25,7 +25,12 @@ module Games
 
     def create
       query = params[:query].to_s.strip
-      result = Pito::Search::Modules::IgdbGames.new.call(query: query)
+      # `limit` (the pito-tui import sidebar's viewport-driven hit count,
+      # owner 2026-07-15) is honored via client_page_limit — clamped to the
+      # :games tool's max_page_size; absent/invalid falls back to
+      # IgdbGames::DEFAULT_LIMIT (unchanged pre-limit behavior).
+      limit = client_page_limit(tool: :games, default: Pito::Search::Modules::IgdbGames::DEFAULT_LIMIT)
+      result = Pito::Search::Modules::IgdbGames.new.call(query: query, limit: limit)
 
       # Augment hits with an in_library flag resolved against the local DB.
       # Return library_ids separately so the client can apply the marker

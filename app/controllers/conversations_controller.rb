@@ -104,11 +104,11 @@ class ConversationsController < ApplicationController
         # the same shape NotificationsController#index answers. Bare → the
         # full panel (page 1 + sentinel).
         if params[:after].present?
-          @page = Conversation.recency_page(after: params[:after])
+          @page = Conversation.recency_page(after: params[:after], limit: resume_page_limit)
           @ai_uuids = ai_thread_uuids(@page[:older])
           render "conversations/resume_append"
         else
-          page = Conversation.recency_page
+          page = Conversation.recency_page(limit: resume_page_limit)
           render partial: "chat/resume_sidebar",
                  formats: [ :turbo_stream ],
                  locals:  {
@@ -120,13 +120,16 @@ class ConversationsController < ApplicationController
       end
 
       # The conversation picker for non-browser clients (pito-tui): the same
-      # keyset-paged rows the sidebar renders, as data. Auth is enforced by
-      # the concern (anonymous JSON → 401 before this runs).
+      # keyset-paged rows the sidebar renders, as data. `limit` (the tui's
+      # viewport row count, owner 2026-07-15) is honored via resume_page_limit
+      # — clamped to the :resume tool's max_page_size; absent/invalid falls
+      # back to Conversation::SIDEBAR_PAGE_SIZE. Auth is enforced by the
+      # concern (anonymous JSON → 401 before this runs).
       format.json do
         if params[:after].present?
           # Follow-up page — flat `rows:` (everything past page 1 is "older"
           # by construction); me/notifications only ride on page 1.
-          page = Conversation.recency_page(after: params[:after])
+          page = Conversation.recency_page(after: params[:after], limit: resume_page_limit)
           ai_uuids = ai_thread_uuids(page[:older])
           render json: {
             rows:        page[:older].map { |c| conversation_json_row(c, ai_uuids) },
@@ -134,8 +137,9 @@ class ConversationsController < ApplicationController
           }
         else
           # Page 1 — same shape as before (recent/older + me/notifications),
-          # rows capped at SIDEBAR_PAGE_SIZE with a next_cursor for more.
-          page = Conversation.recency_page
+          # rows capped at resume_page_limit (default SIDEBAR_PAGE_SIZE) with
+          # a next_cursor for more.
+          page = Conversation.recency_page(limit: resume_page_limit)
           ai_uuids = ai_thread_uuids(page[:recent] + page[:older])
           render json: {
             recent:        page[:recent].map { |c| conversation_json_row(c, ai_uuids) },
@@ -202,6 +206,13 @@ class ConversationsController < ApplicationController
   end
 
   private
+
+  # The pito-tui viewport-driven `limit` for /resume's cursor feed, clamped to
+  # the :resume tool's max_page_size (owner 2026-07-15); see
+  # ApplicationController#client_page_limit for the shared mechanism.
+  def resume_page_limit
+    client_page_limit(tool: :resume, default: Conversation::SIDEBAR_PAGE_SIZE)
+  end
 
   # Which of these conversations carry :ai messages — ONE query for the whole
   # page, so appended rows wear the AI badge without a per-row EXISTS.

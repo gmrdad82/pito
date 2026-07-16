@@ -209,6 +209,14 @@ RSpec.describe Notification, type: :model do
       }.to have_enqueued_job(NotificationWebhookDeliverJob)
         .with { |id| expect(id).to eq(notification.id) }
     end
+
+    it "does not enqueue NotificationWebhookDeliverJob when skip_webhook is true" do
+      notification = nil
+      expect {
+        notification = create(:notification, skip_webhook: true)
+      }.not_to have_enqueued_job(NotificationWebhookDeliverJob)
+      expect(notification).to be_persisted
+    end
   end
 
   describe "#mark_unread!" do
@@ -234,6 +242,14 @@ RSpec.describe Notification, type: :model do
   describe "live mini-status broadcast on create" do
     it "broadcasts a pito-mini-status replace to pito:global so open windows update without a refresh" do
       expect { create(:notification) }
+        .to have_broadcasted_to("pito:global").with { |msg|
+          html = msg.is_a?(Hash) ? msg.values.join : msg.to_s
+          expect(html).to include("pito-mini-status")
+        }
+    end
+
+    it "still broadcasts the pito-mini-status replace when skip_webhook is true" do
+      expect { create(:notification, skip_webhook: true) }
         .to have_broadcasted_to("pito:global").with { |msg|
           html = msg.is_a?(Hash) ? msg.values.join : msg.to_s
           expect(html).to include("pito-mini-status")

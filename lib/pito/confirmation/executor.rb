@@ -14,6 +14,10 @@ module Pito
     #
     #   "disconnect" — confirm destroys the channel + any exclusive YoutubeConnection;
     #                  cancel returns a human-readable cancellation message.
+    #   "nl_run"     — the NL gate's did-you-mean confirm (see #confirm_nl_run):
+    #                  confirm re-enters Pito::Dispatch::Router with the payload's
+    #                  `nl_command`; cancel falls through to the generic
+    #                  `pito.copy.confirmation.cancelled` message (no special case).
     #
     # == Error handling
     #
@@ -54,6 +58,8 @@ module Pito
             confirm_sync_channel_videos(payload)
           when "sync_game"
             confirm_sync_game(payload)
+          when "nl_run"
+            confirm_nl_run(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -162,33 +168,33 @@ module Pito
                             { title: title, when: when_label })
         end
 
-        # Force a synchronous Voyage reindex for the game (digest-bypassed).
+        # Force a synchronous reindex for the game (digest-bypassed).
         # We call the indexer inline rather than enqueuing so the confirmation
         # outcome text is accurate: "reindexed" means it's done, not "queued".
         # The executor runs inside FollowUpDispatchJob (already on a worker), so
-        # a brief Voyage HTTP call here is acceptable.
+        # a brief embedder HTTP call here is acceptable.
         def confirm_game_reindex(payload)
           payload = payload.with_indifferent_access
           title   = payload[:game_title].to_s
           game    = ::Game.find_by(id: payload[:game_id])
           return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
 
-          ::Game::VoyageIndexer.call(game, force: true)
+          ::Game::EmbeddingIndexer.call(game, force: true)
           Pito::Copy.render("pito.copy.games.reindexed", { title: title })
         end
 
-        # Force a synchronous Voyage reindex for the video (digest-bypassed).
+        # Force a synchronous reindex for the video (digest-bypassed).
         # Mirrors confirm_game_reindex: we call the indexer inline rather than
         # enqueuing so the confirmation outcome text is accurate — "reindexed" means
         # it's already done. The executor runs inside FollowUpDispatchJob (on a
-        # worker), so a brief Voyage HTTP call is acceptable.
+        # worker), so a brief embedder HTTP call is acceptable.
         def confirm_video_reindex(payload)
           payload = payload.with_indifferent_access
           title   = payload[:video_title].to_s
           video   = ::Video.find_by(id: payload[:video_id])
           return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
 
-          ::Video::VoyageIndexer.call(video, force: true)
+          ::Video::EmbeddingIndexer.call(video, force: true)
           Pito::Copy.render("pito.copy.videos.reindexed", { title: title })
         end
 
@@ -250,6 +256,28 @@ module Pito
 
           SyncGameJob.perform_later(game.id, conversation_id: payload[:conversation_id].presence)
           Pito::Copy.render("pito.copy.sync.game_queued", { title: title })
+        end
+
+        # ── nl_run (the NL gate's did-you-mean confirm) ───────────────────────────
+        # The ONLY command here that re-enters the real dispatch path rather than
+        # touching a model directly — Pito::Chat::Handlers::Unknown's did-you-mean
+        # branch (lib/pito/chat/handlers/unknown.rb) stamps `nl_command` (the
+        # canonicalized command string) + `conversation_id` onto the confirmation
+        # payload; on confirm we run it through Pito::Dispatch::Router exactly like
+        # a typed command (mirrors Pito::FollowUp::ToolDelegator), then project the
+        # resulting events into ONE outcome_text string via Pito::Mcp::EventText —
+        # the same events → text projection the AI orchestrator uses to read a
+        # dispatch result back. Degrades to the `huh` copy (K2) rather than raising
+        # when the conversation is gone or the command comes back empty.
+        def confirm_nl_run(payload)
+          payload      = payload.with_indifferent_access
+          command      = payload[:nl_command].to_s
+          conversation = ::Conversation.find_by(id: payload[:conversation_id])
+          return Pito::Copy.render("pito.copy.huh") if conversation.nil? || command.blank?
+
+          result = Pito::Dispatch::Router.call(input: command, conversation: conversation)
+          events = Pito::Dispatch::Finalizer.result_events(result)
+          Pito::Mcp::EventText.call(events).presence || Pito::Copy.render("pito.copy.huh")
         end
 
         # Resolve a sync scope (`channel_ids` empty = all connected channels) to

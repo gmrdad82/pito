@@ -27,7 +27,7 @@
 #   4. Mark sidebar step 1 done; mark step 2 done (cover already fetched).
 #   5. Emit :system announce to main chat (thinking stays live).
 #   7. Shimmer step 3; run ScoreCalculator; mark step 3 done.
-#   8. Shimmer step 4; run VoyageIndexer (digest-gated); mark step 4 done.
+#   8. Shimmer step 4; run EmbeddingIndexer (digest-gated); mark step 4 done.
 #   9. Shimmer step 5; call Pito::Recommendations; mark step 5 done.
 #  10. Emit :enhanced done to main chat; resolve the thinking indicator.
 #  11. Complete the turn.
@@ -35,10 +35,10 @@
 # All 5 stages run inline (synchronous orchestration — no sub-job fan-out).
 #
 # Retry policy (BUG A fix):
-#   Voyage transiently returning nil raises Pito::Error::VoyageEmbeddingNil.
+#   The embedder transiently returning nil raises Pito::Error::EmbeddingNil.
 #   Rather than swallowing the error (old behaviour, left games without embeddings),
 #   we retry the WHOLE job up to 5 times with polynomial backoff.
-#   On exhaustion, `degrade_after_voyage_exhaustion` emits the done message
+#   On exhaustion, `degrade_after_embedding_exhaustion` emits the done message
 #   (intro-only is acceptable) and completes the turn so it isn't left stuck open.
 #
 # Idempotency:
@@ -49,12 +49,12 @@ class GameImportJob < ApplicationJob
 
   queue_as :default
 
-  # Retry up to 5 times on a transient Voyage nil-embedding failure.
+  # Retry up to 5 times on a transient nil-embedding failure.
   # On exhaustion the block degrades gracefully (emit done if needed, close turn).
-  retry_on Pito::Error::VoyageEmbeddingNil,
+  retry_on Pito::Error::EmbeddingNil,
            wait: :polynomially_longer,
            attempts: 5 do |job, _error|
-    job.send(:degrade_after_voyage_exhaustion)
+    job.send(:degrade_after_embedding_exhaustion)
   end
 
   STEP_COPY_KEYS = [
@@ -117,10 +117,10 @@ class GameImportJob < ApplicationJob
     @game.update_column(:score, score) if score != @game.score
     broadcast_step_done(@broadcaster, step: 3)
 
-    # Step 4 — Voyage index (digest-gated; no-op if already fresh).
+    # Step 4 — Embedding index (digest-gated; no-op if already fresh).
     broadcast_step_pending(@broadcaster, step: 4)
-    # VoyageEmbeddingNil propagates to retry_on — not swallowed here.
-    ::Game::VoyageIndexer.call(@game)
+    # EmbeddingNil propagates to retry_on — not swallowed here.
+    ::Game::EmbeddingIndexer.call(@game)
     broadcast_step_done(@broadcaster, step: 4)
 
     # Step 5 — Recommendations (dummy placeholder).
@@ -133,7 +133,7 @@ class GameImportJob < ApplicationJob
     @broadcaster.resolve_thinking(turn: turn)
 
     @broadcaster.complete_turn(turn: turn)
-  rescue Pito::Error::VoyageEmbeddingNil
+  rescue Pito::Error::EmbeddingNil
     # Let retry_on handle this — do NOT log as a hard job error on each attempt.
     raise
   rescue StandardError => e
@@ -209,10 +209,10 @@ class GameImportJob < ApplicationJob
 
   # Called by the retry_on exhaustion block (runs on the same job instance).
   # Instance vars @conversation, @broadcaster, @game, @title were set in
-  # `perform` before the VoyageEmbeddingNil was raised, so they're available here.
+  # `perform` before the EmbeddingNil was raised, so they're available here.
   # Emits the done message in intro-only mode (empty embedding → no recs)
   # and completes the turn so it isn't left stuck open.
-  def degrade_after_voyage_exhaustion
+  def degrade_after_embedding_exhaustion
     return unless @conversation && @game
 
     turn = import_turn(@conversation, @title)
@@ -221,8 +221,8 @@ class GameImportJob < ApplicationJob
     @broadcaster.resolve_thinking(turn: turn)
 
     @broadcaster.complete_turn(turn: turn)
-    Rails.logger.warn("[GameImportJob] Voyage embedding exhausted for game id=#{@game.id}; degrading to intro-only done message")
+    Rails.logger.warn("[GameImportJob] Embedding exhausted for game id=#{@game.id}; degrading to intro-only done message")
   rescue StandardError => e
-    Rails.logger.warn("[GameImportJob] degrade_after_voyage_exhaustion failed: #{e.class}: #{e.message}")
+    Rails.logger.warn("[GameImportJob] degrade_after_embedding_exhaustion failed: #{e.class}: #{e.message}")
   end
 end

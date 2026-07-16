@@ -1276,6 +1276,29 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   padding-left: 12px;
 }
 
+/* Brief "you are here" pulse (pito--anchor-jump): a ring drawn OUTSIDE the
+   segment's box (box-shadow, not background) so it reads on top of every
+   message surface — the :ai gradient tile, an orange confirmation bg, or a
+   plain transparent one — without fighting content-visibility:auto's
+   scroll-container repaint. One-shot 2s fade on add; the controller removes
+   the class after the same 2s so a re-click re-triggers cleanly. */
+@keyframes pito-anchor-flash-fade {
+  from { box-shadow: 0 0 0 3px color-mix(in oklch, var(--brand-pito) 70%, transparent); }
+  to   { box-shadow: 0 0 0 3px transparent; }
+}
+
+.pito-anchor-flash {
+  animation: pito-anchor-flash-fade 2s ease-out;
+}
+
+/* Persistent subtle marker on the anchored message (the one an #event_<id>
+   URL or a search-hit click jumped to) — a quiet pito-blue left bar drawn as
+   an inset shadow so it never shifts layout. The 2s .pito-anchor-flash above
+   is the arrival emphasis; this stays until another jump moves it. */
+.pito-anchor-highlight {
+  box-shadow: inset 3px 0 0 0 color-mix(in oklch, var(--brand-pito) 55%, transparent);
+}
+
 /* ── Start screen ───────────────────────────────────────────── */
 
 .pito-start-screen__logo {
@@ -1705,6 +1728,10 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   padding: 1px;
   background: var(--fg-default);
   color: var(--bg-root);
+  /* text-shadow is INHERITED from the naked-content halo (line ~368) — on this
+     dark-on-light chip it muddies the digits. Cancel it, same as
+     .pito-action-shimmer / .pito-kbd-shimmer above. */
+  text-shadow: none;
 }
 
 /* value RIGHT of the tick: tick's left edge sits at left:% (centred vertically). */
@@ -2283,16 +2310,16 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   min-width: 0;
 }
 
-/* Similar-games strip: a fixed-180px grid matching the channel grid (same
+/* Similar-games strip: a fixed-216px grid matching the channel grid (same
    column width + same 1rem column-gap + justify-content: start) so each cover
    lines up under the channel card above it, even though they're different rows. */
 .pito-game-enhanced-message__similar-games-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, 180px);
+  grid-template-columns: repeat(auto-fit, 216px);
   justify-content: start;
-  /* Column gap shrunk to 4px so the TOP 5 covers (180px each) fit one row in the
-     964px conversation column: 5×180 + 4×4 = 916. Row gap stays generous
-     in case a narrow viewport wraps. */
+  /* Column gap 4px so the TOP 4 covers (216px each, 20%-bumped) fit one row in the
+     964px conversation column: 4×216 + 3×4 = 876. On a narrow (mobile) viewport
+     the auto-fit grid wraps to a clean 2,2 (row gap stays generous). */
   gap: 2rem 4px;
 }
 
@@ -2302,16 +2329,17 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  width: 180px;
+  width: 216px;
   flex: 0 0 auto;
   min-width: 0;
 }
 
-/* Enhanced similar-game cover (180×240) — the small strip cards. Matches
-   the :strip named variant (resize_to_fill 180×240) so no CSS downscale occurs. */
+/* Enhanced similar-game cover (216×288 — 20%-bumped) — the small strip cards.
+   Matches the :strip named variant (resize_to_fill 432×576, 2×) so no CSS
+   upscale occurs. */
 .pito-game-enhanced-message__similar-game-cover {
-  width: 180px;
-  height: 240px;
+  width: 216px;
+  height: 288px;
   object-fit: cover;
   display: block;
 }
@@ -2668,6 +2696,18 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 /* Duration / footage: numeric, right-aligned, capped at the widest value
    "99:23:59:59" (11ch). Short content, so no truncation needed. */
 .pito-cell-duration { max-width: 11ch; }
+
+/* Score-bar cell (table_rows `{ score: }` shape — DataGridComponent
+   #render_score_cell). The bar itself (.pito-score-bar) is `width: 100%`, so
+   without a cap its `=` fill run (300 glyphs, see ScoreBarComponent::FILL_CELLS)
+   would blow the max-content grid column out to hundreds of characters wide —
+   min-width:0 + max-width caps it at a legible bar width, exactly like the
+   text .pito-cell-* caps above. No new bar styling — the bar's own CSS is
+   untouched; this only bounds the grid track it sits in. */
+.pito-cell-score {
+  min-width: 0;
+  max-width: 20ch;
+}
 
 /* ── Pito::Analytics::ScalarsTableComponent ─────────────────────
  *

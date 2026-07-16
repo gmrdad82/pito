@@ -56,14 +56,26 @@ module Pito
         type = scope
         id   = achievable.id
 
-        rows = thresholds.map do |threshold|
+        # Stagger unlocked_at/created_at 1s apart across tiers unlocked in this
+        # same call — e.g. connecting a channel whose historical subs already
+        # clear several tiers at once. thresholds is ascending (from
+        # series_for, not re-sorted here), so the highest tier (last index)
+        # gets exactly +now+ and each lower tier is 1s earlier; this keeps
+        # `.order(:unlocked_at)` (see MetricRowComponent) able to distinguish
+        # and correctly order tiers that would otherwise share one timestamp.
+        # A single-threshold unlock is unaffected (offset 0 == now).
+        last_index = thresholds.length - 1
+
+        rows = thresholds.each_with_index.map do |threshold, index|
+          timestamp = now - (last_index - index).seconds
+
           {
             achievable_type: type,
             achievable_id:   id,
             metric:          metric,
             threshold:       threshold,
-            unlocked_at:     now,
-            created_at:      now,
+            unlocked_at:     timestamp,
+            created_at:      timestamp,
             updated_at:      now
           }
         end

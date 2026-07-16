@@ -98,7 +98,7 @@ module Pito
       # Video-count-weighted mean embedding vector (nil when none embedded).
       def weighted_embedding(rows)
         vectors = rows.filter_map do |game, count|
-          vec = GameSimilarity.coerce_vector(game.summary_embedding)
+          vec = GameSimilarity.coerce_vector(game.embedding_vector)
           [ vec, count ] if vec
         end
         return nil if vectors.empty?

@@ -76,7 +76,7 @@ RSpec.describe "Conversation requests", type: :request do
 
     it "wires the scrollback Stimulus controllers on the scrollback container" do
       get conversation_path(uuid: conversation.uuid)
-      expect(response.body).to include('data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag pito--pull-refresh pito--selection-scope"')
+      expect(response.body).to include('data-controller="pito--scrollback pito--quick-run pito--cable-health pito--lasthashtag pito--pull-refresh pito--selection-scope pito--anchor-jump"')
     end
 
     it "includes the uuid in the chat form" do
@@ -313,6 +313,74 @@ RSpec.describe "Conversation requests", type: :request do
       authenticate!
       get resume_path, headers: { "Accept" => "text/vnd.turbo-stream.html" }
       expect(response.body).to include("pito-purge-warning")
+    end
+  end
+
+  # ── POST /chat — /resume <uuid> [event_id] (chat_controller#handle_resume_uuid) ─
+  # A first token shaped like a Conversation#uuid routes straight to that
+  # conversation via a Turbo Stream navigate (render_turbo_navigate), skipping
+  # the title-lookup path entirely. An optional second numeric token rides
+  # along as a #event_<id> anchor. An unresolvable uuid degrades to a plain
+  # :error event broadcast (never a 500). Bare /resume and /resume <name> stay
+  # on their existing paths (see spec/requests/resume_spec.rb).
+  describe "POST /chat with /resume <uuid>" do
+    let!(:conversation) { create(:conversation) }
+    let!(:target)       { create(:conversation) }
+
+    def authenticate!
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      totp = ROTP::TOTP.new(seed)
+      post "/chat", params: { input: "/login #{totp.now}", uuid: conversation.uuid }
+      conversation.events.destroy_all
+    end
+
+    before { authenticate! }
+
+    it "navigates to the target conversation for a valid uuid" do
+      post "/chat", params: { input: "/resume #{target.uuid}", uuid: conversation.uuid }
+
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('action="navigate"')
+      expect(response.body).to include(conversation_path(uuid: target.uuid))
+    end
+
+    it "navigates to the target conversation with a #event_<id> anchor when an event_id follows the uuid" do
+      turn  = create(:turn, conversation: target)
+      event = create(:event, conversation: target, turn: turn)
+
+      post "/chat", params: { input: "/resume #{target.uuid} #{event.id}", uuid: conversation.uuid }
+
+      expect(response.body).to include('action="navigate"')
+      expect(response.body).to include("#{conversation_path(uuid: target.uuid)}#event_#{event.id}")
+    end
+
+    it "does not 500 and broadcasts the not-found copy for an unresolvable uuid" do
+      bogus_uuid = SecureRandom.uuid
+
+      post "/chat", params: { input: "/resume #{bogus_uuid}", uuid: conversation.uuid }
+
+      expect(response).to have_http_status(:no_content)
+      error_event = conversation.events.where(kind: :error).last
+      expect(error_event).to be_present
+      expect(error_event.payload["text"])
+        .to eq(Pito::Copy.render("pito.copy.resume.not_found", uuid: bogus_uuid))
+    end
+
+    it "still renders the resume sidebar for a bare /resume (unchanged)" do
+      post "/chat", params: { input: "/resume", uuid: conversation.uuid }
+
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('target="pito-sidebar"')
+    end
+
+    it "falls through to the title-lookup path for a non-uuid, non-blank name" do
+      named = create(:conversation, title: "greenlight")
+
+      post "/chat", params: { input: "/resume #{named.title}", uuid: conversation.uuid }
+
+      expect(response.body).to include('action="navigate"')
+      expect(response.body).to include(conversation_path(uuid: named.uuid))
     end
   end
 end

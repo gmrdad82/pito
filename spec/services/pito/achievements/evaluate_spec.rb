@@ -61,10 +61,92 @@ RSpec.describe Pito::Achievements::Evaluate do
         expect(results.map(&:metric).uniq).to eq([ "views" ])
       end
 
-      it "sets unlocked_at on newly created records" do
+      it "sets unlocked_at to Time.current on the highest newly-unlocked tier" do
         freeze_time do
           results = described_class.call(achievable: video, metric: "views", value: 10)
-          expect(results.map(&:unlocked_at).uniq).to eq([ Time.current ])
+          highest = results.max_by(&:threshold)
+          expect(highest.unlocked_at).to eq(Time.current)
+        end
+      end
+    end
+
+    # ── staggered unlock timestamps ────────────────────────────────────────────
+
+    context "staggering unlocked_at across multiple newly-unlocked tiers" do
+      it "spaces timestamps 1 second apart, ending at Time.current for the highest tier" do
+        freeze_time do
+          # value 25 → thresholds 1, 2, 5, 10, 20 (K = 5); next in series is 50
+          results      = described_class.call(achievable: video, metric: "views", value: 25)
+          ascending    = [ 1, 2, 5, 10, 20 ]
+          by_threshold = results.index_by(&:threshold)
+          k            = ascending.length
+
+          ascending.each_with_index do |threshold, index|
+            expected = Time.current - (k - 1 - index).seconds
+            expect(by_threshold[threshold].unlocked_at).to eq(expected)
+          end
+
+          expect(by_threshold[20].unlocked_at).to eq(Time.current)
+          expect(by_threshold[1].unlocked_at).to eq(Time.current - (k - 1).seconds)
+        end
+      end
+
+      it "keeps each adjacent tier exactly 1 second apart" do
+        freeze_time do
+          results = described_class.call(achievable: video, metric: "views", value: 25)
+          diffs   = results.sort_by(&:threshold).map(&:unlocked_at).each_cons(2).map { |a, b| b - a }
+          expect(diffs).to all(eq(1.second))
+        end
+      end
+
+      it "sets created_at equal to unlocked_at on every staggered row" do
+        freeze_time do
+          results = described_class.call(achievable: video, metric: "views", value: 25)
+          results.each { |record| expect(record.created_at).to eq(record.unlocked_at) }
+        end
+      end
+
+      it "orders ascending by unlocked_at from the lowest tier (oldest) to the highest (newest)" do
+        freeze_time do
+          described_class.call(achievable: video, metric: "views", value: 25)
+          ordered = Achievement.where(achievable: video, metric: "views").order(:unlocked_at)
+          expect(ordered.map(&:threshold)).to eq([ 1, 2, 5, 10, 20 ])
+        end
+      end
+    end
+
+    context "when value crosses exactly one new threshold" do
+      it "sets unlocked_at to Time.current with no stagger offset" do
+        freeze_time do
+          results = described_class.call(achievable: video, metric: "views", value: 1)
+          expect(results.map(&:threshold)).to eq([ 1 ])
+          expect(results.first.unlocked_at).to eq(Time.current)
+        end
+      end
+    end
+
+    context "when some thresholds are already unlocked with an older timestamp" do
+      it "staggers only the newly-inserted tiers while preserving pre-existing unlocked_at" do
+        old_time = 3.days.ago
+
+        create(:achievement, achievable: video, metric: "views", threshold: 1, unlocked_at: old_time)
+        create(:achievement, achievable: video, metric: "views", threshold: 2, unlocked_at: old_time)
+        create(:achievement, achievable: video, metric: "views", threshold: 5, unlocked_at: old_time)
+
+        freeze_time do
+          results = described_class.call(achievable: video, metric: "views", value: 25)
+
+          # 1, 2, 5 already unlocked → only 10, 20 are newly inserted this call
+          expect(results.map(&:threshold)).to contain_exactly(10, 20)
+
+          by_threshold = results.index_by(&:threshold)
+          expect(by_threshold[20].unlocked_at).to eq(Time.current)
+          expect(by_threshold[10].unlocked_at).to eq(Time.current - 1.second)
+
+          [ 1, 2, 5 ].each do |threshold|
+            preexisting = Achievement.find_by(achievable: video, metric: "views", threshold: threshold)
+            expect(preexisting.unlocked_at).to be_within(1.second).of(old_time)
+          end
         end
       end
     end

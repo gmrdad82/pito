@@ -213,4 +213,53 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect(cell[:class]).to eq("text-fg-dim text-right tabular-nums pito-cell-duration")
     end
   end
+
+  # ── Scores (search's `like` path) ────────────────────────────────────────────
+
+  describe ".call with scores:" do
+    let(:videos) { ::Video.where(id: [ video1.id, video2.id ]).order(:title) }
+    let(:scores) { { video1.id => 91, video2.id => 5 } }
+
+    subject(:payload) { described_class.call(videos, conversation: conversation, scores: scores) }
+
+    it "appends a trailing Score heading" do
+      expect(payload["table_heading"]).to eq([
+        { "text" => "#", "class" => "text-right" },
+        "Title",
+        "Score"
+      ])
+    end
+
+    it "appends a trailing { score: } cell matching each record's score" do
+      row1 = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{video1.id}" }
+      row2 = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{video2.id}" }
+      expect(row1[:cells].last).to eq({ score: 91 })
+      expect(row2[:cells].last).to eq({ score: 5 })
+    end
+
+    context "when a record's id is absent from the scores hash" do
+      let(:scores) { { video1.id => 91 } }
+
+      it "renders { score: nil } for the record missing from the hash" do
+        row2 = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{video2.id}" }
+        expect(row2[:cells].last).to eq({ score: nil })
+      end
+    end
+  end
+
+  describe ".call with scores: nil (explicit) — identical to omitting scores" do
+    let(:videos) { ::Video.where(id: [ video1.id, video2.id ]).order(:title) }
+
+    subject(:payload) { described_class.call(videos, conversation: conversation, scores: nil) }
+
+    it "does not append a Score heading" do
+      expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Title" ])
+    end
+
+    it "does not append a score cell to any row" do
+      payload["table_rows"].each do |row|
+        expect(row[:cells].size).to eq(2)
+      end
+    end
+  end
 end

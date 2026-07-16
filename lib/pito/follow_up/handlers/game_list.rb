@@ -208,7 +208,23 @@ module Pito
             end
           end
 
-          page_sz = Pito::Dispatch::Config.pager(tool: :list)[:page_size]
+          # The cursor carries its owning tool (post-3.0.0) so per-tool page sizes
+          # survive into `next`/`more` continuations instead of every cursor
+          # stepping by the :list page size — a search's ranked_ids cursor pages
+          # at 20, not 50. Absent "tool" == the pre-3.0.0 world (plain list
+          # queries never stamped one) => default to "list"; an unrecognized
+          # tool name or a tool declaring no pager also falls back to the :list
+          # pager so a stale persisted cursor can never crash a `next`.
+          cursor_tool = cursor["tool"].presence || "list"
+          pager =
+            begin
+              Pito::Dispatch::Config.pager(tool: cursor_tool.to_sym)
+            rescue KeyError
+              nil
+            end
+          pager ||= Pito::Dispatch::Config.pager(tool: :list)
+
+          page_sz = pager[:page_size]
           rows    = all_games[offset, page_sz] || []
 
           if rows.empty?

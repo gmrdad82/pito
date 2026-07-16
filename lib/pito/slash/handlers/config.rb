@@ -7,7 +7,7 @@ module Pito
       #
       # Providers fall into two categories:
       #
-      # **Credential providers** (`google`, `voyage`, `igdb`, `webhook`):
+      # **Credential providers** (`google`, `igdb`, `webhook`):
       # - **Getter** (no kwargs): `/config google` → status table (OK/MISSING per key).
       # - **Setter** (≥1 kwarg): `/config google client_id=x` → writes via `AppSetting` writers
       #   and invalidates the `Pito::Credentials` cache.
@@ -38,7 +38,7 @@ module Pito
         # Every AI provider in the registry gets a `/config <name> api_key=…`
         # entry (and a status getter) automatically — one YAML entry, full
         # config surface.
-        KNOWN_PROVIDERS   = %w[ai tavily google voyage igdb webhook].freeze
+        KNOWN_PROVIDERS   = %w[ai tavily google igdb webhook].freeze
         TOGGLE_PROVIDERS  = %w[sound].freeze
         # Maps each provider's supported kwargs to their AppSetting writers.
         # AI config has EXACTLY ONE slash surface — `/config ai` with kwargs
@@ -66,9 +66,6 @@ module Pito
           # The @ai --web search backend (Tavily; P14).
           "tavily" => {
             api_key: ->(v) { AppSetting.set("tavily_api_key", v) }
-          },
-          "voyage" => {
-            api_key: ->(v) { AppSetting.singleton_row.update!(voyage_api_key: v) }
           },
           "igdb" => {
             client_id:     ->(v) { AppSetting.igdb_client_id = v },
@@ -100,9 +97,6 @@ module Pito
               "Redirect URI"  => status_flag(Pito::Credentials.google_oauth_redirect_uri),
               "API Key"       => status_flag(Pito::Credentials.google_api_key)
             }
-          },
-          "voyage" => -> {
-            { "API Key" => status_flag(Pito::Credentials.voyage_api_key) }
           },
           "tavily" => -> {
             { "API Key" => status_flag(AppSetting.get("tavily_api_key")) }

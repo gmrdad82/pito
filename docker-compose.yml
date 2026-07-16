@@ -15,6 +15,12 @@ volumes:
   rails_storage:
   caddy_data:
   caddy_config:
+  # One dedicated model-cache volume PER sidecar (owner 2026-07-15: avoid
+  # coupling — like postgres_data, each service owns its own). Holds only
+  # re-downloadable GGUF weights, never app data (embeddings live in
+  # postgres_data), so losing one just re-downloads that model.
+  embedder_models:
+  nlmapper_models:
 
 services:
   postgres:
@@ -88,6 +94,14 @@ services:
       # activate; absent/blank keeps AppSignal completely inert (see
       # config/appsignal.rb). Never bake this into the image or credentials.
       APPSIGNAL_PUSH_API_KEY: ${APPSIGNAL_PUSH_API_KEY:-}
+      # Local AI sidecars (3.0.0). Reached over the compose network. The `-`
+      # (not `:-`) form means: UNSET → the in-network default (features work
+      # out of the box); explicitly BLANK in .env → honored as blank, which
+      # disables the feature cleanly (K2 degrade). A self-hoster who can't
+      # spare the sidecar RAM sets these blank AND skips the embedder/nlmapper
+      # services.
+      PITO_EMBEDDER_URL: ${PITO_EMBEDDER_URL-http://embedder:8081}
+      PITO_NLMAPPER_URL: ${PITO_NLMAPPER_URL-http://nlmapper:8082}
     depends_on:
       postgres:
         condition: service_healthy
@@ -130,9 +144,71 @@ services:
       # Same optional AppSignal key as `web` — the MCP Puma reports as the
       # same app; inert when blank.
       APPSIGNAL_PUSH_API_KEY: ${APPSIGNAL_PUSH_API_KEY:-}
+      # NOTE: no PITO_EMBEDDER_URL / PITO_NLMAPPER_URL here on purpose. The MCP
+      # tool loop is read-only and never calls a sidecar at request time:
+      # `similar` reads STORED game vectors (pgvector nearest-neighbor, no live
+      # embed), there is no MCP semantic-search tool, and the nlmapper only
+      # fires on unmatched free-text CHAT (which MCP never does). This Puma also
+      # runs no SolidQueue (SOLID_QUEUE_IN_PUMA=false), so it enqueues no embed
+      # jobs either. The `web` service owns every sidecar caller.
     depends_on:
       postgres:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Local embeddings sidecar (3.0.0) — replaces Voyage AI. llama.cpp serves
+  # embeddinggemma-300m over the OpenAI-compatible /v1/embeddings API; the
+  # model (~350MB) auto-downloads from Hugging Face on first boot into its
+  # own embedder_models volume, then never again. CPU-only by design (the Hetzner
+  # box has no GPU). No host port: web/pito-mcp reach it over the compose
+  # network via PITO_EMBEDDER_URL=http://embedder:8081 — and when that env
+  # is blank/absent the app boots and runs fine with embedding features
+  # degraded (search-like/similar fall back; nothing crashes, nothing bad
+  # persists).
+  embedder:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: -hf ggml-org/embeddinggemma-300m-qat-q8_0-GGUF --embeddings --host 0.0.0.0 --port 8081
+    restart: unless-stopped
+    mem_limit: 1g
+    volumes:
+      - embedder_models:/root/.cache/llama.cpp
+    healthcheck:
+      # /health flips 200 once the model is loaded; the generous start_period
+      # covers the one-time first-boot model download.
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 10m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # NL command mapper sidecar (3.0.0) — a second llama.cpp server holding
+  # Qwen3-0.6B (Q8). It types pito commands under a GBNF grammar compiled
+  # from tools.yml, so free-text like "list me the vids" maps to `ls vids`.
+  # COLD PATH by design: only consulted when input matches no tool, so its
+  # CPU cost never touches normal typing. Same inertness contract as the
+  # embedder: blank/absent PITO_NLMAPPER_URL simply disables the mapper.
+  nlmapper:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: -hf Qwen/Qwen3-0.6B-GGUF:Q8_0 --host 0.0.0.0 --port 8082 --ctx-size 2048
+    restart: unless-stopped
+    mem_limit: 1g
+    volumes:
+      - nlmapper_models:/root/.cache/llama.cpp
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 10m
     logging:
       driver: json-file
       options:

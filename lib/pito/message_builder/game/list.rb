@@ -16,8 +16,14 @@ module Pito
         # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
         # @param intro        [String, nil] pre-rendered html_safe body overriding the
         #   default count intro (e.g. the upcoming soon/later horizon intros).
+        # @param scores       [Hash{Integer => Integer}, nil] optional game_id => 0..100 score
+        #   map (search's `like` path). When present, a trailing Score column is appended to
+        #   the heading and every row via the `{ score: }` data-grid cell contract (renders a
+        #   score bar — see Pito::Event::SystemComponent#normalized_cell). nil (every other
+        #   caller: `list games`, `search games for`, follow-up pagers) → no Score column,
+        #   output identical to before this param existed.
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
-        def call(games, conversation:, columns: [], intro: nil)
+        def call(games, conversation:, columns: [], intro: nil, scores: nil)
           cols    = ListColumns.canonical_order(columns)
           # When the price column is shown, align its numbers on the decimal by
           # padding each integer part to the table-max width (figure-spaces).
@@ -32,7 +38,12 @@ module Pito
             "table_heading" => [
               { "text" => "#", "class" => "text-right" },
               "Game",
-              *ListColumns.heading_cells(cols)
+              *ListColumns.heading_cells(cols),
+              # Search's `like` path only (scores present) — a literal structural
+              # label, same as the plain-string "Game" heading above and the
+              # "Score" heading Conversation::Hits already uses for its own
+              # score column (lib/pito/message_builder/conversation/hits.rb).
+              *(scores ? [ "Score" ] : [])
             ],
             "shimmer_heading" => true,
             "fixed_leading"  => (cols & %i[platform]).size,
@@ -49,7 +60,10 @@ module Pito
                     data:  Pito::Shimmer::TokenComponent.prefill_data("show game #{id_text}", submit: true)
                   },
                   { text: game.title, class: "text-fg pito-cell-title" },
-                  *ListColumns.cells(game, cols, price_pad_int: price_pad)
+                  *ListColumns.cells(game, cols, price_pad_int: price_pad),
+                  # { score: } cell contract (SystemComponent#normalized_cell) —
+                  # renders a ScoreBarComponent instead of plain text.
+                  *(scores ? [ { score: scores[game.id] } ] : [])
                 ]
               }
             },

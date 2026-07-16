@@ -18,7 +18,7 @@ RSpec.describe Pito::InputMasking do
 
   describe ".config_credential_command?" do
     it "is true for the secret-bearing providers" do
-      %w[google voyage igdb webhook].each do |provider|
+      %w[google igdb webhook].each do |provider|
         expect(described_class.config_credential_command?("/config #{provider} k=v")).to be(true)
         expect(described_class.config_credential_command?("/config #{provider.upcase}")).to be(true)
       end

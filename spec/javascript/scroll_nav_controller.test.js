@@ -190,6 +190,22 @@ describe("pito--scroll-nav controller", () => {
     expect(countText(wrapper, "top")).toBe("2 msgs before")
   })
 
+  it("renders ten out-of-view messages exactly, and the short form above ten", async () => {
+    const { wrapper, scrollback } = buildScaffold()
+    setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 500, scrollHeight: 4000 })
+    for (let i = 1; i <= 10; i++) addMessage(scrollback, { top: -60 * i, height: 50 })
+
+    await tick()
+
+    expect(countText(wrapper, "top")).toBe("10 msgs before")
+
+    addMessage(scrollback, { top: -660, height: 50 })
+
+    await tick()
+
+    expect(countText(wrapper, "top")).toBe("10+ msgs before")
+  })
+
   it("removes the top pill when scrolled to the very top, even if a message reads above", async () => {
     const { wrapper, scrollback } = buildScaffold()
     setContainerRect(scrollback, { top: 0, height: 600, scrollTop: 0, scrollHeight: 4000 })
