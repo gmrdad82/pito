@@ -34,8 +34,22 @@ class Video
       return if text.strip.blank?
       return if ENV["PITO_EMBEDDER_URL"].blank?
 
-      digest = Digest::SHA256.hexdigest(text)
-      return if !@force && digest == @video.embedded_digest
+      # Salted with Pito::Embedding::Client::VECTOR_SPACE, not bare text
+      # (3.0.1 correctness fix): the digest must identify the VECTOR SPACE a
+      # stored embedding lives in, not just the source text. A text-only
+      # digest can't detect a wire-level prompt change (e.g. the 3.0.0 ->
+      # 3.0.1 PROMPT_PREFIX adoption) — the text is unchanged, so the digest
+      # still matches, so the gate below would skip forever, leaving a
+      # raw-space vector silently mismatched against prefixed queries. See
+      # VECTOR_SPACE's doc comment for the full story.
+      digest = Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + text)
+      # Diff-gate: skip only when the digest matches AND a vector is already
+      # stored. The vector check matters: a matching digest with a NULL
+      # vector is exactly what a 2.x -> 3.0.0 column promotion leaves behind
+      # on every existing row (digest carries over, the new column starts
+      # empty) — skipping on digest alone left those rows permanently
+      # unembedded (3.0.1 P9-A). `force:` bypasses the whole gate.
+      return if !@force && digest == @video.embedded_digest && @video.embedding_vector.present?
 
       embed_and_persist(text, digest)
     end
@@ -60,8 +74,9 @@ class Video
         )
       end
 
-      @video.update_column(Video::EMBEDDING_COLUMN, vector)
-      @video.update_column(:embedded_digest, digest)
+      # One statement, like `Game::EmbeddingIndexer`: a mid-write crash can
+      # never leave a fresh vector paired with a stale digest (or vice versa).
+      @video.update_columns(Video::EMBEDDING_COLUMN => vector, embedded_digest: digest)
     end
   end
 end

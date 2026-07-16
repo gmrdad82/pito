@@ -131,6 +131,7 @@ module Pito
 
           value = payload[:staged_value]
           video.update!(field => field == "tags" ? Array(value).map(&:to_s) : value.to_s)
+          VideoEmbedIndexJob.perform_later(video.id)
           VideoRemoteStatusSync.perform_later(video.id, fields: [ field ])
           Pito::Copy.render("pito.copy.videos.metadata_updated", { title: title, field: field })
         end
@@ -275,7 +276,12 @@ module Pito
           conversation = ::Conversation.find_by(id: payload[:conversation_id])
           return Pito::Copy.render("pito.copy.huh") if conversation.nil? || command.blank?
 
-          result = Pito::Dispatch::Router.call(input: command, conversation: conversation)
+          # `nl_retry: true` — the NL loop guard (3.0.1 P7): a confirmed mapped
+          # command that itself soft-fails must return its marker (rendered
+          # below as its own crisp error text), never re-enter the NL gate —
+          # otherwise confirm → soft-fail → gate → the SAME did-you-mean again,
+          # a user-visible ping-pong with no terminal state.
+          result = Pito::Dispatch::Router.call(input: command, conversation: conversation, nl_retry: true)
           events = Pito::Dispatch::Finalizer.result_events(result)
           Pito::Mcp::EventText.call(events).presence || Pito::Copy.render("pito.copy.huh")
         end

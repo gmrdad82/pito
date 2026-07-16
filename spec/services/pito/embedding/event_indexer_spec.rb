@@ -31,6 +31,31 @@ RSpec.describe Pito::Embedding::EventIndexer, type: :service do
     expect(event.updated_at).to eq(original_updated_at)
   end
 
+  it "salts the stored digest with Pito::Embedding::Client::VECTOR_SPACE (3.0.1 vector-space fix)" do
+    event = build_event(kind: "echo")
+    described_class.call(event)
+    event.reload
+    text = Pito::Mcp::EventText.call([ event ]).to_s
+
+    expect(event.embedded_digest).to eq(Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + text))
+    expect(event.embedded_digest).not_to eq(Digest::SHA256.hexdigest(text))
+  end
+
+  it "re-embeds when the stored digest was computed under a different VECTOR_SPACE, even though the projected text and embedding are otherwise unchanged" do
+    event = build_event(kind: "echo")
+    described_class.call(event)
+    event.reload
+    text = Pito::Mcp::EventText.call([ event ]).to_s
+    stale_digest = Digest::SHA256.hexdigest("some-other-vector-space" + text)
+    event.update_column(:embedded_digest, stale_digest)
+    expect(event.reload.embedding).to be_present
+
+    expect(client).to receive(:embed).and_return([ Array.new(768, 0.5) ])
+    described_class.call(event.reload)
+
+    expect(event.reload.embedded_digest).to eq(Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + text))
+  end
+
   it "no-ops without a client call for a non-allowlisted kind (e.g. error)" do
     event = build_event(kind: "error", payload: { "message_key" => "pito.copy.x.y" })
     expect(Pito::Embedding::Client).not_to receive(:new)
@@ -52,6 +77,25 @@ RSpec.describe Pito::Embedding::EventIndexer, type: :service do
   it "no-ops when the digest is unchanged" do
     event = build_event(kind: "echo")
     described_class.call(event)
+
+    expect(client).not_to receive(:embed)
+    described_class.call(event.reload)
+  end
+
+  it "re-embeds when the digest matches but embedding is nil (2.x -> 3.0.0 upgrade state)" do
+    event = build_event(kind: "echo")
+    described_class.call(event)
+    event.reload.update_column(:embedding, nil)
+
+    expect(client).to receive(:embed).and_return([ Array.new(768, 0.4) ])
+    expect { described_class.call(event.reload) }
+      .to change { event.reload.embedding }.from(nil)
+  end
+
+  it "still skips when the digest matches and embedding is already present" do
+    event = build_event(kind: "echo")
+    described_class.call(event)
+    expect(event.reload.embedding).to be_present
 
     expect(client).not_to receive(:embed)
     described_class.call(event.reload)

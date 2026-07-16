@@ -33,12 +33,15 @@ module Pito
           # Dispatch as free-chat (no follow_up context) so that `show game #<id>`
           # resolves the grid game by id — not the source card's channel.
           # id_only_resolution! already gates non-numeric refs before any DB call.
+          # nl_eligible: false — RECONSTRUCTED body, never owner-typed free
+          # text (mirrors GameSimilar; 3.0.1 reconciliation fix).
           result = Pito::Dispatch::Router.call(
             input:          "show game #{args}",
             conversation:   conversation,
             channel:        channel,
             period:         period,
-            viewport_width: viewport_width
+            viewport_width: viewport_width,
+            nl_eligible:    false
           )
           Pito::FollowUp::ChatResultAdapter.call(result)
         end

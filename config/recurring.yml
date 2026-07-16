@@ -20,10 +20,12 @@
 #                             deletions) + GameIgdbNightlyRefresh per channel.
 #   - VideoStatsSnapshotJob — 09:00 + 17:00; Pito::Stats-only refresh (no upsert).
 #                             With the 01:00 nightly_sync this is 3 stats passes/day.
+#   - NightlyReindexJob     — daily 02:00 (≥1h after nightly_sync); fans out
+#                             GameEmbedIndexJob/VideoEmbedIndexJob (digest-gated)
+#                             plus a nil-embedding sweep over conversation events.
 #
 # Manual-only (chat `sync` verb, not scheduled):
 #   - SyncChannelStatsJob         — triggered via chat `sync` verb
-#   - NightlyReindexJob           — triggered via chat `sync` verb
 #   - SyncStarredChannelsJob      — triggered via chat `sync` verb
 
 production:
@@ -70,6 +72,17 @@ production:
     class: NightlySyncJob
     schedule: "0 1 * * *"
     description: "Daily channel + new-video sync; fans out IGDB stale-refresh"
+
+  # Nightly embedding reindex — daily at 02:00 UTC, ≥1h after nightly_sync so
+  # freshly synced games/videos have landed. Fans out digest-gated
+  # GameEmbedIndexJob/VideoEmbedIndexJob per row (unchanged rows are no-ops)
+  # plus a self-heal sweep re-attempting any conversation event whose
+  # embedding is still nil (a sidecar hiccup that EventEmbedJob's per-turn
+  # attempt didn't recover from).
+  nightly_reindex:
+    class: NightlyReindexJob
+    schedule: "0 2 * * *"
+    description: "Nightly embedding reindex fan-out (games/videos + unembedded events)"
 
   # Midday sync — same channel + video fan-out at 13:00 UTC, but WITHOUT the
   # IGDB upcoming-games refresh (that stays nightly-only; owner D4). The
@@ -199,6 +212,12 @@ development:
     class: NightlySyncJob
     schedule: "0 1 * * *"
     description: "Daily channel + new-video sync; fans out IGDB stale-refresh"
+
+  # Nightly embedding reindex — 02:00 (dev parity with production).
+  nightly_reindex:
+    class: NightlyReindexJob
+    schedule: "0 2 * * *"
+    description: "Nightly embedding reindex fan-out (games/videos + unembedded events)"
 
   # Midday sync — 13:00, IGDB skipped (dev parity with production).
   nightly_sync_midday:

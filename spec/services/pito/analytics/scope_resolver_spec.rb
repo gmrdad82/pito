@@ -173,4 +173,52 @@ RSpec.describe Pito::Analytics::ScopeResolver do
       end
     end
   end
+
+  # 3.0.1 P11 — a bare @handle with NO noun word ("analyze @gmrdad82") used to
+  # fall through to :suggest ("Analyze what?"), silently dropping the typed
+  # handle. #detected_noun now infers "channels" whenever the raw text carries
+  # an @handle at all, mirroring the explicit `analyze channel @h` path
+  # exactly (same #resolve_channels, same errors).
+  describe "analyze @handle with no noun word (3.0.1 P11)" do
+    let!(:a) { create(:channel, handle: "gmrdad82") }
+    let!(:b) { create(:channel, handle: "manfyhard") }
+
+    it "resolves a single bare handle, ignoring shift+tab" do
+      res = described_class.call(raw: "analyze @gmrdad82", channel_scope: "@all")
+      expect(res).to be_ok
+      expect(res.level).to eq(:channel)
+      expect(res.scopes).to eq([ a ])
+    end
+
+    it "resolves multiple bare handles" do
+      res = described_class.call(raw: "analyze @gmrdad82, @manfyhard", channel_scope: "@all")
+      expect(res.scopes).to match_array([ a, b ])
+    end
+
+    it "errors listing an unknown bare handle (same error as the explicit-noun form)" do
+      res = described_class.call(raw: "analyze @nope", channel_scope: "@all")
+      expect(res).to be_error
+      expect(res.error_key).to eq(:channels_not_found)
+      expect(res.error_args[:handles]).to include("@nope")
+    end
+  end
+
+  # #lookup_channel now delegates to the shared ::Channel.resolve_handle
+  # (exact @-agnostic match, then a pg_trgm fuzzy fallback) instead of
+  # reimplementing an exact-only query — the fuzzy tier itself is already
+  # fully covered by spec/models/channel_spec.rb; this just proves the wiring.
+  describe "fuzzy handle resolution (mirrors ::Channel.resolve_handle, 3.0.1 P11)" do
+    let!(:channel) { create(:channel, handle: "fighterpro") }
+
+    it "fuzzy-resolves a partial @handle via the shift+tab channel scope path" do
+      res = described_class.call(raw: "analyze channel", channel_scope: "@fighter")
+      expect(res).to be_ok
+      expect(res.scopes).to eq([ channel ])
+    end
+
+    it "fuzzy-resolves a partial @handle typed explicitly" do
+      res = described_class.call(raw: "analyze channel @fighter", channel_scope: "@all")
+      expect(res.scopes).to eq([ channel ])
+    end
+  end
 end

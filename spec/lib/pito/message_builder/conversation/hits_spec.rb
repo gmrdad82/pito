@@ -65,7 +65,7 @@ RSpec.describe Pito::MessageBuilder::Conversation::Hits do
 
       it "sets table_heading to the builder's frozen LIKE_TABLE_HEADING" do
         expect(payload["table_heading"]).to eq(described_class::LIKE_TABLE_HEADING)
-        expect(payload["table_heading"]).to eq([ "Conversation", "Score" ])
+        expect(payload["table_heading"]).to eq([ "Conversation", "Similarity" ])
       end
 
       it "renders without raising" do

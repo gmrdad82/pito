@@ -26,6 +26,17 @@ RSpec.describe EventEmbedJob, type: :job do
     described_class.new.perform(turn.id)
   end
 
+  it "rescues a single event's embed failure so it can't starve the rest of the turn" do
+    events = create_list(:event, 3, conversation:, turn:)
+
+    allow(Pito::Embedding::EventIndexer).to receive(:call).with(events[0]).and_raise(StandardError, "boom")
+    events[1..].each do |event|
+      expect(Pito::Embedding::EventIndexer).to receive(:call).with(event)
+    end
+
+    expect { described_class.new.perform(turn.id) }.not_to raise_error
+  end
+
   describe "enqueued from Pito::Stream::Broadcaster#complete_turn" do
     it "enqueues with the turn id when the broadcaster completes a turn" do
       broadcaster = Pito::Stream::Broadcaster.new(conversation:)

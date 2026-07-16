@@ -60,6 +60,13 @@ RSpec.describe Pito::Chat::Handlers::SearchConversations do
     Array.new(768, 0.0).tap { |a| dims.each { |d| a[d] = 1.0 } }
   end
 
+  def cosine_distance(a, b)
+    dot    = a.zip(b).sum { |x, y| x * y }
+    norm_a = Math.sqrt(a.sum { |x| x**2 })
+    norm_b = Math.sqrt(b.sum { |x| x**2 })
+    1 - (dot / (norm_a * norm_b))
+  end
+
   def stub_embed(vector)
     client = instance_double(Pito::Embedding::Client)
     allow(Pito::Embedding::Client).to receive(:new).and_return(client)
@@ -175,6 +182,27 @@ RSpec.describe Pito::Chat::Handlers::SearchConversations do
 
       expect(hits.map { |h| h["conversation_uuid"] }).to eq([ convo.uuid ])
       expect(hits.first["anchor_event_id"]).to eq(hit_event.id)
+    end
+
+    it "stamps a similarity score rescaled via Pito::Recommendation::DisplayScore's CONVERSATION_FLOOR, not raw cosine × 100" do
+      stub_embed(vec(0))
+
+      convo = create(:conversation)
+      seed_event(convo, position: 1, embedding: vec(0, 1)) # cosine distance ~0.293
+
+      result = search("search conversations like anything")
+      score  = table_rows_of(result).first[:cells].last[:score]
+
+      distance = cosine_distance(vec(0), vec(0, 1))
+      expected = Pito::Recommendation::DisplayScore.display_score(
+        1.0 - distance, floor: Pito::Recommendation::DisplayScore::CONVERSATION_FLOOR
+      ).round
+
+      # Sanity: this distance is well above CONVERSATION_FLOOR's midpoint but
+      # would have clamped near VID_FLOOR — proving the two floors are
+      # independently tuned per embedding space, not shared.
+      expect(expected).to be_between(1, 99)
+      expect(score).to eq(expected)
     end
   end
 

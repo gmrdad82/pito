@@ -248,6 +248,30 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(I18n.t("pito.copy.huh")).to include(result.message_key)
     end
 
+    # ── NL soft-fail marker (3.0.1 P7) ─────────────────────────────────────────
+    # In free chat this branch flags its huh error as an nl_fallback marker so
+    # Pito::Dispatch::Router gives the original utterance one shot at the NL
+    # gate before the huh copy renders. Follow-up replies stay a plain error.
+
+    it "flags the free-chat huh error as an nl_fallback marker" do
+      result = handler_for("list asd").call
+      expect(result.nl_fallback).to be(true)
+    end
+
+    it "keeps a follow-up reply's huh error un-flagged (machine-reconstructed input, never free text)" do
+      source = Struct.new(:payload).new({ "reply_target" => "game_list" })
+      fu     = Pito::Chat::FollowUpContext.new(source_event: source, rest: "asd")
+      follow_up_handler = described_class.new(
+        message:      Pito::Chat::Message.new(tool: :list, body_tokens: [], kind: :new_turn, raw: "list asd"),
+        conversation: Conversation.singleton,
+        follow_up:    fu
+      )
+
+      result = follow_up_handler.send(:unknown_entity)
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(false)
+    end
+
     it "still lists games for a bare `list`" do
       expect(handler_for("list").call.events.first[:payload]["table_rows"]).to be_present
     end
@@ -692,9 +716,9 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
 
-    # D2 (docs/claude/2.2.0.md): private = privacy_status private AND NOT
-    # scheduled. A scheduled vid is privacy-private on YouTube too, but it
-    # must surface only under `scheduled`, never under `private`.
+    # D2 rule: private = privacy_status private AND NOT scheduled. A scheduled
+    # vid is privacy-private on YouTube too, but it must surface only under
+    # `scheduled`, never under `private`.
     context "with `private` filter" do
       let!(:scheduled_vid) { create(:video, :scheduled, title: "Scheduled Not Private", channel: chan_a) }
       let!(:private_nil)   { create(:video, :private, title: "Private Nil Publish", channel: chan_a) }
@@ -713,6 +737,15 @@ RSpec.describe Pito::Chat::Handlers::List do
 
       it "also parses filter-before-noun phrasing (`ls private vids`)" do
         result  = handler_for("ls private vids", channel: "@all").call
+        titles  = video_titles(result.events.first[:payload])
+        expect(titles).to include("Private Nil Publish", "Private Past Publish")
+        expect(titles).not_to include("Scheduled Not Private")
+      end
+
+      # 3.0.1 P11: `draft` is a token alias for the same private_unscheduled
+      # scope — "ls draft vids" must filter EXACTLY like "ls private vids".
+      it "'ls draft vids' filters identically to 'ls private vids' (draft alias — 3.0.1 P11)" do
+        result  = handler_for("ls draft vids", channel: "@all").call
         titles  = video_titles(result.events.first[:payload])
         expect(titles).to include("Private Nil Publish", "Private Past Publish")
         expect(titles).not_to include("Scheduled Not Private")

@@ -25,8 +25,46 @@ RSpec.describe Video::EmbeddingIndexer, type: :service do
     expect(video.embedding_vector).to be_present
   end
 
+  it "salts the stored digest with Pito::Embedding::Client::VECTOR_SPACE (3.0.1 vector-space fix)" do
+    described_class.call(video)
+
+    expected = Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + Video::EmbedText.call(video.reload))
+    expect(video.reload.embedded_digest).to eq(expected)
+    expect(video.embedded_digest).not_to eq(Digest::SHA256.hexdigest(Video::EmbedText.call(video)))
+  end
+
+  it "re-embeds when the stored digest was computed under a different VECTOR_SPACE, even though the text and vector are otherwise unchanged" do
+    described_class.call(video)
+    stale_digest = Digest::SHA256.hexdigest("some-other-vector-space" + Video::EmbedText.call(video.reload))
+    video.update_column(:embedded_digest, stale_digest)
+    expect(video.reload.embedding_vector).to be_present
+
+    expect(client).to receive(:embed_batch).and_return([ Array.new(768, 0.5) ])
+    described_class.call(video.reload)
+
+    expect(video.reload.embedded_digest)
+      .to eq(Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + Video::EmbedText.call(video)))
+  end
+
   it "no-ops when the indexed text is unchanged" do
     described_class.call(video)
+    expect(client).not_to receive(:embed_batch)
+    described_class.call(video.reload)
+  end
+
+  it "re-embeds when the digest matches but the vector is nil (2.x -> 3.0.0 upgrade state)" do
+    described_class.call(video)
+    video.reload.update_column(Video::EMBEDDING_COLUMN, nil)
+
+    expect(client).to receive(:embed_batch).and_return([ Array.new(768, 0.4) ])
+    expect { described_class.call(video.reload) }
+      .to change { video.reload.embedding_vector }.from(nil)
+  end
+
+  it "still skips when the digest matches and a vector is already present" do
+    described_class.call(video)
+    expect(video.reload.embedding_vector).to be_present
+
     expect(client).not_to receive(:embed_batch)
     described_class.call(video.reload)
   end

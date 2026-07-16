@@ -91,12 +91,24 @@ RSpec.describe "Dispatch matrix — update (game/vid metadata writes)", type: :d
       expect(game.reload.platforms).to eq([ "PlayStation 5" ])
     end
 
+    it "enqueues GameEmbedIndexJob (platforms feed Game::EmbedText) when the platform is actually added" do
+      expect { dispatch("update game platform #{game.id} ps5") }
+        .to have_enqueued_job(GameEmbedIndexJob).with(game.id)
+    end
+
     it "does not duplicate the platform when the same update runs again" do
       dispatch("update game platform #{game.id} ps5")
       result = dispatch("update game platform #{game.id} ps5")
 
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(game.reload.platforms).to eq([ "PlayStation 5" ])
+    end
+
+    it "does not re-enqueue GameEmbedIndexJob on a no-op repeat (already present)" do
+      dispatch("update game platform #{game.id} ps5")
+
+      expect { dispatch("update game platform #{game.id} ps5") }
+        .not_to have_enqueued_job(GameEmbedIndexJob)
     end
   end
 

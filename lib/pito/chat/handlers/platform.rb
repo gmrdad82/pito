@@ -62,6 +62,7 @@ module Pito
 
           unless game.platforms.include?(normalized)
             game.update!(platforms: game.platforms + [ normalized ])
+            GameEmbedIndexJob.perform_later(game.id)
           end
 
           platform_result(game, normalized, removed: false)
@@ -73,6 +74,7 @@ module Pito
 
           if game.platforms.include?(normalized)
             game.update!(platforms: game.platforms - [ normalized ])
+            GameEmbedIndexJob.perform_later(game.id)
           end
 
           platform_result(game, normalized, removed: true)

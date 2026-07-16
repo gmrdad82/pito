@@ -253,6 +253,66 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(I18n.t("pito.copy.huh")).to include(result.message_key)
   end
 
+  # ── NL soft-fail marker (3.0.1 P7) ───────────────────────────────────────────
+  # A free-chat NON-NUMERIC ref that misses the title ladder looks like
+  # verb-captured free text — the handler emits the nl_fallback marker (still
+  # carrying the crisp not-found copy) so Pito::Dispatch::Router re-runs the
+  # original utterance through the NL gate. Numeric refs and follow-up replies
+  # keep the crisp not-found unchanged.
+
+  describe "NL soft-fail marker (non-numeric ladder miss)" do
+    it "game branch: a non-numeric miss returns the nl_fallback marker with the crisp games copy" do
+      result = show_real("show game zzz qqq")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.copy.games.not_found")
+      expect(result.message_args).to eq({ ref: "zzz qqq" })
+    end
+
+    it "video branch: a non-numeric miss returns the nl_fallback marker with the crisp videos copy" do
+      result = show_real("show vid zzz qqq")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.copy.videos.not_found")
+      expect(result.message_args).to eq({ ref: "zzz qqq" })
+    end
+
+    it "a numeric miss stays the crisp soft not-found (no marker)" do
+      result = show_real("show game 999999")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+
+    it "a follow-up reply with a non-numeric miss stays the crisp soft not-found (machine-reconstructed input, never free text)" do
+      source = Struct.new(:payload).new({ "reply_target" => "video_list" })
+      fu     = Pito::Chat::FollowUpContext.new(source_event: source, rest: "zzz qqq")
+      result = described_class.new(
+        message: Pito::Chat::Message.new(tool: :show, body_tokens: tokens("zzz", "qqq"), kind: :new_turn, raw: "zzz qqq"),
+        conversation: Conversation.singleton,
+        follow_up: fu
+      ).call
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+
+    # 3.0.1 reconciliation fix: several Pito::FollowUp::Handlers::* (GameSimilar,
+    # ChannelGames, GameLinkedVideos) re-dispatch a RECONSTRUCTED `show <noun>
+    # <ref>` command through Pito::Dispatch::Router with NO FollowUpContext (so
+    # the title-resolution ladder still runs, unlike a true follow-up reply) but
+    # `nl_eligible: false` — that ref was never owner-typed free text, so a
+    # ladder miss must stay the crisp not-found, never soft-fail into the NL gate.
+    it "a reconstructed follow-up dispatch (nl_eligible: false, no follow_up context) with a non-numeric miss stays the crisp soft not-found" do
+      msg = Pito::Chat::Parser.call(
+        Pito::Lex::Lexer.call("show game zzz qqq"), raw: "show game zzz qqq", conversation: Conversation.singleton
+      )
+      result = described_class.new(message: msg, conversation: Conversation.singleton, nl_eligible: false).call
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+  end
+
   # ── not-found is a soft Ok: consume: false so a `#<handle>` reply can retry ──────
   it "returns a not-found game with consume: false (reply source stays repliable)" do
     result = show_real("show game #{game.id + 999}")

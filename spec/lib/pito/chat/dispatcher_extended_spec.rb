@@ -48,13 +48,22 @@ RSpec.describe Pito::Dispatch::Router, "edge cases" do
   end
 
   # ── Unregistered verb (recognised by parser but no handler) ──────────────────
-
+  #
+  # No tool in config/pito/tools.yml exhibits "recognised verb, chat: block, no
+  # chat.dispatch" today — `find` was the last one (3.0.1 P6 removed its chat:
+  # block entirely, so it no longer reaches route_verb at all; see
+  # spec/lib/pito/chat/parser_spec.rb + spec/dispatch/chat/find_matrix_spec.rb).
+  # The Router's defensive tool_not_implemented gate stays live code (the
+  # schema permits a chat: block without a dispatch: key), so pin it against a
+  # stubbed config instead (mirrors spec/dispatch/router_spec.rb's equivalent).
   describe ".call — recognised verb with no handler" do
-    it "returns tool_not_implemented for :find" do
-      result = described_class.call(input: "find something", conversation:)
+    it "returns tool_not_implemented for a recognised verb whose chat block declares no dispatch" do
+      allow(Pito::Dispatch::Config).to receive(:tool).with(:list).and_return({ chat: {} })
+
+      result = described_class.call(input: "list videos", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.errors.tool_not_implemented")
-      expect(result.message_args[:tool]).to eq(:find)
+      expect(result.message_args[:tool]).to eq(:list)
     end
   end
 

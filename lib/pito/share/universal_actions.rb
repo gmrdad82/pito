@@ -104,10 +104,11 @@ module Pito
       end
 
       # `origin` is the request origin (scheme + host + port, e.g.
-      # "https://dev.pitomd.com") captured in the controller and threaded through
-      # FollowUpDispatchJob — so the minted /share URL points at the host the owner
-      # is actually using (NOT the static PublicHosts.app_base, which is localhost in
-      # a tunnelled dev setup). Falls back to PublicHosts.app_base when absent.
+      # "https://your-tunnel.example") captured in the controller and threaded
+      # through FollowUpDispatchJob — so the minted /share URL points at the host
+      # the owner is actually using (NOT the static PublicHosts.app_base, which is
+      # localhost in a tunnelled dev setup). Falls back to PublicHosts.app_base
+      # when absent.
       def call(source_event:, rest:, conversation:, origin: nil)
         tool = rest.to_s.strip.split(/\s+/).first.to_s.downcase
 

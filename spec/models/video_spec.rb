@@ -101,10 +101,10 @@ RSpec.describe Video, type: :model do
     end
   end
 
-  # D2 (docs/claude/2.2.0.md): private = privacy_status private AND NOT
-  # scheduled (publish_at NULL or past). A future-dated scheduled upload is
-  # privacy-private on YouTube too but must be excluded — it belongs to the
-  # `scheduled` filter/slate, never `private`.
+  # D2 rule: private = privacy_status private AND NOT scheduled (publish_at
+  # NULL or past). A future-dated scheduled upload is privacy-private on
+  # YouTube too but must be excluded — it belongs to the `scheduled`
+  # filter/slate, never `private`.
   describe ".private_unscheduled" do
     it "excludes a private video with a future publish_at (scheduled)" do
       scheduled = create(:video, :scheduled)

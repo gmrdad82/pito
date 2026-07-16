@@ -48,13 +48,16 @@ module Pito
             # Free-chat dispatch with the "vid" noun so Show takes the video
             # branch — video_target? in follow_up mode reads reply_target, which
             # is "game_linked_videos" (does not start with "video"), so we MUST
-            # not pass a follow_up context here.
+            # not pass a follow_up context here. nl_eligible: false —
+            # RECONSTRUCTED body, never owner-typed free text (mirrors
+            # GameSimilar; 3.0.1 reconciliation fix).
             result = Pito::Dispatch::Router.call(
               input:          "show vid #{args}",
               conversation:   conversation,
               channel:        channel,
               period:         period,
-              viewport_width: viewport_width
+              viewport_width: viewport_width,
+              nl_eligible:    false
             )
             Pito::FollowUp::ChatResultAdapter.call(result)
           when "unlink"

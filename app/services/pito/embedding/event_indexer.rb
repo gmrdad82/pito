@@ -41,11 +41,25 @@ module Pito
         return if text.strip.blank?
         return if ENV["PITO_EMBEDDER_URL"].blank?
 
-        digest = Digest::SHA256.hexdigest(text)
+        # Salted with Pito::Embedding::Client::VECTOR_SPACE, not bare text
+        # (3.0.1 correctness fix): the digest must identify the VECTOR SPACE
+        # a stored embedding lives in, not just the source text. A text-only
+        # digest can't detect a wire-level prompt change (e.g. the 3.0.0 ->
+        # 3.0.1 PROMPT_PREFIX adoption) — the text is unchanged, so the
+        # digest still matches, so the gate below would skip forever,
+        # leaving a raw-space vector silently mismatched against prefixed
+        # queries. See VECTOR_SPACE's doc comment for the full story.
+        digest = Digest::SHA256.hexdigest(Pito::Embedding::Client::VECTOR_SPACE + text)
         # Diff-gate: skip re-embedding when the projected text hasn't
         # changed (a follow-up stamp or fx re-render touching unrelated
-        # payload keys shouldn't burn an embedder call). `force:` bypasses it.
-        return if !@force && digest == @event.embedded_digest
+        # payload keys shouldn't burn an embedder call) AND a vector is
+        # already stored. The vector check matters: a matching digest with a
+        # NULL `embedding` is exactly what a 2.x -> 3.0.0 column promotion
+        # (or any other event that reached this gate before ever embedding
+        # successfully) can leave behind — skipping on digest alone would
+        # leave it permanently unembedded (3.0.1 P9-A). `force:` bypasses
+        # the whole gate.
+        return if !@force && digest == @event.embedded_digest && @event.embedding.present?
 
         embed_and_persist(text, digest)
       end
@@ -65,12 +79,13 @@ module Pito
         vector = Pito::Embedding::Client.new.embed([ text ]).first
         return if vector.nil?
 
-        # `update_column` skips validations + callbacks on purpose:
+        # `update_columns` skips validations + callbacks on purpose:
         # embedding an event must NOT rebroadcast it (same rationale as the
         # game/video indexers skipping their own after_save chains) — this
         # is a quiet background write, not a scrollback-visible mutation.
-        @event.update_column(:embedding, vector)
-        @event.update_column(:embedded_digest, digest)
+        # One statement (not two `update_column` calls) so a mid-write crash
+        # can never leave a fresh vector paired with a stale digest.
+        @event.update_columns(embedding: vector, embedded_digest: digest)
       end
     end
   end

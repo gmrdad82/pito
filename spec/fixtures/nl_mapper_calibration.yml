@@ -1,0 +1,107 @@
+# NL MAPPER calibration corpus (3.0.1, X2 — Sonnet-authored 2026-07-16,
+# measured live against the qwen nlmapper sidecar 2026-07-16 — see
+# known_gaps: below).
+#
+# Held-out proof that Pito::Nl::Mapper (the qwen sidecar + GBNF grammar +
+# nl.exemplars few-shot, see lib/pito/nl/mapper.rb) still COMPOSES a correct
+# command after a tools.yml grammar/exemplar edit. This is a DIFFERENT stage
+# from spec/fixtures/nl_calibration.yml (that file judges the ROUTER's
+# cosine-similarity thresholds against the embedder sidecar) — see
+# ~/Dev/dev-notes/pito/nl-artifacts-guide.md §1 for the two-stage model.
+#
+# DISJOINT ON PURPOSE: every `say:` below is absent from every tool's
+# `nl_examples:` (router corpus), from `nl.exemplars:` (mapper few-shot), and
+# from nl_calibration.yml (the router's held-out judge) in config/pito/tools.yml.
+# Copying a phrase from any of those would let the mapper (or the model
+# generally) pattern-match the exact wording instead of generalizing — the
+# whole point of a held-out set is proving it can compose commands for
+# phrasings it has never been shown.
+#
+# Shape: `entries:` (asserted — must resolve to the right tool every run) and
+# `known_gaps:` (documented, NOT asserted — see below), each `{ say:, tool:,
+# expect_parse: true }`.
+#   say          — a fresh owner-voice phrasing (question / fragment /
+#                   imperative — any shape a real chat message could take).
+#   tool         — the CANONICAL tools.yml tool name (string) the composed
+#                   command must resolve to, exactly as Pito::Chat::Parser
+#                   canonicalizes it (e.g. "at-a-glance", not the "glance"
+#                   alias) — see Pito::Grammar::ConfigSource's `name:
+#                   name.to_sym` mapping.
+#   expect_parse — reserved for a future `false` (documented known-gap) entry,
+#                  mirroring nl_calibration.yml's `known_gaps:` section; every
+#                  entry here is `true` today (no accepted mapper failures
+#                  under `entries:` — those live under `known_gaps:` instead).
+#
+# The live-gated spec (spec/lib/pito/nl/mapper_calibration_spec.rb) calls
+# Pito::Nl::Mapper.map(say) for each `entries:` row and asserts: a non-nil
+# completion, the composed command re-parses fresh to kind :new_turn, and the
+# parsed tool matches `tool:`. Runs only when the nlmapper sidecar
+# (PITO_NLMAPPER_URL) is reachable — see that spec's header for exact run
+# instructions. `known_gaps:` rows are printed for visibility only, asserted
+# by nothing (mirrors spec/fixtures/nl_calibration.yml's convention) — prune
+# an entry back into `entries:` once a mapper/exemplar fix makes it pass.
+entries:
+  - { say: "run me a list of just the strategy titles",                 tool: list,          expect_parse: true }
+  - { say: "hunt down any game with metroid in the name",                tool: search,        expect_parse: true }
+  - { say: "dig through our chat history for that editing workflow talk", tool: search,        expect_parse: true }
+  - { say: "hook vid 40 up with game 6",                                tool: link,          expect_parse: true }
+  - { say: "go fetch resident evil 4 for my library",                    tool: import,        expect_parse: true }
+  - { say: "show me how game 8's lifetime numbers break down",           tool: breakdowns,    expect_parse: true }
+  # Promoted from known_gaps 2026-07-16 (REPEAT_PENALTY 1.3 -> 1.1 retune —
+  # see lib/pito/nl/mapper.rb's REPEAT_PENALTY comment): all three composed
+  # the correct tool, byte-identical, across 2 live rounds at 1.1.
+  - { say: "games similar in style to game 20",                          tool: similar,       expect_parse: true }
+  - { say: "grab whatever's fresh off youtube right now",                tool: sync,          expect_parse: true }
+  - { say: "help me figure out what game vid 14 is filed under",         tool: game,          expect_parse: true }
+
+# Known gaps (re-measured live 2026-07-16 against the qwen0.6B nlmapper
+# sidecar at the FINAL REPEAT_PENALTY (1.1 — see below), two rounds each,
+# rows marked deterministic below hit byte-identical output both rounds).
+# Listed for visibility, asserted by nothing — every miss degrades safely
+# (Mapper.map's own parse-validation already guarantees any NON-nil result
+# parses to a REAL tool; a miss here just means the WRONG real tool, the
+# same failure class nl_calibration.yml documents for the router).
+#
+# V2 RETRIEVAL-PICKED RE-MEASUREMENT (3.0.1, owner-decided redesign — see
+# lib/pito/nl/mapper.rb #chat_messages): the mapper now prompts with the
+# FEW_SHOT_TOP_K=8 cosine-nearest exemplars instead of the full static pool,
+# so pool growth can no longer reshuffle unrelated compositions (the static
+# design's measured brittleness). Under the shipped completion parameters
+# this originally moved the gate at REPEAT_PENALTY 1.3: `link` composed
+# correctly, but `analyze`, `channels`, `videos`, `similar` (x2), `at-a-
+# glance`, `sync`, `show`, and `game` mis-composed and were demoted from
+# `entries:` (selection itself was verified correct — the right exemplar was
+# in the prompt, top-ranked, for every one of these; the miss was always in
+# composition, not retrieval).
+#
+# REPEAT_PENALTY RE-TUNE — DECIDED 2026-07-16 (owner call, made): 1.3 was
+# tuned 2026-07-15 against the STATIC prompt, where the relevant exemplar sat
+# buried mid-context. Retrieval concentrates the most-relevant `run` strings
+# right before the generation point, so at 1.3 the decoder was penalized for
+# retyping exactly the command it should retype and dodged to a wrong tool
+# ("sync vids" present at 0.87 similarity → composed "update videos"). Live
+# sweep over this fixture's 15 rows: 1.3 → 6/15, 1.15 → 9/15, 1.1 → 9/15,
+# 1.0 → 8/15; static-prompt controls: 8/15 at BOTH 1.3 and 1.1 (the penalty
+# alone moves nothing without retrieval). CHOSE 1.1 (tied with 1.15, smaller
+# step off the un-penalized 1.0 default) — DIGIT-PADDING RE-VERIFIED CLEAN at
+# 1.1 first (5 fresh multi-digit-id probes on the exact `link <vid> <game>`
+# composition REPEAT_PENALTY exists to guard, 2 rounds each, byte-identical,
+# no runaway repetition — see lib/pito/nl/mapper.rb's REPEAT_PENALTY comment
+# for the full probe list) before this fixture's 15-row live re-measurement
+# promoted the 3 rows above out of known_gaps.
+#
+# Of the 6 gaps below: 2 are ORIGINAL (pre-retrieval, X2) known_gaps —
+# "crack open vid 30 for me" (show) and "point me at games in the same vein
+# as game 11" (similar) — still missing at 1.1. The X2 fixture's THIRD
+# original gap, "help me figure out what game vid 14 is filed under" (game),
+# now passes at 1.1 and is promoted above. The other 4 below (analyze,
+# channels, videos, at-a-glance) are V2-retrieval-demoted gaps that remain
+# demoted at 1.1 (the fixture's other 2 V2-demoted gaps — similar, sync —
+# also promoted above).
+known_gaps:
+  - { say: "walk me through how the channel's been trending this month", tool: analyze,       expect_parse: true }  # NON-DETERMINISTIC at 1.1: round1 -> "channels trend this month" (:channels), round2 -> "show trends for your channel this month." (:show)
+  - { say: "which other creators have put out game 15",                  tool: channels,      expect_parse: true }  # -> "game 15 creators" (:game)
+  - { say: "show me every vid tied to game 9",                           tool: videos,        expect_parse: true }  # -> "show vids game 9" (:show)
+  - { say: "give me a lightning-fast peek at vid 9",                     tool: "at-a-glance", expect_parse: true }  # -> "show vid 9" (:show)
+  - { say: "crack open vid 30 for me",                                  tool: show,          expect_parse: true }  # -> "link 30" (:link) — original (pre-retrieval) gap, still misses at 1.1
+  - { say: "point me at games in the same vein as game 11",              tool: similar,       expect_parse: true }  # -> "search games similar to game 11" (:search) — original (pre-retrieval) gap, still misses at 1.1

@@ -32,7 +32,10 @@ require "rails_helper"
 #   channel: [:system channel_detail, :enhanced analytics pending]
 #            (+ :enhanced Channel::Videos between them when the channel has videos)
 #
-# Not-found: Result::Ok, consume: false
+# Not-found (numeric ref, genuinely missing id): Result::Ok, consume: false
+# Not-found (free-chat NON-NUMERIC ref, missed the title ladder — 3.0.1 P7):
+#   Result::Error, nl_fallback: true, message_key the crisp not-found copy —
+#   Pito::Dispatch::Router retries the ORIGINAL utterance through the NL gate.
 # No ref:    Result::Error, message_key: "pito.chat.show.needs_ref"
 
 RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispatch do
@@ -173,22 +176,30 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
 
   # ── Video: non-numeric ref → not-found (id_only_resolution! fast path) ────────
   #
-  # find_by_ref returns nil immediately for non-numeric refs — no DB call.
-  # Verify the fast path: Video.find_by must NOT be called.
+  # find_by_ref returns nil immediately for non-numeric refs — no DB call
+  # (id_only_resolution! stays untouched). But the ref still resolves through
+  # the shared title ladder (#resolve_title → Video.resolve_by_title) before
+  # the branch gives up — an empty table (zero factories here) means it misses
+  # too. A free-chat non-numeric miss then looks like verb-captured free text
+  # (3.0.1 P7), so the handler returns the nl_fallback marker — a
+  # Result::Error still carrying the crisp not-found copy — instead of a plain
+  # not-found Result::Ok, so Pito::Dispatch::Router can retry the ORIGINAL
+  # utterance through the NL gate (see router_spec.rb's "NL soft-fail
+  # fallback" and show_spec.rb's own P7 section, which this mirrors).
 
-  describe "video — non-numeric ref → not-found (id_only_resolution!, no DB call)" do
-    [
-      "show vid some-title",
-      "show video my gaming highlights",
-      "show vids abc"
-    ].each do |raw|
-      it "#{raw.inspect} → not-found (consume: false, :system event, no video_id)" do
+  describe "video — non-numeric ref → nl_fallback marker (id_only_resolution!, no DB call)" do
+    {
+      "show vid some-title"             => "some-title",
+      "show video my gaming highlights" => "my gaming highlights",
+      "show vids abc"                   => "abc"
+    }.each do |raw, expected_ref|
+      it "#{raw.inspect} → Result::Error, nl_fallback: true, videos.not_found copy (ref: #{expected_ref.inspect}), no DB call" do
         expect(::Video).not_to receive(:find_by)
         result = call(raw)
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        expect(result.consume).to be(false)
-        expect(result.events.first[:kind]).to eq(:system)
-        expect(result.events.first[:payload]["video_id"]).to be_nil
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.nl_fallback).to be(true)
+        expect(result.message_key).to eq("pito.copy.videos.not_found")
+        expect(result.message_args).to eq({ ref: expected_ref })
       end
     end
   end
@@ -261,19 +272,26 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
     end
   end
 
-  # ── Game: non-numeric ref → not-found (id_only_resolution!) ──────────────────
+  # ── Game: non-numeric ref → nl_fallback marker (id_only_resolution!) ─────────
+  #
+  # Same P7 soft-fail shape as the video branch above: id_only_resolution!
+  # still skips find_by_ref's own ILIKE lookup for a non-numeric ref (no DB
+  # call there), but #resolve_title tries Game.resolve_by_title first (an
+  # empty table here misses); a free-chat miss then returns the nl_fallback
+  # marker instead of a plain not-found.
 
-  describe "game — non-numeric ref → not-found (id_only_resolution!, no DB call)" do
-    [
-      "show game lies-of-p",
-      "show games some title"
-    ].each do |raw|
-      it "#{raw.inspect} → not-found (consume: false, no DB call)" do
+  describe "game — non-numeric ref → nl_fallback marker (id_only_resolution!, no DB call)" do
+    {
+      "show game lies-of-p"   => "lies-of-p",
+      "show games some title" => "some title"
+    }.each do |raw, expected_ref|
+      it "#{raw.inspect} → Result::Error, nl_fallback: true, games.not_found copy (ref: #{expected_ref.inspect}), no DB call" do
         expect(::Game).not_to receive(:find_by)
         result = call(raw)
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        expect(result.consume).to be(false)
-        expect(result.events.first[:kind]).to eq(:system)
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.nl_fallback).to be(true)
+        expect(result.message_key).to eq("pito.copy.games.not_found")
+        expect(result.message_args).to eq({ ref: expected_ref })
       end
     end
   end

@@ -9,8 +9,10 @@ RSpec.describe "Dispatch — chat verb recognition", type: :dispatch do
   CHAT_SPECS = Pito::Grammar::Registry.specs(namespace: :chat).freeze
 
   # Canonical verbs that MUST resolve to a handler class (the actionable chat
-  # verbs). greet/farewell/find are NL-detected or specless — recognized as a
-  # grammar verb but not necessarily handler-backed, asserted separately.
+  # verbs). greet/farewell are NL-detected (phrase-matched, handler-less at
+  # the grammar layer); `find` declares no chat: branch at all (3.0.1 P6) so
+  # it never appears in CHAT_SPECS below — none of the three land here.
+  # Asserted separately (find: spec/dispatch/chat/find_matrix_spec.rb).
   HANDLER_BACKED = %i[
     list show analyze sync link unlink delete reindex platform price footage
     publish unlist schedule shinies import help

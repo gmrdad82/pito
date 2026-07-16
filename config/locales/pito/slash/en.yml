@@ -46,6 +46,7 @@ en:
               webhook: "Slack / Discord incoming webhook URLs"
               sound: "Toggle sound effects on or off"
               timezone: "Set the display time zone (timestamps + schedule input)"
+              embeddings: "Embedder health + embedded/total counts (read-only)"
             info_line: "`/config <provider> --help` for provider-level key reference."
           providers:
             ai:

@@ -134,7 +134,12 @@ RSpec.describe "pito:embeddings:reindex", type: :rake do
     it "prints a per-collection summary line plus the overall total" do
       create(:game)
       create(:video)
-      create(:event, kind: "echo")
+      # Already-embedded (embedding present, digest pre-set) so the stubbed
+      # no-op call is a genuine digest-gate skip, not a still-nil forgiving
+      # failure — see the dedicated forgiving-failure contexts below for that.
+      create(:event, kind: "echo").tap do |event|
+        event.update_columns(embedding: Array.new(768, 0.1), embedded_digest: "digest123")
+      end
 
       output = capture_stdout { invoke_task }
 
@@ -142,6 +147,49 @@ RSpec.describe "pito:embeddings:reindex", type: :rake do
       expect(output).to match(/videos: 0 embedded, 1 skipped, 0 failed \(1 total\)/)
       expect(output).to match(/events: 0 embedded, 1 skipped, 0 failed \(1 total\)/)
       expect(output).to match(/Done\. 0 embedded, 3 skipped, 0 failed overall\./)
+    end
+  end
+
+  context "when an event embed is forgiving-swallowed (still nil after the attempt)" do
+    let!(:failing_event) { create(:event, kind: "echo") }
+    let!(:next_event) { create(:event, kind: "enhanced") }
+
+    before do
+      allow(Game::EmbeddingIndexer).to receive(:call)
+      allow(Video::EmbeddingIndexer).to receive(:call)
+      # No-op stub: embedding stays nil, mirroring a sidecar failure that
+      # Pito::Embedding::EventIndexer swallows instead of raising.
+      allow(Pito::Embedding::EventIndexer).to receive(:call)
+    end
+
+    it "counts the still-nil event as failed (not skipped) and continues to the next event" do
+      output = capture_stdout { invoke_task }
+
+      expect(Pito::Embedding::EventIndexer).to have_received(:call).with(failing_event, force: false)
+      expect(Pito::Embedding::EventIndexer).to have_received(:call).with(next_event, force: false)
+      expect(output).to match(/events ##{failing_event.id} FAILED: embedding still nil after attempt/)
+      expect(output).to match(/events ##{next_event.id} FAILED: embedding still nil after attempt/)
+      expect(output).to match(/events: 0 embedded, 0 skipped, 2 failed \(2 total\)/)
+    end
+  end
+
+  context "when an event embed genuinely no-ops (already embedded, digest unchanged)" do
+    let!(:already_embedded_event) do
+      create(:event, kind: "echo").tap do |event|
+        event.update_columns(embedding: Array.new(768, 0.1), embedded_digest: "digest123")
+      end
+    end
+
+    before do
+      allow(Game::EmbeddingIndexer).to receive(:call)
+      allow(Video::EmbeddingIndexer).to receive(:call)
+      allow(Pito::Embedding::EventIndexer).to receive(:call)
+    end
+
+    it "counts it as skipped, not failed" do
+      output = capture_stdout { invoke_task }
+
+      expect(output).to match(/events: 0 embedded, 1 skipped, 0 failed \(1 total\)/)
     end
   end
 end

@@ -126,10 +126,13 @@ class AppSetting < ApplicationRecord
   end
 
   # The `/config voyage` credential surface (accessors AND the encrypted
-  # column, dropped by the owner's 3.0.0 ruling) is gone — the local embedder (see
-  # `Pito::Embedding::Client`) needs no key. The encrypted `voyage_api_key`
-  # column above stays on `app_settings`: dropping stored data is the
-  # owner-gated finalize step's business, not this purge's.
+  # column) is gone — the owner's 3.0.0 ruling dropped it outright, local
+  # embedder (see `Pito::Embedding::Client`) needs no key. Unlike the
+  # 1024-dim embedding columns (handled by the separate owner-gated finalize
+  # step, `db/migrate/20260715180000_*`), `voyage_api_key` itself was
+  # removed from `app_settings` in the same release
+  # (`db/migrate/20260715170000_remove_voyage_api_key_from_app_settings.rb`)
+  # — no straggler column, no leftover encrypted data.
 
   # ── AI picker lists ───────────────────────────────────────────────────
   #

@@ -38,7 +38,9 @@ module Pito
         # Every AI provider in the registry gets a `/config <name> api_key=…`
         # entry (and a status getter) automatically — one YAML entry, full
         # config surface.
-        KNOWN_PROVIDERS   = %w[ai tavily google igdb webhook].freeze
+        # `embeddings` (P8, 3.0.1) is a getter-only status provider — see
+        # PROVIDER_STATUS below — with no PROVIDER_SETTERS keys of its own.
+        KNOWN_PROVIDERS   = %w[ai tavily google igdb webhook embeddings].freeze
         TOGGLE_PROVIDERS  = %w[sound].freeze
         # Maps each provider's supported kwargs to their AppSetting writers.
         # AI config has EXACTLY ONE slash surface — `/config ai` with kwargs
@@ -74,7 +76,12 @@ module Pito
           "webhook" => {
             slack:   ->(v) { AppSetting.slack_webhook_url = v },
             discord: ->(v) { AppSetting.discord_webhook_url = v }
-          }
+          },
+          # Read-only status provider — no settable keys. Present so
+          # `set_values` never crashes on `setters.keys` if a stray kwarg
+          # ever reaches this provider; any kwarg surfaces the shared
+          # unknown_keys error like every other provider.
+          "embeddings" => {}.freeze
         }.freeze
 
         # Status readers for the getter display (returns a Hash of label → value/status).
@@ -111,6 +118,34 @@ module Pito
             {
               "Slack"   => status_flag(Pito::Credentials.slack_webhook_url),
               "Discord" => status_flag(Pito::Credentials.discord_webhook_url)
+            }
+          },
+          # Observability (P8, 3.0.1): embedder reachability + embedded/total
+          # counts for the four things the local embedder feeds — 3.0.0 plan
+          # task T3.3 promised this and never shipped it, so failures were only
+          # visible as logger.warn lines and SolidQueue failed rows. Unlike the
+          # credential rows above (bare English labels), this block's labels
+          # are NEW code, so they go through Pito::Copy.render per the working
+          # agreement rather than adding to that debt.
+          "embeddings" => -> {
+            # `::`-prefixed on purpose: `Pito::Event` and `Pito::Video` are
+            # unrelated ViewComponent namespaces (app/components/pito/event,
+            # .../pito/video) that would otherwise shadow the top-level AR
+            # models under this class's own `Pito::Slash::Handlers::Config`
+            # nesting.
+            reachable    = Pito::Embedding::Client.new.healthy?
+            events_scope = ::Event.where(kind: Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS)
+
+            {
+              Pito::Copy.render("pito.copy.config.embeddings.embedder") => status_flag(reachable),
+              Pito::Copy.render("pito.copy.config.embeddings.games") =>
+                "#{::Game.where.not(::Game::EMBEDDING_COLUMN => nil).count}/#{::Game.count}",
+              Pito::Copy.render("pito.copy.config.embeddings.vids") =>
+                "#{::Video.where.not(::Video::EMBEDDING_COLUMN => nil).count}/#{::Video.count}",
+              Pito::Copy.render("pito.copy.config.embeddings.conversation_events") =>
+                "#{events_scope.where.not(embedding: nil).count}/#{events_scope.count}",
+              Pito::Copy.render("pito.copy.config.embeddings.nl_examples") =>
+                "#{Pito::Nl::Router::Example.where.not(embedding: nil).count}/#{Pito::Nl::Router::Example.count}"
             }
           }
         }.freeze

@@ -49,11 +49,51 @@ module Pito
       # Discourages the decoder from repeating a token/run it already
       # emitted. llama.cpp's own default is 1.0 (off); every OTHER caller of
       # Pito::Nl::CompletionClient#chat keeps that default — this is
-      # Mapper-specific. Bumped to 1.3 2026-07-15 after live traffic showed
-      # unbounded (1.0) sampling padding digit runs past the shortest valid
-      # command (e.g. an ID trailing into repeats of itself). See
-      # CompletionClient#chat's doc comment for the passthrough.
-      REPEAT_PENALTY = 1.3
+      # Mapper-specific.
+      #
+      # PROVENANCE:
+      #   2026-07-15 (static prompt) — bumped 1.0 -> 1.3 after live traffic
+      #   showed unbounded (1.0) sampling padding digit runs past the
+      #   shortest valid command (e.g. composing the `link <vid> <game>`
+      #   command from "link that new vid 14 to elden ring which is game 3":
+      #   the decoder kept going past the valid "link 14 3" answer instead of
+      #   stopping — an ID trailing into repeats of itself — until it hit
+      #   MAX_TOKENS). Tuned against the STATIC few-shot prompt (v1), where
+      #   the relevant exemplar sat buried mid-context.
+      #
+      #   2026-07-16 (v2 retrieval re-tune, 1.3 -> 1.1) — retrieval (see
+      #   #chat_messages' design note) concentrates the most-relevant `run`
+      #   string right before the generation point, so at 1.3 the decoder
+      #   was penalized for RETYPING exactly the command it should retype
+      #   and dodged to a wrong tool ("sync vids" present at 0.87 similarity
+      #   -> composed "update videos"). Live sweep over this file's own held-
+      #   out fixture (spec/fixtures/nl_mapper_calibration.yml, 15 rows):
+      #   1.3 -> 6/15, 1.15 -> 9/15, 1.1 -> 9/15, 1.0 -> 8/15 (fixture header
+      #   carries the full data + static-prompt controls). Chose 1.1 over the
+      #   tied 1.15 as the smaller step off the un-penalized 1.0 default.
+      #   DIGIT-PADDING RE-VERIFIED CLEAN at 1.1 BEFORE adopting it (2026-07-
+      #   16): 5 fresh multi-digit-id probes on the exact `link <vid> <game>`
+      #   composition this constant exists to guard — "link vid 105 to game
+      #   12", "hook vid 40 up with game 128", "connect video 233 with game
+      #   47", "show game 105", "put vid 76 together with game 214" — each
+      #   run twice live through Pito::Nl::Mapper.map; all 5 composed the
+      #   exact expected command, byte-identical across both rounds, no
+      #   runaway repetition. See CompletionClient#chat's doc comment for the
+      #   repeat_penalty passthrough.
+      REPEAT_PENALTY = 1.1
+
+      # Few-shot retrieval width (v2, 2026-07-16 — see #chat_messages for the
+      # design history): how many exemplar pairs the prompt carries, cosine-
+      # picked per utterance from the full `nl.exemplars` pool. 8 balances the
+      # two live-measured failure modes: SMALL enough that growing the pool can
+      # never crowd an unrelated tool's worked example out of the model's
+      # attention (the brittleness that killed static-all), LARGE enough to
+      # keep pattern diversity — multi-slot composition, number words, filler-
+      # heavy phrasing — in view for a 0.6B model. 8 pairs also keep the turn
+      # array comfortably inside the qwen sidecar's --ctx-size 2048
+      # (docker-compose*.yml `nlmapper` command) alongside the grammar and the
+      # completion budget, with room for the pool to keep growing for free.
+      FEW_SHOT_TOP_K = 8
 
       # Maps a free-text +utterance+ to { command:, tool: } — a validated,
       # parser-approved PITO command line and the chat tool it canonicalizes
@@ -131,12 +171,12 @@ module Pito
       end
 
       # Few-shot MESSAGE ARRAY: one system turn (the terse instruction), then
-      # EVERY exemplar from the ontology's top-level `nl.exemplars:`
-      # (config/pito/tools.yml) as an alternating user("<say>") /
-      # assistant("<run>") PAIR, ending on the owner's own (normalized)
-      # utterance as the final, still-open user turn for the grammar to
-      # complete as the assistant's reply — the canonical instruct few-shot
-      # form.
+      # the retrieval-picked exemplars from the ontology's top-level
+      # `nl.exemplars:` (config/pito/tools.yml — see #few_shot_exemplars) as
+      # alternating user("<say>") / assistant("<run>") PAIRS, ending on the
+      # owner's own (normalized) utterance as the final, still-open user turn
+      # for the grammar to complete as the assistant's reply — the canonical
+      # instruct few-shot form.
       #
       # Multi-turn, not exemplars-in-the-system-block (2026-07-15,
       # live-proof; see CompletionClient's doc comment for the fuller
@@ -148,29 +188,121 @@ module Pito
       # it was instruct-tuned on, so it actually generalizes past the
       # exemplars instead of pattern-matching the nearest one.
       #
-      # DESIGN DECISION (v1, static — read before "improving" this):
-      #   (a) static, ALL exemplars, zero extra embeds — what this ships.
-      #       The 23 authored exemplars are short worked examples (~20-30
-      #       tokens each); the whole turn array runs ~700 tokens,
-      #       comfortably inside Qwen3-0.6B's --ctx-size 4096
-      #       (docker-compose*.yml) alongside the grammar and the completion
-      #       budget. Fully deterministic: the same utterance always sees
-      #       the same messages.
-      #   (b) retrieval-picked top-K (the plan's original "retrieval-picked"
-      #       ambition) needs the exemplar `say` strings embedded and cached
-      #       somewhere — nl_exemplars lives in YAML, not a table, so that is
-      #       new infrastructure (a cache row shape + sync job, mirroring
-      #       Pito::Nl::Router::Example), not a one-line change. Deferred
-      #       until the exemplar bank grows past what fits comfortably in
-      #       context — a real constraint, not a guess.
+      # DESIGN DECISION (v2, retrieval-picked — owner decision 2026-07-16;
+      # read before "improving" this):
+      #   v1 shipped static-ALL (every exemplar, every call) and deferred
+      #   retrieval "until the exemplar bank grows past what fits in context".
+      #   The real constraint arrived earlier and wasn't context size: a live
+      #   experiment (4 controlled runs, fully deterministic) proved that
+      #   ADDING any exemplar reshuffles the model's compositions for
+      #   UNRELATED tools — with a 0.6B model, every pair in the prompt
+      #   competes for attention, so the pool could never grow safely.
+      #   v2 embeds the pool's `say` strings once (in-memory, keyed on
+      #   Config.data identity — see #exemplar_vectors), cosine-ranks them
+      #   against the already-normalized utterance at map time, and prompts
+      #   with only the FEW_SHOT_TOP_K nearest: an addition now changes a
+      #   prompt only when it is genuinely nearer the utterance than an
+      #   incumbent, never by mere presence.
+      #   The selected pairs keep their ORIGINAL tools.yml order, NOT
+      #   similarity order — the pool's authored sequence is the one stable
+      #   axis (same utterance -> same turn array byte-for-byte; a pair's
+      #   position relative to the utterance turn never depends on a
+      #   similarity tie), so determinism and recency-position effects stay
+      #   pinned as the pool grows.
+      #   Degradation: any embedding failure (unconfigured/unreachable
+      #   embedder, a nil vector slot) falls back to the full static v1
+      #   prompt with one warn — retrieval failing can never make the mapper
+      #   WORSE than the design it replaced. The GBNF grammar and the rest of
+      #   the completion call are untouched by all of this.
       def chat_messages(utterance)
         messages = [ { role: "system", content: INSTRUCTION } ]
-        Pito::Dispatch::Config.nl_exemplars.each do |exemplar|
+        few_shot_exemplars(utterance).each do |exemplar|
           messages << { role: "user", content: exemplar[:say] }
           messages << { role: "assistant", content: exemplar[:run] }
         end
         messages << { role: "user", content: utterance }
         messages
+      end
+
+      # Retrieval-picks the FEW_SHOT_TOP_K pool exemplars nearest to
+      # +utterance+ (already normalized by #map), restored to their original
+      # tools.yml order (see #chat_messages' design note). A pool already
+      # within the K budget short-circuits to itself — nothing could be
+      # crowded out, so there is nothing to rank (and no embed to pay for).
+      # The index tiebreak on equal similarity keeps selection deterministic;
+      # `.sort` before the lookup is the original-order restoration.
+      def few_shot_exemplars(utterance)
+        pool = Pito::Dispatch::Config.nl_exemplars
+        return pool if pool.size <= FEW_SHOT_TOP_K
+
+        vectors = exemplar_vectors(pool)
+        return static_fallback(pool) if vectors.nil?
+
+        utterance_vector = Pito::Embedding::Client.new.embed([ utterance ]).first
+        return static_fallback(pool) if utterance_vector.nil?
+
+        pool.each_index
+            .sort_by { |i| [ -cosine(utterance_vector, vectors[i]), i ] }
+            .first(FEW_SHOT_TOP_K)
+            .sort
+            .map { |i| pool[i] }
+      end
+
+      # In-memory vector cache for the pool's `say` strings — ONE forgiving
+      # batched embed per tools.yml identity, never a DB table, never a
+      # per-call re-embed of the pool. Keyed on Pito::Dispatch::Config.data
+      # object identity EXACTLY like #grammar above: a tools.yml edit (or a
+      # test's Config.reload!) invalidates the vectors on the very next call
+      # with no bespoke invalidation for this module to remember. A failed
+      # embed (ANY nil slot — partial vectors would silently mis-rank) is NOT
+      # cached: the next map call retries, so a transient sidecar outage
+      # degrades those calls to the static fallback instead of poisoning the
+      # cache until the next reload. The client applies the EmbeddingGemma
+      # task prompt at the wire level itself (Client::PROMPT_PREFIX) — the
+      # raw `say` text is exactly what belongs here.
+      def exemplar_vectors(pool)
+        data = Pito::Dispatch::Config.data
+        unless @exemplar_data.equal?(data)
+          @exemplar_vectors = nil
+          @exemplar_data = data
+        end
+        return @exemplar_vectors if @exemplar_vectors
+
+        vectors = Pito::Embedding::Client.new.embed(pool.map { |exemplar| exemplar[:say] })
+        return nil if vectors.any?(&:nil?)
+
+        @exemplar_vectors = vectors
+      end
+
+      # Cosine similarity over plain Float arrays, hand-rolled on purpose:
+      # the pool is ~28 vectors of 768 dims — a linear scan is microseconds,
+      # and these vectors never touch the DB, so pgvector/`neighbor` would be
+      # infrastructure for nothing. Zero-norm input scores 0.0 rather than
+      # dividing by zero.
+      def cosine(left, right)
+        dot = 0.0
+        norm_left = 0.0
+        norm_right = 0.0
+        left.each_index do |i|
+          dot += left[i] * right[i]
+          norm_left += left[i] * left[i]
+          norm_right += right[i] * right[i]
+        end
+        denominator = Math.sqrt(norm_left * norm_right)
+        denominator.zero? ? 0.0 : dot / denominator
+      end
+
+      # The v1 static-ALL prompt, kept as the degradation path (see
+      # #chat_messages' design note). One warn per fallen-back map call —
+      # operator visibility in the docker logs without paging on designed
+      # degradation, mirroring Pito::Embedding::Client's own forgiving-path
+      # stance (this fires on the mapper's rare, expensive path only).
+      def static_fallback(pool)
+        Rails.logger.warn(
+          "[Pito::Nl::Mapper] exemplar retrieval unavailable (embedder unconfigured, down, " \
+          "or returned a nil vector) — falling back to the full static few-shot pool"
+        )
+        pool
       end
 
       # Lexical snapping BEFORE the prompt is built — MIRRORS Pito::Nl::

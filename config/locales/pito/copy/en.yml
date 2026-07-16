@@ -4324,6 +4324,15 @@ en:
         paused: "Paused: %{queues}. Workers idle until you /jobs resume."
         paused_none: "No active queues to pause — nothing's been enqueued yet."
         resumed: "Resumed processing — cleared %{count} pause(s). Back to work."
+      config:
+        # `/config embeddings` status labels (P8, 3.0.1) — deterministic,
+        # not a witty 1-or-50 pool: this is a settings table, not chat prose.
+        embeddings:
+          embedder: "Embedder"
+          games: "Games"
+          vids: "Vids"
+          conversation_events: "Conversation events"
+          nl_examples: "NL examples"
       greeting:
         - "Hi! I'm PITO — every channel, video, and game in one chatbox. Try `list channels` to get your bearings."
         - "Hey! Ask the assistant anything with `@ai …` — it reads your library and answers in charts and tables."
@@ -4359,7 +4368,7 @@ en:
         - "Hola! `platform <id> ps5` sets a game's platform from free text — ps5, switch, steam, your call."
         - "Hello. Your data lives on your machine. Self-hosted, no SaaS, no monthly ransom."
         - "Hi! Want fresh stats? PITO refreshes views/likes/comments on sync — three passes a day in production."
-        - "Hey there! `find <text>` searches your videos by title, genre, or platform."
+        - "Hey there! Ask to find a video by title, genre, or platform — I'll dig it up."
         - "Hola! Reindex a game or vid into the local index with `reindex` after a big edit."
         - "Hello! New game out soon? `list games upcoming` shows what's on the horizon."
         - "Hi. `show game <id>` even tells you which of your channels the game fits best."

@@ -7,7 +7,7 @@ require "rails_helper"
 # RULE: every kwarg combination is recognized — no exception. We test what the
 # dispatcher UNDERSTANDS, not what exists: all DB lookups are stubbed so the
 # resolver "finds" exactly what was requested, and we assert the parsed scope
-# (level + entity ids / count), per docs/claude/0.8.0.md §D.
+# (level + entity ids / count) per the scope-resolution contract.
 #
 # Recognition engine = Pito::Analytics::ScopeResolver (raw + shift+tab scope →
 # {status, level, scopes}). The handler is a thin wrapper over it.
@@ -154,12 +154,17 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
     end
 
     it "channels @handle not found → :channels_not_found" do
+      # ScopeResolver#lookup_channel now delegates to ::Channel.resolve_handle
+      # (3.0.1 P11), which falls through to a pg_trgm fuzzy query when the
+      # exact find_by misses — stub that fallback "no match either" too.
       allow(::Channel).to receive(:find_by).and_return(nil)
+      allow(::Channel).to receive(:where).and_return(double(order: double(first: nil)))
       expect(resolve("analyze channels @nope")).to have_attributes(status: :error, error_key: :channels_not_found)
     end
 
     it "bare channel with unknown shift+tab handle → :channel_not_found" do
       allow(::Channel).to receive(:find_by).and_return(nil)
+      allow(::Channel).to receive(:where).and_return(double(order: double(first: nil)))
       expect(resolve("analyze channel", scope: "@nope")).to have_attributes(status: :error, error_key: :channel_not_found)
     end
   end

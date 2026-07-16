@@ -22,10 +22,14 @@
 # strict `embed_batch` path on a sidecar failure) is caught, logged, and
 # counted as failed — one bad row must not sink a 300-row sweep. The events
 # path is forgiving by design (`Pito::Embedding::EventIndexer` never raises;
-# a nil vector is a silent no-write), so a swallowed event failure surfaces
-# here as "skipped" rather than "failed" — same as any other digest-gated
-# no-op, and self-heals on the next sweep.
-def pito_embeddings_sweep!(label, scope, indexer, force:, throttle:)
+# a nil vector is a silent no-write), so it can't be caught by the rescue
+# above — instead, pass `forgiving: true` for that sweep so a row whose
+# `embedding` is STILL nil after the attempt counts as failed too (a
+# swallowed sidecar failure, not a legitimate digest-gate skip — a genuine
+# skip means the row was already embedded and its text hasn't changed, so
+# `embedding` is present). Both surfaces self-heal on the next sweep or the
+# nightly reindex job.
+def pito_embeddings_sweep!(label, scope, indexer, force:, throttle:, forgiving: false)
   total = scope.count
   processed = embedded = skipped = failed = 0
 
@@ -43,9 +47,17 @@ def pito_embeddings_sweep!(label, scope, indexer, force:, throttle:)
     else
       # `update_column` (used by every indexer) writes the in-memory
       # attribute too, so `record` already reflects a successful embed —
-      # no reload needed. Unchanged digest means the digest gate skipped
-      # the row (or, for events, a forgiving nil embed was swallowed).
-      record.embedded_digest == digest_before ? skipped += 1 : embedded += 1
+      # no reload needed.
+      if record.embedded_digest != digest_before
+        embedded += 1
+      elsif forgiving && record.embedding.nil?
+        failed += 1
+        msg = "  #{label} ##{record.id} FAILED: embedding still nil after attempt"
+        puts msg
+        Rails.logger.warn(msg)
+      else
+        skipped += 1
+      end
     end
 
     puts "#{label}: #{processed}/#{total}" if (processed % 50).zero?
@@ -76,7 +88,8 @@ namespace :pito do
           Event.where(kind: Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS),
           Pito::Embedding::EventIndexer,
           force: force,
-          throttle: throttle
+          throttle: throttle,
+          forgiving: true
         )
       ]
 

@@ -84,7 +84,7 @@ A **plan is an atomic-task `.md` file** that tracks the work it describes —
 not freeform prose, not the throwaway plan-mode scratch buffer. Plans and other
 agent/working docs (briefs, checklists) now live in **the local notes directory**
 (outside the repo, indexed by qmd for search); `docs/` itself holds only permanent references
-(`architecture.md`, `design.md`, `footage.md`). Write nothing — no edits, commits,
+(`architecture.md`, `design.md`). Write nothing — no edits, commits,
 or sub-agents — until the user approves the plan.
 
 **Shape.** `# Title`, a `> Status:` line, a one-paragraph north star, optional
@@ -158,8 +158,7 @@ invariants you can't discover by reading a single file — keep them.
   1-or-50 dictionary). Never hardcode user-facing text or call `I18n.t` on copy
   keys. Audit with `rake pito:copy:audit`.
 - **Game/video links are explicit** (`link` / `unlink`) — never inferred from
-  titles. **Footage is a per-game manual total** (`games.footage_hours`;
-  `docs/footage.md`). **Recommendations Design B (locked): channels carry no
+  titles. **Footage is a per-game manual total** (`games.footage_hours`). **Recommendations Design B (locked): channels carry no
   embedding** — a channel is its videos.
 - **`vids` / `subs` are the canonical nouns** (`videos` / `subscribers` accepted
   as aliases).

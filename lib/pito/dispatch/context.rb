@@ -16,10 +16,16 @@ module Pito
     #
     # A free-chat invocation carries `follow_up: nil`; a reply invocation carries a
     # populated `Pito::Chat::FollowUpContext`. `follow_up?` is the predicate.
-    Context = Data.define(:message, :conversation, :channel, :period, :follow_up, :viewport_width) do
+    #
+    # `nl_eligible` (default true) is distinct from `follow_up` — see
+    # Pito::Dispatch::Router's class header. False only for a handful of
+    # Pito::FollowUp::Handlers::* reconstructed re-dispatches; read by handlers
+    # as `nl_eligible?` (Pito::Chat::Handler) to decide whether a body they
+    # can't resolve is allowed to soft-fail into the NL gate.
+    Context = Data.define(:message, :conversation, :channel, :period, :follow_up, :viewport_width, :nl_eligible) do
       # Only +message+ and +conversation+ are required; the rest default so specs
       # and free-chat callers need not spell out every scope.
-      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil)
+      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil, nl_eligible: true)
         super
       end
 

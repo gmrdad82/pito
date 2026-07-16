@@ -352,7 +352,11 @@ module Pito
             video = resolve_target(::Video, id_key: :video_id, noun_fillers: video_noun_fillers)
             return needs_ref if video == :needs_ref
             video ||= resolve_title(::Video, video_noun_fillers)
-            return video_not_found(target_ref(video_noun_fillers, id_key: :video_id)) if video.nil?
+            if video.nil?
+              ref = target_ref(video_noun_fillers, id_key: :video_id)
+              return nl_soft_fail("pito.copy.videos.not_found", ref) if nl_soft_fail_ref?(ref)
+              return video_not_found(ref)
+            end
           end
 
           selection = resolved_selection(:vid)
@@ -403,7 +407,11 @@ module Pito
             game = resolve_target(::Game, id_key: :game_id, noun_fillers: game_noun_fillers)
             return needs_ref if game == :needs_ref
             game ||= resolve_title(::Game, game_noun_fillers)
-            return game_not_found(target_ref(game_noun_fillers, id_key: :game_id)) if game.nil?
+            if game.nil?
+              ref = target_ref(game_noun_fillers, id_key: :game_id)
+              return nl_soft_fail("pito.copy.games.not_found", ref) if nl_soft_fail_ref?(ref)
+              return game_not_found(ref)
+            end
           end
 
           selection = resolved_selection(:game)
@@ -496,6 +504,28 @@ module Pito
           return model_class.find_by(id: id) if id.match?(/\A\d+\z/)
 
           model_class.resolve_by_title(ref)
+        end
+
+        # NL soft-fail (3.0.1 P7): a free-chat NON-NUMERIC ref that missed the
+        # title ladder looks like free text the parser's first-token match
+        # captured ("show me my tekken vids") — emit the nl_fallback marker so
+        # Pito::Dispatch::Router re-runs the ORIGINAL utterance through the NL
+        # gate. Numeric refs ("show game 99999" — a genuinely missing id),
+        # follow-up replies (machine-reconstructed input, never free text), and
+        # nl_eligible: false dispatches (a RECONSTRUCTED follow-up re-dispatch
+        # with no FollowUpContext — e.g. Pito::FollowUp::Handlers::GameSimilar's
+        # `show game <ref>`, which deliberately omits follow_up so the title
+        # ladder still runs — see Pito::Dispatch::Router's class header) keep
+        # the crisp not-found unchanged.
+        def nl_soft_fail_ref?(ref)
+          !follow_up? && nl_eligible? && ref.present? && !ref.to_s.sub(/\A#\s*/, "").match?(/\A\d+\z/)
+        end
+
+        # The marker still carries the crisp not-found copy: a consumer that
+        # renders it un-fallen-back (the nl_retry loop guard, MCP projection)
+        # degrades to exactly the message this branch used to emit.
+        def nl_soft_fail(key, ref)
+          Pito::Chat::Result::Error.new(message_key: key, message_args: { ref: ref }, nl_fallback: true)
         end
 
         def needs_ref

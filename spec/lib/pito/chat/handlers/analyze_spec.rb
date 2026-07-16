@@ -67,6 +67,21 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
       end
     end
 
+    # 3.0.1 P11 — a bare @handle with NO "channel"/"channels" noun word used to
+    # fall through to the bare-`analyze` suggest copy, dropping the typed
+    # handle entirely. Byte-identical output to "analyze channel @gmrdad82"
+    # (same ScopeResolver#resolve_channels path — see scope_resolver_spec.rb
+    # for the resolution-layer coverage).
+    context "bare @handle, no noun word" do
+      subject(:result) { analyze("analyze @gmrdad82") }
+
+      it "resolves the channel by handle alone" do
+        marker = result.events.first[:payload]["analyze"]
+        expect(marker["entity_ids"]).to include(channel.id)
+        expect(marker["level"]).to eq("channel")
+      end
+    end
+
     # `full` → both cards, in canonical order (today's output).
     context "full (both cards)" do
       subject(:result) { analyze("analyze channel @gmrdad82 full") }

@@ -211,14 +211,20 @@ module Pito
             .min_by(page_size) { |g| g[:rank_key] }
         end
 
-        # Same pgvector cosine distance → 0–100 similarity conversion
-        # Pito::Recommendation::Signals.embedding uses for the games' similar-
-        # games score bars (`((1.0 - distance) * 100).clamp(0.0, 100.0)`,
-        # rounded to an Integer here since this handler has no further blending
-        # step) — so a conversation hit and a game at the same cosine distance
-        # render the same score bar.
+        # A conversation `like` hit's score is 100% raw cosine similarity — no
+        # blend, unlike games' 10-signal score (Pito::Recommendation::
+        # Signals.embedding, untouched, feeds THAT blend only). Measured prod
+        # data (60 events, 2026-07-16) showed random unrelated events already
+        # scored a .469 median cosine under the old raw-cosine-×100 formula,
+        # so this rescales from Pito::Recommendation::DisplayScore::
+        # CONVERSATION_FLOOR (the measured random-pair baseline) instead of
+        # from 0, so the bar actually discriminates real hits from noise.
+        # Rounded to an Integer here since this handler has no further
+        # blending step.
         def distance_to_score(distance)
-          ((1.0 - distance.to_f) * 100).clamp(0.0, 100.0).round
+          Pito::Recommendation::DisplayScore.display_score(
+            1.0 - distance.to_f, floor: Pito::Recommendation::DisplayScore::CONVERSATION_FLOOR
+          ).round
         end
 
         # ILIKE gives no relevance score, so lexical ranking surfaces the

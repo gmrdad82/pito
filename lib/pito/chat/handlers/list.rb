@@ -9,7 +9,7 @@
 #
 # ## Video listing
 #
-# Syntax: `list videos [published|unlisted|scheduled|private]`
+# Syntax: `list videos [published|unlisted|scheduled|private|draft]`
 #
 # Channel scope comes from `self.channel` (the param threaded through the
 # dispatcher, e.g. "@all" or "@handle"):
@@ -21,6 +21,7 @@
 #   "unlisted"  → Video.unlisted
 #   "scheduled" → Video.scheduled (future publish_at)
 #   "private"   → Video.private_unscheduled (private AND NOT scheduled — D2)
+#   "draft"     → same as "private" (YouTube Studio's own word for it)
 #   (none)      → all videos regardless of privacy_status
 #
 # Ordering: id DESC by default (biggest/newest first); sort clauses override.
@@ -46,7 +47,12 @@ module Pito
           "published" => :published,
           "unlisted"  => :unlisted,
           "scheduled" => :scheduled,
-          "private"   => :private_unscheduled
+          "private"   => :private_unscheduled,
+          # `draft` is a token ALIAS for the same scope as `private` (3.0.1
+          # P11/P36) — YouTube Studio's own UI calls an unpublished,
+          # not-yet-scheduled upload a "draft"; mirrors the tools.yml
+          # `filters.vids.private.tokens: [private, draft]` declaration.
+          "draft"     => :private_unscheduled
         }.freeze
 
         # Width-aware column auto-fill. With no `with` clause, `list` fills
@@ -659,8 +665,17 @@ module Pito
         # Free-chat with a genuinely unknown word — no guessing.
         # Render the generic "I don't get it" dictionary (`pito.copy.huh`, reused per
         # owner). Pre-rendered so the finalizer routes it to `text:` (keeps :error chrome).
+        #
+        # NL soft-fail (3.0.1 P7): in free chat this branch used to render the
+        # huh copy WITHOUT consulting NL — flag the error as an nl_fallback
+        # marker so Pito::Dispatch::Router gives the ORIGINAL utterance one shot
+        # at the NL gate first (its own below-suggest fallback is this same huh
+        # copy). Follow-up replies (machine-reconstructed input) stay a plain
+        # error, as does the marker itself when it degrades un-fallen-back.
         def unknown_entity
-          Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render("pito.copy.huh"), message_args: {}, nl_fallback: !follow_up?
+          )
         end
 
         # ── Pager helpers ─────────────────────────────────────────────────────

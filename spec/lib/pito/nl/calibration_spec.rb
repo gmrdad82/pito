@@ -6,7 +6,7 @@ require "rails_helper"
 # whenever spec/fixtures/nl_calibration.yml, the corpus in
 # config/pito/tools.yml (`nl_examples:` on any tool), the embedding engine
 # (embeddinggemma-300m via the sidecar), or tools.yml's own `nl.thresholds:`
-# change — it is the thing that tells you whether 0.90 / 0.75 still hold, or
+# change — it is the thing that tells you whether 0.90 / 0.72 still hold, or
 # need re-pinning against measured numbers rather than a guess.
 #
 # LIVE-GATED, ON PURPOSE: unlike router_spec.rb (which stubs
@@ -94,9 +94,10 @@ RSpec.describe "Pito::Nl::Router calibration (empirical thresholds gate)" do
     # tools.yml corpus, never anything fixture-specific.
 
     fixture = YAML.safe_load_file(FIXTURE_PATH, symbolize_names: true)
-    @auto_run_rows = fixture.fetch(:auto_run).map { |e| route_row(e) }
-    @suggest_rows  = fixture.fetch(:suggest).map  { |e| route_row(e) }
-    @reject_rows   = fixture.fetch(:reject).map   { |e| { say: e[:say], result: Pito::Nl::Router.route(e[:say]) } }
+    @auto_run_rows          = fixture.fetch(:auto_run).map { |e| route_row(e) }
+    @suggest_rows           = fixture.fetch(:suggest).map  { |e| route_row(e) }
+    @reject_rows            = fixture.fetch(:reject).map   { |e| { say: e[:say], result: Pito::Nl::Router.route(e[:say]) } }
+    @tolerated_suggest_rows = fixture.fetch(:tolerated_suggest).map { |e| { say: e[:say], result: Pito::Nl::Router.route(e[:say]) } }
 
     thresholds          = Pito::Dispatch::Config.nl_thresholds
     @auto_run_threshold = thresholds.fetch(:auto_run)
@@ -154,6 +155,21 @@ RSpec.describe "Pito::Nl::Router calibration (empirical thresholds gate)" do
         expect(row[:result][:confidence]).to be < @auto_run_threshold,
           "#{row[:say].inspect} reached #{row[:result][:confidence].round(3)} confidence as #{row[:result][:tool]} " \
           "— at/above auto_run (#{@auto_run_threshold}); a reject phrase must NEVER auto-dispatch"
+      end
+    end
+  end
+
+  it "tolerated_suggest tier: never auto-runs (a did-you-mean, or no match at all, is acceptable either way)" do
+    print_confidence_range("tolerated_suggest", @tolerated_suggest_rows)
+
+    aggregate_failures do
+      @tolerated_suggest_rows.each do |row|
+        next if row[:result].nil?
+
+        expect(row[:result][:confidence]).to be < @auto_run_threshold,
+          "#{row[:say].inspect} reached #{row[:result][:confidence].round(3)} confidence as #{row[:result][:tool]} " \
+          "— at/above auto_run (#{@auto_run_threshold}); a domain-adjacent phrase must NEVER auto-dispatch, " \
+          "only ever at most a confirm-first did-you-mean"
       end
     end
   end

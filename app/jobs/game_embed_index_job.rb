@@ -8,10 +8,9 @@
 #   - `NightlyReindexJob` (one job per Game).
 #   - Console / future operator surfaces.
 #
-# Queue is `:search` — same lane as `SearchIndexJob` and
-# `Notes::EmbedJob` (the existing search-indexing work). Keeps
-# search throughput isolated from latency-sensitive sync jobs on
-# `:default`.
+# Queue is `:search` — same lane as `VideoEmbedIndexJob` and
+# `EventEmbedJob` (the other embed-indexing work). Keeps search
+# throughput isolated from latency-sensitive sync jobs on `:default`.
 #
 # 2026-07-15 — Voyage decommission: renamed from the retired Voyage AI
 # per-record job, repointed onto `Game::EmbeddingIndexer` (the local-embedder

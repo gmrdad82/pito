@@ -47,6 +47,16 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelGames do
       result = handler.call(event:, rest: "show ##{game.id}", conversation:)
       expect(result.events.first[:payload]["game_id"]).to eq(game.id)
     end
+
+    # 3.0.1 reconciliation fix: this free-chat re-dispatch has no follow_up
+    # context (so title resolution still runs), but a ref matching neither an
+    # id nor a title must stay the crisp not-found (consume: false) — never
+    # leak into the NL gate (mirrors GameSimilar's equivalent example).
+    it "returns a not-found Ok (consume: false) for a ref matching no id and no title" do
+      result = handler.call(event:, rest: "show no such game anywhere", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+    end
   end
 
   describe "invalid action" do
