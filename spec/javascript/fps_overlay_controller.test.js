@@ -3,22 +3,25 @@
 // Vitest suite for pito--fps-overlay Stimulus controller.
 //
 // The controller delegates a single `keydown` listener on `document` (same
-// document-level shape as pito--anchor-jump / pito--scroll-nav). On F9 it
-// toggles the `hidden` class on `this.element` (the `.pito-fps-overlay`
-// wrapper) — unless focus is currently inside an <input>, <textarea>, or any
-// contenteditable element, in which case the keydown falls through untouched
-// (the chatbox owns typing) and nothing is toggled or prevented.
+// document-level shape as pito--anchor-jump / pito--scroll-nav). On CTRL+F9
+// — and ONLY Ctrl+F9 (owner call: unmodified F9 is reserved for the
+// operator's own tooling and must pass through untouched) — it toggles the
+// `hidden` class on `this.element` (the `.pito-fps-overlay` wrapper),
+// REGARDLESS of where focus currently is: it inserts no text, and pito's
+// chatbox effectively always has focus in this chat-first UI, so an
+// editable-target guard would make the toggle unreachable in practice.
+// Alt+F9 and Meta+F9 are left alone for the OS/window manager.
 //
 // Covers:
-//   • F9 toggles `hidden` off, then a second F9 puts it back on
-//   • A handled F9 calls preventDefault()
-//   • Focus guard: <input> focused → no-op (still hidden, not prevented)
-//   • Focus guard: <textarea> focused → no-op
-//   • Focus guard: isContentEditable element focused → no-op (jsdom does not
-//     derive isContentEditable from the attribute, so it is set directly)
+//   • Ctrl+F9 toggles `hidden` off, then a second Ctrl+F9 puts it back
+//   • A handled Ctrl+F9 calls preventDefault()
+//   • Ctrl+F9 toggles even while an <input> has focus (the
+//     chatbox-always-focused regression), and a second press hides it again
+//   • Plain (unmodified) F9 does NOTHING — reserved for the operator
+//   • Alt+F9 and Meta+F9 do nothing (left for the OS/window manager)
 //   • Other keys (F8, Escape) do nothing
-//   • After the element is removed and the controller disconnects, F9 no
-//     longer throws or mutates anything (listener detached)
+//   • After the element is removed and the controller disconnects, Ctrl+F9
+//     no longer throws or mutates anything (listener detached)
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -69,75 +72,68 @@ describe("pito--fps-overlay controller", () => {
     vi.restoreAllMocks()
   })
 
-  it("F9 toggles the hidden class off, and a second F9 puts it back", async () => {
+  it("Ctrl+F9 toggles the hidden class off, and a second Ctrl+F9 puts it back", async () => {
     const el = buildScaffold({ hidden: true })
     await tick()
 
-    pressKey("F9")
+    pressKey("F9", { ctrlKey: true })
     expect(el.classList.contains("hidden")).toBe(false)
 
-    pressKey("F9")
+    pressKey("F9", { ctrlKey: true })
     expect(el.classList.contains("hidden")).toBe(true)
   })
 
-  it("calls preventDefault on a handled F9", async () => {
+  it("calls preventDefault on a handled Ctrl+F9", async () => {
     buildScaffold({ hidden: true })
     await tick()
 
-    const event = pressKey("F9")
+    const event = pressKey("F9", { ctrlKey: true })
     expect(event.defaultPrevented).toBe(true)
   })
 
-  it("does nothing while focus is inside an <input>", async () => {
+  it("toggles even while an <input> has focus (the chatbox-always-focused regression), and a second press hides it again", async () => {
     const el = buildScaffold({ hidden: true })
     const input = document.createElement("input")
     document.body.appendChild(input)
     input.focus()
     await tick()
 
-    const event = pressKey("F9")
+    const first = pressKey("F9", { ctrlKey: true })
+    expect(el.classList.contains("hidden")).toBe(false)
+    expect(first.defaultPrevented).toBe(true)
 
+    const second = pressKey("F9", { ctrlKey: true })
+    expect(el.classList.contains("hidden")).toBe(true)
+    expect(second.defaultPrevented).toBe(true)
+  })
+
+  it("does NOTHING on plain (unmodified) F9 — reserved for the operator's own tooling", async () => {
+    const el = buildScaffold({ hidden: true })
+    await tick()
+
+    const event = pressKey("F9")
     expect(el.classList.contains("hidden")).toBe(true)
     expect(event.defaultPrevented).toBe(false)
   })
 
-  it("does nothing while focus is inside a <textarea>", async () => {
+  it("does nothing for Alt+F9 or Meta+F9 (left for the OS/window manager)", async () => {
     const el = buildScaffold({ hidden: true })
-    const textarea = document.createElement("textarea")
-    document.body.appendChild(textarea)
-    textarea.focus()
     await tick()
 
-    const event = pressKey("F9")
-
+    const alt = pressKey("F9", { ctrlKey: true, altKey: true })
     expect(el.classList.contains("hidden")).toBe(true)
-    expect(event.defaultPrevented).toBe(false)
+    expect(alt.defaultPrevented).toBe(false)
+
+    const meta = pressKey("F9", { ctrlKey: true, metaKey: true })
+    expect(el.classList.contains("hidden")).toBe(true)
+    expect(meta.defaultPrevented).toBe(false)
   })
 
-  it("does nothing while focus is inside a contenteditable element", async () => {
-    const el = buildScaffold({ hidden: true })
-    const editable = document.createElement("div")
-    // A plain <div> has no tabindex, so jsdom won't focus() it — give it one
-    // so document.activeElement actually becomes this element.
-    editable.setAttribute("tabindex", "0")
-    // jsdom does not derive isContentEditable from the contenteditable
-    // attribute, so the property is set directly on the node.
-    Object.defineProperty(editable, "isContentEditable", { value: true })
-    document.body.appendChild(editable)
-    editable.focus()
-    await tick()
-
-    const event = pressKey("F9")
-
-    expect(el.classList.contains("hidden")).toBe(true)
-    expect(event.defaultPrevented).toBe(false)
-  })
-
-  it("does nothing for other keys (F8, Escape)", async () => {
+  it("does nothing for other keys (Ctrl+F8, Escape)", async () => {
     const el = buildScaffold({ hidden: true })
     await tick()
 
-    const f8 = pressKey("F8")
+    const f8 = pressKey("F8", { ctrlKey: true })
     expect(el.classList.contains("hidden")).toBe(true)
     expect(f8.defaultPrevented).toBe(false)
 
@@ -146,14 +142,14 @@ describe("pito--fps-overlay controller", () => {
     expect(esc.defaultPrevented).toBe(false)
   })
 
-  it("stops reacting to F9 after the element is removed and the controller disconnects", async () => {
+  it("stops reacting to Ctrl+F9 after the element is removed and the controller disconnects", async () => {
     const el = buildScaffold({ hidden: true })
     await tick()
 
     document.body.removeChild(el)
     await tick()
 
-    expect(() => pressKey("F9")).not.toThrow()
+    expect(() => pressKey("F9", { ctrlKey: true })).not.toThrow()
     // The removed element is untouched — it was never re-attached or mutated.
     expect(el.classList.contains("hidden")).toBe(true)
   })
