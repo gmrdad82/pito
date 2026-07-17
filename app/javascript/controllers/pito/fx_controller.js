@@ -99,6 +99,12 @@ export default class extends Controller {
     // the resting sky may tilt with the pointer — a depth response, not a
     // follower; enforcers still get the butterfly, never the cursor).
     // Viewport center = neutral; edges = full tilt; same low-pass.
+    // FRAME-BOUNDED (owner perf report: fps sank to 10-15 while the mouse
+    // moved): the listener only RECORDS the newest coords — normalization
+    // and the low-pass run once per rAF tick in #stepPointerTilt, so a
+    // pointermove burst (high-Hz mice, uncoalesced browsers) costs two
+    // field writes per event, never math.
+    this._pointerLast = { x: 0, y: 0, dirty: false }
     window.addEventListener("pointermove", (e) => this.#onPointerTilt(e), { signal, passive: true })
     document.addEventListener("visibilitychange", () => this.#onVisibility(), { signal })
     this._reduced.addEventListener?.("change", () => this.#onReducedMotion(), { signal })
@@ -252,6 +258,10 @@ export default class extends Controller {
     const tick = (now) => {
       if (!this._running) return
       this._raf = requestAnimationFrame(tick)
+      // Pointer-tilt integrates HERE, before the fps gate: one low-pass
+      // step per display frame — the same cadence coalesced pointermove
+      // events arrived at, so the sway keeps its original ease.
+      this.#stepPointerTilt(now)
       if (this._last === null) this._last = now
       const elapsed = now - this._last
       if (elapsed < this._interval) return
@@ -292,16 +302,31 @@ export default class extends Controller {
     if (!this._running) this.#renderStaticFrame()
   }
 
+  // Record-only (perf): no math, no allocation — #stepPointerTilt does the
+  // real work once per frame.
   #onPointerTilt(e) {
     if (e.pointerType && e.pointerType !== "mouse") return
-    const targetX = Math.max(-1, Math.min(1, (e.clientX / this._w) * 2 - 1))
-    const targetY = Math.max(-1, Math.min(1, (e.clientY / this._h) * 2 - 1))
+    const p = this._pointerLast
+    p.x = e.clientX
+    p.y = e.clientY
+    p.dirty = true
+  }
+
+  // One low-pass step per animation frame, and ONLY when the mouse moved
+  // since the last step — when the hand rests, events stop, the tilt
+  // freezes mid-ease exactly as the per-event version did.
+  #stepPointerTilt(now) {
+    const p = this._pointerLast
+    if (!p?.dirty) return
+    p.dirty = false
+    const targetX = Math.max(-1, Math.min(1, (p.x / this._w) * 2 - 1))
+    const targetY = Math.max(-1, Math.min(1, (p.y / this._h) * 2 - 1))
     this._tilt.x += (targetX - this._tilt.x) * 0.12
     this._tilt.y += (targetY - this._tilt.y) * 0.12
     // The mouse also BIASES the butterfly (owner): the wanderer leans a
     // third of the way toward a fresh pointer, then reclaims the field
     // when the hand rests (freshness window in #wander).
-    this._pointer = { x: e.clientX / this._w, y: e.clientY / this._h, at: performance.now() }
+    this._pointer = { x: p.x / this._w, y: p.y / this._h, at: now }
   }
 
   #onTilt(e) {

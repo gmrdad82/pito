@@ -313,6 +313,64 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
   end
 
+  # ── NL soft-fail wave 2 (3.0.1): unknown_entity + channel branch ──────────────
+  # The flat segment tools (`games`, `videos`, `channels`, `at-a-glance`) drive
+  # Show, so its unknown_entity branch is where their verb-captured free text
+  # used to die with the local huh copy ("games with hard bosses" — live
+  # evidence, 2026-07-17). The channel branch's free-chat non-@ fuzzy-handle
+  # miss is the same shape one noun deeper. Bare tools, id-only bodies,
+  # explicit @handles, and follow-up replies keep their crisp errors.
+
+  describe "NL soft-fail marker — unknown_entity (wave 2)" do
+    it "free text with no entity noun returns the nl_fallback marker (huh copy preserved for degrade consumers)" do
+      result = show_real("show me something wild")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(I18n.t("pito.copy.huh")).to include(result.message_key)
+    end
+
+    it "a bare id keeps the crisp huh error un-flagged (numeric body, never free text)" do
+      result = show_real("show 123456")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(false)
+    end
+
+    it "bare `show` keeps the crisp huh error un-flagged (usage error, not a garbled sentence)" do
+      result = handler_for.call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(false)
+    end
+  end
+
+  describe "NL soft-fail marker — channel branch (wave 2)" do
+    it "a free-chat non-@ handle miss returns the marker with the crisp channels copy" do
+      result = show_real("show channel my main one")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.copy.channels.not_found")
+      expect(result.message_args).to eq({ handle: "my main one" })
+    end
+
+    it "an explicit @handle miss keeps the crisp not-found (the channel's id-analogue)" do
+      result = show_real("show channel @nope")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+
+    it "a channel-sourced follow-up miss keeps the crisp not-found (machine-reconstructed input, never free text)" do
+      source = Struct.new(:payload).new({ "reply_target" => "channel_detail" })
+      fu     = Pito::Chat::FollowUpContext.new(source_event: source, rest: "zzz qqq")
+      result = described_class.new(
+        message: Pito::Chat::Message.new(tool: :show, body_tokens: tokens("channel", "zzz", "qqq"), kind: :new_turn, raw: "show channel zzz qqq"),
+        conversation: Conversation.singleton,
+        follow_up: fu
+      ).call
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+  end
+
   # ── not-found is a soft Ok: consume: false so a `#<handle>` reply can retry ──────
   it "returns a not-found game with consume: false (reply source stays repliable)" do
     result = show_real("show game #{game.id + 999}")

@@ -11,6 +11,27 @@ RSpec.describe Pito::Embedding::Client, type: :service do
     allow(ENV).to receive(:[]).with("PITO_EMBEDDER_URL").and_return(value)
   end
 
+  # Mirror of the client's greedy sub-batch slicer (3.0.2): a slice closes
+  # at MAX_BATCH_SIZE chunks OR when the next chunk would push its total
+  # characters past MAX_CHARS_PER_REQUEST — so specs can compute how many
+  # HTTP requests a chunk list should produce.
+  def expected_request_slices(chunks)
+    slices = []
+    slice = []
+    chars = 0
+    chunks.each do |chunk|
+      if slice.any? && (slice.length >= described_class::MAX_BATCH_SIZE || chars + chunk.length > described_class::MAX_CHARS_PER_REQUEST)
+        slices << slice
+        slice = []
+        chars = 0
+      end
+      slice << chunk
+      chars += chunk.length
+    end
+    slices << slice if slice.any?
+    slices
+  end
+
   describe "#embed" do
     context "when the response data arrives out of order" do
       before do
@@ -264,10 +285,10 @@ RSpec.describe Pito::Embedding::Client, type: :service do
       end
 
       it "sub-batches the chunk list across multiple requests without raising ArgumentError" do
-        chunk_count = described_class.new.send(:chunk_text, huge_text).length
-        expect(chunk_count).to be > described_class::MAX_BATCH_SIZE
+        chunks = described_class.new.send(:chunk_text, huge_text)
+        expect(chunks.length).to be > described_class::MAX_BATCH_SIZE
 
-        expected_requests = (chunk_count.to_f / described_class::MAX_BATCH_SIZE).ceil
+        expected_requests = expected_request_slices(chunks).length
         expected_component = 0.5 / Math.sqrt(0.5**2 + 0.5**2)
 
         result = nil
@@ -484,6 +505,103 @@ RSpec.describe Pito::Embedding::Client, type: :service do
         expect { described_class.new.embed_batch(inputs: [ dense_text ]) }
           .to raise_error(Pito::Embedding::Client::Error)
         expect(a_request(:post, embeddings_endpoint)).to have_been_made.once
+      end
+    end
+  end
+
+  # 3.0.2 character-budget sub-batching: VERIFIED prod failure was giant
+  # braille-sparkline conversation events (~23KB) whose density-adaptive
+  # re-chunk exploded into hundreds of tiny chunks; count-only sub-batching
+  # packed up to MAX_BATCH_SIZE of them per request and the CPU-bound
+  # sidecar blew the 60s read timeout — the failure morphed from size into
+  # time (Net::ReadTimeout, invisible to the too-large retry). A request
+  # slice now also closes at MAX_CHARS_PER_REQUEST total characters, so no
+  # single request can approach the timeout.
+  describe "character-budget sub-batching" do
+    before { set_embedder_url(base_url) }
+
+    # Echo stub: every chunk's vector encodes the chunk's own leading
+    # two-digit id, so misaligned slots (wrong offset math across the new
+    # variable-sized slices) produce visibly wrong vectors.
+    def stub_id_echo_endpoint(request_bodies)
+      stub_request(:post, embeddings_endpoint).to_return do |request|
+        raw = JSON.parse(request.body)["input"].map { |i| i.delete_prefix(described_class::PROMPT_PREFIX) }
+        request_bodies << raw
+        data = raw.each_with_index.map { |chunk, i| { index: i, embedding: [ chunk[0, 2].to_f, 1.0 ] } }
+        { status: 200, body: { data: data }.to_json, headers: { "Content-Type" => "application/json" } }
+      end
+    end
+
+    context "with many short chunks (corpus-sync shape)" do
+      it "still packs them into few requests, aligned per input" do
+        request_bodies = []
+        stub_id_echo_endpoint(request_bodies)
+        inputs = Array.new(100) { |i| format("%02d", i) + "-tiny" }
+
+        result = described_class.new.embed_batch(inputs: inputs)
+
+        # 100 tiny chunks total well under both bounds — ONE request, not
+        # one hundred; each single-chunk input passes through unpooled.
+        expect(request_bodies.length).to eq(1)
+        result.each_with_index { |vec, i| expect(vec).to eq([ i.to_f, 1.0 ]) }
+      end
+    end
+
+    context "with dense chunks whose characters exceed one request's budget" do
+      # 4 inputs × 5 words, each word one hair under CHUNK_BUDGET so every
+      # word becomes its own full-sized chunk carrying a unique 2-digit id.
+      let(:inputs) do
+        (0...4).map do |k|
+          (0...5).map { |j| format("%02d", k * 5 + j) + "a" * (described_class::CHUNK_BUDGET - 3) }.join(" ")
+        end
+      end
+
+      def expected_pooled(ids)
+        mean = [ ids.sum.to_f / ids.length, 1.0 ]
+        norm = Math.sqrt(mean.sum { |v| v**2 })
+        mean.map { |v| v / norm }
+      end
+
+      it "#embed_batch splits requests at the char budget and keeps results aligned" do
+        request_bodies = []
+        stub_id_echo_endpoint(request_bodies)
+
+        all_chunks = inputs.flat_map { |text| described_class.new.send(:chunk_text, text) }
+        expect(all_chunks.length).to be < described_class::MAX_BATCH_SIZE
+
+        result = described_class.new.embed_batch(inputs: inputs)
+
+        # 20 chunks fit ONE request by count alone — the char budget is
+        # what forces the split into several small requests.
+        expect(request_bodies.length).to eq(expected_request_slices(all_chunks).length)
+        expect(request_bodies.length).to be > 1
+        request_bodies.each do |chunks|
+          expect(chunks.sum(&:length)).to be <= described_class::MAX_CHARS_PER_REQUEST
+        end
+
+        result.each_with_index do |vec, k|
+          expected = expected_pooled((0...5).map { |j| k * 5 + j })
+          expect(vec.length).to eq(2)
+          vec.each_with_index { |v, i| expect(v).to be_within(0.0001).of(expected[i]) }
+        end
+      end
+
+      it "#embed splits requests at the char budget and keeps results aligned" do
+        request_bodies = []
+        stub_id_echo_endpoint(request_bodies)
+
+        result = described_class.new.embed(inputs)
+
+        expect(request_bodies.length).to be > 1
+        request_bodies.each do |chunks|
+          expect(chunks.sum(&:length)).to be <= described_class::MAX_CHARS_PER_REQUEST
+        end
+
+        result.each_with_index do |vec, k|
+          expected = expected_pooled((0...5).map { |j| k * 5 + j })
+          expect(vec.length).to eq(2)
+          vec.each_with_index { |v, i| expect(v).to be_within(0.0001).of(expected[i]) }
+        end
       end
     end
   end

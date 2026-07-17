@@ -88,10 +88,21 @@ module Pito
         # `linked #5` — no noun to name which linked view. Honest usage hint (same
         # Result::Error + `pito.chat.<tool>.needs_noun` idiom as the parents'
         # needs_ref), listing both forms.
+        #
+        # NL soft-fail (3.0.1 wave 2): when the noun-less body reads like free
+        # text instead ("linked stuff about bosses" — verb captured, nothing
+        # actionable), flag the error as an nl_fallback marker so
+        # Pito::Dispatch::Router re-runs the ORIGINAL utterance through the NL
+        # gate. nl_free_text_body? keeps the crisp usage hint for bare
+        # `linked` and id-only bodies (`linked #5`), and for follow-up /
+        # nl_eligible: false dispatches (machine-reconstructed input). The
+        # marker still carries the needs_noun copy for any consumer that
+        # renders it un-fallen-back (nl_retry loop guard, MCP projection).
         def no_noun_rejection
           Pito::Chat::Result::Error.new(
             message_key:  "pito.chat.#{message.tool}.needs_noun",
-            message_args: {}
+            message_args: {},
+            nl_fallback:  nl_free_text_body?
           )
         end
 

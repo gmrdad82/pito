@@ -27,6 +27,60 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
     expect(text(analyze("analyze"))).to include("Analyze what?")
   end
 
+  # ── NL soft-fail marker (3.0.1 wave 2) ────────────────────────────────────────
+  # The ScopeResolver fallthrough (no entity noun, no @handle, no ids) used to
+  # render the suggest nudge locally even for verb-captured free text
+  # ("analyze my performance lately"), dead-ending input the NL gate could map.
+  # Free chat now emits the nl_fallback marker (still carrying the suggest copy
+  # for degrade consumers); bare `analyze`, id-only bodies, and follow-up
+  # replies keep the crisp nudge. `breakdowns` drives this same handler, so its
+  # free text soft-fails identically.
+
+  describe "NL soft-fail marker (scope fallthrough on free text)" do
+    it "free text with no resolvable scope returns the nl_fallback marker carrying the suggest copy" do
+      result = analyze("analyze my performance lately")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.copy.analyze.suggest")
+    end
+
+    it "bare `analyze` keeps the crisp suggest nudge (usage, never free text)" do
+      result = analyze("analyze")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(text(result)).to include("Analyze what?")
+    end
+
+    it "an id-only body keeps the crisp suggest nudge (numeric, never free text)" do
+      result = analyze("analyze 42")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(text(result)).to include("Analyze what?")
+    end
+
+    it "`breakdowns <free text>` (the segment tool driving analyze) soft-fails the same way" do
+      msg = Pito::Chat::Parser.call(
+        Pito::Lex::Lexer.call("breakdowns of my summer slump"),
+        raw: "breakdowns of my summer slump", conversation: Conversation.singleton
+      )
+      result = described_class.new(message: msg, conversation: Conversation.singleton, channel: "@all")
+                              .drive_segment("breakdowns")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.copy.analyze.suggest")
+    end
+
+    it "a follow-up reply landing on the fallthrough keeps the crisp nudge (machine-reconstructed input, never free text)" do
+      source = Struct.new(:payload).new({ "reply_target" => "analyze_message" })
+      fu     = Pito::Chat::FollowUpContext.new(source_event: source, rest: "whatever that was")
+      msg    = Pito::Chat::Message.new(tool: :analyze, body_tokens: [], kind: :new_turn, raw: "analyze whatever that was")
+      result = described_class.new(
+        message: msg, conversation: Conversation.singleton, channel: "@all", follow_up: fu
+      ).call
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(text(result)).to include("Analyze what?")
+    end
+  end
+
   it "surfaces the not-found error for an unknown channel handle" do
     expect(text(analyze("analyze channel @ghost"))).to include("@ghost")
   end

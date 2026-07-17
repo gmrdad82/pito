@@ -301,10 +301,37 @@ RSpec.describe "segment tools (D20/D21)", type: :dispatch do
     end
 
     describe "no noun — a helpful rejection" do
-      it "`linked #5` → the needs-noun usage hint (Error)" do
+      it "`linked #5` → the needs-noun usage hint (Error), NL never consulted (id-only body)" do
+        expect(Pito::Nl::Router).not_to receive(:route)
+
         result = route("linked #5")
 
         expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.message_key).to eq("pito.chat.linked.needs_noun")
+      end
+
+      # ── NL soft-fail marker (3.0.1 wave 2) ────────────────────────────────────
+      # A noun-less body that reads like FREE TEXT gets one shot at the NL gate
+      # (same stub-nil idiom as router_spec's P7 examples: a nil route degrades
+      # to the huh copy, which is enough to observe the re-entry). The marker
+      # itself still carries the needs_noun copy for un-fallen-back consumers.
+      it "`linked <free text>` soft-fails into the NL gate instead of the local needs-noun copy" do
+        allow(Pito::Nl::Router).to receive(:route).and_return(nil)
+
+        result = route("linked stuff about bosses")
+
+        expect(Pito::Nl::Router).to have_received(:route).with("linked stuff about bosses")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:kind]).to eq(:system)
+      end
+
+      it "loop guard: an nl_retry dispatch returns the needs-noun marker to its caller" do
+        expect(Pito::Nl::Router).not_to receive(:route)
+
+        result = Pito::Dispatch::Router.call(input: "linked stuff about bosses", conversation: conversation, nl_retry: true)
+
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.nl_fallback).to be(true)
         expect(result.message_key).to eq("pito.chat.linked.needs_noun")
       end
     end
