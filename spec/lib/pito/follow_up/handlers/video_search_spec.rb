@@ -27,21 +27,91 @@ RSpec.describe Pito::FollowUp::Handlers::VideoSearch do
     expect(Pito::Dispatch::Matrix.mode_for("video_search")).to eq(:append)
   end
 
-  # ── pager (`next` / `more`) is rejected — a ranking is a single page ────────
+  # ── pager (`next` / `more`) pages the ranked_ids cursor, mirroring         ──
+  # ── GameList's own ranked_ids branch (#8/#12 parity) ─────────────────────
 
-  describe "pager is rejected (a similarity ranking has no next page)" do
-    it "`next` returns the undeclared-action error, not a paginated list" do
+  describe "pager (`next` / `more`) pages the stored ranking" do
+    it "`next` actually routes (no invalid_action error — config now declares it)" do
       result = handler.call(event:, rest: "next", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.video_search.errors.invalid_action")
-      expect(result.message_args).to eq(action: "next")
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
     end
 
-    it "`more` (the next alias) is rejected identically" do
-      result = handler.call(event:, rest: "more", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.video_search.errors.invalid_action")
-      expect(result.message_args).to eq(action: "more")
+    it "with no list_cursor stamped, `next` renders list_end copy, not an error" do
+      result = handler.call(event:, rest: "next", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      text = result.events.first[:payload]["text"].to_s
+      expect(text).to be_present
+      expect(text).not_to match(/%\{/)
+    end
+
+    context "with a ranked_ids cursor (search results beyond a page)" do
+      let!(:rv1) { create(:video, title: "Alpha") }
+      let!(:rv2) { create(:video, title: "Beta") }
+      let!(:rv3) { create(:video, title: "Gamma") }
+
+      let(:ranked_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "video_search",
+          "list_cursor"  => {
+            "offset"         => 2,
+            "ranked_ids"     => [ rv1.id, rv2.id, rv3.id ],
+            "columns"        => [],
+            "sort_token"     => nil,
+            "sort_direction" => nil,
+            "tool"           => "search"
+          }
+        })
+      end
+
+      before do
+        allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
+          .and_return({ page_size: 2, more_tool: "next" })
+      end
+
+      it "pages the stored ranking (offset 2 → the 3rd vid) preserving order, honoring the cursor's own tool page size" do
+        result = handler.call(event: ranked_cursor_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["video_ids"]).to eq([ rv3.id ])
+      end
+
+      it "`more` (the next alias) pages identically" do
+        result = handler.call(event: ranked_cursor_event, rest: "more", conversation:)
+        expect(result.events.first[:payload]["video_ids"]).to eq([ rv3.id ])
+      end
+
+      it "the final batch (no rows left after it) has consume: false and no list_cursor" do
+        result = handler.call(event: ranked_cursor_event, rest: "next", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to be(false)
+        expect(result.events.first[:payload]["list_cursor"]).to be_nil
+      end
+
+      it "page 2+ KEEPS the video_search reply target — sort/analyze never sneak back in via the builder's video_list default" do
+        result = handler.call(event: ranked_cursor_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["reply_target"]).to eq("video_search")
+      end
+
+      it "carries the cursor's owning tool forward so page 3+ still pages at search's size, not :list's" do
+        # The list_more footer names its continuation tool from :list's pager
+        # unconditionally — stub it alongside the cursor-owning :search pager.
+        allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :list)
+          .and_return({ page_size: 50, more_tool: "next" })
+        four = create(:video, title: "Delta")
+        multi_page_event = instance_double(Event, payload: {
+          "reply_target" => "video_search",
+          "list_cursor"  => {
+            "offset"         => 0,
+            "ranked_ids"     => [ rv1.id, rv2.id, rv3.id, four.id ],
+            "columns"        => [],
+            "sort_token"     => nil,
+            "sort_direction" => nil,
+            "tool"           => "search"
+          }
+        })
+
+        result = handler.call(event: multi_page_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["list_cursor"]["tool"]).to eq("search")
+      end
     end
   end
 

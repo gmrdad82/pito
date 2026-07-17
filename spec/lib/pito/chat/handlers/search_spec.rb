@@ -35,16 +35,23 @@ RSpec.describe Pito::Chat::Handlers::Search do
 
     before { seed.genres << create(:genre) }
 
-    it "keeps only genre-overlapping results, seed first" do
+    it "keeps only genre-overlapping results that also clear the relevance floor, seed first" do
       stub_similar([
         result_for(high_g, score: 68, breakdown: { g: 100 }),
-        result_for(low_g,  score: 34, breakdown: { g: 33 }),
+        result_for(low_g,  score: 34, breakdown: { g: 33 }), # shares a genre but under RELEVANCE_FLOOR (40) — dropped since 3.1.1
         result_for(no_g,   score: 51, breakdown: { g: 0, pp: 100 })
       ])
 
       payload = search("search games like tekken 7").events.first[:payload]
       expect(payload["reply_target"]).to eq("game_list")
-      expect(payload["game_ids"]).to eq([ seed.id, high_g.id, low_g.id ])
+      expect(payload["game_ids"]).to eq([ seed.id, high_g.id ])
+    end
+
+    it "drops a genre-sharing candidate whose blended score doesn't clear the relevance floor (3.1.1 tightening)" do
+      stub_similar([ result_for(low_g, score: 34, breakdown: { g: 33 }) ])
+
+      payload = search("search games like tekken 7").events.first[:payload]
+      expect(payload["game_ids"]).to eq([ seed.id ])
     end
 
     it "resolves the seed fuzzily (search games like tekken → Tekken 7) and leads with it" do
@@ -66,12 +73,12 @@ RSpec.describe Pito::Chat::Handlers::Search do
         .and_return(page_size: 1, more_tool: "next")
       stub_similar([
         result_for(high_g, score: 68, breakdown: { g: 100 }),
-        result_for(low_g,  score: 34, breakdown: { g: 33 })
+        result_for(low_g,  score: 34, breakdown: { g: 33 }) # under RELEVANCE_FLOOR — dropped, not part of the ranked_ids cursor
       ])
 
       payload = search("search games like tekken 7").events.first[:payload]
       expect(payload["game_ids"]).to eq([ seed.id ])
-      expect(payload["list_cursor"]["ranked_ids"]).to eq([ seed.id, high_g.id, low_g.id ])
+      expect(payload["list_cursor"]["ranked_ids"]).to eq([ seed.id, high_g.id ])
       expect(payload["list_cursor"]["offset"]).to eq(1)
       expect(payload["list_footer"].to_s).to include("next")
     end
@@ -228,6 +235,86 @@ RSpec.describe Pito::Chat::Handlers::Search do
     end
   end
 
+  context "search games about <text> (free-text semantic search)" do
+    let!(:hit) { create(:game, title: "Nine Sols") }
+
+    it "routes the raw query through Pito::Search::Semantic, scoped to Game.summary_embedding, fetching the deep pageable ranking" do
+      allow(Pito::Search::Semantic).to receive(:call)
+        .with(scope: ::Game, column: ::Game::EMBEDDING_COLUMN, query: "brutal but worth every second",
+              limit: Pito::Chat::Handlers::Search::SEARCH_MAX_RESULTS)
+        .and_return([ { record: hit, similarity: 0.612 } ])
+
+      payload = search("search games about brutal but worth every second").events.first[:payload]
+      expect(payload["reply_target"]).to eq("game_list")
+      expect(payload["game_ids"]).to eq([ hit.id ])
+    end
+
+    it "rescales similarity from the semantic floor via DisplayScore so bars discriminate" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([ { record: hit, similarity: 0.612 } ])
+
+      payload  = search("search games about anything").events.first[:payload]
+      row      = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
+      expected = Pito::Recommendation::DisplayScore.display_score(
+        0.612, floor: Pito::Search::Semantic::DEFAULT_FLOOR
+      ).round
+      expect(row[:cells].last).to eq(score: expected)
+    end
+
+    it "wins when typed first, even when the query text contains `like`/`for` (positional precedence)" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([ { record: hit, similarity: 0.7 } ])
+
+      search("search games about a game like this one, not for anyone else")
+      expect(Pito::Search::Semantic).to have_received(:call)
+        .with(hash_including(query: "a game like this one, not for anyone else"))
+    end
+
+    it "loses to an explicitly-typed earlier `for` — `about` mid-query stays part of the lexical term" do
+      allow(Pito::Search::Semantic).to receive(:call)
+
+      search("search games for the one about dragons")
+      expect(Pito::Search::Semantic).not_to have_received(:call)
+    end
+
+    it "treats a bare dangling keyword (`search games about`) as an empty query, not a lexical search for the word" do
+      allow(Pito::Search::Semantic).to receive(:call)
+
+      result = search("search games about")
+      expect(Pito::Search::Semantic).not_to have_received(:call)
+      expect(result.events.first[:payload]["text"]).to eq(Pito::Copy.render("pito.chat.search.needs_seed"))
+    end
+
+    it "returns a Result::Error with the embedder-unavailable copy when the embedder is unreachable" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return(nil)
+
+      result = search("search games about anything")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expected = Pito::Copy.render("pito.copy.search.about_unavailable")
+      expect(result.message_key).to eq(expected)
+    end
+
+    it "renders the about-empty copy (not the strict-filters copy) when nothing clears the floor" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([])
+
+      expected = Pito::Copy.render("pito.copy.search.about_empty")
+      result   = search("search games about anything")
+      expect(result.events.first[:payload]["text"]).to eq(expected)
+      expect(result.events.first[:payload]["text"]).not_to eq(Pito::Copy.render("pito.copy.games.list_filter_empty"))
+    end
+
+    it "stamps a ranked_ids cursor + more footer when results exceed a page" do
+      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
+        .and_return(page_size: 1, more_tool: "next")
+      other = create(:game, title: "Second Hit")
+      allow(Pito::Search::Semantic).to receive(:call)
+        .and_return([ { record: hit, similarity: 0.7 }, { record: other, similarity: 0.6 } ])
+
+      payload = search("search games about anything").events.first[:payload]
+      expect(payload["game_ids"]).to eq([ hit.id ])
+      expect(payload["list_cursor"]["ranked_ids"]).to eq([ hit.id, other.id ])
+      expect(payload["list_footer"].to_s).to include("next")
+    end
+  end
+
   context "search vids like <title> (SUX5)" do
     # `dim0`/`dim1` weighted (not one-hot) so the seed/close/far cosine
     # similarities can be placed deliberately on either side of
@@ -260,36 +347,33 @@ RSpec.describe Pito::Chat::Handlers::Search do
       far.update_column(:summary_embedding, far_vec)
     end
 
-    it "orders similar vids by cosine distance and carries a floor-rescaled Similarity score, seed leading at 100" do
+    it "orders similar vids by cosine distance with floor-rescaled scores, seed at 100, sub-floor neighbors dropped (3.1.1)" do
       payload = search("search vids like boss rush marathon").events.first[:payload]
 
       expect(payload["reply_target"]).to eq("video_search")
-      expect(payload["video_ids"]).to eq([ seed.id, close.id, far.id ])
+      # `far` sits below VID_FLOOR — it used to render a zero-length bar;
+      # since 3.1.1 the floor FILTERS, honoring the honest-miss contract.
+      expect(payload["video_ids"]).to eq([ seed.id, close.id ])
       expect(payload["table_heading"]).to include("Similarity")
 
       rows      = payload["table_rows"]
       seed_row  = rows.find { |r| r[:cells][0][:text] == "##{seed.id}" }
       close_row = rows.find { |r| r[:cells][0][:text] == "##{close.id}" }
-      far_row   = rows.find { |r| r[:cells][0][:text] == "##{far.id}" }
 
+      expect(rows.find { |r| r[:cells][0][:text] == "##{far.id}" }).to be_nil
       expect(seed_row[:cells].last).to eq(score: 100)
       expect(close_row[:cells].last).to eq(
         score: Pito::Recommendation::DisplayScore.display_score(
           1.0 - cosine_distance(seed_vec, close_vec), floor: Pito::Recommendation::DisplayScore::VID_FLOOR
         ).round
       )
-      expect(far_row[:cells].last).to eq(
-        score: Pito::Recommendation::DisplayScore.display_score(
-          1.0 - cosine_distance(seed_vec, far_vec), floor: Pito::Recommendation::DisplayScore::VID_FLOOR
-        ).round
-      )
     end
 
-    it "clamps a below-VID_FLOOR similarity's score to 0 rather than a misleadingly high raw-cosine number (the SUX bug this fixes)" do
+    it "drops a below-VID_FLOOR neighbor entirely — the 3.1.1 successor to clamping its score to 0 (the original SUX fix)" do
       payload = search("search vids like boss rush marathon").events.first[:payload]
-      far_row = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{far.id}" }
 
-      expect(far_row[:cells].last).to eq(score: 0)
+      expect(payload["video_ids"]).not_to include(far.id)
+      expect(payload["table_rows"].find { |r| r[:cells][0][:text] == "##{far.id}" }).to be_nil
     end
 
     it "renders the list-filter-empty copy when the seed has no embedding" do
@@ -305,14 +389,33 @@ RSpec.describe Pito::Chat::Handlers::Search do
       expect(result.events.first[:payload]["text"]).to include("zzznonexistentvid")
     end
 
-    it "does not stamp a list_cursor or a next/more footer even when results exceed a page (deliberately single-page, unlike games)" do
+    it "stamps a ranked_ids cursor + more footer when results exceed a page (pager parity with games)" do
       allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
         .and_return(page_size: 1, more_tool: "next")
 
       payload = search("search vids like boss rush marathon").events.first[:payload]
+      expect(payload["reply_target"]).to eq("video_search")
       expect(payload["video_ids"]).to eq([ seed.id ])
-      expect(payload).not_to have_key("list_cursor")
-      expect(payload["list_footer"].to_s).not_to include("next")
+      expect(payload["list_cursor"]["ranked_ids"]).to eq([ seed.id, close.id ])
+      expect(payload["list_cursor"]["offset"]).to eq(1)
+      expect(payload["list_cursor"]["tool"]).to eq("search")
+      expect(payload["list_footer"].to_s).to include("next")
+    end
+
+    it "fetches a deep ranking (SEARCH_MAX_RESULTS) BEFORE the VID_FLOOR filter — a small page_size doesn't truncate genuine neighbors out of the running" do
+      # A second above-floor neighbor, farther than `close` but still well
+      # clear of VID_FLOOR — proves the DB-side limit is NOT page_size: were
+      # the query still `.limit(page_size)`, a page_size of 1 would fetch
+      # only the single nearest neighbor from the DB and this one would never
+      # reach the Ruby-side floor filter at all, regardless of its own score.
+      second = create(:video, title: "Runner's High")
+      second.update_column(:summary_embedding, weighted_vec(dim0: 1.0, dim1: 0.25)) # cosine ≈ .970 — above VID_FLOOR, farther than close
+
+      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
+        .and_return(page_size: 1, more_tool: "next")
+
+      payload = search("search vids like boss rush marathon").events.first[:payload]
+      expect(payload["list_cursor"]["ranked_ids"]).to eq([ seed.id, close.id, second.id ])
     end
   end
 
@@ -341,6 +444,75 @@ RSpec.describe Pito::Chat::Handlers::Search do
       expected = Pito::Copy.render("pito.copy.games.list_filter_empty")
       result   = search("search vids for zzznotpresentanywhere")
       expect(result.events.first[:payload]["text"]).to eq(expected)
+    end
+  end
+
+  context "search vids for <title> beyond a page" do
+    let!(:many) { (1..21).map { |n| create(:video, title: "Boss Rush #{n}") } }
+
+    it "caps page 1 at 20 rows and stamps a more cursor + footer" do
+      payload = search("search vids for boss rush").events.first[:payload]
+      expect(payload["video_ids"].size).to eq(20)
+      expect(payload["list_cursor"]["ranked_ids"].size).to eq(21)
+      expect(payload["list_cursor"]["offset"]).to eq(20)
+      expect(payload["list_footer"].to_s).to include("next")
+    end
+  end
+
+  context "search vids about <text> (free-text semantic search)" do
+    let!(:hit) { create(:video, title: "Speedrun Special") }
+
+    it "routes the raw query through Pito::Search::Semantic, scoped to Video.summary_embedding, fetching the deep pageable ranking" do
+      allow(Pito::Search::Semantic).to receive(:call)
+        .with(scope: ::Video, column: ::Video::EMBEDDING_COLUMN, query: "brutal but worth every second",
+              limit: Pito::Chat::Handlers::Search::SEARCH_MAX_RESULTS)
+        .and_return([ { record: hit, similarity: 0.612 } ])
+
+      payload = search("search vids about brutal but worth every second").events.first[:payload]
+      expect(payload["reply_target"]).to eq("video_search")
+      expect(payload["video_ids"]).to eq([ hit.id ])
+    end
+
+    it "stamps a ranked_ids cursor + more footer when results exceed a page" do
+      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
+        .and_return(page_size: 1, more_tool: "next")
+      other = create(:video, title: "Second Hit")
+      allow(Pito::Search::Semantic).to receive(:call)
+        .and_return([ { record: hit, similarity: 0.7 }, { record: other, similarity: 0.6 } ])
+
+      payload = search("search vids about anything").events.first[:payload]
+      expect(payload["video_ids"]).to eq([ hit.id ])
+      expect(payload["list_cursor"]["ranked_ids"]).to eq([ hit.id, other.id ])
+      expect(payload["list_footer"].to_s).to include("next")
+    end
+
+    it "rescales similarity from the semantic floor via DisplayScore so bars discriminate" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([ { record: hit, similarity: 0.612 } ])
+
+      payload  = search("search vids about anything").events.first[:payload]
+      row      = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
+      expected = Pito::Recommendation::DisplayScore.display_score(
+        0.612, floor: Pito::Search::Semantic::DEFAULT_FLOOR
+      ).round
+      expect(row[:cells].last).to eq(score: expected)
+    end
+
+    it "returns a Result::Error with the embedder-unavailable copy when the embedder is unreachable" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return(nil)
+
+      result = search("search vids about anything")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expected = Pito::Copy.render("pito.copy.search.about_unavailable")
+      expect(result.message_key).to eq(expected)
+    end
+
+    it "renders the about-empty copy (not the strict-filters copy) when nothing clears the floor" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([])
+
+      expected = Pito::Copy.render("pito.copy.search.about_empty")
+      result   = search("search vids about anything")
+      expect(result.events.first[:payload]["text"]).to eq(expected)
+      expect(result.events.first[:payload]["text"]).not_to eq(Pito::Copy.render("pito.copy.games.list_filter_empty"))
     end
   end
 end

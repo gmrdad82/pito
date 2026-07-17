@@ -185,16 +185,25 @@ module Pito
           # Rebuild the scoped relation via the chat handler's shared query
           # builders — the SAME code path that produced page 1, so this page
           # can never drift from it.
-          if cursor["channel"].present?
-            ch   = Pito::Chat::Handlers::List.find_channel_by_handle(cursor["channel"])
-            base = ch ? ch.videos : ::Video.none
-          else
-            base = ::Video.all
-          end
+          all_videos =
+            if cursor["ranked_ids"]
+              # Search results (parity with GameList#list_next_games): page the
+              # stored similarity/lexical ranking in order, NOT a replayed list
+              # query. ranked_ids is the full ordered id list from page 1.
+              ids   = Array(cursor["ranked_ids"]).map(&:to_i)
+              by_id = Pito::Chat::Handlers::List.videos_relation(::Video.where(id: ids), columns:).index_by(&:id)
+              ids.filter_map { |id| by_id[id] }
+            else
+              if cursor["channel"].present?
+                ch   = Pito::Chat::Handlers::List.find_channel_by_handle(cursor["channel"])
+                base = ch ? ch.videos : ::Video.none
+              else
+                base = ::Video.all
+              end
 
-          base = base.public_send(filter_key) if filter_key
-
-          all_videos = Pito::Chat::Handlers::List.videos_relation(base, columns:).to_a
+              base = base.public_send(filter_key) if filter_key
+              Pito::Chat::Handlers::List.videos_relation(base, columns:).to_a
+            end
 
           if sort_token.present?
             key = Pito::MessageBuilder::Video::ListColumns.sort_key_for(sort_token, selected_columns: columns)
@@ -204,7 +213,25 @@ module Pito
             end
           end
 
-          page_sz = Pito::Dispatch::Config.pager(tool: :list)[:page_size]
+          # The cursor carries its owning tool (parity with the inline lookup
+          # in GameList#list_next_games)
+          # so per-tool page sizes survive into `next`/`more` continuations
+          # instead of every cursor stepping by the :list page size — a
+          # search's ranked_ids cursor pages at 20, not 50. Absent "tool" ==
+          # the pre-ranked-search world (plain list queries never stamped
+          # one) => default to "list"; an unrecognized tool name or a tool
+          # declaring no pager also falls back to the :list pager so a stale
+          # persisted cursor can never crash a `next`.
+          cursor_tool = cursor["tool"].presence || "list"
+          pager =
+            begin
+              Pito::Dispatch::Config.pager(tool: cursor_tool.to_sym)
+            rescue KeyError
+              nil
+            end
+          pager ||= Pito::Dispatch::Config.pager(tool: :list)
+
+          page_sz = pager[:page_size]
           rows    = all_videos[offset, page_sz] || []
 
           if rows.empty?
@@ -216,6 +243,13 @@ module Pito
           end
 
           new_payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:)
+          # The builder stamps the generic video_list target; a search cursor's
+          # pages must KEEP video_search (its target excludes sort/order/
+          # analyze — re-sorting page 2 would scramble the ranked_ids order
+          # every later page replays). Carrying the source event's target
+          # forward preserves it for search pages and is a no-op for real
+          # video_list pages.
+          new_payload["reply_target"] = payload["reply_target"] if payload["reply_target"].present?
 
           if all_videos.size > (offset + page_sz)
             new_cursor = {
@@ -226,6 +260,10 @@ module Pito
               "sort_direction" => sort_dir,
               "columns"        => columns.map(&:to_s)
             }
+            new_cursor["ranked_ids"] = cursor["ranked_ids"] if cursor["ranked_ids"]
+            # Without carrying "tool", page 3+ would resolve the pager against
+            # :list (50/page) instead of the cursor-owning tool (:search, 20).
+            new_cursor["tool"] = cursor["tool"] if cursor["tool"]
             new_payload["list_cursor"] = new_cursor
             total = all_videos.size
             more_text = Pito::Copy.render(

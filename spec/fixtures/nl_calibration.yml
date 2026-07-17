@@ -90,6 +90,19 @@ auto_run:
   - { say: "what's genuinely worth sinking hours into?",         run: "search games for worth my time" }
   - { say: "which story actually got to me emotionally?",        run: "search games for emotional story" }
   - { say: "what's got that high-octane chaotic combat?",        run: "search games for chaotic action" }
+  # 3.1.1 `about` corpus batch — held-out phrasings for the qualitative-search
+  # (no title, no seed) exemplars added to nl.exemplars and the vids-vibe
+  # nl_examples added to tools.yml's search: (never verbatim copies of either
+  # batch). Only the TOOL is asserted here (Router routes by tool, not by
+  # keyword — see resolve_tool's leading-token contract above), so `run:`'s
+  # `about` is documentation of intent, not something this spec checks byte-
+  # for-byte. Not live-validated in this pass (calibration_spec.rb skips
+  # without PITO_EMBEDDER_URL) — aspirational like the 3.1.0 batch above
+  # until someone runs it against the sidecar.
+  - { say: "something punishing but so worth it in the end",     run: "search games about punishing worth it" }
+  - { say: "a low-key game i can just melt into after work",     run: "search games about relaxing unwind" }
+  - { say: "vids where i completely lost it laughing",           run: "search vids about funny laughing" }
+  - { say: "clips full of jump scares and dread",                run: "search vids about scary dread" }
 
 suggest:
   - { say: "get rid of vid 3",                        run: "delete vid 3" }

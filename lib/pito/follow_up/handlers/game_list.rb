@@ -247,6 +247,9 @@ module Pito
               "columns"        => columns.map(&:to_s)
             }
             new_cursor["ranked_ids"] = cursor["ranked_ids"] if cursor["ranked_ids"]
+            # Without carrying "tool", page 3+ would resolve the pager against
+            # :list (50/page) instead of the cursor-owning tool (:search, 20).
+            new_cursor["tool"] = cursor["tool"] if cursor["tool"]
             new_payload["list_cursor"] = new_cursor
             total = all_games.size
             more_text = Pito::Copy.render(

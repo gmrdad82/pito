@@ -90,10 +90,10 @@ RSpec.describe Pito::Nl::GbnfBuilder do
 
   # ── 6. The search special case ───────────────────────────────────────────
   describe "the search special case" do
-    it "allows an optional like/for keyword before free text" do
+    it "allows an optional about/like/for keyword before free text" do
       rule = rule_line("tool-search ::=").chomp
 
-      expect(rule).to include('( sp ( "like" | "for" ) )? ( sp text )?')
+      expect(rule).to include('( sp ( "about" | "like" | "for" ) )? ( sp text )?')
     end
   end
 
@@ -181,7 +181,7 @@ RSpec.describe Pito::Nl::GbnfBuilder do
     GOLDEN_ROOT_PREFIX =
       "root ::= tool-analyze | tool-at-a-glance | tool-breakdowns | tool-channels | tool-delete |"
     GOLDEN_TOOL_SEARCH_RULE =
-      'tool-search ::= ("search") ( sp vocab-search-nouns )? ( sp ( "like" | "for" ) )? ( sp text )?'
+      'tool-search ::= ("search") ( sp vocab-search-nouns )? ( sp ( "about" | "like" | "for" ) )? ( sp text )?'
     GOLDEN_VOCAB_SEARCH_NOUNS_RULE =
       'vocab-search-nouns ::= ("conversation" | "conversations" | "game" | "games" | "vid" | "video" | "videos" | "vids")'
 

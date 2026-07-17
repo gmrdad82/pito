@@ -60,10 +60,14 @@ module Pito
             insert:    "search games for " },
           { label_key: "pito.palette.ctrl_k.commands.search_games_like",
             insert:    "search games like " },
+          { label_key: "pito.palette.ctrl_k.commands.search_games_about",
+            insert:    "search games about " },
           { label_key: "pito.palette.ctrl_k.commands.search_vids_for",
             insert:    "search vids for " },
           { label_key: "pito.palette.ctrl_k.commands.search_vids_like",
-            insert:    "search vids like " }
+            insert:    "search vids like " },
+          { label_key: "pito.palette.ctrl_k.commands.search_vids_about",
+            insert:    "search vids about " }
         ]
       end
 

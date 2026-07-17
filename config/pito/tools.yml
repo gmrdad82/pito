@@ -182,6 +182,16 @@ nl:
     - { say: "exact matches for games named tekken", run: "search games for tekken" }
     - { say: "search my chats for that time we talked about mortal kombat 2", run: "search conversations for mortal kombat 2" }
     - { say: "what did we decide about thumbnails last month", run: "search conversations for thumbnails" }
+    # 3.1.1 — qualitative, vibe-first phrasing (no title, no named seed) that
+    # should compose the new `about` keyword, not `like` (needs a seed to
+    # rank against) or `for` (exact wording). Distinct pattern from the two
+    # `search` pairs above: those name or quote something exact; these
+    # describe a feeling.
+    - { say: "something brutal but worth every second", run: "search games about brutal but worth every second" }
+    - { say: "relaxing games i can chill with", run: "search games about relaxing chill" }
+    - { say: "vids about scary moments", run: "search vids about scary moments" }
+    - { say: "a story that actually got to me emotionally", run: "search games about story that got to me emotionally" }
+    - { say: "something chaotic and fast paced that never lets up", run: "search games about chaotic fast paced never lets up" }
     - { say: "link that new vid 14 to elden ring which is game 3", run: "link 14 3" }
     - { say: "unhook vid 9 from whatever game it's on", run: "unlink 9" }
     - { say: "how many hours did I sink into game 8? set it to 12", run: "update game footage 8 12" }
@@ -1231,10 +1241,13 @@ tools:
       - "find the highlight reel from last month"
     reply: {}
 
-  # `search games like <title>` — similarity search. The free `query` slot
-  # slurps "[games] like <title>"; the handler extracts the seed after `like`,
-  # runs Recommendation::GameSimilarity, and renders a game_list card (so #id
-  # replies, sort/with, and more/next paging all work via the existing pager).
+  # `search games like|for|about <query>` — the library search. The free
+  # `query` slot slurps "[games|vids] <keyword> <query>"; the handler parses
+  # the earliest-typed keyword: `like` = seed similarity (GameSimilarity /
+  # vid neighbors), `for` = lexical matching, `about` (3.1.1) = free-text
+  # semantic search via Pito::Search::Semantic. Games render a game_list card
+  # (so #id replies, sort/with, and more/next paging all work via the
+  # existing pager).
   search:
     description: pito.grammar.chat.search
     read_only: true # NL auto-run gate (P13): mutates no owner data (see analyze)
@@ -1260,6 +1273,13 @@ tools:
       - "games actually worth my time"
       - "story games that hit me in the feels"
       - "fast paced chaotic action games"
+      # 3.1.1 — the trait batch above is games-only; `about` also searches
+      # vids (videos.summary_embedding), a phrasing space this corpus never
+      # covered before (every other vids-noun phrase above is a `like`/`for`
+      # keyword match, not a vibe).
+      - "clips about my funniest fails"
+      - "videos where things go hilariously wrong"
+      - "vids about my most intense moments"
     auth: session
     chat:
       dispatch: Chat::Handlers::Search
@@ -1556,6 +1576,16 @@ tools:
           concern: pager
           aliases: [more]
         video_list:
+          mode: append
+          concern: pager
+          aliases: [more]
+        # search vids pager parity with game_list: a ranked_ids cursor pages
+        # the same way a plain list's does (see Pito::FollowUp::Handlers::
+        # VideoList#list_next_videos, inherited by VideoSearch). sort/order/
+        # analyze stay undeclared for video_search — re-sorting or
+        # re-analyzing a ranking doesn't make sense the way it does for a
+        # real list.
+        video_search:
           mode: append
           concern: pager
           aliases: [more]
