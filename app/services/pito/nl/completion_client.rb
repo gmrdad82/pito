@@ -44,6 +44,27 @@
 module Pito
   module Nl
     class CompletionClient
+      # Hard cap on how long ONE completion may hold its caller (and, in
+      # practice, a ChatDispatchJob dispatch-lane thread). 30s is a CEILING,
+      # not a target — a warm sidecar answers a one-line command in seconds.
+      #
+      # Live incident (2026-07-17, prod, 2-vCPU Hetzner box): "show me hard
+      # games" soft-failed into the NL gate correctly but took 193.96s
+      # end-to-end — stacked NL turns serialize at the CPU-bound llama.cpp
+      # sidecar, and each queued completion burns its whole read window just
+      # WAITING for the slot while Puma/SolidQueue contend for the same two
+      # cores. The mapper's own single constrained re-try (see
+      # Pito::Chat::Handlers::Unknown's gate, step 3) means one NL turn can
+      # spend at worst ~2x this constant on completions — keep that product
+      # well under the owner's patience, and NEVER raise this without
+      # re-doing the dispatch-lane arithmetic in config/queue.yml.
+      READ_TIMEOUT_SECONDS = 30
+
+      # Connection establishment to a same-box/same-network sidecar — quick
+      # by design; a sidecar that can't even accept a socket in 5s is down,
+      # and nil-degrading beats blocking the chat turn.
+      OPEN_TIMEOUT_SECONDS = 5
+
       # Runs a grammar-constrained chat completion and returns the generated
       # text, or nil on ANY failure. `messages` is the full OpenAI-shaped
       # turn array (`[{ role:, content: }, ...]`) the caller composed — this
@@ -120,12 +141,11 @@ module Pito
         )
 
         Pito::Stack.track("nlmapper", endpoint: "chat_completions", units: 1)
-        # Read timeout is generous (30s, vs the embedder's 60s for whole
-        # batches) — this is one short command line on CPU. If the box is
-        # that slow, degrading beats blocking a chat turn.
+        # Timeouts: see READ_TIMEOUT_SECONDS / OPEN_TIMEOUT_SECONDS (the
+        # 2026-07-17 193.96s incident rationale lives on the constants).
         Net::HTTP.start(uri.hostname, uri.port,
                         use_ssl: uri.scheme == "https",
-                        open_timeout: 5, read_timeout: 30) do |http|
+                        open_timeout: OPEN_TIMEOUT_SECONDS, read_timeout: READ_TIMEOUT_SECONDS) do |http|
           http.request(request)
         end
       end

@@ -34,7 +34,7 @@ module Pito
           case result.status
           when :ok    then ok_events(result)
           when :error then text_event("errors.#{result.error_key}", **result.error_args)
-          else             text_event("suggest")
+          else             suggest_result
           end
         end
 
@@ -49,6 +49,25 @@ module Pito
         end
 
         private
+
+        # The ScopeResolver fallthrough (no entity noun, no @handle, no ids).
+        # Bare `analyze` / bare `breakdowns` → the suggest nudge, unchanged.
+        # When the SAME fallthrough carries a free-text-looking body
+        # ("analyze my performance lately", "breakdowns of my summer slump" —
+        # verb captured, body unparseable), emit the nl_fallback marker
+        # (3.0.1 soft-fail wave 2) so Pito::Dispatch::Router re-runs the
+        # ORIGINAL utterance through the NL gate; the marker still carries
+        # the suggest copy for any consumer that renders it un-fallen-back
+        # (nl_retry loop guard, MCP projection). The resolver's OWN :error
+        # branch (explicit @handle / numeric-id misses) keeps its crisp copy
+        # in `call` — those are id-analogues, never free text.
+        def suggest_result
+          return text_event("suggest") unless nl_free_text_body?
+
+          Pito::Chat::Result::Error.new(
+            message_key: "pito.copy.analyze.suggest", message_args: {}, nl_fallback: true
+          )
+        end
 
         # The selected pending card(s) — `numbers` (:system) and/or `breakdowns`
         # (:enhanced); AnalyzePrepareJob (enqueued by the Finalizer's analyze-pending

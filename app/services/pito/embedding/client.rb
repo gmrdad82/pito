@@ -23,9 +23,10 @@
 # single input over ~500 tokens 500s ("input is too large to process").
 # To embed arbitrarily long inputs we split each one into context-sized
 # chunks (#chunk_text), embed every chunk (HTTP-sub-batched at
-# MAX_BATCH_SIZE), then mean-pool an input's chunk vectors back into ONE
-# 768-dim vector (#pool). Short inputs are one chunk and pass through
-# byte-identically to the pre-chunking behavior.
+# MAX_BATCH_SIZE chunks / MAX_CHARS_PER_REQUEST total characters), then
+# mean-pool an input's chunk vectors back into ONE 768-dim vector
+# (#pool). Short inputs are one chunk and pass through byte-identically
+# to the pre-chunking behavior.
 #
 # Two contracts, mirroring the Voyage client the callers grew up on:
 #   * `#embed`       — forgiving; nil slots on any failure, never raises.
@@ -54,7 +55,33 @@ module Pito
       # large batches but the sidecar is CPU-bound — one input may produce
       # more than this many chunks, so #embed / #embed_batch sub-batch the
       # flattened chunk list at this size (they never raise on chunk count).
+      # This is the COUNT bound; MAX_CHARS_PER_REQUEST below is the WORK
+      # bound — a slice closes at whichever limit it hits first.
       MAX_BATCH_SIZE = 128
+
+      # Upper bound on TOTAL CHARACTERS sent per HTTP request (3.0.2) —
+      # bounds sidecar work per request so no request can approach the read
+      # timeout. VERIFIED PROD FAILURE: giant braille-sparkline conversation
+      # events (~23KB) passed through the density-adaptive halving below and
+      # exploded into dozens of tiny chunks; count-only sub-batching then
+      # packed up to MAX_BATCH_SIZE of them into single requests, and the
+      # CPU-bound sidecar took LONGER than the 60s read timeout to answer —
+      # the too-large failure morphed into Net::ReadTimeout (an ordinary
+      # transport error, so no adaptive retry could see it). Slicing by
+      # characters as well as by count keeps every request briskly
+      # answerable no matter how many chunks an input explodes into.
+      #
+      # THE VALUE IS MEASURED, NOT GUESSED (dev box, 2026-07-17, embedding
+      # the real stuck prod event): braille tables tokenize at ~1.75
+      # tokens/char — 4-7x worse than prose — and the sidecar embedded that
+      # density at ~7ms/char: 8,000 chars took 61s (itself a read-timeout),
+      # 3,947 chars 32s, 1,895 chars 13s. 2,000 chars holds the worst
+      # measured density near ~13s per request (>4x margin under the 60s
+      # timeout) while prose-density requests stay far cheaper. A single
+      # chunk larger than this budget would travel alone in its own slice —
+      # chunks are already ≤ CHUNK_BUDGET (< this), so that case cannot
+      # arise in practice.
+      MAX_CHARS_PER_REQUEST = 2_000
 
       # embeddinggemma-300m output width; callers and migrations key off this.
       DIMENSIONS = 768
@@ -322,8 +349,36 @@ module Pito
         mean.map { |v| v / norm }
       end
 
+      # Slice a flat chunk list into HTTP sub-batches, yielding each slice
+      # together with its running offset into `chunks`. A slice closes when
+      # it holds MAX_BATCH_SIZE chunks OR when adding the next chunk would
+      # push its total characters past MAX_CHARS_PER_REQUEST (3.0.2 — see
+      # that constant for the verified read-timeout failure this bounds).
+      # Slices are therefore VARIABLE-sized: callers must align response
+      # rows on the yielded offset, never on batch-index arithmetic. A
+      # fresh slice always accepts at least one chunk, so a lone chunk past
+      # the character budget would still travel (alone) — chunks are
+      # already ≤ CHUNK_BUDGET, so that case cannot arise in practice.
+      def each_chunk_slice(chunks)
+        slice = []
+        slice_chars = 0
+        offset = 0
+        chunks.each do |chunk|
+          if slice.any? && (slice.length >= MAX_BATCH_SIZE || slice_chars + chunk.length > MAX_CHARS_PER_REQUEST)
+            yield slice, offset
+            offset += slice.length
+            slice = []
+            slice_chars = 0
+          end
+          slice << chunk
+          slice_chars += chunk.length
+        end
+        yield slice, offset if slice.any?
+      end
+
       # Embed a flat chunk list via the FORGIVING transport, sub-batching
-      # at MAX_BATCH_SIZE. Returns `[vectors, too_large_ranges]`: `vectors`
+      # per #each_chunk_slice (MAX_BATCH_SIZE chunks / MAX_CHARS_PER_REQUEST
+      # characters). Returns `[vectors, too_large_ranges]`: `vectors`
       # is aligned to `chunks`, nil where a chunk (or its whole sub-batch)
       # failed to embed; `too_large_ranges` (3.0.1) lists the flattened-
       # chunk-index Range of every sub-batch that failed specifically with
@@ -332,8 +387,7 @@ module Pito
       def forgiving_chunk_vectors(chunks)
         vectors = Array.new(chunks.length)
         too_large_ranges = []
-        chunks.each_slice(MAX_BATCH_SIZE).with_index do |slice, batch_index|
-          offset = batch_index * MAX_BATCH_SIZE
+        each_chunk_slice(chunks) do |slice, offset|
           data, too_large = post_embeddings(slice)
           if data.nil?
             too_large_ranges << (offset...(offset + slice.length)) if too_large
@@ -349,8 +403,9 @@ module Pito
         [ vectors, too_large_ranges ]
       end
 
-      # Embed a flat chunk list via the STRICT transport, sub-batching at
-      # MAX_BATCH_SIZE. Returns `[vectors, too_large_ranges]`: `vectors` is
+      # Embed a flat chunk list via the STRICT transport, sub-batching per
+      # #each_chunk_slice (MAX_BATCH_SIZE chunks / MAX_CHARS_PER_REQUEST
+      # characters). Returns `[vectors, too_large_ranges]`: `vectors` is
       # aligned to `chunks` (a slot the response omits stays nil for the
       # caller to flag as missing); raises on a non-2xx / malformed response
       # or a malformed row — EXCEPT the sidecar's too-large signature (3.0.1),
@@ -361,8 +416,7 @@ module Pito
       def strict_chunk_vectors(chunks)
         vectors = Array.new(chunks.length)
         too_large_ranges = []
-        chunks.each_slice(MAX_BATCH_SIZE).with_index do |slice, batch_index|
-          offset = batch_index * MAX_BATCH_SIZE
+        each_chunk_slice(chunks) do |slice, offset|
           begin
             data = post_embeddings_strict(slice)
           rescue TooLargeError

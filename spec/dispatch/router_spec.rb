@@ -278,6 +278,19 @@ RSpec.describe Pito::Dispatch::Router, type: :dispatch do
       expect(result.events.first[:kind]).to eq(:system)
     end
 
+    # Wave 2 (3.0.1): the live 2026-07-17 evidence input — the `games` segment
+    # tool captured the verb and used to dead-end in Show#unknown_entity with
+    # the local huh copy, never consulting NL.
+    it "re-runs the ORIGINAL utterance through the NL gate when a segment tool captures free text (games, wave 2)" do
+      allow(Pito::Nl::Router).to receive(:route).and_return(nil)
+
+      result = described_class.call(input: "games with hard bosses", conversation:)
+
+      expect(Pito::Nl::Router).to have_received(:route).with("games with hard bosses")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
     it "never consults NL for a numeric not-found (show game 999999 keeps its crisp copy)" do
       expect(Pito::Nl::Router).not_to receive(:route)
 

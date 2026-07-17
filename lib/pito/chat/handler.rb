@@ -73,6 +73,25 @@ module Pito
         @nl_eligible
       end
 
+      # True when the free-chat BODY (everything after the tool word) reads
+      # like free text worth one shot at the NL gate (3.0.1 soft-fail wave 2):
+      # at least one token that is not a numeric/`#id` reference. Bare tools
+      # ("show", "linked", "analyze" — usage errors, not garbled sentences)
+      # and id-only bodies ("linked #5", "analyze 42" — genuine id misses
+      # that keep their crisp copy) stay false, as do follow-up replies
+      # (machine-reconstructed input) and nl_eligible: false dispatches.
+      # Handlers whose local dead-end branch opted into the nl_fallback
+      # marker gate it on this predicate; ref-shaped branches (Show's title
+      # ladder) keep their own sharper per-ref checks. Reads message.raw, not
+      # body_tokens — the lexer splits `#9` into `#` + `9`, so a raw-token
+      # scan is the one that matches the id shapes the resolvers accept.
+      def nl_free_text_body?
+        return false if follow_up? || !nl_eligible?
+
+        rest = message.raw.to_s.strip.sub(/\A\S+\s*/, "")
+        rest.split(/[\s,]+/).reject(&:blank?).any? { |t| !t.match?(/\A#?\d+\z/) }
+      end
+
       def call
         raise NotImplementedError, "#{self.class} must implement #call"
       end

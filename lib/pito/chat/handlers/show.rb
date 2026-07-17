@@ -238,7 +238,11 @@ module Pito
         def handle_channel
           channel = resolve_channel
           return channel_needs_ref if channel == :needs_ref
-          return channel_not_found(channel_ref.presence || scoped_channel_handle) if channel.nil?
+          if channel.nil?
+            typed = channel_ref.presence
+            return nl_soft_fail("pito.copy.channels.not_found", handle: typed) if nl_soft_fail_channel_ref?(typed)
+            return channel_not_found(typed || scoped_channel_handle)
+          end
 
           selection = resolved_selection(:channel)
           return segment_conflict_error if selection.conflict
@@ -354,7 +358,7 @@ module Pito
             video ||= resolve_title(::Video, video_noun_fillers)
             if video.nil?
               ref = target_ref(video_noun_fillers, id_key: :video_id)
-              return nl_soft_fail("pito.copy.videos.not_found", ref) if nl_soft_fail_ref?(ref)
+              return nl_soft_fail("pito.copy.videos.not_found", ref: ref) if nl_soft_fail_ref?(ref)
               return video_not_found(ref)
             end
           end
@@ -409,7 +413,7 @@ module Pito
             game ||= resolve_title(::Game, game_noun_fillers)
             if game.nil?
               ref = target_ref(game_noun_fillers, id_key: :game_id)
-              return nl_soft_fail("pito.copy.games.not_found", ref) if nl_soft_fail_ref?(ref)
+              return nl_soft_fail("pito.copy.games.not_found", ref: ref) if nl_soft_fail_ref?(ref)
               return game_not_found(ref)
             end
           end
@@ -521,11 +525,25 @@ module Pito
           !follow_up? && nl_eligible? && ref.present? && !ref.to_s.sub(/\A#\s*/, "").match?(/\A\d+\z/)
         end
 
+        # Channel-branch mirror of nl_soft_fail_ref? (3.0.1 soft-fail wave 2):
+        # a free-chat channel ref that is neither @-prefixed nor numeric
+        # missed the exact+fuzzy handle resolution — that reads like free
+        # text the channel noun happened to capture ("at-a-glance my whole
+        # channel"). An explicit @handle miss is the channel's id-analogue
+        # and keeps the crisp not-found, as do numeric refs, follow-up
+        # replies, and nl_eligible: false dispatches. The shift+tab SCOPE
+        # fallback (typed ref absent) is machine state, never free text —
+        # the caller only passes the TYPED ref here.
+        def nl_soft_fail_channel_ref?(ref)
+          !follow_up? && nl_eligible? && ref.present? &&
+            !ref.to_s.start_with?("@") && !ref.to_s.sub(/\A#\s*/, "").match?(/\A\d+\z/)
+        end
+
         # The marker still carries the crisp not-found copy: a consumer that
         # renders it un-fallen-back (the nl_retry loop guard, MCP projection)
         # degrades to exactly the message this branch used to emit.
-        def nl_soft_fail(key, ref)
-          Pito::Chat::Result::Error.new(message_key: key, message_args: { ref: ref }, nl_fallback: true)
+        def nl_soft_fail(key, **args)
+          Pito::Chat::Result::Error.new(message_key: key, message_args: args, nl_fallback: true)
         end
 
         def needs_ref
@@ -536,8 +554,20 @@ module Pito
         # word) — no guessing. Render the generic "I don't get
         # it" dictionary (`pito.copy.huh`, reused per owner). Pre-rendered so the
         # finalizer routes it to `text:` while keeping the :error chrome.
+        #
+        # NL soft-fail (3.0.1 wave 2): this branch is where EVERY flat segment
+        # tool's verb-captured free text used to die locally ("games with hard
+        # bosses" — the `games` tool drives Show, no entity noun in the body,
+        # huh copy, NL never consulted). Flag the error as an nl_fallback
+        # marker when the body looks like free text (nl_free_text_body? —
+        # bare `show` and id-only bodies keep the crisp huh unchanged) so
+        # Pito::Dispatch::Router gives the ORIGINAL utterance one shot at the
+        # NL gate first, exactly like List#unknown_entity since P7.
         def unknown_entity
-          Pito::Chat::Result::Error.new(message_key: Pito::Copy.render("pito.copy.huh"), message_args: {})
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render("pito.copy.huh"), message_args: {},
+            nl_fallback: nl_free_text_body?
+          )
         end
 
         # ── Segment-selection helpers ──────────────────────────────────────────
