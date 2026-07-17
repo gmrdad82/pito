@@ -4,7 +4,79 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.1.0] — 2026-07-17
+
+### Added
+
+- **Games gain a trait vocabulary — and semantic search can feel it** — a
+  single declared YAML (`config/pito/traits.yml`, 3 scales + 24 tags:
+  difficulty from `easy` to `brutal`, story from `bad` to `emotional`, pace
+  from `relaxing` to `chaotic`, tags from `war` and `roguelike` to
+  `worth_it`, `awful`, `parry_windows`, and `frame_tight_jumps`) now
+  describes every game qualitatively. Traits live in a `games.traits`
+  `jsonb` column (GIN-indexed) with per-trait provenance: `derived` values
+  are computed from IGDB facts, `classified` values come from a
+  Claude-with-web-search session, and `owner` values are yours — **an
+  owner-sourced trait permanently outranks every classifier** and is never
+  overwritten by any automated pass. `Game::Traits::Vocabulary` is the
+  config-backed registry, `Game::Traits::Apply` the single legal writer
+  (validates against the vocabulary, enforces owner-wins, enqueues the
+  re-embed), `Game::Traits::Derive` the deterministic IGDB mapper.
+- **The classify round-trip** — `rake pito:traits:export` writes the whole
+  library as a commented, human-editable YAML (one `overrides:` block per
+  game for your verdicts; `"!tag"` pins a trait absent forever);
+  `rake pito:traits:import` validates everything before applying anything
+  and reports honest counts; `rake pito:traits:derive` is the idempotent
+  heal that recomputes every derived trait from stored IGDB facts.
+- **Traits ride into the vectors** — a game's embedding text gains a
+  `traits:` phrase built from its trait words, so "something brutal but
+  worth every second" lands near the games you tagged that way. Games
+  without traits produce byte-identical embed text (no mass re-embed on
+  deploy); classifying a game changes its digest, and the 02:00 nightly
+  re-embeds it unprompted. Ten new difficulty/relaxing/worth-it corpus
+  phrasings on `search` teach the NL router the same vocabulary.
+- **The nightly derives before it embeds** — `NightlyReindexJob` now runs a
+  traits-derive pass first (per-game rescue-and-warn), then the corpus
+  sync, then the re-embed sweeps, so fresh traits ride into that same
+  night's vectors — sequential by construction, no timing to tune. The new
+  `rake pito:nightly` alias chains derive → NL sync → reindex for on-demand
+  runs.
+- **Four game traits flip from Claude's judgment to synced IGDB fact** —
+  `multiplayer`, `single_player`, `hyped`, and `family_friendly` used to
+  ship as `source: classified` (a Claude judgment call) purely because
+  pito didn't sync IGDB's `game_modes`, `hypes`, and `age_ratings`. All
+  three now sync (`Game::Igdb::Client::GAME_FIELDS`, new `games.game_modes`
+  / `games.hypes` / `games.age_ratings` columns), so `Game::Traits::Derive`
+  computes the four tags deterministically on every IGDB sync:
+  `multiplayer`/`single_player` from IGDB's game modes ("Multiplayer" /
+  "Co-operative" count as multiplayer, "Single player" as single-player),
+  `hyped` from IGDB's pre-release follow count clearing a tunable
+  threshold, and `family_friendly` from an ESRB E/E10+ or PEGI 3/7 age
+  rating (both threshold and rating sets are named, tunable constants on
+  `Game::Traits::Derive`). Existing games pick up the new columns — and the
+  four derived tags — on their next IGDB re-sync (`bin/rails
+pito:games:resync_release_dates` sweeps every game with an `igdb_id`).
+
+## [3.0.3] — 2026-07-17
+
+### Fixed
+
+- **The chatbox pointer stops stuttering during heavy streams** — the fx
+  layer sampled the pointer on every DOM mutation; it now only records
+  positions and lets the frame clock drive the work, so a busy scrollback
+  no longer fights the cursor.
+- **Analyze joins the soft-fail lane** — when the NL mapper picks `analyze`
+  with a subject pito can't resolve locally, the reply now carries the
+  did-you-mean fallback instead of a dead-end error (games, videos,
+  channels, and linked lookups already had no local dead-ends).
+- **The NL mapper gets 30 seconds, not 10** — cold-start completions on the
+  2-vCPU box could exceed the old cap and surface as fake "huh" responses;
+  the wider cap carries incident provenance so a real timeout is still
+  logged as one.
+- **Over-long embedding requests are char-budgeted** — chunked embeds are
+  grouped into sub-batches capped at 2,000 characters per request, fixing
+  the last five braille-dense conversation events that timed out the
+  sidecar on the production box.
 
 ## [3.0.2] — 2026-07-17
 

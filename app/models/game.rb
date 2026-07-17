@@ -102,6 +102,11 @@ class Game < ApplicationRecord
   # ── Release-date component validations ──────────────────────────
   validate :release_date_components_are_consistent
 
+  # Traits (the owner's judgment ontology; see games.traits jsonb +
+  # traits-design.md). Unconditional + cheap: pure
+  # in-memory Hash checks against Game::Traits::Vocabulary, no I/O.
+  validate :traits_conform_to_vocabulary
+
   before_save :recompute_release_date
 
   scope :released_in, ->(year) { where(release_year: year) }
@@ -176,6 +181,37 @@ class Game < ApplicationRecord
     Pito::Formatter::ReleaseDate.call(self)
   end
 
+  # ── Traits accessors (thin — logic lives in Game::Traits::*) ──────────
+  # `traits` defaults to `{}` at the DB (NOT NULL), so every accessor below
+  # tolerates the unclassified state without a nil guard.
+
+  # @return [Hash{String => String}] scale name => its set value ({} when unclassified)
+  def trait_scales
+    (traits["values"] || {}).except("tags")
+  end
+
+  # @return [Array<String>] the set boolean tags ([] when unclassified)
+  def trait_tags
+    (traits["values"] || {})["tags"] || []
+  end
+
+  # A declared scale name resolves to its value-or-nil; a declared tag name
+  # resolves to true/false; an undeclared name resolves to nil (never
+  # raises).
+  def trait_value(name)
+    name = name.to_s
+    if Game::Traits::Vocabulary.scale_names.include?(name)
+      trait_scales[name]
+    elsif Game::Traits::Vocabulary.tag_names.include?(name)
+      trait_tags.include?(name)
+    end
+  end
+
+  # @return ["owner", "classified", "derived", nil] who last set +name+
+  def trait_source(name)
+    (traits["sources"] || {})[name.to_s]
+  end
+
   private
 
   def rating_fields_changed?
@@ -200,6 +236,10 @@ class Game < ApplicationRecord
     return false if score.nil? || score.zero?
 
     (new_score - score).abs > SCORE_DRIFT_THRESHOLD
+  end
+
+  def traits_conform_to_vocabulary
+    Game::Traits::Vocabulary.errors_for(traits).each { |msg| errors.add(:traits, msg) }
   end
 
   def release_date_components_are_consistent

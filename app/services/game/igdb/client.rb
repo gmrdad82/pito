@@ -104,6 +104,24 @@ class Game
       GAME_CATEGORY_PORT     = GAME_TYPE_PORT
       DEFAULT_SEARCH_CATEGORIES = DEFAULT_SEARCH_GAME_TYPES
 
+      # `game_modes` / `hypes` / `age_ratings` — added 2026-07-17 so
+      # `multiplayer` / `single_player` / `hyped` / `family_friendly` can
+      # flip from `source: classified` to `source: derived`
+      # (traits-design.md L6; Game::Traits::Derive does the mapping).
+      #
+      # `age_ratings` shape verified LIVE against the IGDB v4 API
+      # 2026-07-17 (not just docs): IGDB migrated this endpoint in 2025 —
+      # the old numeric `age_ratings.category` / `age_ratings.rating` enum
+      # pair is retired. The current shape nests through two reference
+      # endpoints: `age_ratings.organization.name` (the rating board —
+      # confirmed live values "ESRB", "PEGI", "USK", "CERO", "GRAC",
+      # "CLASS_IND", "ACB") and `age_ratings.rating_category.rating` (the
+      # rating text WITHIN that board — confirmed live values include ESRB
+      # "E" / "E10+" / "M" and PEGI "3" / "7" / "16", queried live for
+      # Elden Ring (id 119133), Mario Kart 8 Deluxe, Splatoon 3, Kirby and
+      # the Forgotten Land, Animal Crossing: New Horizons). Mirrors the
+      # client's existing nested-field style (`release_dates.platform.name`
+      # above; `cover.image_id`).
       GAME_FIELDS = %w[
         id name slug summary first_release_date
         rating rating_count aggregated_rating aggregated_rating_count
@@ -111,6 +129,9 @@ class Game
         cover.id cover.image_id
         genres.id genres.name genres.slug
         themes.id themes.name
+        game_modes.id game_modes.name
+        hypes
+        age_ratings.organization.name age_ratings.rating_category.rating
         player_perspectives.id player_perspectives.name
         platforms.id platforms.name platforms.slug
         involved_companies.id

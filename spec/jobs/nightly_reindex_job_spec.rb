@@ -15,9 +15,12 @@ RSpec.describe NightlyReindexJob, type: :job do
     let!(:video_b) { create(:video, channel: channel) }
 
     # Stubbed for every EXISTING example below (games/videos/events fan-out) so
-    # they stay focused on their own assertions — the NL sync call itself gets
-    # its own dedicated coverage further down.
-    before { allow(Pito::Nl::Router).to receive(:sync!) }
+    # they stay focused on their own assertions — the NL sync call and the
+    # traits derive pass each get their own dedicated coverage further down.
+    before do
+      allow(Pito::Nl::Router).to receive(:sync!)
+      allow(Game::Traits::Derive).to receive(:call)
+    end
 
     it "enqueues GameEmbedIndexJob for every game" do
       expect {
@@ -76,6 +79,52 @@ RSpec.describe NightlyReindexJob, type: :job do
       it "skips an event that already carries an embedding" do
         job.perform
         expect(Pito::Embedding::EventIndexer).not_to have_received(:call).with(already_embedded_event)
+      end
+    end
+
+    # Traits-derive pass, added ahead of the games pass so a freshly-healed
+    # derived tag lands in that same game's embed text this cycle (see the
+    # job's header comment). Own `before` block UNDOES the outer stub so
+    # these examples exercise the real call.
+    context "traits derive pass" do
+      before { allow(Game::Traits::Derive).to receive(:call).and_call_original }
+
+      it "calls Game::Traits::Derive for every game" do
+        job.perform
+
+        expect(Game::Traits::Derive).to have_received(:call).with(game_a)
+        expect(Game::Traits::Derive).to have_received(:call).with(game_b)
+      end
+
+      it "derives traits before enqueuing any game index job" do
+        called_derive_before_enqueue = false
+        allow(Game::Traits::Derive).to receive(:call) do
+          called_derive_before_enqueue ||= enqueued_jobs.none? { |j| j["job_class"] == "GameEmbedIndexJob" }
+        end
+
+        job.perform
+
+        expect(called_derive_before_enqueue).to be(true)
+      end
+
+      it "does not raise and still derives the rest + runs the games fan-out when Derive raises for one game" do
+        allow(Game::Traits::Derive).to receive(:call).with(game_a).and_raise(StandardError, "boom")
+        allow(Game::Traits::Derive).to receive(:call).with(game_b).and_call_original
+        allow(Rails.logger).to receive(:warn)
+
+        expect { job.perform }.not_to raise_error
+        expect(Game::Traits::Derive).to have_received(:call).with(game_b)
+        expect(enqueued_jobs.count { |j| j["job_class"] == "GameEmbedIndexJob" }).to eq(Game.count)
+      end
+
+      it "logs a warning naming the failing game when Derive raises" do
+        allow(Game::Traits::Derive).to receive(:call).with(game_a).and_raise(StandardError, "boom")
+        allow(Game::Traits::Derive).to receive(:call).with(game_b).and_call_original
+
+        expect(Rails.logger).to receive(:warn)
+          .with(a_string_including("Game::Traits::Derive", "game ##{game_a.id}", "StandardError", "boom"))
+
+        job.perform
       end
     end
 

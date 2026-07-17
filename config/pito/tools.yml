@@ -1247,6 +1247,19 @@ tools:
       - "find the chat where we discussed thumbnails"
       - "look up conversations about pricing"
       - "where did we talk about that game?"
+      # traits-design.md section 8 (3.1.0) — difficulty/relaxing/worth-it
+      # flavored phrases so free-text trait talk routes here, where the query
+      # embeds against game vectors that now carry trait words (Game::EmbedText).
+      - "games with hard bosses"
+      - "something brutally difficult"
+      - "got a souls-like challenge for me?"
+      - "relaxing games for tonight"
+      - "something chill and cozy to play"
+      - "easy games I can play with the kids"
+      - "which games were worth every buck?"
+      - "games actually worth my time"
+      - "story games that hit me in the feels"
+      - "fast paced chaotic action games"
     auth: session
     chat:
       dispatch: Chat::Handlers::Search

@@ -382,4 +382,27 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(hits.map { |h| h["id"] }).to contain_exactly(1, 2)
     end
   end
+
+  # L6 flip (2026-07-17): game_modes/hypes/age_ratings added to GAME_FIELDS
+  # so multiplayer/single_player/hyped/family_friendly can derive from
+  # synced IGDB facts instead of Claude judgment (traits-design.md L6).
+  describe "#fetch_game" do
+    it "requests game_modes, hypes, and the nested age_ratings fields" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
+
+      described_class.new.fetch_game(1)
+
+      expect(captured_body).to include("game_modes.id")
+      expect(captured_body).to include("game_modes.name")
+      expect(captured_body).to include("hypes")
+      # Post-2025 IGDB v4 age_ratings shape (verified live 2026-07-17) —
+      # nested through age_ratings.organization + age_ratings.rating_category,
+      # NOT the retired numeric category/rating enum pair.
+      expect(captured_body).to include("age_ratings.organization.name")
+      expect(captured_body).to include("age_ratings.rating_category.rating")
+    end
+  end
 end
