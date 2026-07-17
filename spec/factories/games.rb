@@ -55,5 +55,31 @@ FactoryBot.define do
         end
       end
     end
+
+    # A representative valid games.traits jsonb payload — one classified
+    # scale, one owner-overridden scale, a mix of classified/owner/derived
+    # tags, plus an owner-pinned-absent tag (see traits-design.md section 1
+    # for the shape this mirrors).
+    trait :with_traits do
+      traits do
+        {
+          "schema_version" => 1,
+          "values" => {
+            "difficulty" => "brutal",
+            "story" => "catching",
+            "tags" => %w[skill_based worth_it action]
+          },
+          "sources" => {
+            "difficulty" => "classified",
+            "story" => "owner",
+            "skill_based" => "classified",
+            "worth_it" => "owner",
+            "action" => "derived",
+            "war" => "owner"
+          },
+          "classified_at" => Time.current.utc.iso8601
+        }
+      end
+    end
   end
 end

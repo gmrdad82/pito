@@ -74,6 +74,22 @@ auto_run:
   # (literal phrases parse upstream) and deliberately excluded from the
   # router corpus (ROUTER_EXCLUDED_TOOLS) — they can never route, so they
   # test the wrong layer here.
+  # 3.1.0 traits corpus batch — held-out phrasings for the difficulty/
+  # relaxing/worth-it search examples added to tools.yml's search:
+  # nl_examples (traits-design.md section 8; never verbatim copies of that
+  # batch). Not live-validated in this pass (calibration_spec.rb skips
+  # without PITO_EMBEDDER_URL) — aspirational like the P11 additions until
+  # someone runs it against the sidecar.
+  - { say: "anything with punishing boss fights in my library?", run: "search games for boss fights" }
+  - { say: "give me something that'll kick my teeth in",         run: "search games for brutally difficult" }
+  - { say: "do I own anything soulslike?",                       run: "search games for soulslike" }
+  - { say: "something low-key to unwind with tonight",           run: "search games for relaxing" }
+  - { say: "what's a cozy pick from my library?",                run: "search games for cozy" }
+  - { say: "what's gentle enough for the kids to jump into?",    run: "search games for kid friendly" }
+  - { say: "which games actually earned their price tag?",       run: "search games for worth the money" }
+  - { say: "what's genuinely worth sinking hours into?",         run: "search games for worth my time" }
+  - { say: "which story actually got to me emotionally?",        run: "search games for emotional story" }
+  - { say: "what's got that high-octane chaotic combat?",        run: "search games for chaotic action" }
 
 suggest:
   - { say: "get rid of vid 3",                        run: "delete vid 3" }

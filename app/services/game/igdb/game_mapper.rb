@@ -66,6 +66,21 @@ class Game
           attrs[:player_perspectives] = extract_platform_names(json["player_perspectives"])
         end
 
+        # IGDB `game_modes` (Single player, Multiplayer, Co-operative…) —
+        # same name-string extraction as `themes` above (no game mode is
+        # named "Arcade", so the shared helper's platform-specific strip
+        # is a no-op here). Feeds Game::Traits::Derive's multiplayer /
+        # single_player mapping (traits-design.md L6).
+        attrs[:game_modes] = extract_platform_names(json["game_modes"]) if json.key?("game_modes")
+
+        # IGDB `hypes` — pre-release follow count, raw integer passthrough.
+        # Feeds Game::Traits::Derive's `hyped` mapping.
+        attrs[:hypes] = json["hypes"] if json.key?("hypes")
+
+        # IGDB `age_ratings` — see extract_age_ratings for the shape.
+        # Feeds Game::Traits::Derive's `family_friendly` mapping.
+        attrs[:age_ratings] = extract_age_ratings(json["age_ratings"]) if json.key?("age_ratings")
+
         attrs.merge!(map_time_to_beat(ttb_json))
         attrs
       end
@@ -95,6 +110,25 @@ class Game
           .reject(&:empty?)
           .reject { |name| name.casecmp?("Arcade") }
           .uniq
+      end
+
+      # Pulls {organization name => rating text} out of the IGDB
+      # `age_ratings` payload — one row per rating board (ESRB, PEGI,
+      # USK…), each nesting `organization.name` and
+      # `rating_category.rating` (the post-2025 IGDB v4 schema; verified
+      # LIVE 2026-07-17 — see Game::Igdb::Client::GAME_FIELDS). Keyed by
+      # org name (not an array) so Game::Traits::Derive can look up
+      # `age_ratings["ESRB"]` directly. Returns {} (never nil) so the
+      # `null: false` column constraint always holds; a row missing either
+      # nested value is skipped — nothing useful to key it by.
+      def extract_age_ratings(payload)
+        Array(payload)
+          .select { |row| row.is_a?(Hash) }
+          .each_with_object({}) do |row, acc|
+            org = row.dig("organization", "name").to_s.strip
+            rating = row.dig("rating_category", "rating").to_s.strip
+            acc[org] = rating if org.present? && rating.present?
+          end
       end
 
       def map_time_to_beat(ttb_json)

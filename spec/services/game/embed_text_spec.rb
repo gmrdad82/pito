@@ -66,4 +66,18 @@ RSpec.describe Game::EmbedText, type: :service do
     expect(text).not_to include("extras")
     expect(text).not_to include("completionist")
   end
+
+  it "includes a labelled traits section (scales then tags, declaration order) for a traited game" do
+    game = create(:game, :with_traits, title: "Traited Game")
+    text = described_class.call(game.reload)
+    expect(text).to include("traits: difficulty brutal, story catching, skill based, worth it, action")
+  end
+
+  it "skips the traits slot entirely for an untraited game — embed text stays byte-identical to before traits existed, so untraited games never mass re-embed on deploy" do
+    game = create(:game, title: "Untraited",
+                         summary: nil, platforms: [], score: 0, ttb_main_seconds: nil)
+    text = described_class.call(game.reload)
+    expect(text).to eq("Untraited")
+    expect(text).not_to include("traits:")
+  end
 end

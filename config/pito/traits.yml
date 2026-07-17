@@ -1,0 +1,217 @@
+# Game trait vocabulary — the owner's judgment ontology for games, declared
+# ONCE here (config-driven, like tools.yml). Build contract:
+# traits-design.md. Consumers:
+#   - Game::Traits::Vocabulary — cached loader; validates games.traits jsonb
+#   - pito:traits:export / pito:traits:import — the classify round-trip
+#   - Game::Traits::Derive — computes every tag marked `source: derived`
+#   - Game::EmbedText — appends a labelled traits section, so traits reach
+#     vector search through the game embeddings (and qwen NL routing through
+#     the search corpus phrases)
+#
+# Shapes:
+#   scales: — ordered scalar dimensions, listed mild → extreme. A game
+#     carries at most ONE value per scale; absence = "not judged yet"
+#     (never a silent middle).
+#   tags: — boolean traits, present or absent.
+#
+# Naming rule: trait names double as EMBED-TEXT words (underscores become
+# spaces in Game::EmbedText's traits section), so every name must read as
+# natural language once de-underscored — "single_player" → "single player",
+# "game_of_the_year" → "game of the year". Never abbreviate a key (no
+# "goty"): the embedder and qwen see the words, not the YAML.
+#
+# `source:` — who fills the trait by default:
+#   classified — a judgment call; filled by the Claude classify round-trip
+#     (pito:traits:export → Claude fills → owner reviews → pito:traits:import).
+#   derived — computed from IGDB data pito ALREADY SYNCS (genres, themes,
+#     rating triplets, time-to-beat, game_modes, hypes, age_ratings;
+#     verified against Game::Igdb::Client GAME_FIELDS 2026-07-17 — the
+#     game_modes/hypes/age_ratings sync landed the same day, flipping
+#     multiplayer/single_player/hyped/family_friendly from classified to
+#     derived, traits-design.md L6). The mapping is documented on each tag
+#     below and implemented in Game::Traits::Derive. Derived tags NEVER
+#     appear in the classify export; the owner can still pin them per game
+#     via the import file's `overrides:` block.
+# Per-game owner pins (source "owner" in games.traits sources) ALWAYS win —
+# never overwritten by import or derivation.
+#
+# Normalization ledger (owner's raw list → this vocabulary):
+#   "difficulty easy, brutal, hard"        → difficulty scale (+ fair middle)
+#   "story lean, good, catching, bland, bad, emotional" → story scale
+#   "fast pace" / "relaxing" / "chaos"     → pace scale (+ steady middle)
+#   "platform"                             → platformer
+#   "skill"                                → skill_based
+#   "time consuming" + "requires a lot of timing to complete (ttb can help)"
+#     → time_consuming (owner confirmed 2026-07-17: time-to-COMPLETE — L5 resolved)
+#   "immersion"                            → immersive
+#   "realism"                              → realistic
+#   "pure aweful"                          → awful
+#   "hype, hyped"                          → hyped
+#   "worth every second, worth every buck" → worth_it
+#   "multiplayer experience"               → multiplayer
+#   "single player experience"             → single_player
+#   everything else maps 1:1 by snake_case name ("game of the year" →
+#     game_of_the_year, "family friendly" → family_friendly, …)
+schema_version: 1
+
+scales:
+  # Raw: "difficulty easy, brutal, hard" — "fair" added as the neutral
+  # resting point so a mid game isn't forced into easy or hard.
+  difficulty:
+    source: classified
+    description: "How punishing the game is — from a breezy easy ride, through fair, to hard and outright brutal souls-like challenge with demanding bosses"
+    values: [easy, fair, hard, brutal]
+
+  # Raw: "story lean, good, catching, bland, bad, emotional" — ordered worst
+  # to most affecting; "lean" = deliberately minimal story, not a flaw.
+  story:
+    source: classified
+    description: "Narrative quality — bad or bland filler, lean minimalism, a good tale, properly catching, or an emotional ride that hits in the feels"
+    values: [bad, bland, lean, good, catching, emotional]
+
+  # Collapses three raw items: "relaxing", "fast pace", "chaos" — one tempo
+  # dimension; "steady" added as the neutral middle.
+  pace:
+    source: classified
+    description: "The tempo of play — chill and relaxing, steady, fast paced, or full-on chaotic sensory overload"
+    values: [relaxing, steady, fast, chaotic]
+
+tags:
+  # ── Judgment tags (classify round-trip fills these) ──────────────────────
+
+  space:
+    source: classified
+    # IGDB theme "Science fiction" is only a HINT — sci-fi is not necessarily
+    # set in space, so this stays a judgment call.
+    description: "Set in space — spacecraft, stations, the void as the backdrop"
+
+  skill_based:
+    source: classified # raw: "skill"
+    description: "Wins come from player execution and mechanical skill, not stats or grinding"
+
+  parry_windows:
+    source: classified # owner addition 2026-07-17
+    description: "Combat built around reading attacks and parrying inside tight windows"
+
+  frame_tight_jumps:
+    source: classified # owner addition 2026-07-17
+    description: "Platforming that demands frame-precise jumps and exact execution"
+
+  immersive:
+    source: classified # raw: "immersion"
+    description: "Pulls you in and holds you — a world, atmosphere and presentation you disappear into"
+
+  realistic:
+    source: classified # raw: "realism"
+    description: "Grounded, true-to-life systems and presentation rather than arcade abstraction"
+
+  flight:
+    source: classified
+    # No IGDB genre isolates flying (genre "Simulator" is far broader), so
+    # this stays a judgment call.
+    description: "Flying or piloting aircraft or spacecraft is a core activity"
+
+  poor_performance:
+    source: classified
+    description: "Runs badly — frame drops, stutter, bugs or long loads at the time of judging"
+
+  worth_it:
+    source: classified # raw: "worth every second, worth every buck" (collapsed)
+    description: "Worth every second and every buck — time and money well spent"
+
+  awful:
+    source: classified # raw: "pure aweful" (normalized)
+    # Low synced ratings would HINT this (the inverse of derived `acclaimed`)
+    # but awful is the owner's verdict — a well-reviewed game can still be
+    # awful to him. Deliberately a judgment call, not rating-derived.
+    description: "Pure awful — a bottom-tier experience to warn people off"
+
+  game_of_the_year:
+    source: classified # raw: "game of the year"
+    # Awards data exists nowhere in pito's IGDB sync — judgment call.
+    # Named in full (never "goty") per the embed-text naming rule above.
+    description: "Won or seriously contended for Game of the Year awards"
+
+  # ── Derived tags (Game::Traits::Derive computes; never in the classify
+  #    export; owner pins via overrides: only) ──────────────────────────────
+
+  platformer:
+    source: derived # raw: "platform"
+    # Mapping: game.genres includes IGDB genre "Platform" (case-insensitive).
+    description: "Platforming — running and jumping through levels"
+
+  simulation:
+    source: derived
+    # Mapping: game.genres includes IGDB genre "Simulator".
+    description: "Simulates a real activity or system — driving, flying, farming, managing"
+
+  guns:
+    source: derived
+    # Mapping: game.genres includes IGDB genre "Shooter".
+    description: "Gunplay-centric — shooting is the core verb"
+
+  action:
+    source: derived
+    # Mapping: games.themes includes IGDB theme "Action".
+    description: "Action-forward, reflex-driven moment-to-moment play"
+
+  horror:
+    source: derived
+    # Mapping: games.themes includes IGDB theme "Horror".
+    description: "Made to scare — dread, jumpscares, horror atmosphere"
+
+  survival:
+    source: derived
+    # Mapping: games.themes includes IGDB theme "Survival".
+    description: "Survival loops — scarce resources, crafting, staying alive"
+
+  war:
+    source: derived
+    # Mapping: games.themes includes IGDB theme "Warfare".
+    description: "War as the setting — battlefields and military conflict"
+
+  time_consuming:
+    source: derived # raw: "time consuming" + "requires a lot of timing to
+    # complete (ttb can help)" — collapsed, see ledger + traits-design.md L5.
+    # Mapping: ttb_main_seconds >= 144000 (40 h) OR
+    # ttb_completionist_seconds >= 288000 (80 h).
+    description: "A big time investment — dozens of hours to see it through"
+
+  acclaimed:
+    source: derived
+    # Mapping: (aggregated_rating >= 85 AND aggregated_rating_count >= 5)
+    # OR (total_rating >= 85 AND total_rating_count >= 100) — critics first,
+    # crowd consensus as fallback.
+    description: "Critically acclaimed — top-shelf review scores"
+
+  # ── L6 flip (2026-07-17): game_modes / hypes / age_ratings now sync
+  #    (Game::Igdb::Client::GAME_FIELDS) — these four moved here from the
+  #    judgment section above; shapes verified LIVE against IGDB v4, not
+  #    just docs (see Game::Traits::Derive + the client's GAME_FIELDS
+  #    comment for the exact confirmed values). ────────────────────────────
+
+  multiplayer:
+    source: derived # raw: "multiplayer experience"
+    # Mapping: game.game_modes includes IGDB game mode "Multiplayer" or
+    # "Co-operative" (case-insensitive exact match).
+    description: "Built around playing with or against other people — co-op, versus, online lobbies"
+
+  single_player:
+    source: derived # raw: "single player experience"
+    # Mapping: game.game_modes includes IGDB game mode "Single player"
+    # (case-insensitive exact match).
+    description: "A deliberate solo experience — designed to be played alone"
+
+  hyped:
+    source: derived # raw: "hype, hyped" (collapsed)
+    # Mapping: games.hypes >= Game::Traits::Derive::HYPED_FOLLOWS_THRESHOLD
+    # (50 — tunable; hypes is IGDB's pre-release follow count).
+    description: "Riding a wave of hype — big community buzz before or after release"
+
+  family_friendly:
+    source: derived
+    # Mapping: games.age_ratings["ESRB"] in Derive::FAMILY_FRIENDLY_ESRB_RATINGS
+    # ("E", "E10+") OR games.age_ratings["PEGI"] in
+    # Derive::FAMILY_FRIENDLY_PEGI_RATINGS ("3", "7") — both tunable
+    # constants on Game::Traits::Derive.
+    description: "Safe to play with the kids — no gore, swearing or adult themes"

@@ -87,6 +87,25 @@ module Pito
       end
     end
 
+    # Raised by Game::Traits::Apply when a call's names/values/source break
+    # the games.traits contract (traits-design.md sections 1/4): an unknown
+    # scale/tag name, an out-of-vocabulary scale value, a tag in both
+    # `add_tags` and `remove_tags`, or a `source` touching a name whose
+    # declared kind (classified/derived) doesn't legally accept it. `errors`
+    # is the human-readable list (Game::Traits::Vocabulary-style messages);
+    # `game_id` names which row the call was for.
+    class TraitInvalid < Base
+      def initialize(game_id:, errors:)
+        super(game_id: game_id, errors: errors)
+      end
+
+      private
+
+      def build_message
+        "Invalid traits for game ##{@attrs[:game_id]}: #{@attrs[:errors].join('; ')}"
+      end
+    end
+
     # Raised when a release-date component combination violates the
     # invariants documented in `docs/architecture.md` § "Game release-date
     # representation". Callers in service paths get a structured error;

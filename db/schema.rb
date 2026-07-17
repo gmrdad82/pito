@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_16_082319) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_17_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -218,6 +218,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_082319) do
   end
 
   create_table "games", force: :cascade do |t|
+    t.jsonb "age_ratings", default: {}, null: false
     t.decimal "aggregated_rating", precision: 5, scale: 2
     t.integer "aggregated_rating_count"
     t.text "alternative_names", default: [], null: false, array: true
@@ -225,6 +226,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_082319) do
     t.datetime "created_at", null: false
     t.string "embedded_digest"
     t.decimal "footage_hours", precision: 6, scale: 1, default: "0.0", null: false
+    t.text "game_modes", default: [], null: false, array: true
+    t.integer "hypes"
     t.bigint "igdb_id"
     t.decimal "igdb_rating", precision: 5, scale: 2
     t.integer "igdb_rating_count"
@@ -248,11 +251,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_082319) do
     t.string "title", default: "Untitled game", null: false
     t.decimal "total_rating", precision: 5, scale: 2
     t.integer "total_rating_count"
+    t.jsonb "traits", default: {}, null: false
     t.integer "ttb_completionist_seconds"
     t.integer "ttb_extras_seconds"
     t.integer "ttb_main_seconds"
     t.datetime "updated_at", null: false
+    t.index ["age_ratings"], name: "index_games_on_age_ratings", using: :gin
     t.index ["alternative_names"], name: "index_games_on_alternative_names", using: :gin
+    t.index ["game_modes"], name: "index_games_on_game_modes", using: :gin
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
@@ -264,6 +270,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_082319) do
     t.index ["summary_embedding"], name: "index_games_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["themes"], name: "index_games_on_themes", using: :gin
     t.index ["title"], name: "index_games_on_title_trigram", opclass: :gin_trgm_ops, using: :gin
+    t.index ["traits"], name: "index_games_on_traits", using: :gin
   end
 
   create_table "genres", force: :cascade do |t|

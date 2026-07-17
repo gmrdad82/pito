@@ -74,6 +74,17 @@ RSpec.describe Game::EmbeddingIndexer, type: :service do
     described_class.call(game.reload)
   end
 
+  it "re-embeds when the game's traits change — the digest shift this produces is what lets the 02:00 nightly reindex (NightlyReindexJob) auto re-embed a newly classified game with no force flag" do
+    described_class.call(game)
+    game.update_column(:traits, {
+      "schema_version" => 1,
+      "values" => { "difficulty" => "brutal" },
+      "sources" => { "difficulty" => "classified" }
+    })
+    expect(client).to receive(:embed_batch).and_return([ Array.new(768, 0.6) ])
+    described_class.call(game.reload)
+  end
+
   it "force: re-embeds even when the digest is unchanged" do
     described_class.call(game)
     expect(client).to receive(:embed_batch).and_return([ Array.new(768, 0.3) ])

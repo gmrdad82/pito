@@ -74,6 +74,71 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     expect(GameEmbedIndexJob).to have_received(:perform_later).with(game.id)
   end
 
+  describe "trait derivation hook (traits-design.md section 5)" do
+    it "derives IGDB-fact traits from the freshly synced columns" do
+      platform_json = game_json.merge(
+        "genres" => [ { "id" => 8, "name" => "Platform", "slug" => "platform" } ]
+      )
+      allow(client).to receive(:fetch_game).with(1020).and_return([ platform_json ])
+
+      described_class.new(client: client).call(game)
+
+      expect(game.reload.trait_tags).to include("platformer")
+      expect(game.trait_source("platformer")).to eq("derived")
+    end
+
+    it "heals a stale derived tag when a re-sync changes the facts" do
+      platform_json = game_json.merge(
+        "genres" => [ { "id" => 8, "name" => "Platform", "slug" => "platform" } ]
+      )
+      allow(client).to receive(:fetch_game).with(1020).and_return([ platform_json ])
+      described_class.new(client: client).call(game)
+      expect(game.reload.trait_tags).to include("platformer")
+
+      allow(client).to receive(:fetch_game).with(1020).and_return([ game_json ])
+      described_class.new(client: client).call(game)
+
+      expect(game.reload.trait_tags).not_to include("platformer")
+    end
+
+    it "does not fail the sync when derivation raises (rescued + logged)" do
+      allow(Game::Traits::Derive).to receive(:call).and_raise(StandardError, "traits boom")
+      allow(Rails.logger).to receive(:warn)
+
+      expect { described_class.new(client: client).call(game) }.not_to raise_error
+
+      expect(game.reload.igdb_synced_at).to be_present
+      expect(Rails.logger).to have_received(:warn).with(/trait derivation failed for game id=#{game.id}/)
+    end
+
+    # L6 flip (2026-07-17): game_modes/hypes/age_ratings sync end-to-end and
+    # feed the four newly-derived tags.
+    it "syncs game_modes/hypes/age_ratings and derives the four L6 tags from them" do
+      l6_json = game_json.merge(
+        "game_modes" => [
+          { "id" => 1, "name" => "Single player" },
+          { "id" => 2, "name" => "Multiplayer" }
+        ],
+        "hypes" => 96,
+        "age_ratings" => [
+          { "organization" => { "name" => "ESRB" }, "rating_category" => { "rating" => "E10+" } }
+        ]
+      )
+      allow(client).to receive(:fetch_game).with(1020).and_return([ l6_json ])
+
+      described_class.new(client: client).call(game)
+      game.reload
+
+      expect(game.game_modes).to eq([ "Single player", "Multiplayer" ])
+      expect(game.hypes).to eq(96)
+      expect(game.age_ratings).to eq({ "ESRB" => "E10+" })
+      expect(game.trait_tags).to include("multiplayer", "single_player", "hyped", "family_friendly")
+      %w[multiplayer single_player hyped family_friendly].each do |tag|
+        expect(game.trait_source(tag)).to eq("derived")
+      end
+    end
+  end
+
   describe "idempotent re-sync (E11 — false nightly \"updated\" flags)" do
     include ActiveSupport::Testing::TimeHelpers
     # The nightly refresh detects change by comparing game.updated_at before and

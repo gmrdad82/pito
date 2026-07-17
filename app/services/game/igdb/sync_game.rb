@@ -64,6 +64,19 @@ class Game
           Rails.logger.warn "[Game::Igdb::SyncGame] cover normalization failed for game id=#{game.id}: #{e.class}: #{e.message}"
         end
 
+        # Re-derive the IGDB-fact traits from the freshly synced columns
+        # (genres/themes/ttb/ratings → Game::Traits::Derive). Same stance as
+        # the cover normalizer above: a traits hiccup must never fail the
+        # sync — the IGDB-sourced row is already committed. Derive goes
+        # through Apply, which enqueues its own embed job only when the
+        # traits actually changed (double enqueue with the one below is
+        # harmless — the indexer is digest-gated).
+        begin
+          Game::Traits::Derive.call(game)
+        rescue StandardError => e
+          Rails.logger.warn "[Game::Igdb::SyncGame] trait derivation failed for game id=#{game.id}: #{e.class}: #{e.message}"
+        end
+
         # Enqueue an embedding refresh for the freshly synced row. Async so the
         # user-facing sync POST doesn't block on the embedder HTTP call. The job
         # is idempotent (re-embeds + re-writes) so a duplicate enqueue from any
