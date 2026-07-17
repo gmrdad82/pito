@@ -123,14 +123,14 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       # and would pollute the follow-up suggestion palette.
     end
 
-    it "video_search mirrors video_list MINUS next/more/sort/order/analyze" do
+    it "video_search mirrors video_list MINUS sort/order/analyze (next/more now paginate the ranking)" do
       expect(described_class.actions_for("video_search")).to include(
         "show", "delete", "schedule", "publish", "unlist",
         "link", "unlink", "with", "without", "at-a-glance", "game", "shinies",
-        "rm", "del", "pub"
+        "rm", "del", "pub", "next", "more"
       )
       expect(described_class.actions_for("video_search")).not_to include(
-        "next", "more", "sort", "order", "analyze"
+        "sort", "order", "analyze"
       )
     end
   end

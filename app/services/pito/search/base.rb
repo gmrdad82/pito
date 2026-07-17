@@ -10,6 +10,11 @@ module Pito
     #
     # The IGDB game search (Pito::Search::Modules::IgdbGames) is the first module;
     # local DB search + a `search` chat tool are deferred (post-Video).
+    #
+    # Pito::Search::Semantic (3.1.1) is a DELIBERATE second seam in this
+    # namespace, not a module: it serves the chat handler's `about` path with
+    # a different contract (scope/column in, record+similarity out) and does
+    # not register here — see its own header.
     class Base
       class << self
         attr_reader :search_key_value

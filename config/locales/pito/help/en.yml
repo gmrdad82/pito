@@ -7,7 +7,7 @@ en:
       list:
         usage: "list games  |  list vids  |  list channels"
       search:
-        usage: "search games|vids|conversations like <x>  |  search games|vids|conversations for <x>"
+        usage: "search games|vids|conversations like <x>  |  search games|vids|conversations for <x>  |  search games|vids about <x>"
       "@ai":
         usage: "@ai <question about your games, vids, or channels>"
       update:
@@ -922,6 +922,13 @@ en:
               Arguments:
                 "<video id>": "Row id of the vid to unlink"
                 "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
+              Options:
+                "--help": "Print this help message"
+          next:
+            usage: "#<search-vids-hashtag> next"
+            sections:
+              Description:
+                "next": "Load the next batch of the ranked vids (only available when the ranking is capped)"
               Options:
                 "--help": "Print this help message"
 

@@ -5,10 +5,11 @@ module Pito
     module Handlers
       # Handler for the `search` chat tool — relevance search over the library.
       #
-      #   search games like <title>  → UNCHANGED: the GameSimilarity ranking with
-      #                                the genre-gate, a list-style card headed by
-      #                                the seed game itself (its title IS the
-      #                                closest match), followed only by the
+      #   search games like <title>  → the GameSimilarity ranking with the
+      #                                genre-gate (3.1.1: now ALSO floor-gated,
+      #                                see #relevant), a list-style card headed
+      #                                by the seed game itself (its title IS
+      #                                the closest match), followed only by the
       #                                RELEVANT games.
       #   search games for <title>   → lexical matching: a case-insensitive
       #                                substring match over every owner-visible
@@ -27,6 +28,16 @@ module Pito
       #   search games <title>       → bare = `for` semantics (#owner 2026-07-15:
       #                                bare means EXACT, not similar, under the
       #                                3.0.0 like/for grammar split).
+      #   search games about <text>  → free-text, qualitative search: no seed,
+      #                                no title — just a vibe ("about brutal
+      #                                but worth every second"). Embeds <text>
+      #                                and ranks by cosine similarity via the
+      #                                shared Pito::Search::Semantic seam
+      #                                (games.summary_embedding), honest about
+      #                                a miss (nothing genuinely close returns
+      #                                nothing, never a padded page) and about
+      #                                the embedder being unreachable (a real
+      #                                error, not a soft miss).
       #   search vids like <title>   → seed-based: resolve the seed vid, then
       #                                its nearest embedding neighbors
       #                                (Video::EMBEDDING_COLUMN, cosine),
@@ -39,15 +50,19 @@ module Pito
       #                                description, and tags (mirrors games'
       #                                `for` EXISTS-query style, one
       #                                parameterized `:q`).
+      #   search vids about <text>   → mirrors games' `about` path, scoped to
+      #                                Video (videos.summary_embedding).
       #
       # Both the games AND the vids paths render through their own SAME
       # list card/payload shape (build_payload / build_video_payload) so #id
       # and sort behave identically regardless of which path produced the
-      # rows. Paging does NOT: games stamp a `list_cursor` and a "more
-      # results" footer (the game_list follow-up handler reads it back to
-      # page the ranking); vids show a single page with no `next`/`more`
-      # affordance at all, because the vid follow-up handler doesn't carry
-      # that cursor (see build_video_payload).
+      # rows. Paging is symmetric too: both stamp a `list_cursor` and a
+      # "more results" footer when the source list exceeds a page — games'
+      # cursor is read back by the game_list follow-up handler, vids' by
+      # video_search's (Pito::FollowUp::Handlers::VideoSearch, which pages it
+      # via the inherited VideoList#list_next_videos) — so a `search vids …`
+      # result with more than a page of matches offers the exact same
+      # `next`/`more` affordance a `search games …` result does.
       #
       # The noun (games/conversations/vids — Pito::Grammar::Registry's
       # :search_nouns vocabulary, config/pito/tools.yml) defaults to games
@@ -62,24 +77,31 @@ module Pito
       # #list_next_games) pages the ranking instead of replaying a list query.
       # The `for` path reuses the exact same cursor mechanism to page its
       # title-ordered id list — "ranked_ids" just means "the full ordered id
-      # list from page 1", not necessarily a similarity ranking.
+      # list from page 1", not necessarily a similarity ranking. The vids
+      # paths (like/for/about) stamp the identical cursor shape, paged by
+      # video_search's follow-up handler (Pito::FollowUp::Handlers::
+      # VideoList#list_next_videos, inherited by VideoSearch) — one
+      # mechanism, one contract, both nouns.
       class Search < Pito::Chat::Handler
         self.tool = :search
         self.description_key = "pito.chat.search.descriptions.search"
 
-        # "search games like tekken 7" → captures "tekken 7". FOR_CLAUSE mirrors
-        # it byte-for-byte — same clause shape, different keyword — so a bare
-        # query (neither keyword present) can fall through to `for` semantics.
-        LIKE_CLAUSE = /\blike\b\s+(.+?)\s*\z/i
-        FOR_CLAUSE  = /\bfor\b\s+(.+?)\s*\z/i
+        # "search games like tekken 7" → captures "tekken 7". FOR_CLAUSE and
+        # ABOUT_CLAUSE mirror it byte-for-byte — same clause shape, different
+        # keyword — so a bare query (no keyword present) can fall through to
+        # `for` semantics.
+        LIKE_CLAUSE  = /\blike\b\s+(.+?)\s*\z/i
+        FOR_CLAUSE   = /\bfor\b\s+(.+?)\s*\z/i
+        ABOUT_CLAUSE = /\babout\b\s+(.+?)\s*\z/i
 
         # The noun, when typed, always immediately follows the tool word per the
         # slot order config declares (noun before the free query) — stripping
         # only that leading pair isolates a bare (keyword-less) query.
         NOUN_PREFIX = /\A(?:games?|conversations?|vids?|videos?)\b\s*/i
 
-        # Blended-score gate for a seed with NO genres on record (see #relevant).
-        NO_GENRE_FLOOR = 40
+        # Blended-score relevance gate — see #relevant. Universal since 3.1.1:
+        # every candidate `like` surfaces has to clear it, genre-sharing or not.
+        RELEVANCE_FLOOR = 40
 
         def call
           return delegate_conversations if noun == "conversations"
@@ -88,9 +110,17 @@ module Pito
           return needs_seed if term.blank?
 
           if noun == "vids"
-            mode == :like ? search_like_vid(term) : search_for_vid(term)
+            case mode
+            when :about then search_about_vid(term)
+            when :like  then search_like_vid(term)
+            else             search_for_vid(term)
+            end
           else
-            mode == :like ? search_like(term) : search_for(term)
+            case mode
+            when :about then search_about(term)
+            when :like  then search_like(term)
+            else             search_for(term)
+            end
           end
         end
 
@@ -127,24 +157,32 @@ module Pito
 
         # ── query parsing ────────────────────────────────────────────────────
 
-        # [:like, term] | [:for, term]. `like` wins when both keywords somehow
-        # appear (pre-3.0.0 precedence — `like` was the only keyword). No
-        # keyword at all → :for on the whole remainder (bare = exact).
+        # [:about, term] | [:like, term] | [:for, term]. Precedence (3.1.1):
+        # POSITIONAL — the keyword the owner typed EARLIEST wins, so an
+        # explicit `for the clip about dragons` stays a lexical search for
+        # "the clip about dragons" (the trailing "about" is part of the term)
+        # and `about something like dark souls` stays a vibe search for
+        # "something like dark souls". Fixed-order precedence would hijack
+        # both directions, because all three keywords are ordinary English
+        # words that appear mid-query constantly. No keyword at all → :for on
+        # the whole remainder (bare = exact).
         def extract_query
-          raw = message.raw.to_s
-          if (m = raw.match(LIKE_CLAUSE))
-            [ :like, m[1].strip ]
-          elsif (m = raw.match(FOR_CLAUSE))
-            [ :for, m[1].strip ]
-          else
-            [ :for, bare_query(raw) ]
-          end
+          raw     = message.raw.to_s
+          matches = { about: raw.match(ABOUT_CLAUSE), like: raw.match(LIKE_CLAUSE), for: raw.match(FOR_CLAUSE) }
+          mode, m = matches.compact.min_by { |_mode, match| match.begin(0) }
+          return [ mode, m[1].strip ] if m
+
+          [ :for, bare_query(raw) ]
         end
 
         # Strips the tool word and an immediately-following noun token, leaving
-        # whatever's left as the bare (keyword-less) query.
+        # whatever's left as the bare (keyword-less) query. A remainder that IS
+        # a lone dangling keyword ("search games about") is an empty query, not
+        # a lexical search for the literal word — blanking it routes the caller
+        # to #needs_seed's ask-for-more copy instead.
         def bare_query(raw)
-          raw.strip.sub(/\Asearch\b\s*/i, "").sub(NOUN_PREFIX, "").strip
+          rest = raw.strip.sub(/\Asearch\b\s*/i, "").sub(NOUN_PREFIX, "").strip
+          rest.match?(/\A(?:about|like|for)\z/i) ? "" : rest
         end
 
         # ── `like` path (unchanged ranking) ─────────────────────────────────
@@ -171,15 +209,61 @@ module Pito
         # its own gate on top: a game is relevant when it shares at least one
         # genre with the seed (the `g` breakdown signal carries jaccard > 0) —
         # perspective/theme overlap alone (side-view platformers vs a fighting
-        # game) is not relevance. A seed with no genres on record falls back to a
-        # blended-score floor so an unsynced seed still returns its nearest
-        # neighbors instead of the whole library.
+        # game) is not relevance — AND the blended score clears RELEVANCE_FLOOR
+        # (3.1.1: genre overlap alone stopped being sufficient once the
+        # trait-infused embeddings started carrying most of the real semantic
+        # weight — two games can share a genre and still blend down near noise,
+        # and that's no longer a real match). A seed with no genres on record
+        # falls back to the SAME floor alone, so an unsynced seed still returns
+        # its nearest neighbors instead of the whole library.
         def relevant(seed, ranked)
           if seed.genres.any?
-            ranked.select { |r| r.breakdown[:g].to_f > 0 }
+            ranked.select { |r| r.breakdown[:g].to_f > 0 && r.score >= RELEVANCE_FLOOR }
           else
-            ranked.select { |r| r.score >= NO_GENRE_FLOOR }
+            ranked.select { |r| r.score >= RELEVANCE_FLOOR }
           end
+        end
+
+        # ── `about` path (free-text semantic search) ─────────────────────────
+
+        # Shared deep-fetch bound for every ranked search path that pages
+        # beyond a single page (SQL-bounded so pgvector's HNSW / embedding
+        # neighbor lookups stay cheap): games' `about`, and vids' `like` /
+        # `about` (see search_like_vid / search_about_vid). Every one of
+        # those rankings pages through the SAME list_cursor/ranked_ids
+        # mechanism `like` (games) established — parity, not a special case.
+        # 50 is deliberately far beyond any single page (20): the relevance
+        # floor usually cuts the tail well before the cap matters. Games'
+        # `like` path stays unbounded (`limit: nil`, see search_like) — its
+        # candidate pool is the whole library scored once, not a per-query
+        # neighbor lookup, so there's no cost benefit to capping it; `for`
+        # paths (games and vids) are already unbounded lexical matches with
+        # no cap of their own.
+        SEARCH_MAX_RESULTS = 50
+
+        # No seed, no title — a free-text, qualitative description ranked by
+        # meaning via the shared Pito::Search::Semantic seam (the same pgvector
+        # cosine search `like`'s neighbor lookups draw from).
+        def search_about(term)
+          results = Pito::Search::Semantic.call(scope: ::Game, column: ::Game::EMBEDDING_COLUMN, query: term, limit: SEARCH_MAX_RESULTS)
+          return about_unavailable if results.nil?
+          return about_empty if results.empty?
+
+          rows   = results.map { |r| r[:record] }
+          scores = results.to_h { |r| [ r[:record].id, about_score(r[:similarity]) ] }
+
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: build_payload(rows, scores: scores) } ])
+        end
+
+        # An `about` hit's bar is rescaled from the semantic floor via the
+        # same Pito::Recommendation::DisplayScore mechanism #vid_score uses —
+        # raw ×100 would pin every bar into a mushy 55-68 band (everything
+        # below Semantic's floor is already gone), and a bar that can't
+        # discriminate a weak hit from a strong one isn't a score.
+        def about_score(similarity)
+          Pito::Recommendation::DisplayScore.display_score(
+            similarity, floor: Pito::Search::Semantic::DEFAULT_FLOOR
+          ).round
         end
 
         # ── `for` path (exact-name matching) ────────────────────────────────
@@ -254,7 +338,17 @@ module Pito
           return seed_not_found_vid(title) if seed.nil?
           return no_matches if seed.embedding_vector.blank?
 
-          similar = seed.nearest_neighbors(::Video::EMBEDDING_COLUMN, distance: "cosine").limit(page_size)
+          # Deep-fetched (SEARCH_MAX_RESULTS, not page_size) BEFORE the floor
+          # filter below — capping at a single page here would truncate the
+          # ranking before the floor ever got a chance to cut the irrelevant
+          # tail, leaving fewer than a page of genuine matches to page through
+          # even when deeper neighbors would have cleared it. The floor gate
+          # (3.1.1) still FILTERS after: a neighbor under it renders a
+          # zero-length bar, i.e. "not actually similar", and padding the page
+          # with those contradicts the honest-miss contract the games paths
+          # keep.
+          similar = seed.nearest_neighbors(::Video::EMBEDDING_COLUMN, distance: "cosine").limit(SEARCH_MAX_RESULTS)
+                        .select { |v| 1.0 - v.neighbor_distance.to_f >= Pito::Recommendation::DisplayScore::VID_FLOOR }
           # Same 100 stand-in as games' seed score (see search_like) — the
           # seed IS the query, not a ranked neighbor, so it never comes back
           # from nearest_neighbors with a distance of its own.
@@ -275,6 +369,24 @@ module Pito
           Pito::Recommendation::DisplayScore.display_score(
             1.0 - distance.to_f, floor: Pito::Recommendation::DisplayScore::VID_FLOOR
           ).round
+        end
+
+        # ── vids `about` path (free-text semantic search) ────────────────────
+
+        # Mirrors search_about's shape, scoped to Video — no seed, a free-text
+        # description ranked by meaning via the same Pito::Search::Semantic
+        # seam. `limit:` is SEARCH_MAX_RESULTS (not page_size), same as
+        # games' `about` — the deep ranking pages through build_video_payload's
+        # list_cursor mechanism exactly like games' does.
+        def search_about_vid(term)
+          results = Pito::Search::Semantic.call(scope: ::Video, column: ::Video::EMBEDDING_COLUMN, query: term, limit: SEARCH_MAX_RESULTS)
+          return about_unavailable if results.nil?
+          return about_empty if results.empty?
+
+          rows   = results.map { |r| r[:record] }
+          scores = results.to_h { |r| [ r[:record].id, about_score(r[:similarity]) ] }
+
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: build_video_payload(rows, scores: scores) } ])
         end
 
         # ── vids `for` path (lexical multi-field matching) ──────────────────
@@ -328,8 +440,9 @@ module Pito
               "sort_token"     => nil,
               "sort_direction" => nil,
               "columns"        => [],
-              # Owning tool, read by GameList#cursor_tool so `next`/`more` pages
-              # at search's page size (20), not :list's (50).
+              # Owning tool, read by the pager's inline tool lookup in
+              # GameList#list_next_games so `next`/`more` pages at search's
+              # page size (20), not :list's (50).
               "tool"           => "search"
             }
             more_text = Pito::Copy.render(
@@ -346,32 +459,53 @@ module Pito
         end
 
         # @param scores [Hash{Integer => Integer}, nil] video_id => 0..100 score map from
-        #   search_like_vid; nil for search_for_vid — Video::List only renders a Score column
-        #   when this is present, matching build_payload's games contract.
+        #   search_like_vid/search_about_vid; nil for search_for_vid — Video::List only
+        #   renders a Score column when this is present, matching build_payload's games
+        #   contract.
         #
-        # Deliberately single-page: unlike game_list's follow-up handler
-        # (Pito::FollowUp::Handlers::GameList#list_next_games), video_list's
-        # (Pito::FollowUp::Handlers::VideoList#list_next_videos) does not read a
-        # stamped `ranked_ids`/`tool` cursor at all — it always replays a fresh,
-        # unranked `list videos` query, which would silently drop the original
-        # ranking/query on any later page. So no `list_cursor` is stamped and no
-        # "more results" pager text is appended here; a `search vids …` result
-        # always shows just its first page (already capped at search's page
-        # size), with no `next`/`more` affordance offered. Video::List's own
-        # with/without-columns footer is untouched. Revisit once video_list's
-        # follow-up handler gains cursor-aware replay (SUX5b) — then the pager
-        # can return.
+        # Pages exactly like build_payload's games cursor: when the source list
+        # exceeds a page, the full ordered id list is stamped into list_cursor as
+        # `ranked_ids` so video_search's follow-up handler (Pito::FollowUp::
+        # Handlers::VideoSearch, which inherits VideoList#list_next_videos) pages
+        # that id list instead of replaying a fresh, unranked `list videos` query
+        # — and a "more results" footer is appended, same as games. reply_target
+        # is re-stamped to "video_search" (Video::List defaults to "video_list")
+        # so config/pito/tools.yml's narrower video_search action set applies:
+        # the pager (`next`/`more`) and per-row/column tools work, but
+        # `sort`/`order`/`analyze` stay excluded — re-sorting a ranking would
+        # scramble it, and there's no "whole scope" to (re-)analyze on a
+        # query-specific result set.
         def build_video_payload(videos, scores: nil)
-          rows    = videos.first(page_size)
+          page    = page_size
+          rows    = videos.first(page)
           payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns: [], scores:)
-          # scores present == like (semantic) mode; nil == for (lexical) mode
-          # — overwrites Video::List's default columns footer with the
-          # generic search footer (vids don't paginate, so nothing else is
-          # appended after it, unlike build_payload's games pager above).
+          # scores present == like/about (semantic) mode; nil == for (lexical)
+          # mode — same mapping build_payload uses above.
           payload["list_footer"] = Pito::Copy.render(scores ? "pito.copy.search.footer_like" : "pito.copy.search.footer_for")
-          # Re-stamp the generic video_list target: search-vids is single-page
-          # (see the comment above), so it uses its own video_search reply
-          # target — no pager/sort replies, which don't apply here.
+
+          if videos.size > page
+            payload["list_cursor"] = {
+              "ranked_ids"     => videos.map(&:id),
+              "offset"         => page,
+              "channel"        => nil,
+              "sort_token"     => nil,
+              "sort_direction" => nil,
+              "columns"        => [],
+              # Owning tool, read by the pager's inline tool lookup in
+              # VideoList#list_next_videos so `next`/`more` pages at search's
+              # page size (20), not :list's (50).
+              "tool"           => "search"
+            }
+            more_text = Pito::Copy.render(
+              "pito.copy.list_more",
+              count: rows.size,
+              total: videos.size,
+              rest:  videos.size - rows.size,
+              tool:  pager[:more_tool]
+            )
+            payload["list_footer"] = [ payload["list_footer"].presence, more_text ].compact.join(" ")
+          end
+
           payload["reply_target"] = "video_search"
           payload
         end
@@ -412,6 +546,27 @@ module Pito
         # nothing" copy, not a games-only one — see its own no_matches).
         def no_matches
           text("pito.copy.games.list_filter_empty")
+        end
+
+        # The embedder is genuinely unreachable (Pito::Search::Semantic
+        # returned nil, not []) — a real fault, not a soft miss, so this is
+        # the one `about` reply that's a Result::Error rather than a friendly
+        # Result::Ok. Pre-rendered (mirrors Show#unknown_entity /
+        # Delete#unknown, e.g. `message_key: Pito::Copy.render("pito.copy.huh")`)
+        # so the finalizer routes it to `text:` while keeping the :error chrome.
+        def about_unavailable
+          Pito::Chat::Result::Error.new(
+            message_key: Pito::Copy.render("pito.copy.search.about_unavailable"), message_args: {}
+          )
+        end
+
+        # A real query embedded and searched fine, but nothing cleared
+        # Pito::Search::Semantic's floor — an honest "nothing feels close"
+        # miss, distinct from #no_matches' strict-filters wording (that copy
+        # promises literal matches were checked; this one promises meaning
+        # was checked).
+        def about_empty
+          text("pito.copy.search.about_empty")
         end
 
         def text(key, **args)

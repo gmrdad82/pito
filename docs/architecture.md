@@ -329,8 +329,9 @@ trains, the thresholds).
 
 ### Search grammar (`search` chat tool)
 
-One tool, two nouns (`search_nouns` vocabulary: `games` default,
-`conversations`), two keyword modes each:
+One tool, three nouns (`search_nouns` vocabulary: `games` default, `vids`,
+`conversations`), keyword modes per noun (`about` — 3.1.1 — for games and
+vids; `like`/`for` everywhere):
 
 - **`search games like <title>`** — unchanged relevance ranking: resolves
   the seed through the title ladder (below), runs
@@ -354,12 +355,30 @@ ILIKE`, the honest fallback with no relevance score (events carry no
   tsvector column). Both conversation paths group hits by conversation
   (anchor = the chronologically first hit in the pool), then rank — `like`
   by nearest cosine distance, `for`/bare by the anchor's recency.
-- Both `games` paths share one card/pager (`Search#build_payload`, page size
-  20 — the `search` tool's own `concerns.pager` in `tools.yml`, not
-  `list`'s 50).
+- Both `games` and `vids` paths share one card/pager per noun
+  (`Search#build_payload` / `#build_video_payload`), page size 20 — the
+  `search` tool's own `concerns.pager` in `tools.yml`, not `list`'s 50. A
+  result that exceeds a page stamps the same `list_cursor`/`ranked_ids`
+  mechanism `list games`/`list vids` use, read back by the game_list/
+  video_search follow-up handlers — `search vids like/for/about` offers the
+  exact same `next`/`more` continuation `search games` does. Vids search
+  cards deliberately exclude re-sort/re-analyze replies (re-sorting would
+  scramble the ranking their pager replays); games search cards ride the
+  generic games-list target, which has always allowed them.
+
+Across its nouns, `search` speaks three general modes: `for` matches literal
+text (a title, a mention, an exact phrase), `like` ranks results by
+embedding similarity to a seed you name, and `about` (games and vids) takes
+a free-text, qualitative description and searches by meaning rather than
+exact wording — the same semantic space `like` draws its similarity from.
+Keyword precedence is positional (the keyword typed earliest wins), so a
+query that merely _contains_ "about" or "like" mid-sentence is never
+hijacked. All modes keep results honest about a miss: when nothing is
+genuinely relevant they return nothing, never a page padded out with weak
+matches just to fill it.
 
 The GBNF grammar mirrors the clause shape directly: `search`'s `query` slot
-compiles to `( "like" | "for" )? text?` (`GbnfBuilder#search_query_body`) —
+compiles to `( "about" | "like" | "for" )? text?` (`GbnfBuilder#search_query_body`) —
 the one tool-specific carve-out in an otherwise generic slot compiler.
 
 ### Link-suggestion pipeline

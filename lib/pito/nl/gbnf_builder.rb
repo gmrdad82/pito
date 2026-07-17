@@ -168,11 +168,13 @@ module Pito
       end
 
       def slot_body(tool_name, slot, vocab_bodies)
-        # `search`'s free `query` slot slurps an optional "like"/"for"
-        # keyword before the seed text — mirrors the handler's own clause
-        # parsing (see the comment on the `search` tool in tools.yml: it
-        # extracts the seed AFTER `like` to run Recommendation::
-        # GameSimilarity). Every other slot follows the generic rule below.
+        # `search`'s free `query` slot slurps an optional "about"/"like"/"for"
+        # keyword before the query text — mirrors the handler's own clause
+        # parsing (see the comment on the `search` tool in tools.yml). The
+        # keyword lives OUTSIDE the bounded free-text rule so it never burns
+        # chars of the 48-char query budget — a vibe query ("about chaotic
+        # fast paced never lets up") is naturally the longest kind. Every
+        # other slot follows the generic rule below.
         return search_query_body if tool_name == :search && slot[:name] == "query"
 
         value_rule = slot_value_rule(slot, vocab_bodies)
@@ -182,7 +184,7 @@ module Pito
       end
 
       def search_query_body
-        '( sp ( "like" | "for" ) )? ( sp text )?'
+        '( sp ( "about" | "like" | "for" ) )? ( sp text )?'
       end
 
       # `enum` slots resolve their vocabulary; `free` slots fall back to the

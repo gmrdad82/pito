@@ -228,6 +228,26 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
       result = handler.call(event: ranked_cursor_event, rest: "next", conversation:)
       expect(result.events.first[:payload]["game_ids"]).to eq([ rg3.id ])
     end
+
+    it "carries the cursor's owning tool forward so page 3+ still pages at the owning tool's size, not :list's" do
+      rg4 = create(:game, title: "Delta")
+      allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :search)
+        .and_return({ page_size: 2, more_tool: "next" })
+      multi_page_event = instance_double(Event, payload: {
+        "reply_target" => "game_list",
+        "list_cursor"  => {
+          "offset"         => 0,
+          "ranked_ids"     => [ rg1.id, rg2.id, rg3.id, rg4.id ],
+          "columns"        => [],
+          "sort_token"     => nil,
+          "sort_direction" => nil,
+          "tool"           => "search"
+        }
+      })
+
+      result = handler.call(event: multi_page_event, rest: "next", conversation:)
+      expect(result.events.first[:payload]["list_cursor"]["tool"]).to eq("search")
+    end
   end
 
   describe "`next` pagination" do

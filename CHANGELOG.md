@@ -4,6 +4,34 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [3.1.1] — 2026-07-17
+
+### Added
+
+- **Search learns a third keyword: `about`** — free-text, qualitative search
+  over the trait-infused embeddings 3.1.0 taught the vectors: "search games
+  about brutal but worth every second" finds the right game — or vid — by
+  feel, with no title or seed required. It's honest about a miss, too:
+  nothing genuinely close returns nothing, never a page padded out with weak
+  matches just to fill it.
+- **The `like` path closes its genre loophole** — every match now has to
+  clear the blended-score relevance floor, not just the genre-less seeds
+  that used to lean on it alone; sharing a genre with the seed no longer
+  buys a result a free pass. `search vids like` honors the same contract:
+  neighbors below the similarity floor (which always rendered zero-length
+  score bars) are dropped instead of padding the page.
+- **The natural-language mapper learns the `about` shape** — qualitative,
+  vibe-first phrasing ("something brutal but worth every second," not a
+  title or a named game) now maps to `search … about …` instead of getting
+  squeezed into `like` or `for`.
+- **`search vids` pages exactly like `search games`** — the vids library was
+  about to outgrow a single page, so `like`/`for`/`about` now fetch the same
+  deep ranking games do and page it with the same `list_cursor` mechanism: a
+  `search vids` result with more than a page of matches now offers `next`/
+  `more` just like `search games` always has. `sort`/`order`/`analyze` still
+  don't apply to a ranking — re-sorting or re-analyzing it wouldn't mean
+  anything.
+
 ## [3.1.0] — 2026-07-17
 
 ### Added
