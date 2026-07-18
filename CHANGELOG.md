@@ -4,6 +4,38 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [3.2.0] — 2026-07-18
+
+### Added
+
+- **Conversations join the semantic search party** — `search conversations
+about <text>` works, routing to the same meaning-search the `like` keyword
+  already ran for conversations (there is no seed to name, so for this noun
+  the two keywords are honest synonyms). Bare conversation queries stay
+  literal — exact recall ("find where I said X") is that noun's default job.
+- **pito mumbles confusion in ten languages** — the didn't-understand
+  dictionary grows Italian, French, German, Japanese, Chinese, Korean,
+  Dutch, and Portuguese variants alongside the English deck and the
+  long-standing Spanish "Lo siento". Same odds, same shrug, more passports.
+- **The README and the site finally brag about it** — semantic search gets
+  a headline section with real production captures: a keyword-less query, a
+  vibe query, ranked Match bars, and the pager.
+
+### Fixed
+
+- **An unrecognized filter is never silently dropped again** — "list games
+  with hard bosses" used to render the FULL, unfiltered library as if the
+  filter had applied (the worst kind of success); "show games with hard
+  bosses" died in a usage hint. Both — and their vids twins — now hand the
+  original sentence to the natural-language gate, which routes it where it
+  belonged all along (a semantic search). Asking a list for a column it
+  already shows (`with title`) stays a list.
+- **The fuzzy did-you-mean stops reaching** — a 4-character token now needs
+  to be one edit away before a suggestion is offered: "hard" no longer
+  earns "Did you mean `hack`?" (the production logs' repeat offender),
+  while genuine near-misses ("fpss" → `fps`, "actoin" → `action`) still
+  get their nudge.
+
 ## [3.1.2] — 2026-07-18
 
 ### Changed

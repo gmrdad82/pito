@@ -354,7 +354,12 @@ module Pito
             return video_not_found(ordinal_ref) if video.nil?
           else
             video = resolve_target(::Video, id_key: :video_id, noun_fillers: video_noun_fillers)
-            return needs_ref if video == :needs_ref
+            if video == :needs_ref
+              # Same F-2 shape as the game branch above: `show vids with hard
+              # bosses` must reach the NL gate, not die in the usage hint.
+              return nl_soft_fail_needs_ref if nl_soft_fail_remainder?(:vid)
+              return needs_ref
+            end
             video ||= resolve_title(::Video, video_noun_fillers)
             if video.nil?
               ref = target_ref(video_noun_fillers, id_key: :video_id)
@@ -409,7 +414,10 @@ module Pito
             return game_not_found(ordinal_ref) if game.nil?
           else
             game = resolve_target(::Game, id_key: :game_id, noun_fillers: game_noun_fillers)
-            return needs_ref if game == :needs_ref
+            if game == :needs_ref
+              return nl_soft_fail_needs_ref if nl_soft_fail_remainder?(:game)
+              return needs_ref
+            end
             game ||= resolve_title(::Game, game_noun_fillers)
             if game.nil?
               ref = target_ref(game_noun_fillers, id_key: :game_id)
@@ -544,6 +552,31 @@ module Pito
         # degrades to exactly the message this branch used to emit.
         def nl_soft_fail(key, **args)
           Pito::Chat::Result::Error.new(message_key: key, message_args: args, nl_fallback: true)
+        end
+
+        # F-2 (live 2026-07-18): `show games with hard bosses` — the typed
+        # noun ("games") is a GAME_NOUN_FILLER, so ref extraction goes blank
+        # and +resolve_target+ returns :needs_ref BEFORE the segment-selection
+        # clause is ever parsed; the `with hard bosses` clause silently
+        # vanishes into the plain needs_ref usage hint instead of reaching the
+        # NL gate as the difficulty search it reads as. True only when a
+        # with/only/without clause is present carrying token(s) that don't
+        # validate as a real segment name for this entity — a BARE `show
+        # game`/`show games` (no clause at all) stays the ordinary usage hint
+        # unchanged, as does a request whose entity DID resolve (a genuinely
+        # bad segment name on a real ref keeps the existing crisp
+        # segment_unknown_error — not free text).
+        def nl_soft_fail_remainder?(entity_kind)
+          !follow_up? && nl_eligible? && parse_selection(entity_kind).unknown.any?
+        end
+
+        # The marker still carries the crisp needs_ref usage hint: a consumer
+        # that renders it un-fallen-back degrades to exactly the message
+        # #needs_ref used to emit (mirrors #nl_soft_fail's own comment).
+        def nl_soft_fail_needs_ref
+          Pito::Chat::Result::Error.new(
+            message_key: "pito.chat.show.needs_ref", message_args: {}, nl_fallback: true
+          )
         end
 
         def needs_ref

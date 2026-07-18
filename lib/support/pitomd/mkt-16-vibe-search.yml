@@ -1,0 +1,13 @@
+# mkt-16 — the explicit vibe search: `about` + a feeling, answered by the
+# trait vocabulary ("brutal but worth every second" -> the punishing-but-
+# loved shelf). Full-shell keyframe: typed sentence + ranked card + pager
+# footer prove the flow end to end.
+name: mkt-16-vibe-search
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1200, scale: 1 }
+steps:
+  - login: true
+  - command: "search games about brutal but worth every second"
+  - wait_for: { text: "Match", timeout: 25 }
+  - sleep: 4.0
+  - keyframe: mkt-16-vibe-search.png

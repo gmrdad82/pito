@@ -324,6 +324,91 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(note[:kind]).to eq(:system)
       expect(note[:payload]["text"].to_s).to include("vidoes")
     end
+
+    # F-3 (live 2026-07-18 production audit): a SHORT (<= 4 char) token needs
+    # Levenshtein <= 1 to earn a suggestion — distance 2 on a 4-char token is
+    # how "hard" used to become "hack" (14 prod events, repeat offender).
+    # Longer tokens keep the looser distance-2 rule (boundary pinned both ways
+    # in game_list_filter_spec.rb; this pins the HANDLER-visible outcome).
+    it "no longer offers `hack` for the 4-char token `hard` (was the repeat prod false-positive)" do
+      # "hard" is no longer fuzzy-close enough to suggest anything (F-3), so it
+      # falls through to the genuinely-unknown-token path (nl_fallback marker,
+      # not a silent did-you-mean) instead of the old "Did you mean `hack`?".
+      result = handler_for("list hard games").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(I18n.t("pito.copy.huh")).to include(result.message_key)
+    end
+  end
+
+  # ── F-2/F-3: unrecognized `with` filter never silently drops (live 2026-07-18) ─
+  #
+  # Production audit: "list games with hard bosses" — the owner wanted a
+  # difficulty search. `with` on `list games` only ever selects COLUMNS
+  # (WithColumns silently drops what it can't map — see its header), so
+  # "hard bosses" used to vanish and the FULL, unfiltered game list rendered
+  # as if the filter had been applied. Fixed: an unrecognized `with` token
+  # now flags the SAME nl_fallback marker `unknown_entity` uses (3.0.1 P7) so
+  # Pito::Dispatch::Router gives the ORIGINAL utterance one shot at the NL
+  # gate (measured 0.838 confidence routing this exact phrase to `search`)
+  # before any local copy renders.
+
+  describe "#call with an unrecognized `with`-clause token (never silently drop a filter)" do
+    let!(:easy_game) { create(:game, title: "Easy Game") }
+    let!(:hard_game) { create(:game, title: "Hard Game") }
+
+    it "flags `list games with hard bosses` as an nl_fallback marker instead of listing everything" do
+      result = handler_for("list games with hard bosses").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(I18n.t("pito.copy.huh")).to include(result.message_key)
+    end
+
+    it "flags `list vids with hard bosses` the same way (the vids noun mirrors the guard)" do
+      create(:video, title: "Some Vid")
+      result = handler_for("list vids with hard bosses").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+    end
+
+    it "treats the always-rendered base columns as legal `with` no-ops, never a reroute" do
+      result = handler_for("list games with title").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      payload = result.events.first[:payload]
+      expect(payload["game_ids"]).to match_array([ easy_game.id, hard_game.id ])
+    end
+
+    it "keeps a mixed clause (real column + junk) a column list — column intent wins, junk drops (G26.1 shape)" do
+      result = handler_for("list games with genre,bogustoken").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["list_columns"]).to include("genre")
+    end
+
+    it "keeps a follow-up reply's unrecognized `with` token un-flagged (machine-reconstructed input, never free text)" do
+      source = Struct.new(:payload).new({ "reply_target" => "game_list" })
+      fu     = Pito::Chat::FollowUpContext.new(source_event: source, rest: "with hard bosses")
+      follow_up_handler = described_class.new(
+        message:      Pito::Chat::Message.new(tool: :list, body_tokens: [], kind: :new_turn, raw: "list games with hard bosses"),
+        conversation: Conversation.singleton,
+        follow_up:    fu
+      )
+
+      result = follow_up_handler.call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(false)
+    end
+
+    it "still lists games for a `with` clause of ONLY recognized columns (`list games with genre`)" do
+      result = handler_for("list games with genre").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["table_rows"]).to be_present
+    end
+
+    it "still lists games for a `with` clause naming the Channels column (`list games with channels`)" do
+      result = handler_for("list games with channels").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["table_rows"]).to be_present
+    end
   end
 
   # ── Singular noun aliases route via the shared registry ─────────────────────

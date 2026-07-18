@@ -206,6 +206,80 @@ RSpec.describe Pito::Chat::Handlers::SearchConversations do
     end
   end
 
+  context "`about` (semantic — synonym of `like` for this noun, see the class header)" do
+    it "routes to the SAME semantic path as `like`, embedding the query text and ranking by cosine distance" do
+      client = stub_embed(vec(0))
+
+      close        = create(:conversation)
+      close_anchor = seed_event(close, position: 1, embedding: vec(0, 1)) # distance ~0.293
+
+      far = create(:conversation)
+      seed_event(far, position: 1, embedding: vec(1)) # orthogonal, distance 1
+
+      hits = hits_of(search("search conversations about anything"))
+
+      expect(client).to have_received(:embed).with([ "anything" ])
+      expect(hits.map { |h| h["conversation_uuid"] }).to eq([ close.uuid, far.uuid ])
+      expect(hits.first["anchor_event_id"]).to eq(close_anchor.id)
+    end
+
+    it "degrades to the lexical path exactly like `like` does when the embedder returns a nil vector" do
+      stub_embed(nil)
+
+      convo     = create(:conversation)
+      hit_event = seed_event(convo, position: 1, text: "we tuned the zzflarp combo timing")
+
+      hits = hits_of(search("search conversations about zzflarp"))
+
+      expect(hits.map { |h| h["conversation_uuid"] }).to eq([ convo.uuid ])
+      expect(hits.first["anchor_event_id"]).to eq(hit_event.id)
+    end
+  end
+
+  context "keyword precedence (positional — earliest-typed keyword wins, mirrors Search#extract_query)" do
+    it "an earlier `about` beats `like`/`for` appearing later in the text" do
+      client = stub_embed(vec(0))
+      seed_event(create(:conversation), position: 1, embedding: vec(0))
+
+      search("search conversations about a chat like this one, not for anyone else")
+
+      expect(client).to have_received(:embed).with([ "a chat like this one, not for anyone else" ])
+    end
+
+    it "an earlier `for` beats `about` appearing later — stays lexical, `about` rides along inside the term" do
+      expect(Pito::Embedding::Client).not_to receive(:new)
+
+      convo = create(:conversation)
+      seed_event(convo, position: 1, text: "the one about dragons")
+
+      hits = hits_of(search("search conversations for the one about dragons"))
+
+      expect(hits.map { |h| h["conversation_uuid"] }).to eq([ convo.uuid ])
+    end
+
+    it "an earlier `like` beats `about`/`for` appearing later" do
+      client = stub_embed(vec(0))
+      seed_event(create(:conversation), position: 1, embedding: vec(0))
+
+      search("search conversations like something about dragons, not for me")
+
+      expect(client).to have_received(:embed).with([ "something about dragons, not for me" ])
+    end
+  end
+
+  context "bare stays literal `for` (conversations never gained the 2026-07-18 games/vids bare-catch-all)" do
+    it "never reaches the embedder for a keyword-less query, unlike games/vids' bare `about`" do
+      expect(Pito::Embedding::Client).not_to receive(:new)
+
+      convo = create(:conversation)
+      seed_event(convo, position: 1, text: "we discussed zzflarp strategy")
+
+      hits = hits_of(search("search conversations zzflarp strategy"))
+
+      expect(hits.map { |h| h["conversation_uuid"] }).to eq([ convo.uuid ])
+    end
+  end
+
   context "kind allowlist" do
     it "never matches error or thinking kinds even when their payload text contains the term" do
       convo = create(:conversation)
@@ -221,6 +295,12 @@ RSpec.describe Pito::Chat::Handlers::SearchConversations do
   context "empty results" do
     it "renders needs_seed copy for a blank query" do
       result = search("search conversations")
+
+      expect(payload_of(result)["text"]).to eq(Pito::Copy.render("pito.chat.search.needs_seed"))
+    end
+
+    it "treats a lone dangling keyword (`search conversations about`) as an empty query, not a lexical hunt for the word" do
+      result = search("search conversations about")
 
       expect(payload_of(result)["text"]).to eq(Pito::Copy.render("pito.chat.search.needs_seed"))
     end

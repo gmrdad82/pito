@@ -4600,6 +4600,22 @@ en:
         - "My best guess is 'something'? Let's use `help` instead."
         - "That's a you thing, not a PITO thing — unless `help` proves me wrong."
         - "I give up, gracefully. `help` and we try again."
+        - "Boh, non ci ho capito un tubo. `help`, dai."
+        - "Frase decisamente non pervenuta. `help` per quelle che conosco."
+        - "Alors là, mystère total. `help` et on repart de zéro."
+        - "Aucun sens trouvé dans tout ça. Tente `help`."
+        - "Verstehe nur Bahnhof. `help`, bitte."
+        - "Nullkommanix verstanden. `help` und wir versuchen's nochmal."
+        - "何のことやらさっぱりです。`help` からどうぞ。"
+        - "解読不能でした。`help` で仕切り直しましょう。"
+        - "完全摸不着头脑。试试 `help`。"
+        - "这句话我解析不出来。用 `help` 看看吧。"
+        - "그건 무슨 소리인지 감이 안 잡혀요. `help`가 정답입니다."
+        - "하나도 못 알아들었어요. `help`부터 볼까요?"
+        - "Geen flauw idee waar dat over ging. Probeer `help`."
+        - "Dat snap ik echt niet. `help` dan maar?"
+        - "Não faço a mínima ideia do que foi isso. `help`, por favor."
+        - "Isso não entrou. Bora de `help`?"
       # NL gate (3.0.0) — the two lines the unknown-input fallback needs once a
       # free-text guess clears the router/mapper gate (lib/pito/chat/handlers/
       # unknown.rb). Single strings: both are terse, mechanical status lines, not
