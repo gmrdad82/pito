@@ -36,6 +36,27 @@ module Pito
           .filter_map { |token| vocabulary[token.strip.downcase] }
           .uniq
       end
+
+      # The `with` clause's raw tokens that #parse silently dropped (no entry
+      # in +vocabulary+) — the caller-facing half of that silence. A caller
+      # that must not let a filter-shaped word disappear noiselessly (F-2:
+      # "list games with hard bosses" rendering an unfiltered full list)
+      # checks this BEFORE trusting an empty/auto-filled column set.
+      #
+      # @param raw        [String] the raw command text.
+      # @param vocabulary  [Hash{String=>Object}] token (alias) → canonical value.
+      # @return [Array<String>] unrecognized tokens (stripped, downcased); []
+      #   when there is no `with` clause or every token resolved.
+      def unrecognized(raw, vocabulary:)
+        match = WITH_RE.match(raw.to_s)
+        return [] unless match
+
+        match[1]
+          .split(/\s*,\s*/)
+          .map { |token| token.strip.downcase }
+          .reject(&:empty?)
+          .reject { |token| vocabulary.key?(token) }
+      end
     end
   end
 end

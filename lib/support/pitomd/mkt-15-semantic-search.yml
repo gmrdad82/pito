@@ -1,0 +1,13 @@
+# mkt-15 — "just write it": the bare-query semantic catch-all. No keyword,
+# no syntax — a natural sentence lands on the trait-infused vectors and the
+# library answers by feel, top hit at 100. Full-shell keyframe so the typed
+# sentence is visible in the scrollback above the ranked card.
+name: mkt-15-semantic-search
+base_url: https://dev.pitomd.com
+viewport: { width: 1000, height: 1200, scale: 1 }
+steps:
+  - login: true
+  - command: "search games with a good story"
+  - wait_for: { text: "Match", timeout: 25 }
+  - sleep: 4.0
+  - keyframe: mkt-15-semantic-search.png

@@ -330,8 +330,8 @@ trains, the thresholds).
 ### Search grammar (`search` chat tool)
 
 One tool, three nouns (`search_nouns` vocabulary: `games` default, `vids`,
-`conversations`), keyword modes per noun (`about` — 3.1.1 — for games and
-vids; `like`/`for` everywhere):
+`conversations`), keyword modes per noun (`about` — 3.1.1 for games/vids,
+2026-07-18 owner unlock adds conversations; `like`/`for` everywhere):
 
 - **`search games like <title>`** — unchanged relevance ranking: resolves
   the seed through the title ladder (below), runs
@@ -347,18 +347,28 @@ vids; `like`/`for` everywhere):
   phrasings ("search games forcing skillful play") need no connector
   vocabulary at all. Typing `for` is the explicit literal path when
   exactness matters (bare = `for` was the 3.0.0 rule; superseded).
-- **`search conversations like <text>`** (`Pito::Chat::Handlers::
-SearchConversations`, delegated from `Search#call` rather than registered as
-  its own tool — `search` keeps one dispatch slot in `tools.yml`/the
-  registry) — embeds the text and cosine-searches `events.embedding` (HNSW)
-  over a 200-row candidate pool of owner-scoped (`conversations.source ==
-"app"`), embeddable-kind events; degrades to the lexical path when the
-  embedder has no opinion.
+- **`search conversations like <text>`** / **`search conversations about
+<text>`** (`Pito::Chat::Handlers::SearchConversations`, delegated from
+  `Search#call` rather than registered as its own tool — `search` keeps one
+  dispatch slot in `tools.yml`/the registry) — `like` and `about` are
+  SYNONYMS for this noun only, both routing to the one semantic path: embed
+  the text and cosine-search `events.embedding` (HNSW) over a 200-row
+  candidate pool of owner-scoped (`conversations.source == "app"`),
+  embeddable-kind events; degrades to the lexical path when the embedder has
+  no opinion. Games/vids draw a real line between `like` (seed a title, rank
+  its neighbors) and `about` (free-text, no seed); a conversation has no
+  title ladder for `like` to seed from in the first place, so there is no gap
+  left for `about` to fill — see the handler's class header.
 - **`search conversations for <text>`** / bare — `events.payload::text
 ILIKE`, the honest fallback with no relevance score (events carry no
-  tsvector column). Both conversation paths group hits by conversation
-  (anchor = the chronologically first hit in the pool), then rank — `like`
-  by nearest cosine distance, `for`/bare by the anchor's recency.
+  tsvector column). Bare conversations search stays this literal `for` path
+  — UNCHANGED by the 2026-07-18 games/vids ruling that made bare mean "the
+  vectors catch-all" for those two nouns (their bare path used to be strict
+  `for`-style exactness and needed a vibe-search escape hatch; this noun's
+  bare path was exact before and after, so there's nothing to unlock). Both
+  conversation paths group hits by conversation (anchor = the
+  chronologically first hit in the pool), then rank — `like`/`about` by
+  nearest cosine distance, `for`/bare by the anchor's recency.
 - Both `games` and `vids` paths share one card/pager per noun
   (`Search#build_payload` / `#build_video_payload`), page size 20 — the
   `search` tool's own `concerns.pager` in `tools.yml`, not `list`'s 50. A
@@ -372,16 +382,20 @@ ILIKE`, the honest fallback with no relevance score (events carry no
 
 Across its nouns, `search` speaks three general modes: `for` matches literal
 text (a title, a mention, an exact phrase), `like` ranks results by
-embedding similarity to a seed you name, and `about` (games and vids) takes
+embedding similarity to a seed you name (games/vids) or by embedding the
+query text directly (conversations, which have no seed), and `about` takes
 a free-text, qualitative description and searches by meaning rather than
-exact wording — the same semantic space `like` draws its similarity from.
-Keyword precedence is positional (the keyword typed earliest wins), so a
-query that merely _contains_ "about" or "like" mid-sentence is never
-hijacked; a games/vids query with no keyword at all rides the `about` path —
-write whatever, it goes to the vectors. All modes keep results honest about
-a miss: when nothing is
-genuinely relevant they return nothing, never a page padded out with weak
-matches just to fill it.
+exact wording — the same semantic space `like` draws its similarity from
+(for conversations specifically, `about` and `like` are the identical path,
+not independently implemented — see the noun's own bullet above). Keyword
+precedence is positional (the keyword typed earliest wins), so a query that
+merely _contains_ "about" or "like" mid-sentence is never hijacked; a
+games/vids query with no keyword at all rides the `about` path — write
+whatever, it goes to the vectors — while a conversations query with no
+keyword stays the literal `for` path (conversations' bare behavior is
+unchanged by the games/vids bare-catch-all ruling). All modes keep results
+honest about a miss: when nothing is genuinely relevant they return nothing,
+never a page padded out with weak matches just to fill it.
 
 The GBNF grammar mirrors the clause shape directly: `search`'s `query` slot
 compiles to `( "about" | "like" | "for" )? text?` (`GbnfBuilder#search_query_body`) —

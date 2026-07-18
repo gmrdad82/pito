@@ -1241,14 +1241,22 @@ tools:
       - "find the highlight reel from last month"
     reply: {}
 
-  # `search games like|for|about <query>` — the library search. The free
-  # `query` slot slurps "[games|vids] <keyword> <query>"; the handler parses
-  # the earliest-typed keyword: `like` = seed similarity (GameSimilarity /
-  # vid neighbors), `for` = lexical matching, `about` (3.1.1) = free-text
-  # semantic search via Pito::Search::Semantic. No keyword = `about` (3.1.2,
-  # the owner's vectors catch-all — games/vids; conversations keep their own
-  # grammar). Games render a game_list card (so #id replies, sort/with, and
-  # more/next paging all work via the existing pager).
+  # `search games|vids|conversations like|for|about <query>` — the library
+  # search. The free `query` slot slurps "[noun] <keyword> <query>"; the
+  # handler parses the earliest-typed keyword: `like` = seed similarity
+  # (GameSimilarity / vid neighbors) for games/vids, `for` = lexical matching
+  # (every noun), `about` (3.1.1 games/vids, 2026-07-18 owner unlock adds
+  # conversations) = free-text semantic search via Pito::Search::Semantic for
+  # games/vids. No keyword = `about` for games/vids (3.1.2, the owner's
+  # vectors catch-all) but stays lexical `for` for conversations — bare never
+  # had seed-resolution semantics for THIS noun to escape from, so there's no
+  # gap for `about` to fill (see Pito::Chat::Handlers::SearchConversations'
+  # class header). Conversations' `like` and `about` are synonyms of ONE
+  # semantic path (Pito::Chat::Handlers::SearchConversations#search_like) —
+  # a conversation has no title to seed `like` from the way a game/vid does,
+  # so both keywords just embed the query text. Games render a game_list card
+  # (so #id replies, sort/with, and more/next paging all work via the
+  # existing pager).
   search:
     description: pito.grammar.chat.search
     read_only: true # NL auto-run gate (P13): mutates no owner data (see analyze)

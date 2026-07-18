@@ -110,9 +110,21 @@ module Pito
       # Did-you-mean tuning. A token is offered as a correction only when it is
       # at least FUZZY_MIN_LENGTH chars (short tokens like "me"/"the"/"yo" are
       # too noisy — they sit within edit-distance 2 of real terms by accident)
-      # AND within FUZZY_MAX_DISTANCE edits of a real vocabulary term.
+      # AND within its length bucket's max distance (see #closest_term) of a
+      # real vocabulary term.
       FUZZY_MIN_LENGTH  = 4
       FUZZY_MAX_DISTANCE = 2
+
+      # F-3 (live 2026-07-18): on a SHORT token (<= SHORT_TOKEN_MAX_LENGTH
+      # chars — the shortest that even clears FUZZY_MIN_LENGTH), edit-distance
+      # 2 is nearly half the string and produced a real false positive in
+      # production — "hard" offered as a typo of the genre "hack"
+      # (Levenshtein 2), when the owner typed "list hard games"/"list games
+      # with hard bosses" wanting a difficulty search, not a genre correction.
+      # Short tokens get the tighter SHORT_TOKEN_MAX_DISTANCE; longer tokens
+      # keep the looser FUZZY_MAX_DISTANCE unchanged.
+      SHORT_TOKEN_MAX_LENGTH   = 4
+      SHORT_TOKEN_MAX_DISTANCE = 1
 
       class << self
         # Materialize the derived, frozen vocabulary constants on first reference.
@@ -297,18 +309,22 @@ module Pito
 
         # The closest vocabulary term to `token` within the fuzzy threshold, or
         # nil when the token is too short or close to nothing (i.e. it's filler).
+        # See SHORT_TOKEN_MAX_DISTANCE above for why short tokens get a
+        # tighter budget than the general FUZZY_MAX_DISTANCE.
         def closest_term(token)
           return nil if token.length < FUZZY_MIN_LENGTH
 
-          best, best_distance = nil, FUZZY_MAX_DISTANCE + 1
+          max_distance = token.length <= SHORT_TOKEN_MAX_LENGTH ? SHORT_TOKEN_MAX_DISTANCE : FUZZY_MAX_DISTANCE
+
+          best, best_distance = nil, max_distance + 1
           fuzzy_vocabulary.each do |term|
-            next if (token.length - term.length).abs > FUZZY_MAX_DISTANCE
+            next if (token.length - term.length).abs > max_distance
 
             distance = levenshtein(token, term)
             best, best_distance = term, distance if distance < best_distance
           end
 
-          best_distance <= FUZZY_MAX_DISTANCE ? best : nil
+          best_distance <= max_distance ? best : nil
         end
 
         # Edit distance via the shared Pito::Fuzzy.levenshtein — single source of

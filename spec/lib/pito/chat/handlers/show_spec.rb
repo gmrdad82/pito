@@ -371,6 +371,61 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
   end
 
+  # ── F-2: game branch's needs_ref no longer swallows a with-clause remainder ──
+  #
+  # Production audit (live 2026-07-18): "show games with hard bosses" — "games"
+  # is a GAME_NOUN_FILLER, so ref extraction goes blank (:needs_ref) BEFORE the
+  # segment-selection clause is ever parsed, and "with hard bosses" used to
+  # vanish into the plain needs_ref usage hint. Fixed: a with/only/without
+  # clause with unrecognized token(s), on an otherwise ref-less request, now
+  # flags the SAME nl_fallback marker (3.0.1 P7) so the ORIGINAL utterance
+  # gets one shot at the NL gate (measured 0.838 confidence → `search` for
+  # this exact phrase) before the needs_ref copy renders.
+
+  describe "NL soft-fail marker — game branch needs_ref remainder (F-2)" do
+    it "flags `show games with hard bosses` as an nl_fallback marker instead of the bare usage hint" do
+      result = show_real("show games with hard bosses")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.chat.show.needs_ref")
+    end
+
+    it "flags `show vids with hard bosses` the same way (the vid branch mirrors the game branch)" do
+      result = show_real("show vids with hard bosses")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.nl_fallback).to be(true)
+      expect(result.message_key).to eq("pito.chat.show.needs_ref")
+    end
+
+    it "keeps a bare `show game` (no clause at all) the ordinary un-flagged usage hint" do
+      result = handler_for("game").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.show.needs_ref")
+      expect(result.nl_fallback).to be(false)
+    end
+
+    it "keeps a follow-up reply's with-clause remainder un-flagged (machine-reconstructed input, never free text)" do
+      source = Struct.new(:payload).new({ "reply_target" => "game_list" })
+      fu     = Pito::Chat::FollowUpContext.new(source_event: source, rest: "games with hard bosses")
+      result = described_class.new(
+        message: Pito::Chat::Message.new(tool: :show, body_tokens: tokens("games", "with", "hard", "bosses"), kind: :new_turn, raw: "show games with hard bosses"),
+        conversation: Conversation.singleton,
+        follow_up: fu
+      ).call
+
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.show.needs_ref")
+      expect(result.nl_fallback).to be(false)
+    end
+
+    it "a real game ref with a genuinely bad segment name keeps the crisp segment_unknown_error (not free text)" do
+      result = show_real("show game #{game.id} only bogus")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).not_to eq("pito.chat.show.needs_ref")
+      expect(result.nl_fallback).to be(false)
+    end
+  end
+
   # ── not-found is a soft Ok: consume: false so a `#<handle>` reply can retry ──────
   it "returns a not-found game with consume: false (reply source stays repliable)" do
     result = show_real("show game #{game.id + 999}")

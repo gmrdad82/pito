@@ -73,16 +73,52 @@ module Pito
           @kwargs         = kwargs
         end
 
-        # Owner-locked grammar (3.0.0 L3):
-        #   search conversations like <x>  → semantic — embed <x>, cosine-nearest
-        #                                     over events.embedding.
-        #   search conversations for <x>   → lexical — ILIKE over the events'
-        #   search conversations <x>         (bare = `for`, same as Search#call)
+        # Owner-locked grammar (3.0.0 L3, `about` added 2026-07-18 — owner
+        # unlock, see below):
+        #   search conversations like <x>   → semantic — embed <x>, cosine-
+        #                                      nearest over events.embedding.
+        #   search conversations about <x>  → SAME semantic path as `like`,
+        #                                      not a second implementation.
+        #                                      Games/vids draw a real
+        #                                      distinction between `like`
+        #                                      (seed a title, rank its
+        #                                      neighbors) and `about`
+        #                                      (free-text, no seed) — but a
+        #                                      conversation was never given
+        #                                      seed-resolution semantics to
+        #                                      begin with (there's no title
+        #                                      ladder for a conversation the
+        #                                      way Game/Video#resolve_by_title
+        #                                      works), so `like` here has
+        #                                      ALWAYS just embedded the query
+        #                                      text (see #search_like below).
+        #                                      That makes `about` a pure
+        #                                      synonym for THIS noun only:
+        #                                      there is no seed for `about` to
+        #                                      lack that `like` already has.
+        #   search conversations for <x>    → lexical — ILIKE over the events'
+        #                                      payload.
+        #   search conversations <x>          (bare = `for`, UNCHANGED by the
+        #                                      2026-07-18 games/vids ruling.
+        #                                      That ruling made bare mean
+        #                                      "the vectors catch-all" for
+        #                                      games/vids specifically,
+        #                                      because those nouns' bare path
+        #                                      previously meant strict `for`-
+        #                                      style exactness and needed a
+        #                                      vibe-search escape hatch. This
+        #                                      noun's bare path was already
+        #                                      exact before AND after that
+        #                                      ruling — nothing about it
+        #                                      changed, so it stays `for`,
+        #                                      literal, same as pre-3.0.0.)
         def call
           mode, term = extract_query
           return needs_seed if term.blank?
 
-          mode == :like ? search_like(term) : search_lexical(term)
+          # `about` and `like` are synonyms here (see the class header) — both
+          # route to the semantic path; only `for`/bare stays lexical.
+          mode == :for ? search_lexical(term) : search_like(term)
         end
 
         private
@@ -91,25 +127,41 @@ module Pito
         #    referenced, not duplicated, so a grammar change to one path can't
         #    silently drift out of sync with the other) ─────────────────────────
 
+        # [:like, term] | [:about, term] | [:for, term]. Precedence is
+        # POSITIONAL, mirroring Search#extract_query's rule exactly: the
+        # keyword typed EARLIEST wins, so "for the clip about dragons" stays
+        # lexical for "the clip about dragons" and "about something like dark
+        # souls" stays semantic for "something like dark souls" — a fixed
+        # mode order would hijack both, since all three keywords are ordinary
+        # English words. Unlike Search#extract_query, a keyword-less bare
+        # query does NOT fall through to `about` here — see the class header
+        # for why bare stays literal `for` for this noun.
         def extract_query
-          raw = message.raw.to_s
-          if (m = raw.match(Pito::Chat::Handlers::Search::LIKE_CLAUSE))
-            [ :like, m[1].strip ]
-          elsif (m = raw.match(Pito::Chat::Handlers::Search::FOR_CLAUSE))
-            [ :for, m[1].strip ]
-          else
-            [ :for, bare_query(raw) ]
-          end
+          raw     = message.raw.to_s
+          matches = {
+            like:  raw.match(Pito::Chat::Handlers::Search::LIKE_CLAUSE),
+            about: raw.match(Pito::Chat::Handlers::Search::ABOUT_CLAUSE),
+            for:   raw.match(Pito::Chat::Handlers::Search::FOR_CLAUSE)
+          }
+          mode, m = matches.compact.min_by { |_mode, match| match.begin(0) }
+          return [ mode, m[1].strip ] if m
+
+          [ :for, bare_query(raw) ]
         end
 
         # Strips the tool word and an immediately-following noun token (here
         # always "conversation(s)", since Search#call only delegates here once
         # the noun already resolved to it), leaving the bare query.
         def bare_query(raw)
-          raw.strip.sub(/\Asearch\b\s*/i, "").sub(Pito::Chat::Handlers::Search::NOUN_PREFIX, "").strip
+          rest = raw.strip.sub(/\Asearch\b\s*/i, "").sub(Pito::Chat::Handlers::Search::NOUN_PREFIX, "").strip
+          # A lone dangling keyword ("search conversations about") is an empty
+          # query, not a lexical hunt for the literal word — mirrors
+          # Search#bare_query; ILIKE %about% over event payloads is all noise.
+          rest.match?(/\A(?:about|like|for)\z/i) ? "" : rest
         end
 
-        # ── `like` path (semantic) ──────────────────────────────────────────────
+        # ── `like`/`about` path (semantic — see the class header for why the
+        #    two keywords share this one method) ─────────────────────────────
 
         def search_like(term)
           vector = Pito::Embedding::Client.new.embed([ term ]).first

@@ -119,6 +119,30 @@ best-fit channels you hadn't thought of. It never guesses from titles; the links
 Your library finally knows which game every video covers — and everything below runs
 on that graph.
 
+### Your library understands how games feel
+
+<p align="center"><img src="docs/media/mkt-15-semantic-search.png" width="760" alt="Typing 'search games with a good story' into the chatbox and getting a ranked list of games back, no keywords or filters involved"></p>
+
+No keywords, no syntax to memorize — just say what you're after. Type `search games
+with a good story` or `something brutal but worth every second` and PITO reads the
+meaning, not the words, then ranks your library by how close each game lands. Every
+game carries a small, curated trait vocabulary — difficulty from easy to brutal, story
+from bad to emotional, pace from relaxing to chaotic, plus a set of qualitative tags —
+and that vocabulary rides straight into the search, so "brutal" and "worth every second"
+actually mean something. Typo and all: `search games requireing patience` finds the
+same games the spelled-right version would, because meaning doesn't care about
+spelling.
+
+<p align="center"><img src="docs/media/mkt-16-vibe-search.png" width="760" alt="search games about brutal but worth every second — the punishing-but-loved shelf, ranked by meaning with the closest match at 100"></p>
+
+Ask for a feeling and you get the shelf that feels that way — `search games about
+brutal but worth every second` surfaces the punishing-but-loved corner of your
+library, closest match first, with a pager for the rest. It's honest when it comes
+up empty, too: if nothing in your library is genuinely close to what you typed,
+PITO says so instead of padding the page with weak matches just to fill it. And
+the whole thing runs on an embedding model living inside your own PITO stack: no
+API key, no cloud call, nothing leaves your machine.
+
 ### And the rest of the loot
 
 <p align="center"><img src="docs/media/01-chat.gif" width="760" alt="PITO — one chatbox demo"></p>
@@ -225,9 +249,10 @@ full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
   the same way (platform, genre, developer, publisher, channels, footage, price,
   views, likes). Set fields with `platform`, `price set/unset`, and a manual
   `footage` total.
-- **Recommendations** — every game card surfaces **similar games** and the
-  **channels** it best fits, powered by a local embedding sidecar — no API key,
-  no cloud call.
+- **Recommendations & search** — every game card surfaces **similar games** and the
+  **channels** it best fits; `search games about <a feeling>` (or bare — no keyword
+  needed) finds games by feel instead of by name, typo and all. Same local embedding
+  sidecar — no API key, no cloud call.
 - **Linking** — explicit `link` / `unlink` between a video and a game, both
   directions; **PITO** never guesses from titles.
 - **Planning** — `schedule <id> slate` shows what's already on the calendar so you can

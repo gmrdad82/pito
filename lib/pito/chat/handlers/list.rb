@@ -192,6 +192,18 @@ module Pito
           # Bare `list` and valid filters (`list rpg`, `list upcoming`) are unaffected.
           return unknown_entity if unrecognized_head_token?(head)
 
+          # F-2 (live 2026-07-18): a `with <col>` clause whose token(s) don't
+          # map to a known Game column reads as a FILTER attempt that slipped
+          # past the head check ("list games with hard bosses" — the owner
+          # wanted a difficulty search, not a "hard bosses" column).
+          # WithColumns.parse silently drops what it can't map (by design —
+          # see its own header); this is the guard that stops that silence
+          # from turning into an unfiltered full list. Fires only when a
+          # `with` clause is present AND at least one of its tokens is
+          # unrecognized — a clause of all-recognized columns (`with genre`)
+          # is unaffected.
+          return unknown_entity if unrecognized_with_filter?(message.raw, vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary)
+
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           columns  = Pito::Chat::WithColumns.parse(
             message.raw,
@@ -348,6 +360,10 @@ module Pito
             filter_key = visibility_filter_from(message.raw)
             scoped     = scoped.public_send(filter_key) if filter_key
           end
+
+          # F-2 (same shape as #list_games): "list vids with hard bosses"
+          # must reach the NL gate, not render the full unfiltered list.
+          return unknown_entity if unrecognized_with_filter?(message.raw, vocabulary: Pito::MessageBuilder::Video::ListColumns.vocabulary)
 
           # Parse extra columns.
           columns = Pito::Chat::WithColumns.parse(
@@ -662,6 +678,26 @@ module Pito
           end
         end
 
+        # The always-rendered base columns — legal `with` no-ops, never a
+        # reroute: "list games with title" asks for what the list already
+        # shows, which is not free text.
+        BASE_COLUMN_TOKENS = %w[id title].freeze
+
+        # See the F-2 comment at its callsite in #list_games (the vids
+        # callsite mirrors it). Reroutes ONLY an entirely-alien clause: a
+        # clause that ALSO names at least one real column is column intent
+        # with junk to drop — G26.1 pins that the removed legacy `comments`
+        # token keeps degrading gracefully next to valid columns ("with
+        # views,comments,game" stays a column list); "with hard bosses"
+        # (nothing recognized) reads as free text for the NL gate.
+        def unrecognized_with_filter?(raw, vocabulary:)
+          leftovers = Pito::Chat::WithColumns.unrecognized(raw, vocabulary: vocabulary)
+                                             .reject { |token| BASE_COLUMN_TOKENS.include?(token) }
+          return false if leftovers.empty?
+
+          Pito::Chat::WithColumns.parse(raw, vocabulary: vocabulary).empty?
+        end
+
         # Free-chat with a genuinely unknown word — no guessing.
         # Render the generic "I don't get it" dictionary (`pito.copy.huh`, reused per
         # owner). Pre-rendered so the finalizer routes it to `text:` (keeps :error chrome).
@@ -674,7 +710,7 @@ module Pito
         # error, as does the marker itself when it degrades un-fallen-back.
         def unknown_entity
           Pito::Chat::Result::Error.new(
-            message_key: Pito::Copy.render("pito.copy.huh"), message_args: {}, nl_fallback: !follow_up?
+            message_key: Pito::Copy.render("pito.copy.huh"), message_args: {}, nl_fallback: !follow_up? && nl_eligible?
           )
         end
 

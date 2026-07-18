@@ -351,5 +351,24 @@ RSpec.describe Pito::Chat::GameListFilter do
       # 'rpgg'→'rpg' (genre, d=1) and 'shooterr'→'shooter' (genre, d=1).
       expect(described_class.suggestions("list rpgg shooterr")).to include("rpg", "shooter")
     end
+
+    # ── F-3 (live 2026-07-18): short tokens get a tighter budget ─────────────
+    # Production audit: 14 "did you mean" events, repeat offender "hard" →
+    # "hack" (Levenshtein 2 on a 4-char token) — the owner typed "list hard
+    # games" wanting a difficulty search. Short (<= 4 char) tokens now need
+    # distance <= 1; longer tokens keep the pre-existing distance-2 rule.
+    # Both sides of the boundary are pinned below.
+
+    it "no longer suggests `hack` for the 4-char token `hard` (distance 2 — the prod false-positive)" do
+      expect(described_class.suggestions("list hard")).to be_empty
+    end
+
+    it "still suggests within distance 1 on a short (4-char) token (`fpss` → `fps`)" do
+      expect(described_class.suggestions("list fpss")).to eq([ "fps" ])
+    end
+
+    it "still allows distance 2 on a longer (5+ char) token (`actoin` → `action`, unchanged rule)" do
+      expect(described_class.suggestions("list actoin")).to eq([ "action" ])
+    end
   end
 end
