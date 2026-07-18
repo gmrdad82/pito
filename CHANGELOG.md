@@ -4,6 +4,28 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [3.2.1] — 2026-07-18
+
+### Fixed
+
+- **`/config embeddings` stops calling itself a credentials panel** — the
+  status table's title now reads "Embeddings status" instead of the
+  "Embeddings credentials" fallback it inherited from the credential
+  providers (it never held a credential; it's a read-only health readout).
+- **The embeddings panel stops counting its own echo** — the conversation
+  events row read N/N+1 on every single run, because the echo of the very
+  command you just typed was already on the scrollback with its embedding
+  still pending. Counts now cover only completed turns (that's the moment
+  the embed pass is scheduled), so a healthy box reads N/N — and a genuinely
+  stuck event still shows, which is the whole point of the row.
+- **A single-result card knows what it's showing** — replying
+  `link to 56,55,54,50` on a search (or list) card that displays exactly one
+  game used to bounce off the usage hint, as if the card hadn't just told
+  you which game it meant. When no source id is typed and the card shows
+  exactly one row, that row now implies the source — link and unlink, games
+  and vids, search and list cards alike. A typed id still wins, and a
+  many-row card still asks you to say which one.
+
 ## [3.2.0] — 2026-07-18
 
 ### Added

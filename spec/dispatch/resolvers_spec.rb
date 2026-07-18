@@ -414,6 +414,26 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       result = described_class.resolve(:link_source, "9999999 to 1", context: { source_event: ev })
       expect(result).to be_a(invalid_class)
     end
+
+    it "list: a single-row card's game_ids implies the source when no id is typed" do
+      ev = source_event({ reply_target: "game_list", game_ids: [ game.id ] })
+      result = described_class.resolve(:link_source, "to #{video.id}", context: { source_event: ev })
+      expect(result).to eq(game)
+    end
+
+    it "list: a typed numeric left id wins over a single-row card's implied source" do
+      other_game = create(:game)
+      ev = source_event({ reply_target: "game_list", game_ids: [ game.id ] })
+      result = described_class.resolve(:link_source, "#{other_game.id} to #{video.id}", context: { source_event: ev })
+      expect(result).to eq(other_game)
+    end
+
+    it "list: two rows in the card resolves Invalid (no implied source)" do
+      g2 = create(:game)
+      ev = source_event({ reply_target: "game_list", game_ids: [ game.id, g2.id ] })
+      result = described_class.resolve(:link_source, "to #{video.id}", context: { source_event: ev })
+      expect(result).to be_a(invalid_class)
+    end
   end
 
   describe ":link_targets" do
