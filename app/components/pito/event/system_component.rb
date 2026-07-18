@@ -55,9 +55,20 @@ module Pito
       # do so via their own component (e.g. *_follow_up), not via this flag.
       def background = nil
 
-      # True when this system message has a follow-up handle and is not yet consumed.
+      # True when this system message has a follow-up handle, is not yet
+      # consumed, AND — when a persisted event backs this render — currently
+      # has at least one available reply action. That last check is the
+      # owner's "no actions → no handle, no chip" rule
+      # (Pito::FollowUp.renderable_actions?): a re-render of an OLD event
+      # whose actions have since gone away (its origin tool opted out, or its
+      # target lost its actions) simply comes back chipless — payloads are
+      # data, re-render yields current rules, no special-casing needed.
+      # Payload-only renders with no @event (component-level specs) skip that
+      # extra check — there's no persisted kind to evaluate it against.
       def followupable?
-        @reply_handle.present? && !@reply_consumed
+        return false unless @reply_handle.present? && !@reply_consumed
+
+        @event.nil? || Pito::FollowUp.renderable_actions?(@event)
       end
 
       # Every follow-up-able message renders as a SINGLE meta line —

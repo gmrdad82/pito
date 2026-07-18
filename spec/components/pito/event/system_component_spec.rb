@@ -884,6 +884,44 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  # ── chip gated on Pito::FollowUp.renderable_actions? (owner's "no actions →
+  #    no handle, no chip" rule) ────────────────────────────────────────────
+
+  describe "chip present with actions / absent without (owner's rule)" do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { create(:turn, conversation:) }
+
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "renders the chip for a registered target with actions" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: { "reply_handle" => "reg-1", "reply_target" => "game_detail", "body" => "x" })
+      expect(Pito::Stream::EventRenderer.render(event)).to include("reg-1")
+    end
+
+    it "renders the chip for a universal-only handle whose origin tool is NOT opted out" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: { "reply_handle" => "univ-1", "body" => "x" })
+      expect(Pito::Stream::EventRenderer.render(event)).to include("univ-1")
+    end
+
+    it "hides the chip for a universal-only handle whose origin tool opted out (universal_reply: false)" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: { "reply_handle" => "opt-1", "origin_tool" => "sync", "body" => "x" })
+      expect(Pito::Stream::EventRenderer.render(event)).not_to include("opt-1")
+    end
+
+    it "hides the chip when neither the target nor the universal fallback has any action " \
+       "(a dead/unregistered target AND an opted-out origin tool)" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle" => "gone-1", "reply_target" => "theme_diff",
+                       "origin_tool" => "sync", "body" => "x"
+                     })
+      expect(Pito::Stream::EventRenderer.render(event)).not_to include("gone-1")
+    end
+  end
+
   # A system message is ALWAYS transparent (left bar only). The payload[:surface]
   # "just changed by your reply" lift was removed (owner 2026-07-01) — replies/
   # follow-ups no longer elevate a message onto the surface background.

@@ -68,12 +68,13 @@ module Pito
         if HANDLE_STAMPING_KINDS.include?(kind.to_s)
           # Honor a per-tool `universal_reply: false` opt-out (tools.yml): stamp
           # the origin tool so later gates agree, and withhold the universal-only
-          # handle for opted-out tools (see Pito::Dispatch::UniversalReply).
+          # handle when nothing could ever act on it — opted-out tool OR a kind
+          # the universal_reply.share `kinds:` list doesn't cover (see
+          # Pito::FollowUp.actions_possible? — the owner's "no actions → no
+          # handle" rule).
           origin_tool = Pito::Dispatch::UniversalReply.origin_tool(turn)
           payload["origin_tool"] = origin_tool if origin_tool && !payload.frozen?
-          unless Pito::Dispatch::UniversalReply.opted_out?(origin_tool)
-            Pito::FollowUp.ensure_handle!(payload, conversation: @conversation)
-          end
+          Pito::FollowUp.ensure_handle!(payload, conversation: @conversation, kind:)
         end
         # (The living-background fx stamp lives in Event.create_with_position!
         # — the ONE create door every path shares; see app/models/event.rb.)

@@ -70,9 +70,21 @@ module Pito
       def apply?   = @phase == "apply"
 
       # True when the message has a live follow-up handle (preview phase only;
-      # apply is consumed).
+      # apply is consumed) AND — when a persisted event backs this render —
+      # currently has at least one available reply action (the owner's "no
+      # actions → no handle, no chip" rule; see
+      # SystemComponent#followupable? for the full rationale, identical
+      # here). Payload-only renders with no @event (component-level specs)
+      # skip that extra check.
+      #
+      # In practice this component only ever re-renders OLD persisted rows —
+      # the theme picker moved fully client-side and no current code path
+      # mints a theme_diff event — so this predicate is what correctly
+      # retires their long-stale, already-unroutable handle on next render.
       def followupable?
-        @reply_handle.present? && !@reply_consumed
+        return false unless @reply_handle.present? && !@reply_consumed
+
+        @event.nil? || Pito::FollowUp.renderable_actions?(@event)
       end
     end
   end

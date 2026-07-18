@@ -384,7 +384,7 @@ class AiOrchestratorJob < ApplicationJob
     payload = first[:payload]
     if HANDLE_KINDS.include?(first[:kind].to_s) && !payload.frozen?
       payload["origin_tool"] = Pito::Dispatch::UniversalReply.chat_tool(command, @conversation)
-      Pito::FollowUp.ensure_handle!(payload, conversation: @conversation)
+      Pito::FollowUp.ensure_handle!(payload, conversation: @conversation, kind: first[:kind])
     end
     @event.update!(kind: first[:kind], payload:)
     @broadcaster.replace_event(@event)

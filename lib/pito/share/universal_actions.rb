@@ -80,10 +80,18 @@ module Pito
       # kinds allowed. The YAML declaration is the single source of truth (replaces
       # the former NON_SHAREABLE_KINDS Ruby constant).
       def self.share_kind_allowed?(event)
+        kind_allowed?(event&.kind)
+      end
+
+      # The kind-only half of #share_kind_allowed? — no Event required, so
+      # Pito::FollowUp.actions_possible? (the mint-time gate, called before any
+      # Event row exists) can reuse the SAME `universal_reply.share.kinds:`
+      # config read instead of digging it a second time.
+      def self.kind_allowed?(kind)
         kinds = Pito::Dispatch::Config.data.dig(:universal_reply, :share, :kinds)
         return true if kinds.nil?
 
-        kinds.map(&:to_s).include?(event.kind.to_s)
+        kinds.map(&:to_s).include?(kind.to_s)
       end
 
       # True when the message is done rendering — i.e. it has no still-spinning

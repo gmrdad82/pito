@@ -24,7 +24,7 @@
         (#<handle> confirm / cancel). Handle drops once consumed/resolved.
         There is NO separate usage/affordance line. %>
     <%= render(Pito::Event::MetaLineComponent.new(
-          handle: (reply_handle.present? && !resolved? && !reply_consumed? ? reply_handle : nil)
+          handle: (followupable? ? reply_handle : nil)
         )) %>
   </div>
 <% end %>

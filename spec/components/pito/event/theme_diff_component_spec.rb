@@ -122,9 +122,21 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
   # ── follow-up handle in the single meta line (no usage/affordance line) ─────────
 
   describe "follow-up handle in the single meta line" do
-    it "shows the #handle in preview phase (reply_handle present, not consumed)" do
-      node = render_inline(described_class.new(payload: preview_payload, event: base_event))
+    it "shows the #handle when payload-only (no persisted event to gate against)" do
+      node = render_inline(described_class.new(payload: preview_payload, event: nil))
       expect(node.css(".pito-echo__meta").text).to include("beta-1234")
+    end
+
+    # theme_diff is a legacy render path: the theme picker moved fully
+    # client-side and no current code path mints a theme_diff event, so any
+    # persisted row is an OLD one. "theme_diff" is neither a Registry-registered
+    # reply_target (no handler claims it) nor a kind the universal
+    # share/revoke/unshare `kinds:` list covers — zero available actions. The
+    # owner's "no actions → no handle, no chip" rule (Pito::FollowUp.
+    # renderable_actions?) retires its long-stale, already-unroutable handle.
+    it "hides the #handle for a persisted event — theme_diff has zero available actions" do
+      node = render_inline(described_class.new(payload: preview_payload, event: base_event))
+      expect(node.css(".pito-echo__meta").text).not_to include("beta-1234")
     end
 
     it "NEVER renders a separate usage/affordance line" do

@@ -56,6 +56,19 @@ module Pito
         Pito::FollowUp.consumed?("reply_consumed" => @reply_consumed)
       end
 
+      # True when the confirm/cancel #handle should render: not yet resolved,
+      # not consumed, AND — when a persisted event backs this render —
+      # currently has at least one available reply action. That last check is
+      # the owner's "no actions → no handle, no chip" rule (see
+      # Pito::FollowUp.renderable_actions? / SystemComponent#followupable? for
+      # the full rationale — identical here). Payload-only renders with no
+      # @event (component-level specs) skip that extra check.
+      def followupable?
+        return false unless reply_handle.present? && !resolved? && !reply_consumed?
+
+        @event.nil? || Pito::FollowUp.renderable_actions?(@event)
+      end
+
       attr_reader :body, :expand_detail, :reply_handle
     end
   end

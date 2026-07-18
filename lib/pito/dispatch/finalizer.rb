@@ -81,17 +81,20 @@ module Pito
         # The tool that produced this turn's messages, stamped on each payload so
         # the palette and the follow-up dispatch can honor a per-tool
         # `universal_reply: false` opt-out (tools.yml) long after emission. An
-        # opted-out tool's messages get NO universal-only handle at all.
-        origin_tool  = Pito::Dispatch::UniversalReply.origin_tool(turn)
-        universal_ok = !Pito::Dispatch::UniversalReply.opted_out?(origin_tool)
+        # opted-out tool's messages get NO universal-only handle at all — nor
+        # does a tool whose kind isn't covered by the universal_reply.share
+        # `kinds:` list: ensure_handle! withholds the handle for either case
+        # (Pito::FollowUp.actions_possible? — the owner's "no actions → no
+        # handle" rule).
+        origin_tool = Pito::Dispatch::UniversalReply.origin_tool(turn)
 
         persisted = canonical_kinds(events).map do |attrs|
           indicator   = placeholder || @broadcaster.emit_thinking(turn:, dictionary:)
           placeholder = nil # only the first message reuses the pre-dispatch placeholder
 
           attrs[:payload]["origin_tool"] = origin_tool if origin_tool && !attrs[:payload].frozen?
-          if universal_ok && HANDLE_STAMP_KINDS.include?(attrs[:kind].to_s)
-            Pito::FollowUp.ensure_handle!(attrs[:payload], conversation: @conversation)
+          if HANDLE_STAMP_KINDS.include?(attrs[:kind].to_s)
+            Pito::FollowUp.ensure_handle!(attrs[:payload], conversation: @conversation, kind: attrs[:kind])
           end
           event = ::Event.create_with_position!(
             conversation: @conversation, turn:, kind: attrs[:kind], payload: attrs[:payload]
