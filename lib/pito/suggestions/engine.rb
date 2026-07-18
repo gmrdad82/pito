@@ -552,7 +552,14 @@ module Pito
         # Cards without stamped state (pre-stamp rows) stay viable.
         STATE_AWARE_REPLY_RESOLVERS = %w[column_list metric_list].freeze
 
+        # apply/use/accept (the AI answer's stage-only reply — see
+        # follow_up/handlers/ai_message.rb) declare via a per-target alias on
+        # the `apply` tool, ai_message only. They vanish from the palette when
+        # the answer carries no `type: "suggestion"` block: nothing to stage.
+        APPLY_REPLY_TOKENS = %w[apply use accept].freeze
+
         def viable_reply_action?(action, target, event)
+          return apply_suggestion_present?(event) if APPLY_REPLY_TOKENS.include?(action.to_s)
           return true unless %w[with without].include?(action.to_s)
 
           config   = Pito::Dispatch::ReplyBinding.target_config(action.to_s, target)
@@ -563,6 +570,12 @@ module Pito
           reply_arg_labels(
             tool: action.to_s, config:, committed: [], partial: "", target:, event:
           ).any?
+        end
+
+        # Mirrors AiMessage#apply_fallback's own gate (one source of truth on
+        # what "has a command to stage" means).
+        def apply_suggestion_present?(event)
+          Array(event.payload["blocks"]).any? { |b| b.is_a?(Hash) && b["type"].to_s == "suggestion" }
         end
 
         # Whether the source event carries the state its resolver reads —

@@ -81,6 +81,52 @@ RSpec.describe Ai::Blocks do
       end
     end
 
+    context "kv_table plain-datetime promotion (WP-B)" do
+      it "promotes a plain ISO date value to a typed date" do
+        result = normalize([ { "type" => "kv_table", "rows" => [ [ "Release", "2026-07-19" ] ] } ])
+        expect(result.first["rows"]).to eq([ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ])
+      end
+
+      it "promotes a plain ISO datetime value to a typed date" do
+        result = normalize([ { "type" => "kv_table", "rows" => [ [ "Synced", "2026-07-19T14:30:00Z" ] ] } ])
+        expect(result.first["rows"]).to eq([ [ "Synced", { "v" => "2026-07-19T14:30:00Z", "format" => "date" } ] ])
+      end
+
+      it "promotes a plain house-format date (dd-mm-yyyy) value to a typed date" do
+        result = normalize([ { "type" => "kv_table", "rows" => [ [ "Release", "19-07-2026" ] ] } ])
+        expect(result.first["rows"]).to eq([ [ "Release", { "v" => "19-07-2026", "format" => "date" } ] ])
+      end
+
+      it "promotes a plain house-format datetime (dd-mm-yyyy hh:mm) value to a typed date" do
+        result = normalize([ { "type" => "kv_table", "rows" => [ [ "Synced", "19-07-2026 14:30" ] ] } ])
+        expect(result.first["rows"]).to eq([ [ "Synced", { "v" => "19-07-2026 14:30", "format" => "date" } ] ])
+      end
+
+      it "leaves an ordinary plain string alone (not a date)" do
+        result = normalize([ { "type" => "kv_table", "rows" => [ [ "Genre", "RPG" ] ] } ])
+        expect(result.first["rows"]).to eq([ [ "Genre", "RPG" ] ])
+      end
+
+      it "leaves a shape-matching but calendar-invalid date string alone" do
+        result = normalize([ { "type" => "kv_table", "rows" => [ [ "Release", "31-13-2026" ] ] } ])
+        expect(result.first["rows"]).to eq([ [ "Release", "31-13-2026" ] ])
+      end
+
+      it "does not re-promote an already-typed date value" do
+        result = normalize([ { "type" => "kv_table", "rows" => [
+          [ "Release", { "v" => "2026-07-19", "format" => "date" } ]
+        ] } ])
+        expect(result.first["rows"]).to eq([ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ])
+      end
+
+      it "keeps a show command on a row, unaffected by date promotion" do
+        result = normalize([ { "type" => "kv_table", "rows" => [
+          { "key" => "#12 Elden Ring", "value" => "RPG", "command" => "show game #12" }
+        ] } ])
+        expect(result.first["rows"]).to eq([ [ "#12 Elden Ring", "RPG", "show game #12" ] ])
+      end
+    end
+
     context "table blocks" do
       it "degrades when the header is missing" do
         result = normalize([ { "type" => "table", "rows" => [ %w[a b] ] } ])
@@ -310,12 +356,12 @@ RSpec.describe Ai::Blocks do
         expect(result.first["type"]).to eq("text")
       end
 
-      it "degrades the 6th+ suggestion beyond the 5-suggestion cap" do
-        blocks = Array.new(6) { { "type" => "suggestion", "command" => "list games" } }
+      it "degrades the 2nd+ suggestion beyond the 1-suggestion cap" do
+        blocks = Array.new(3) { { "type" => "suggestion", "command" => "list games" } }
         result = normalize(blocks)
 
-        expect(result.first(5)).to all(include("type" => "suggestion"))
-        expect(result.last["type"]).to eq("text")
+        expect(result.first(1)).to all(include("type" => "suggestion"))
+        expect(result.drop(1)).to all(include("type" => "text"))
       end
     end
   end

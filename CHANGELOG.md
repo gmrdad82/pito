@@ -6,6 +6,49 @@ All notable changes to PITO are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Schedule the whole week in one line** — `schedule 5 tomorrow, 6 friday,
+7 27-07-2026 18:00` stages every pair behind ONE confirmation card, and the
+  batch is all-or-nothing: one bad segment (a past time, a missing vid, two
+  publishes crowding the same hour) rejects the lot with the offender named.
+  A new house rule backs it at the model layer: no two publishes on the same
+  channel within 60 minutes of each other — and imports/syncs from YouTube
+  are deliberately exempt, so a Studio-side pile-up still mirrors in freely.
+  Works as a hashtag reply on vid lists and search results too.
+- **Update many at once** — `update game footage 5 2, 6 3, 9 4.5` applies row
+  by row and reports once ("2 applied, 1 skipped — #6: no such game"); vid
+  description/tags get the same comma form behind a single confirmation.
+  Valid rows never wait for invalid ones.
+- **Suggestions you can actually grab** — the copy snippet grew a second
+  icon: stage the command straight into the chatbox, cursor parked, Enter
+  still yours. Shift+U stages the latest AI suggestion from anywhere, and
+  replying `apply` (or `use`, `accept`) to an AI answer does the same —
+  staging, never running.
+
+### Changed
+
+- **The AI closes with ONE suggestion, not a volley** — at most one
+  ready-to-run command per answer (a mass command counts as one), zero when
+  there's nothing actionable. Its tables also grew up: long labels truncate
+  instead of crushing the values, dates render in pito's own
+  `DD-MM-YYYY HH:MM` (the model's raw date strings never reach the screen
+  again), and a leading `#id` in a row is now tappable like every other id
+  column when the row carries its command.
+- **The AI model picker works from a phone** — the ctrl+f / ctrl+x hints are
+  now tappable, and the reasoning effort is always visible: a cycler when
+  the provider supports it, an honest dim line when it manages reasoning
+  itself.
+
+### Removed
+
+- **The `footage` tool retires** — `update game footage <id> <hours>` has
+  been the only setter for a while; the standalone tool, its card-reply
+  action, and its help entries are gone (and the showcase no longer suggests
+  the long-dead `footage update` form — a live bug on its way out).
+
+## [3.3.1] — 2026-07-18
+
 ### Changed
 
 - **Slash-command chrome stops offering itself for sharing** — every

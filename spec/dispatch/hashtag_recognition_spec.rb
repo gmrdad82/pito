@@ -30,7 +30,7 @@ RSpec.describe "Dispatch — hashtag recognition + action gating", type: :dispat
     # registry exposes them (this is what gates ToolDelegator + drives suggestions).
     {
       "video_detail"     => %w[rm delete reindex link unlink shinies sync],
-      "game_detail"      => %w[rm delete reindex link unlink footage platform price shinies sync],
+      "game_detail"      => %w[rm delete reindex link unlink platform price shinies sync],
       "channel_detail"   => %w[visit sync],
       "video_list"       => %w[show delete rm with without sort order],
       "game_list"        => %w[with without sort order],

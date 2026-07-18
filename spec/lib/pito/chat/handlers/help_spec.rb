@@ -68,7 +68,7 @@ RSpec.describe Pito::Chat::Handlers::Help do
 
   # ── GAMES verbs ───────────────────────────────────────────────────────────
 
-  %w[list show import delete reindex link unlink footage].each do |verb|
+  %w[list show import delete reindex link unlink].each do |verb|
     it "body contains GAMES verb '#{verb}'" do
       body = handler.call.events.first[:payload]["body"]
       expect(body).to include(verb)

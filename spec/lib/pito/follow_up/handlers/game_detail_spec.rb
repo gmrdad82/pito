@@ -125,9 +125,9 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "Matrix advertises rm, del, delete, reindex, link, unlink, footage, platform, price, shinies, sync, analyze for game_detail" do
+  it "Matrix advertises rm, del, delete, reindex, link, unlink, platform, price, shinies, sync, analyze for game_detail" do
     expect(Pito::Dispatch::Matrix.actions_for("game_detail")).to include(
-      "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync", "analyze"
+      "rm", "del", "delete", "reindex", "link", "unlink", "platform", "price", "shinies", "sync", "analyze"
     )
   end
 
@@ -293,63 +293,6 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── unknown action ───────────────────────────────────────────────────────────
 
-  describe "#call — footage [update] <hours>" do
-    let(:source_event) { build_detail_event }
-
-    subject(:result) { handler.call(event: source_event, rest: "footage 5", conversation:) }
-
-    it "returns a Result::Append with a system event" do
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(result.events.first[:kind]).to eq(:system)
-    end
-
-    it "sets the segment game's footage_hours from the bare `footage <hours>` form" do
-      result
-      expect(game.reload.footage_hours).to eq(BigDecimal("5.0"))
-    end
-
-    it "sets the segment game's footage_hours from the `footage update <hours>` form" do
-      handler.call(event: source_event, rest: "footage update 8.5", conversation:)
-      expect(game.reload.footage_hours).to eq(BigDecimal("8.5"))
-    end
-
-    it "ceils the hours up to the next 0.5 step" do
-      handler.call(event: source_event, rest: "footage 12.3", conversation:)
-      expect(game.reload.footage_hours).to eq(BigDecimal("12.5"))
-    end
-
-    it "emits the footage.updated confirmation with the formatted total" do
-      text = result.events.first[:payload]["text"]
-      expect(text).to include("Lies of P").and include("5h")
-    end
-
-    it "errors with missing_hours when no hours are given" do
-      result = handler.call(event: source_event, rest: "footage", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-    end
-
-    it "errors with missing_hours for a non-numeric value" do
-      result = handler.call(event: source_event, rest: "footage soon", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-    end
-
-    it "errors with missing_hours for a negative value" do
-      result = handler.call(event: source_event, rest: "footage -3", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-    end
-
-    it "errors when the segment's game no longer exists" do
-      event = build_detail_event("game_id" => game.id)
-      game.destroy
-      result = handler.call(event: event, rest: "footage 5", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
-    end
-  end
-
   describe "#call — price [set] <amount> | price unset" do
     let(:source_event) { build_detail_event }
 
@@ -440,7 +383,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     let(:sentinel)     { Pito::FollowUp::Result::Append.new(events: []) }
     before { allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel) }
 
-    specials  = %w[analyze footage price] # follow-up-only, handled in-card
+    specials  = %w[analyze price] # follow-up-only, handled in-card
     delegated = Pito::FollowUp::Registry.actions_for("game_detail") - specials
 
     delegated.each do |verb|

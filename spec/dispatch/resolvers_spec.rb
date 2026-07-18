@@ -46,7 +46,7 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
         :channel_by_handle, :video_by_id, :game_by_id, :id_among_rows,
         :schedule_expression, :column_list, :sort_clause, :metric_list,
         :game_titles, :visit_destination, :source_entity,
-        :footage_hours, :price_amount, :platform_value, :link_source, :link_targets
+        :price_amount, :platform_value, :link_source, :link_targets
       )
     end
   end
@@ -306,26 +306,6 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       result = described_class.resolve(:source_entity, nil, context: {})
       expect(result).to be_a(invalid_class)
       expect(result.reason).to match(/entity_class/)
-    end
-  end
-
-  # ── :footage_hours (T8.15 — wraps Pito::Games::FootageAmount) ─────────────────
-
-  describe ":footage_hours" do
-    it "happy: parses `update 12.5` to the shared parser's half-step Rational" do
-      result = described_class.resolve(:footage_hours, "update 12.5")
-      expect(result).to eq(Pito::Games::FootageAmount.parse("update 12.5"))
-      expect(result).to eq(25r / 2)
-    end
-
-    it "invalid: non-numeric input resolves Invalid" do
-      result = described_class.resolve(:footage_hours, "bogus")
-      expect(result).to be_a(invalid_class)
-      expect(result.reason).to match(/not a footage amount/)
-    end
-
-    it "invalid: a negative value resolves Invalid" do
-      expect(described_class.resolve(:footage_hours, "-1")).to be_a(invalid_class)
     end
   end
 

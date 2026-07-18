@@ -11,7 +11,7 @@ en:
       "@ai":
         usage: "@ai <question about your games, vids, or channels>"
       update:
-        usage: "update game footage|price|platform <id> <value>  |  update vid description|tags <id> <value>"
+        usage: "update game footage|price|platform <id> <value>  |  update vid description|tags <id> <value>  |  update <noun> <field> <id> <value>, <id> <value>, …"
       show:
         usage: "show game #id  |  show vid #id  |  show channel @handle"
         game:
@@ -233,8 +233,6 @@ en:
               "#id": "Local numeric video id — re-embeds the record"
             Options:
               "--help": "Print this help message"
-      footage:
-        usage: "footage update <id> <hours>"
       price:
         usage: "price set #id <amount>  |  price unset #id"
         set:
@@ -315,14 +313,15 @@ en:
             Options:
               "--help": "Print this help message"
       schedule:
-        usage: "schedule video #id <when>  |  schedule #id slate"
+        usage: "schedule video #id <when>  |  schedule #id slate  |  schedule #id <when>, #id <when>, …"
         video:
-          usage: "schedule video #id <when>  |  schedule #id slate"
+          usage: "schedule video #id <when>  |  schedule #id slate  |  schedule #id <when>, #id <when>, …"
           sections:
             Arguments:
               "video": "Target noun"
               "#id": "Local numeric video id"
               "slate": "Show the upcoming schedule (this week + the rest of your shift+space period), excluding this vid — obeys the shift+tab channel scope"
+              "#id <when>, #id <when>, …": "Mass form — comma-separated rows, ONE confirmation, all or nothing; the 60-minute channel spacing rule applies across the whole batch"
               "<when>": |-
                 Publish time (local, ≥30 min out). One of:
                 `today`
@@ -481,6 +480,13 @@ en:
                 "@ai": "Continue the thread anchored on this answer — your text plus this exchange go to the model, like replying in a conversation"
               Options:
                 "--help": "Print this help message"
+          apply:
+            usage: "#<ai-answer-hashtag> apply"
+            sections:
+              Description:
+                "apply": "Stage this answer's suggested command into the chatbox (aliases: use, accept) — copies it too; press Enter or click to run it. Never runs on its own."
+              Options:
+                "--help": "Print this help message"
       show-game:
         target_usage: "#<show-game-hashtag> <action>"
         actions:
@@ -531,13 +537,6 @@ en:
             sections:
               Description:
                 "rm": "Delete this game (alias: delete)"
-              Options:
-                "--help": "Print this help message"
-          footage:
-            usage: "#<show-game-hashtag> footage [update] <hours>"
-            sections:
-              Arguments:
-                "<hours>": "New total footage in hours for this game (rounded up to the next 0.5)"
               Options:
                 "--help": "Print this help message"
           price:
@@ -772,12 +771,13 @@ en:
               Options:
                 "--help": "Print this help message"
           schedule:
-            usage: "#<list-vids-hashtag> schedule <id> <when>  |  schedule <id> slate"
+            usage: "#<list-vids-hashtag> schedule <id> <when>  |  schedule <id> slate  |  schedule <id> <when>, <id> <when>, …"
             sections:
               Arguments:
                 "<id>": "Row number from the list"
                 "<when>": "Publish time — see `schedule --help` for forms"
                 "slate": "Show your upcoming schedule (this week + the rest of the shift+space period), excluding this vid"
+                "<id> <when>, <id> <when>, …": "Mass form — comma-separated rows, ONE confirmation, all or nothing"
               Options:
                 "--help": "Print this help message"
           delete:
@@ -872,12 +872,13 @@ en:
               Options:
                 "--help": "Print this help message"
           schedule:
-            usage: "#<search-vids-hashtag> schedule <id> <when>  |  schedule <id> slate"
+            usage: "#<search-vids-hashtag> schedule <id> <when>  |  schedule <id> slate  |  schedule <id> <when>, <id> <when>, …"
             sections:
               Arguments:
                 "<id>": "Row number from the list"
                 "<when>": "Publish time — see `schedule --help` for forms"
                 "slate": "Show your upcoming schedule (this week + the rest of the shift+space period), excluding this vid"
+                "<id> <when>, <id> <when>, …": "Mass form — comma-separated rows, ONE confirmation, all or nothing"
               Options:
                 "--help": "Print this help message"
           delete:

@@ -566,7 +566,7 @@ RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
 - Infrastructure under `lib/pito/chat/`.
 - Handlers under `lib/pito/chat/handlers/` — one subclass per tool, each
   declaring `self.verb`. Tools: `list`, `show`, `import`, `sync`, `delete`,
-  `reindex`, `link`, `unlink`, `publish`, `unlist`, `schedule`, `footage`,
+  `reindex`, `link`, `unlink`, `publish`, `unlist`, `schedule`,
   `platform` (plus internal `help` / `unknown`). Nouns `vids` / `subs` are
   canonical, with `videos` / `subscribers` accepted as aliases.
 - The parser classifies input into `:new_turn` or `:unknown`.

@@ -953,33 +953,6 @@ tools:
           mode: append
           ref: { resolver: source_entity }   # video from payload video_id
 
-  footage:
-    description: pito.grammar.chat.footage
-    nl_examples:
-      - "set footage for game 12 to 8.5 hours"
-      - "I recorded 3 more hours of game 42"
-      - "update the footage on tekken"
-      - "log 2 hours of footage for game 7"
-      - "another hour and a half of tekken footage"
-      - "footage on game 9 is now 12 hours"
-      - "add half an hour of footage to game 4"
-      - "bump game 6's footage up to 20"
-    auth: session
-    chat:
-      dispatch: Chat::Handlers::Footage
-      slots:
-        - name: title
-          kind: enum
-          source: game_titles
-          optional: true
-    reply:
-      targets:
-        game_detail:
-          mode: append
-          ref: { resolver: source_entity }   # game from payload game_id
-          args:
-            hours: { resolver: footage_hours }   # `footage [update] <hours>` → 0.5-step Rational
-
   price:
     description: pito.grammar.chat.price
     nl_examples:
@@ -1706,6 +1679,27 @@ tools:
           mode: mutate
           args:
             columns: { resolver: column_list }
+
+  apply:
+    # Reply tool on :ai messages — STAGES the answer's suggested command into
+    # the chatbox; it NEVER runs it. The web client intercepts this token
+    # client-side (chat_form_controller.js: Enter on `#<handle> apply|use|
+    # accept` clicks the rendered Pito::UseWidgetComponent fill button, no
+    # POST — a user gesture is required to write the clipboard, and this
+    # Enter keypress IS one, precedent: bare `/config ai`). This reply-tool
+    # branch is the non-web FALLBACK (see follow_up/handlers/ai_message.rb):
+    # it hands the command text back as a system message for the owner to
+    # copy/type themselves.
+    # Aliases live on the TARGET (not top-level, unlike confirm/cancel below)
+    # so use/accept surface as their own actions_for("ai_message") tokens —
+    # the follow-up palette needs them selectable, not just chat-context
+    # synonyms of apply (see resume_missing's new → aliases:[create] for the
+    # same per-target pattern).
+    reply:
+      targets:
+        ai_message:
+          mode: append
+          aliases: [use, accept]
 
   confirm:
     # Reply tool on confirmation events — executes the pending command.

@@ -133,8 +133,8 @@ module Pito
         return seed_set unless game_id
 
         cmds = [
-          "footage update ##{game_id} 2",
-          "footage update ##{game_id} 4",
+          "update game footage ##{game_id} 2",
+          "update game footage ##{game_id} 4",
           "analyze games ##{game_id}"
         ]
 

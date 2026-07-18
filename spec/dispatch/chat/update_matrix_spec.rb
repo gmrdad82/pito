@@ -265,4 +265,132 @@ RSpec.describe "Dispatch matrix — update (game/vid metadata writes)", type: :d
       expect(game.reload.price).to eq(BigDecimal("5.00"))
     end
   end
+
+  # ── WP4: MASS_SPLIT lookahead — the two specced tags-collision edges ───────
+  #
+  # MASS_SPLIT = /,\s*(?=#?\d+\s+\S)/ — a comma opens a new row ONLY when it's
+  # immediately followed by "<id> <value>". Both verbatim cases from the plan
+  # ride the SAME field (vid tags) so the escape hatch is unambiguous.
+
+  describe "MASS_SPLIT lookahead — both specced edge cases" do
+    it "'update vid tags <id1> 2023, <id2> fps' — a comma followed by <id> <value> ALWAYS opens a row" do
+      v1 = create(:video, tags: [])
+      v2 = create(:video, tags: [])
+
+      result = dispatch("update vid tags #{v1.id} 2023, #{v2.id} fps")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["command"]).to eq("video_metadata_mass")
+      expect(event[:payload]["items"]).to eq([
+        { "video_id" => v1.id, "video_title" => v1.title, "staged_value" => [ "2023" ] },
+        { "video_id" => v2.id, "video_title" => v2.title, "staged_value" => [ "fps" ] }
+      ])
+      expect(v1.reload.tags).to eq([]) # no write yet — still staged
+    end
+
+    it "'update vid tags <id> 60 fps, 2023' — the escape hatch: ONE row, tags [\"60 fps\", \"2023\"]" do
+      video = create(:video, tags: [])
+
+      result = dispatch("update vid tags #{video.id} 60 fps, 2023")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      # Single-row path — the pre-WP4 "video_metadata" command, not the mass form.
+      expect(event[:payload]["command"]).to eq("video_metadata")
+      expect(event[:payload]["field"]).to eq("tags")
+      expect(event[:payload]["staged_value"]).to eq([ "60 fps", "2023" ])
+      expect(event[:payload]["video_id"]).to eq(video.id)
+    end
+  end
+
+  # ── WP4: mass game update — per-row apply, never aborts ─────────────────────
+
+  describe "update game <field> <id> <v>, <id> <v>, … — mass form (game fields apply per row)" do
+    it "applies every valid row, skips the rest, and writes ONE :system summary naming both" do
+      g1 = create(:game, footage_hours: 0)
+      g2 = create(:game, footage_hours: 0)
+      missing_id = (::Game.maximum(:id) || 0) + 999
+      expect(::Game.find_by(id: missing_id)).to be_nil
+
+      result = dispatch("update game footage #{g1.id} 8.5, #{missing_id} 3, #{g2.id} abc")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.size).to eq(1)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+
+      # Row 1 applied; rows 2 (not found) and 3 (bad value) skipped — but
+      # every row still ran, independently, in typed order.
+      expect(g1.reload.footage_hours).to eq(17/2r)
+      expect(g2.reload.footage_hours).to eq(0)
+
+      body = event[:payload]["body"]
+      expect(body).to include("Update game footage")
+      expect(body).to include("1 applied")
+      expect(body).to include("2 skipped")
+
+      detail = event[:payload]["expand_detail"]
+      expect(detail.size).to eq(3)
+      expect(detail[0]).to include("##{g1.id}").and include("→")
+      expect(detail[1]).to include("##{missing_id}").and include("not found")
+      expect(detail[2]).to include("##{g2.id}")
+    end
+
+    it "enqueues GameEmbedIndexJob once per applied platform row" do
+      g1 = create(:game, platforms: [])
+      g2 = create(:game, platforms: [])
+
+      expect { dispatch("update game platform #{g1.id} ps5, #{g2.id} switch") }
+        .to have_enqueued_job(GameEmbedIndexJob).with(g1.id)
+        .and have_enqueued_job(GameEmbedIndexJob).with(g2.id)
+    end
+
+    it "does not raise and reports zero applied when every row is invalid" do
+      missing1 = (::Game.maximum(:id) || 0) + 999
+      missing2 = missing1 + 1
+
+      result = nil
+      expect { result = dispatch("update game price #{missing1} 9, #{missing2} 8") }.not_to raise_error
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("0 applied")
+      expect(body).to include("2 skipped")
+    end
+  end
+
+  # ── WP4: mass vid update — staged confirmation, skips named, zero-valid error ─
+
+  describe "update vid <field> <id> <v>, <id> <v>, … — mass form (vid fields stage ONE confirmation)" do
+    it "stages only the resolved rows and names an unresolved id as skipped in expand_detail" do
+      video = create(:video, tags: [])
+      missing_id = (::Video.maximum(:id) || 0) + 999
+      expect(::Video.find_by(id: missing_id)).to be_nil
+
+      result = dispatch("update vid tags #{video.id} solo, #{missing_id} ghost")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["command"]).to eq("video_metadata_mass")
+      expect(event[:payload]["items"].size).to eq(1)
+      expect(event[:payload]["items"].first["video_id"]).to eq(video.id)
+      expect(event[:payload]["expand_detail"].last).to eq("Skipped: ##{missing_id} — not found")
+      expect(event[:payload]["reply_handle"]).to be_present
+
+      expect(video.reload.tags).to eq([]) # no write yet — still staged
+    end
+
+    it "returns a plain error with NO card when every row is invalid" do
+      missing1 = (::Video.maximum(:id) || 0) + 999
+      missing2 = missing1 + 1
+
+      result = dispatch("update vid tags #{missing1} a, #{missing2} b")
+
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.update.mass_no_valid_rows")
+    end
+  end
 end

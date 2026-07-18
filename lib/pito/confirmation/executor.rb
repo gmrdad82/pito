@@ -44,8 +44,12 @@ module Pito
             confirm_video_unlist(payload)
           when "video_schedule"
             confirm_video_schedule(payload)
+          when "video_schedule_mass"
+            confirm_video_schedule_mass(payload)
           when "video_metadata"
             confirm_video_metadata(payload)
+          when "video_metadata_mass"
+            confirm_video_metadata_mass(payload)
           when "game_reindex"
             confirm_game_reindex(payload)
           when "video_reindex"
@@ -136,6 +140,49 @@ module Pito
           Pito::Copy.render("pito.copy.videos.metadata_updated", { title: title, field: field })
         end
 
+        # `update vid description/tags <id> <v>, <id> <v>, …` mass confirm
+        # (WP4). PER ROW, deliberately NO transaction — unlike the mass
+        # schedule form (all-or-nothing), a mass metadata batch is a set of
+        # independent single-field writes, so one row vanishing between
+        # staging and confirming (rare: the chat handler already filtered to
+        # rows that resolved at STAGE time) shouldn't cost the rows around it.
+        # A missing vid is a collected failure, never a raise. The outcome
+        # text reports both counts — see pito.copy.update.mass_metadata_* for
+        # the all-updated / all-failed / partial shapes.
+        def confirm_video_metadata_mass(payload)
+          payload = payload.with_indifferent_access
+          field   = payload[:field].to_s
+          return Pito::Copy.render("pito.copy.confirmation.confirmed") unless %w[description tags].include?(field)
+
+          items = Array(payload[:items]).map { |item| item.with_indifferent_access }
+
+          updated_count = 0
+          failed_count  = 0
+
+          items.each do |item|
+            video = ::Video.find_by(id: item[:video_id])
+            if video.nil?
+              failed_count += 1
+              next
+            end
+
+            value = item[:staged_value]
+            video.update!(field => field == "tags" ? Array(value).map(&:to_s) : value.to_s)
+            VideoEmbedIndexJob.perform_later(video.id)
+            VideoRemoteStatusSync.perform_later(video.id, fields: [ field ])
+            updated_count += 1
+          end
+
+          if failed_count.zero?
+            Pito::Copy.render("pito.copy.update.mass_metadata_updated", { count: updated_count, field: field })
+          elsif updated_count.zero?
+            Pito::Copy.render("pito.copy.update.mass_metadata_failed", { count: failed_count, field: field })
+          else
+            Pito::Copy.render("pito.copy.update.mass_metadata_partial",
+                               { updated: updated_count, field: field, failed: failed_count })
+          end
+        end
+
         def confirm_video_unlist(payload)
           payload = payload.with_indifferent_access
           title   = payload[:video_title].to_s
@@ -159,7 +206,27 @@ module Pito
           return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
 
           publish_at = Time.iso8601(payload[:publish_at].to_s)
-          video.update!(privacy_status: :private, publish_at: publish_at)
+          video.assign_attributes(privacy_status: :private, publish_at: publish_at)
+
+          # :schedule-context save — the chat handler already dry-ran this same
+          # validation at stage time, but the confirm click may land minutes
+          # later (another schedule could have landed on the channel meanwhile),
+          # so the collision check runs again here, for real, at save time.
+          # Rescued locally (never re-raised) so this NEVER falls through to the
+          # generic `pito.copy.confirmation.execution_failed` rescue in
+          # Pito::FollowUp::Handlers::Confirmation — a schedule conflict gets
+          # its own witty, specific outcome text instead.
+          begin
+            video.save!(context: :schedule)
+          rescue ActiveRecord::RecordInvalid
+            collision = video.publish_spacing_collision
+            return Pito::Copy.render("pito.copy.videos.schedule_conflict", {
+              title: title,
+              other: collision&.title.to_s,
+              when:  Pito::Formatter::SyncStamp.call(collision&.publish_at)
+            })
+          end
+
           VideoRemoteStatusSync.perform_later(video.id)
           # Render the confirmed time in the app-local zone (Time.zone), matching
           # the DD-MM-YYYY HH:MM the schedule confirmation showed. No "UTC" label —
@@ -167,6 +234,56 @@ module Pito
           when_label = Pito::Formatter::SyncStamp.call(publish_at)
           Pito::Copy.render("pito.copy.videos.scheduled",
                             { title: title, when: when_label })
+        end
+
+        # `schedule <id> <when>, <id> <when>, …` mass confirm (WP3). All-or-nothing,
+        # confirm-time re-validation BY CONSTRUCTION: items are applied ascending by
+        # publish_at inside ONE transaction, `find → assign → save!(context:
+        # :schedule)` each. An earlier item's save is visible to a later item's own
+        # publish_spacing_within_channel query (same transaction, same connection),
+        # so an intra-batch collision — the stage-time handler's in-memory pairwise
+        # check, re-run for real, or a NEW schedule that landed on the channel
+        # between staging and confirming — is caught for free; no separate pairwise
+        # logic needed here. Any failure rolls back EVERY item in the batch (nothing
+        # partially scheduled) and names the vid that tripped it.
+        # VideoRemoteStatusSync only fires after a clean, full commit.
+        def confirm_video_schedule_mass(payload)
+          payload = payload.with_indifferent_access
+          items   = Array(payload[:items]).map { |item| item.with_indifferent_access }
+                                           .sort_by { |item| Time.iso8601(item[:publish_at].to_s) }
+
+          scheduled = []
+          failure   = nil
+
+          ActiveRecord::Base.transaction do
+            items.each do |item|
+              video = ::Video.find_by(id: item[:video_id])
+              if video.nil?
+                failure = { key: "pito.copy.videos.not_found", args: { ref: item[:video_title].to_s } }
+                raise ActiveRecord::Rollback
+              end
+
+              video.assign_attributes(privacy_status: :private, publish_at: Time.iso8601(item[:publish_at].to_s))
+              begin
+                video.save!(context: :schedule)
+              rescue ActiveRecord::RecordInvalid
+                collision = video.publish_spacing_collision
+                failure = { key: "pito.copy.videos.mass_schedule_conflict", args: {
+                  title: video.title,
+                  other: collision&.title.to_s,
+                  when:  Pito::Formatter::SyncStamp.call(collision&.publish_at)
+                } }
+                raise ActiveRecord::Rollback
+              end
+
+              scheduled << video
+            end
+          end
+
+          return Pito::Copy.render(failure[:key], failure[:args]) if failure
+
+          scheduled.each { |video| VideoRemoteStatusSync.perform_later(video.id) }
+          Pito::Copy.render("pito.copy.videos.mass_scheduled", { count: scheduled.size })
         end
 
         # Force a synchronous reindex for the game (digest-bypassed).

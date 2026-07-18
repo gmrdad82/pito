@@ -132,6 +132,76 @@ RSpec.describe Video, type: :model do
     end
   end
 
+  # ── publish_spacing_within_channel (:schedule context, WP2) ───────
+  # 60-min ROLLING per-channel spacing between scheduled publishes. Only the
+  # chat `schedule` tool's stage-time dry-run and confirm-time save opt into
+  # the :schedule validation context — see Video#publish_spacing_within_channel.
+  describe "publish_spacing_within_channel (:schedule context)" do
+    let!(:spacing_channel) { create(:channel) }
+    let!(:other_channel)   { create(:channel) }
+
+    it "default context (plain save): a colliding publish_at is VALID — the validation never runs" do
+      create(:video, channel: spacing_channel, publish_at: 10.days.from_now)
+      colliding = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 10.minutes)
+      expect(colliding).to be_valid
+      expect { colliding.save! }.not_to raise_error
+    end
+
+    it ":schedule context: invalid when within 60 minutes of another scheduled video on the SAME channel" do
+      create(:video, channel: spacing_channel, title: "First Video", publish_at: 10.days.from_now)
+      colliding = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 30.minutes)
+      expect(colliding.valid?(:schedule)).to be false
+      expect(colliding.errors[:publish_at]).to be_present
+    end
+
+    it ":schedule context: valid at exactly 60 minutes away (the boundary is allowed, not caught by the range)" do
+      anchor = 10.days.from_now
+      create(:video, channel: spacing_channel, publish_at: anchor)
+      exactly_60 = build(:video, channel: spacing_channel, publish_at: anchor + 60.minutes)
+      expect(exactly_60.valid?(:schedule)).to be true
+    end
+
+    it ":schedule context: a colliding time on a DIFFERENT channel is valid (spacing is per-channel)" do
+      create(:video, channel: other_channel, publish_at: 10.days.from_now)
+      cross_channel = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 10.minutes)
+      expect(cross_channel.valid?(:schedule)).to be true
+    end
+
+    it ":schedule context: a video with a PAST publish_at never counts as a collision, even within the window" do
+      # Video.scheduled excludes publish_at <= Time.current, so a past publish
+      # is never a candidate — even though the gap here is well under 60 min.
+      create(:video, channel: spacing_channel, publish_at: 5.minutes.ago)
+      candidate = build(:video, channel: spacing_channel, publish_at: 10.minutes.from_now)
+      expect(candidate.valid?(:schedule)).to be true
+    end
+
+    it ":schedule context: self-excluded — a persisted video does not collide with its own publish_at" do
+      video = create(:video, channel: spacing_channel, publish_at: 10.days.from_now)
+      expect(video.valid?(:schedule)).to be true
+    end
+  end
+
+  # ── #publish_spacing_collision ─────────────────────────────────────
+  describe "#publish_spacing_collision" do
+    let!(:pc_channel) { create(:channel) }
+
+    it "returns the colliding video when one exists within the window" do
+      other = create(:video, channel: pc_channel, title: "Anchor Video", publish_at: 10.days.from_now)
+      candidate = build(:video, channel: pc_channel, publish_at: other.publish_at + 15.minutes)
+      expect(candidate.publish_spacing_collision).to eq(other)
+    end
+
+    it "returns nil when there is no collision" do
+      candidate = build(:video, channel: pc_channel, publish_at: 10.days.from_now)
+      expect(candidate.publish_spacing_collision).to be_nil
+    end
+
+    it "returns nil when publish_at is blank" do
+      candidate = build(:video, channel: pc_channel, publish_at: nil)
+      expect(candidate.publish_spacing_collision).to be_nil
+    end
+  end
+
   # ── #thumbnail_variant_url ───────────────────────────────────────
   describe "#thumbnail_variant_url" do
     let(:saved) { create(:video) }

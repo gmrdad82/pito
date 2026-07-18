@@ -21,7 +21,7 @@ module Ai
     MAX_COLS        = 6
     MAX_SERIES      = 90
     MAX_BARS        = 5
-    MAX_SUGGESTIONS = 5
+    MAX_SUGGESTIONS = 1
     HEATMAP_MIN     = 2
     HEATMAP_MAX     = 42 # = the Heatmap visualizer's COLS canvas (1 braille cell per column)
 
@@ -160,11 +160,25 @@ module Ai
 
     KV_VALUE_FORMATS = %w[price date number score].freeze
 
+    # The same two strictly-parsed shapes KvTableBlockComponent#formatted_date
+    # renders — ISO8601 (date or datetime) and the house dd-mm-yyyy[ hh:mm].
+    # Shape alone isn't enough ("31-13-2026" matches the DMY pattern but
+    # isn't a real date) — .strict_kv_datetime? below actually parses.
+    KV_DATE_ISO     = /\A\d{4}-\d{2}-\d{2}\z/
+    KV_DATETIME_ISO = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?\z/
+    KV_DATE_DMY     = /\A\d{2}-\d{2}-\d{4}\z/
+    KV_DATETIME_DMY = /\A\d{2}-\d{2}-\d{4} \d{2}:\d{2}\z/
+
     # Rows arrive as [key, value] pairs OR {key:, value:, command:} objects.
     # A value may itself be typed — {v:, format: price|date|number|score} —
     # which the component right-aligns and renders through the house
     # formatters (price = the show-game coin display). `command` (validated
-    # like a suggestion) makes the row's key click-to-prefill.
+    # like a suggestion) makes the row's key click-to-prefill. A PLAIN string
+    # value that strictly parses as a datetime is promoted to a typed date
+    # here — the model routinely echoes a date it saw earlier in the
+    # conversation as a bare string, and that string was never house-format
+    # once it leaves the typed path (the "screenshot tower" bug: a plain
+    # value renders exactly as sent, forever).
     def kv_table(b, conversation = nil)
       rows = Array(b["rows"]).first(max_rows).filter_map do |row|
         kv_row(row, conversation)
@@ -197,8 +211,22 @@ module Ai
 
         { "v" => v["v"].to_s, "format" => format }
       else
-        plain(value)
+        text = plain(value)
+        strict_kv_datetime?(text) ? { "v" => text, "format" => "date" } : text
       end
+    end
+
+    # True iff +str+ is one of the two house datetime shapes AND actually
+    # parses (rejects e.g. "31-13-2026" — shape-only would let it through).
+    def strict_kv_datetime?(str)
+      case str
+      when KV_DATE_ISO, KV_DATETIME_ISO then Time.zone.iso8601(str) && true
+      when KV_DATE_DMY                  then Time.zone.strptime(str, "%d-%m-%Y") && true
+      when KV_DATETIME_DMY              then Time.zone.strptime(str, "%d-%m-%Y %H:%M") && true
+      else false
+      end
+    rescue ArgumentError, TypeError
+      false
     end
 
     def table(b)

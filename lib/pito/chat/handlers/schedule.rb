@@ -47,6 +47,13 @@ module Pito
           slate_idx = body.index { |t| t.value.to_s.downcase == SLATE_KEYWORD }
           return slate(body, slate_idx) if slate_idx
 
+          # `schedule <id> <when>, <id> <when>, …` — the mass form (WP3). A comma
+          # ANYWHERE in the (noun-filler-stripped) body means mass; the slate
+          # branch above already returned for `slate only @h1, @h2`, so by the
+          # time we get here a comma can only mean the mass grammar. No comma →
+          # the single path below runs byte-identical to pre-WP3.
+          return mass(body) if body.any? { |t| t.type == :comma }
+
           when_result = extract_when(body)
           # when_result is either [:ok, Time, ref_tokens] or [:err, Result::Error]
           if when_result[0] == :err
@@ -70,6 +77,30 @@ module Pito
 
           if publish_time < 30.minutes.from_now
             return Pito::Chat::Result::Error.new(message_key: "pito.chat.schedule.too_soon", message_args: {})
+          end
+
+          # Stage-time dry-run: does this <when> collide with another scheduled
+          # video on the same channel within the 60-min spacing window
+          # (Video#publish_spacing_within_channel, on: :schedule)? Surfacing the
+          # conflict here — before the confirmation prompt even renders — beats
+          # making the user confirm only to hit the same rejection at the
+          # executor. assign_attributes is a plain in-memory mutation (no save);
+          # restore_attributes undoes it either way so the video handed to
+          # ScheduleConfirmation.call below (and any caller reusing `video`) is
+          # never left carrying the dry-run's staged attributes.
+          video.assign_attributes(privacy_status: :private, publish_at: publish_time)
+          conflict = !video.valid?(:schedule)
+          collision = video.publish_spacing_collision if conflict
+          video.restore_attributes
+
+          if conflict
+            return Pito::Chat::Result::Ok.new(events: [
+              { kind: :system,
+                payload: Pito::MessageBuilder::Text.call("pito.copy.videos.schedule_conflict",
+                  title: video.title,
+                  other: collision&.title.to_s,
+                  when: Pito::Formatter::SyncStamp.call(collision&.publish_at)) }
+            ])
           end
 
           Pito::Chat::Result::Ok.new(events: [
@@ -161,6 +192,150 @@ module Pito
         def not_found(ref)
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
+          ])
+        end
+
+        # ── Mass form (WP3): `schedule <id> <when>, <id> <when>, …` ────────────────
+        #
+        # All-or-nothing behind ONE confirmation: every comma-separated segment must
+        # clear a 5-stage ladder before a single :confirmation event is built. The
+        # FIRST stage a segment (or the batch) fails aborts the WHOLE thing — never
+        # a partial confirmation — naming the offending segment/id/pair. Every
+        # failure mode folds into just three copy keys (bad_segment / duplicate /
+        # conflict): there's exactly one outcome here — abort, name the offender —
+        # regardless of WHY. The executor re-runs the real validation at confirm
+        # time (Pito::Confirmation::Executor#confirm_video_schedule_mass); this is
+        # a stage-time dry-run, same spirit as the single path's own.
+        #
+        #   1. parse    — TimeParser finds a <when>, AND the ref is a single #?\d+
+        #                 id. Mass has no title-ref resolution — same as the single
+        #                 path (resolve_video already requires a numeric ref; a
+        #                 title ref there is a not_found, never a lookup) — so a
+        #                 non-numeric ref is rejected right here.
+        #   2. dedupe   — no id may repeat across segments.
+        #   3. resolve  — every id must resolve to a real ::Video.
+        #   4. timing   — every <when> must be future AND ≥30 minutes out.
+        #   5. spacing  — sorted by publish_at ascending: a DB dry-run
+        #                 (assign_attributes + valid?(:schedule), same as the
+        #                 single path) catches a collision against already-
+        #                 scheduled rows, PLUS an in-memory pairwise check against
+        #                 EARLIER batch items on the SAME channel — nothing is
+        #                 persisted yet, so the DB dry-run alone can't see its own
+        #                 batch-mates.
+        def mass(body)
+          parsed = []
+          split_on_commas(body).each do |tokens|
+            status, info = parse_mass_segment(tokens)
+            return mass_abort("pito.copy.videos.mass_schedule_bad_segment", **info) if status == :bad
+
+            parsed << info
+          end
+
+          if (dup_id = duplicate_id(parsed))
+            return mass_abort("pito.copy.videos.mass_schedule_duplicate", id: dup_id)
+          end
+
+          videos = ::Video.where(id: parsed.map { |p| p[:id] }.uniq).index_by { |v| v.id.to_s }
+          parsed.each do |p|
+            next if videos[p[:id]]
+
+            return mass_abort("pito.copy.videos.mass_schedule_bad_segment",
+                               segment: p[:segment], reason: "no vid ##{p[:id]} in your library")
+          end
+
+          items = parsed.map { |p| { video: videos[p[:id]], publish_at: p[:time], segment: p[:segment] } }
+
+          items.each do |item|
+            if item[:publish_at] <= Time.current
+              return mass_abort("pito.copy.videos.mass_schedule_bad_segment",
+                                 segment: item[:segment], reason: "that time is already in the past")
+            end
+
+            if item[:publish_at] < 30.minutes.from_now
+              return mass_abort("pito.copy.videos.mass_schedule_bad_segment",
+                                 segment: item[:segment], reason: "that's under 30 minutes away")
+            end
+          end
+
+          sorted = items.sort_by { |item| item[:publish_at] }
+          sorted.each_with_index do |item, idx|
+            video = item[:video]
+            video.assign_attributes(privacy_status: :private, publish_at: item[:publish_at])
+            conflict  = !video.valid?(:schedule)
+            collision = video.publish_spacing_collision if conflict
+            video.restore_attributes
+
+            if conflict
+              return mass_abort("pito.copy.videos.mass_schedule_conflict",
+                                 title: video.title, other: collision&.title.to_s,
+                                 when: Pito::Formatter::SyncStamp.call(collision&.publish_at))
+            end
+
+            earlier = sorted[0...idx].find do |e|
+              e[:video].channel_id == video.channel_id &&
+                (item[:publish_at] - e[:publish_at]).abs < ::Video::SCHEDULE_SPACING
+            end
+            next unless earlier
+
+            return mass_abort("pito.copy.videos.mass_schedule_conflict",
+                               title: video.title, other: earlier[:video].title,
+                               when: Pito::Formatter::SyncStamp.call(earlier[:publish_at]))
+          end
+
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :confirmation,
+              payload: Pito::MessageBuilder::Video::MassScheduleConfirmation.call(sorted, conversation: conversation) }
+          ])
+        end
+
+        # Split +tokens+ on :comma boundaries (commas themselves dropped). A
+        # leading/trailing/doubled comma yields an empty segment, which
+        # parse_mass_segment rejects at stage 1 (TimeParser sees no tokens to work
+        # with).
+        def split_on_commas(tokens)
+          segments = [ [] ]
+          tokens.each do |t|
+            t.type == :comma ? segments.push([]) : segments.last.push(t)
+          end
+          segments
+        end
+
+        # Stage 1 for ONE segment: TimeParser finds the <when> (same split-search
+        # algorithm the single path uses via extract_when), and the leading ref
+        # must be a single #?\d+ id.
+        # Returns [:ok, { id:, time:, segment: }] or [:bad, { segment:, reason: }]
+        # — the :bad hash's keys double as the mass_schedule_bad_segment copy args.
+        def parse_mass_segment(tokens)
+          text   = segment_text(tokens)
+          result = Pito::Schedule::TimeParser.call(tokens)
+          if result.nil?
+            return [ :bad, { segment: text.presence || "(blank)",
+                              reason:  "couldn't find a video id and a time there" } ]
+          end
+
+          ref = result.ref_tokens.map(&:value).join(" ").strip.sub(/\A#\s*/, "")
+          unless ref.match?(/\A\d+\z/)
+            return [ :bad, { segment: text, reason: "needs a single numeric id, not a title" } ]
+          end
+
+          [ :ok, { id: ref, time: result.time, segment: text } ]
+        end
+
+        # Reconstructs a token chunk back into readable text for error copy —
+        # mirrors Pito::Schedule::TimeParser's own #reconstruct (private there).
+        def segment_text(tokens)
+          tokens.each_with_index.map { |t, i| (i.positive? && t.preceded_by_space ? " " : "") + t.value.to_s }.join.strip
+        end
+
+        # The first id that appears more than once across parsed segments, or nil.
+        def duplicate_id(parsed)
+          ids = parsed.map { |p| p[:id] }
+          ids.find { |id| ids.count(id) > 1 }
+        end
+
+        def mass_abort(key, **args)
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call(key, **args) }
           ])
         end
       end

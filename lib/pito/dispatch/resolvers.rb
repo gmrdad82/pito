@@ -271,19 +271,6 @@ module Pito
         entity_class.find_by(id:) || Invalid.new(reason: "#{entity_class} not found: #{id}")
       })
 
-      # :footage_hours
-      # Parses the `footage [update] <hours>` amount typed on a game-detail reply
-      # into an exact half-step Rational (ceil UP to the next 0.5 h). Wraps the
-      # shared Pito::Games::FootageAmount parser — the SAME one the `footage` chat
-      # tool and its GameDetail follow-up reply use (no fork). Non-numeric input
-      # resolves Invalid.
-      #
-      # Required context: none. Input: the reply args after `footage`.
-      register(:footage_hours, lambda { |input, context:|
-        Pito::Games::FootageAmount.parse(input) ||
-          Invalid.new(reason: "not a footage amount: #{input.inspect}")
-      })
-
       # :price_amount
       # Parses the `price [set] <amount>` / `price unset` reply into either a
       # non-negative BigDecimal euro amount (2dp; 0 = free) or the `:unset`

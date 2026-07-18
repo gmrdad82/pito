@@ -468,16 +468,6 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  describe "free mode — footage dynamic game_titles slot", :db do
-    let!(:game) { create(:game, title: "Zelda") }
-
-    it "returns game titles matching the partial (plan-0.9.5 E8: footage zel → Zelda)" do
-      result = call(input: "footage zel", cursor: 11, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("Zelda")
-    end
-  end
-
   describe "free mode — reindex dynamic game_titles slot", :db do
     let!(:game) { create(:game, title: "Zelda") }
 
@@ -896,6 +886,47 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     it "includes both link and unlink when the game is already linked to a video" do
       create(:video_game_link, game:, video: create(:video, :public, channel: create(:channel)))
       expect(labels).to include("link", "unlink")
+    end
+  end
+
+  # apply/use/accept (the AI answer's stage-only reply — see
+  # follow_up/handlers/ai_message.rb) vanish from the palette when the answer
+  # carries no suggested command — nothing to stage (WP6).
+  describe "hashtag follow-up: apply/use/accept palette gating on ai_message", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn)         { conversation.turns.create!(input_kind: :chat, input_text: "@ai question", position: 1) }
+
+    before { Pito::FollowUp::Registry.register_all! }
+
+    def stamp(handle, blocks)
+      Event.create_with_position!(
+        conversation:, turn:, kind: "ai",
+        payload: { "reply_handle" => handle, "reply_target" => "ai_message", "status" => "done", "blocks" => blocks }
+      )
+    end
+
+    def labels(handle)
+      call(input: "##{handle} ", cursor: handle.length + 2, conversation:)[:menu_items].map { |i| i[:label] }
+    end
+
+    it "offers apply/use/accept when the answer carries a suggestion block" do
+      stamp("aiw-1", [ { "type" => "text", "text" => "answer" }, { "type" => "suggestion", "command" => "show vid #1" } ])
+      expect(labels("aiw-1")).to include("apply", "use", "accept")
+    end
+
+    it "drops apply/use/accept when the answer carries no suggestion block" do
+      stamp("aiw-2", [ { "type" => "text", "text" => "answer, no command" } ])
+      expect(labels("aiw-2")).not_to include("apply", "use", "accept")
+    end
+
+    it "drops apply/use/accept when the answer has no blocks at all" do
+      stamp("aiw-3", [])
+      expect(labels("aiw-3")).not_to include("apply", "use", "accept")
+    end
+
+    it "still offers @ai regardless of suggestion state" do
+      stamp("aiw-4", [])
+      expect(labels("aiw-4")).to include("@ai")
     end
   end
 
@@ -1410,17 +1441,17 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  describe "free mode — footage game_titles dynamic slot", :db do
+  describe "free mode — delete game_titles dynamic slot (stage tag)", :db do
     let!(:game) { create(:game, title: "Celeste") }
 
-    it "returns game titles matching the partial ('footage cel' → Celeste)" do
-      result = call(input: "footage cel", cursor: 11, authenticated: true)
+    it "returns game titles matching the partial ('delete cel' → Celeste)" do
+      result = call(input: "delete cel", cursor: 10, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("Celeste")
     end
 
     it "tags stage: :tool for the dynamic palette" do
-      result = call(input: "footage cel", cursor: 11, authenticated: true)
+      result = call(input: "delete cel", cursor: 10, authenticated: true)
       expect(result[:stage]).to eq(:tool)
     end
   end

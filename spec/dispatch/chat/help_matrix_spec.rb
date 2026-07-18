@@ -125,7 +125,6 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
       "help reindex"  => "games-group verb",
       "help link"     => "games-group verb",
       "help unlink"   => "games-group verb",
-      "help footage"  => "games-group verb",
       # ── videos-group verbs ──
       "help publish"  => "videos-group verb",
       "help unlist"   => "videos-group verb",
@@ -144,7 +143,8 @@ RSpec.describe "Dispatch matrix — help (recognition, zero DB)", type: :dispatc
       # ── completely unknown args ──
       "help xyzzy"         => "unknown verb",
       "help not-a-command" => "unknown arg",
-      "help 123"           => "numeric arg"
+      "help 123"           => "numeric arg",
+      "help footage"       => "retired tool (WP1 footage purge — no longer a known verb)"
     }.each do |raw, reason|
       it "#{raw.inspect} (#{reason}) → same :system event, same payload" do
         result = call_handler(raw)

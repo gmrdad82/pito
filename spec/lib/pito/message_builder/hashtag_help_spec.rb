@@ -50,8 +50,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("delete")
         end
 
-        it "body lists the footage action" do
-          expect(result["body"]).to include("footage")
+        it "body lists the price action" do
+          expect(result["body"]).to include("price")
         end
 
         it "body lists the link action" do
@@ -77,8 +77,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
       end
 
-      context "action-level page (action: 'footage')" do
-        subject(:result) { described_class.call(target: "game_detail", action: "footage") }
+      context "action-level page (action: 'price')" do
+        subject(:result) { described_class.call(target: "game_detail", action: "price") }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
@@ -89,9 +89,9 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("Usage:")
         end
 
-        it "body includes the footage usage shape" do
-          expect(result["body"]).to include("footage")
-          expect(result["body"]).to include("hours")
+        it "body includes the price usage shape" do
+          expect(result["body"]).to include("price")
+          expect(result["body"]).to include("amount")
         end
 
         it "body includes the --help option" do
@@ -100,6 +100,12 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
 
         it "body is wrapped in .pito-help-block" do
           expect(result["body"]).to include('class="pito-help-block"')
+        end
+      end
+
+      context "action-level page (action: 'footage', retired WP1)" do
+        it "returns nil (footage is no longer a declared game_detail action)" do
+          expect(described_class.call(target: "game_detail", action: "footage")).to be_nil
         end
       end
 
@@ -641,7 +647,7 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
       end
 
       context "action-level page — universal rows are not added to action pages" do
-        subject(:result) { described_class.call(target: "game_detail", action: "footage", event:) }
+        subject(:result) { described_class.call(target: "game_detail", action: "price", event:) }
 
         it "returns an html payload (action page unaffected)" do
           expect(result).to be_a(Hash)

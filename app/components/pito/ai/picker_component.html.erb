@@ -34,7 +34,7 @@
 
     <div class="pito-hide-scrollbar overflow-y-auto flex flex-col gap-2 pito-ai-picker__list"
          data-pito--ai-picker-target="list">
-      <% if effort_row? %>
+      <% if effort_cyclable? %>
         <button type="button"
                 class="flex w-full items-center gap-2 px-1.5 py-0.5 text-left"
                 data-pito--ai-picker-target="row"
@@ -47,6 +47,16 @@
           <span class="text-fg-default" data-pito--ai-picker-target="effortValue"><%= effort_label %></span>
           <span class="ml-auto text-fg-faded">enter cycles</span>
         </button>
+      <% else %>
+        <%# Read-only — the active provider declares no reasoning (e.g. Sonnet
+            via OpenCode), so there is nothing to cycle. Deliberately NOT a
+            data-pito--ai-picker-target="row": it stays out of arrow-nav and
+            Enter/tap so #cycleEffort can never fire a PATCH the provider
+            doesn't support. data-row-type="effort" stays for testability. %>
+        <div class="flex w-full items-center gap-2 px-1.5 py-0.5 text-fg-faded" data-row-type="effort">
+          <span class="w-2"></span>
+          <span>effort: model default — provider manages reasoning</span>
+        </div>
       <% end %>
 
       <% { "conversation" => resolve_entries(conversation_models),
@@ -73,11 +83,20 @@
     </div>
 
     <div class="h-2"></div>
+    <%# Footer hints — tappable like the Esc hint above (kbd_click: true is
+        the default now; the base pito--kbd-click wiring stays for the
+        shimmer/tap styling). Its generic HANDLERS map only knows
+        document-global chords (esc, ctrl+k, …), not these list-local ones,
+        so each hint ALSO carries a merged click action straight to a public
+        pito--ai-picker method — same "controller + action concatenate"
+        mechanism the component already documents (STRING data keys so the
+        merge concatenates instead of colliding). Every action reads the
+        CURRENTLY SELECTED row, same as the physical chord. %>
     <div class="text-fg-faded">
-      <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "↑/↓", kbd_click: false)) %> choose
-      &middot; <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "enter", kbd_click: false)) %> select/connect
-      &middot; <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "ctrl+f", kbd_click: false)) %> favorite
-      &middot; <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "ctrl+x", kbd_click: false)) %> clear key
+      <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "↑/↓", data: { "action" => "click->pito--ai-picker#hintMove" })) %> choose
+      &middot; <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "enter", data: { "action" => "click->pito--ai-picker#hintEnter" })) %> select/connect
+      &middot; <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "ctrl+f", data: { "action" => "click->pito--ai-picker#hintFavorite" })) %> favorite
+      &middot; <%= render(Pito::Keybinding::ShortcutComponent.new(keys: "ctrl+x", data: { "action" => "click->pito--ai-picker#hintClearKey" })) %> clear key
     </div>
     <%# Transient feedback line — "model saved", "key cleared", errors. %>
     <div class="text-fg-dim" aria-live="polite" data-pito--ai-picker-target="status"></div>

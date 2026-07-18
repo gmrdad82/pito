@@ -189,7 +189,7 @@ module Pito
 
       # `enum` slots resolve their vocabulary; `free` slots fall back to the
       # bounded free-text rule. (Resolver-backed vocabularies referenced by
-      # an `enum` slot — e.g. footage/delete/reindex's `game_titles` — also
+      # an `enum` slot — e.g. price/delete/reindex's `game_titles` — also
       # resolve to free text; see vocab_rule.)
       def slot_value_rule(slot, vocab_bodies)
         case slot[:kind]
