@@ -80,8 +80,8 @@ RSpec.describe Pito::Nl::GbnfBuilder do
 
   # ── 5. Resolver-backed vocabularies degrade to free text ────────────────
   describe "resolver-backed vocabularies" do
-    it "degrades footage's game_titles slot to the text rule, not literal titles" do
-      rule = rule_line("tool-footage ::=")
+    it "degrades delete's game_titles slot to the text rule, not literal titles" do
+      rule = rule_line("tool-delete ::=")
 
       expect(rule).to match(/\btext\b/)
       expect(grammar).not_to include("vocab-game-titles")

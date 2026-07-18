@@ -1,0 +1,5 @@
+<%# Shared use-widget: a self-contained pito--clipboard controller + the lucide
+    copy ICON button (action-shimmer coloured) + an optional stage-in-chatbox
+    ICON button (fill: only — pito--chat-prefill, copies AND fills, no submit)
+    + a "Copied!" feedback span. Emitted with NO inter-element whitespace so it
+    sits flush inline after a link or command. %><span class="pito-copy" data-controller="pito--clipboard" data-pito--clipboard-text-value="<%= text %>"><button type="button" class="pito-copy__btn" data-action="click->pito--clipboard#copy" aria-label="<%= aria_label %>"><%= render(Pito::IconComponent.new(name: "copy")) %></button><% if fill? %><button type="button" class="pito-copy__btn pito-copy__fill" data-pito-use-widget-fill data-controller="pito--chat-prefill" data-pito--chat-prefill-text-value="<%= text %>" data-action="click->pito--clipboard#copy click->pito--chat-prefill#fill" aria-label="<%= fill_aria_label %>"><%= render(Pito::IconComponent.new(name: "message-square-check")) %></button><% end %><span class="pito-copy__feedback" data-pito--clipboard-target="feedback" aria-live="polite"></span></span>

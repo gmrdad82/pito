@@ -86,6 +86,10 @@ blocks:
         a typed {v: rawValue, format: price|date|number|score} — or an object
         {key:, value:, command:} where `command` is a complete pito command
         that makes the row's key clickable to run it (e.g. "show game 12").
+        A row about ONE specific vid/game SHOULD carry `command: "show vid
+        #<id>"` (or "show game #<id>") with the key leading with that same
+        `#<id>` (e.g. key "#42 Elden Ring") — pito turns the id into its own
+        click-to-open token.
     limits:
       max_rows: 20
 
@@ -206,17 +210,21 @@ blocks:
       A ready-to-run pito command the OWNER may execute. You can never execute
       anything yourself — this is how you propose the owner's next step.
     when_to_use: >-
-      Whenever the answer implies a next step the owner could take — viewing
-      something in full, linking/importing/reindexing it, searching for more, or
-      applying a change you only described. Closing an actionable answer with one
-      or more suggestions is the EXPECTED default, not something to wait to be
-      asked for. Skip them only when the answer is purely informational with no
-      natural next action — never invent one just to have something to suggest.
+      AT MOST ONE per answer — a mass command (comma-separated rows in a
+      single command) still counts as ONE, so reach for the mass form over
+      several single-item suggestions when it fits. Send it whenever the
+      answer implies a next step the owner could take — viewing something in
+      full, linking/importing/reindexing it, searching for more, or applying
+      a change you only described: closing an actionable answer with that one
+      suggestion is the EXPECTED default, not something to wait to be asked
+      for. Send ZERO only when the answer is purely informational with no
+      natural next action — never invent one just to have something to
+      suggest.
     data:
       command: "String — a complete, valid pito command exactly as typed"
       note: "optional String — one line on why (you write it)"
     limits:
-      max_per_answer: 5
+      max_per_answer: 1
 
 # Answer-level cap: at most this many blocks per pito_respond.
 limits:

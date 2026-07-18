@@ -163,10 +163,6 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
       expect(chat_entry("import")[:slots]).to eq([ { name: "noun", source: "import_nouns" } ])
     end
 
-    it "footage emits one slot: title/game_titles" do
-      expect(chat_entry("footage")[:slots]).to eq([ { name: "title", source: "game_titles" } ])
-    end
-
     it "price emits one slot: subcommand/price_subcommands (free trailing slot is not emitted)" do
       expect(chat_entry("price")[:slots]).to eq([ { name: "subcommand", source: "price_subcommands" } ])
     end

@@ -31,13 +31,16 @@ module Pito
         Array(@payload[:blocks])
       end
 
-      # The reply affordance (`#a7 apply …`) — present only when the answer
-      # carries suggestions, the reply hasn't been retired, AND — when a
-      # persisted event backs this render — currently has at least one
-      # available reply action (the owner's "no actions → no handle, no
-      # chip" rule; see SystemComponent#followupable? for the full
-      # rationale, identical here). Payload-only renders with no @event
-      # (component-level specs) skip that extra check.
+      # The reply affordance (`#a7 apply|use|accept` to STAGE a suggested
+      # command, or `#a7 @ai <text>` to continue the thread) — present only
+      # when the reply hasn't been retired AND — when a persisted event backs
+      # this render — currently has at least one available reply action (the
+      # owner's "no actions → no handle, no chip" rule; see
+      # SystemComponent#followupable? for the full rationale, identical
+      # here). `apply`/`use`/`accept` themselves additionally vanish from the
+      # palette when the answer carries no suggestion block (Suggestions::
+      # Engine#viable_reply_action?) — @ai always stays available. Payload-only
+      # renders with no @event (component-level specs) skip that extra check.
       def reply_handle
         return nil if Pito::FollowUp.consumed?(@payload)
 

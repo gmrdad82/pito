@@ -208,25 +208,6 @@ RSpec.describe Pito::Dispatch::ReplyBinding, type: :dispatch do
   def game_row(game) = source({ "reply_target" => "game_list", "table_rows" => [ { "cells" => [ { "text" => "##{game.id}" } ] } ] })
   def video_row(video) = source({ "reply_target" => "video_list", "table_rows" => [ { "cells" => [ { "text" => "##{video.id}" } ] } ] })
 
-  describe "footage / game_detail — `footage [update] <hours>` amount" do
-    let(:game) { create(:game) }
-    let(:card) { source({ "reply_target" => "game_detail", "game_id" => game.id }) }
-
-    it "resolves the source game (ref) and the ceil'd half-step hours (arg)" do
-      result = bind(tool: "footage", target: "game_detail", rest: "update 12.5", source_event: card)
-      expect(result).to be_ok
-      expect(result.kwargs[:ref]).to eq(game)
-      expect(result.kwargs[:hours]).to eq(Pito::Games::FootageAmount.parse("update 12.5")).and eq(25r / 2)
-    end
-
-    it "malformed: a non-numeric amount short-circuits with slot :hours" do
-      result = bind(tool: "footage", target: "game_detail", rest: "lots", source_event: card)
-      expect(result).not_to be_ok
-      expect(result.invalid.slot).to eq(:hours)
-      expect(result.invalid.resolver).to eq("footage_hours")
-    end
-  end
-
   describe "price — `price [set] <amount>` / `price unset`" do
     let(:game) { create(:game) }
     let(:card) { source({ "reply_target" => "game_detail", "game_id" => game.id }) }
@@ -294,6 +275,28 @@ RSpec.describe Pito::Dispatch::ReplyBinding, type: :dispatch do
 
     it "malformed: an unrecognized when-phrase short-circuits with slot :when" do
       result = bind(tool: "schedule", target: "video_list", rest: "#{video.id} whenever", source_event: video_row(video))
+      expect(result).not_to be_ok
+      expect(result.invalid.slot).to eq(:when)
+    end
+
+    # WP3 pin: tools.yml's schedule reply.targets stay declared SINGLE-form
+    # (unchanged by mass) — a mass rest (comma-separated rows) is not something
+    # this declarative binding resolves for. The `when:` arg slot gets the WHOLE
+    # tail verbatim (":args", unsliced past the leading id) and TimeParser's
+    # split-search scans every possible split point across it — so a trailing
+    # segment whose OWN <when> phrase happens to be independently well-formed
+    # (`…, 6 tomorrow`) would still parse (silently swallowing the comma + the
+    # earlier segment as ignored "ref" tokens — a real quirk of the resolver,
+    # not something WP3 relies on). What guarantees not-ok here is a trailing
+    # segment whose <when> does NOT parse on its own (`blah` isn't a <when> in
+    # any form), so no split point matches. Dispatch is unaffected either way:
+    # Pito::Chat::Handlers::Schedule never reads this binding's kwargs — it
+    # re-parses message.raw itself (see the handler's #mass) — so this binding
+    # resolving to garbage-or-invalid on mass input never reaches the user.
+    it "mass rest (comma-separated rows, trailing segment not independently parseable) → non-ok binding; dispatch is unaffected (handler extraction is authoritative)" do
+      video2 = create(:video)
+      result = bind(tool: "schedule", target: "video_list",
+                    rest: "#{video.id} in 30m, #{video2.id} blah", source_event: video_row(video))
       expect(result).not_to be_ok
       expect(result.invalid.slot).to eq(:when)
     end

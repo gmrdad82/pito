@@ -10,7 +10,7 @@ require "rails_helper"
 #
 # Delegated actions (rm/del/delete/reindex/link/unlink/platform/shinies/sync):
 #   → ToolDelegator; asserted gated-in + routes (not invalid_action).
-# Direct actions (footage, price):
+# Direct actions (price):
 #   → handled inline; asserted Append with correct effect; stubs ::Game.find_by.
 # Unknown action:
 #   → invalid_action Error.
@@ -23,11 +23,10 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
   # Stub game — resolved via ::Game.find_by(id: 7) inside resolve_game_from_event.
   let(:game_stub) do
     double("Game",
-      id:            7,
-      title:         "Hollow Knight",
-      footage_hours: BigDecimal("5.0"),
-      price:         BigDecimal("29.99"),
-      "update!" =>   true)
+      id:    7,
+      title: "Hollow Knight",
+      price: BigDecimal("29.99"),
+      "update!" => true)
   end
 
   # Source event with correct payload (no DB, no factories).
@@ -52,7 +51,6 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     # Builder / formatter stubs so direct handlers don't blow up.
     allow(Pito::MessageBuilder::Text).to receive(:call)
       .and_return({ "text" => "confirmed" })
-    allow(Pito::Formatter::FootageHours).to receive(:call).and_return("5h")
     allow(Pito::Formatter::Price).to receive(:call).and_return("€29.99")
   end
 
@@ -66,13 +64,13 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
   describe "Registry — actions_for('game_detail')" do
     subject(:actions) { Pito::FollowUp::Registry.actions_for("game_detail") }
 
-    it "returns all 17 declared actions (G121/G123 add the segment verbs; vids alias of videos)" do
+    it "returns all 16 declared actions (G121/G123 add the segment verbs; vids alias of videos)" do
       expect(actions).to match_array(
-        %w[rm del delete reindex link unlink footage platform price shinies sync analyze at-a-glance videos vids similar channels]
+        %w[rm del delete reindex link unlink platform price shinies sync analyze at-a-glance videos vids similar channels]
       )
     end
 
-    %w[rm del delete reindex link unlink footage platform price shinies sync].each do |action|
+    %w[rm del delete reindex link unlink platform price shinies sync].each do |action|
       it "includes #{action.inspect}" do
         expect(actions).to include(action)
       end
@@ -109,119 +107,6 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
           ).and_return(delegated_append)
           result
         end
-      end
-    end
-  end
-
-  # ── footage — direct handler ────────────────────────────────────────────────
-
-  describe "'footage' — direct handler" do
-    it "is declared in actions_for (gated in)" do
-      expect(Pito::FollowUp::Registry.actions_for("game_detail")).to include("footage")
-    end
-
-    describe "footage <hours> — bare form" do
-      subject(:result) { call("footage 3") }
-
-      it "returns Result::Append" do
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-      end
-
-      it "calls game_stub.update! with footage_hours (sets hours on game 7)" do
-        expect(game_stub).to receive(:update!).with(footage_hours: anything)
-        result
-      end
-
-      it "does NOT delegate to ToolDelegator" do
-        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
-        result
-      end
-
-      it "appends a :system kind event" do
-        expect(result.events.first[:kind]).to eq(:system)
-      end
-    end
-
-    describe "footage update <hours> — explicit update token" do
-      subject(:result) { call("footage update 3") }
-
-      it "returns Result::Append" do
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-      end
-
-      it "calls game_stub.update! (strips leading 'update' token)" do
-        expect(game_stub).to receive(:update!).with(footage_hours: anything)
-        result
-      end
-
-      it "does NOT delegate to ToolDelegator" do
-        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
-        result
-      end
-    end
-
-    # The `footage snippet` ffprobe one-liner moved to pito-tui (ctrl+f)
-    # 2026-07-13 — "snippet" is no longer special-cased, so it's just an
-    # invalid (non-numeric) hours value now, same as "footage bogus" below.
-    describe "footage snippet — retired game-agnostic form, now invalid hours" do
-      subject(:result) { call("footage snippet") }
-
-      it "returns Result::Error" do
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-      end
-
-      it "uses the missing_hours key" do
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-      end
-
-      it "does NOT delegate to ToolDelegator" do
-        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
-        result
-      end
-    end
-
-    describe "footage (no hours) — missing argument" do
-      subject(:result) { call("footage") }
-
-      it "returns Result::Error" do
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-      end
-
-      it "uses the missing_hours key" do
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-      end
-    end
-
-    describe "footage -3 (negative value) — invalid hours" do
-      subject(:result) { call("footage -3") }
-
-      it "returns Result::Error" do
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-      end
-
-      it "uses the missing_hours key" do
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-      end
-    end
-
-    describe "footage bogus (non-numeric value) — invalid hours" do
-      subject(:result) { call("footage bogus") }
-
-      it "returns Result::Error with missing_hours key" do
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
-      end
-    end
-
-    describe "game not found during footage set" do
-      before do
-        allow(::Game).to receive(:find_by).with(id: 7).and_return(nil)
-      end
-
-      it "returns Result::Error with game_not_found key" do
-        result = call("footage 3")
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
       end
     end
   end

@@ -10,10 +10,11 @@ module Pito
     # only when any exist), Favorites (ctrl+f pins) and Recents lead, then one
     # section per provider — its models when reachable (live list with a key,
     # pinned fallback without) plus a connect row for keyless providers. An
-    # effort cycler row shows when the ACTIVE provider declares reasoning
-    # (effort persists PER MODEL). Every selectable row carries data-provider +
-    # data-value; pito--ai-picker owns keyboard flow and persistence
-    # (PATCH /settings/ai).
+    # effort row ALWAYS renders: the Enter/tap cycler when the ACTIVE provider
+    # declares reasoning (effort persists PER MODEL), otherwise a read-only
+    # dim line — the provider manages reasoning itself, nothing to cycle.
+    # Every selectable row carries data-provider + data-value; pito--ai-picker
+    # owns keyboard flow and persistence (PATCH /settings/ai).
     #
     # Dumb by design: the caller (the /config ai fast-path) assembles state and
     # passes it in — the component reads no globals, so it renders identically
@@ -62,7 +63,11 @@ module Pito
         end
       end
 
-      def effort_row?
+      # Whether the ACTIVE provider supports a real reasoning cycle. The
+      # effort row itself always renders (see class doc); this only decides
+      # which of the two branches it renders as — the Enter/tap cycler here,
+      # a read-only dim line otherwise (provider manages reasoning itself).
+      def effort_cyclable?
         active = providers.find { |p| p[:provider] == @active_provider }
         active && active[:reasoning] != "none"
       end

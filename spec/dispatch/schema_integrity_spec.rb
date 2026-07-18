@@ -304,7 +304,7 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
     # Tools that MUTATE state — they must NEVER be exposed as an MCP tool (owner
     # rule 1: read-only). An explicit blocklist makes the security intent legible.
     MCP_WRITE_TOOLS = %w[
-      import publish unlist delete link unlink footage price platform schedule
+      import publish unlist delete link unlink price platform schedule
       reindex sync find search rename connect disconnect login logout new resume
     ].freeze
 
@@ -426,7 +426,7 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
     # legible even when the allowlist churns.
     NL_WRITE_TOOLS = %w[
       delete publish unlist schedule update link unlink import sync reindex
-      footage price platform
+      price platform
     ].freeze
 
     it "the effective auto-runnable set is EXACTLY the pinned allowlist" do

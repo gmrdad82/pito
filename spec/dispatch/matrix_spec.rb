@@ -98,7 +98,7 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
     it "game_detail includes all expected tool tokens" do
       expect(described_class.actions_for("game_detail")).to include(
         "delete", "del", "rm", "reindex", "link", "unlink",
-        "footage", "platform", "price", "shinies", "sync", "analyze"
+        "platform", "price", "shinies", "sync", "analyze"
       )
     end
 
@@ -114,6 +114,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
 
     it "channel_visit includes consume" do
       expect(described_class.actions_for("channel_visit")).to include("consume")
+    end
+
+    it "ai_message includes @ai plus apply/use/accept (per-target aliases, unlike confirm/cancel's tool-level ones)" do
+      expect(described_class.actions_for("ai_message")).to include("@ai", "apply", "use", "accept")
     end
 
     it "confirmation includes confirm and cancel (only — no tool-level aliases)" do

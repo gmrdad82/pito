@@ -7,7 +7,7 @@ module Pito
     # HashtagHelp.call(target: "game_detail")
     #   → target-level page listing all actions for that target.
     #
-    # HashtagHelp.call(target: "game_detail", action: "footage")
+    # HashtagHelp.call(target: "game_detail", action: "price")
     #   → action-level page for the specific action.
     #
     # Copy lives at pito.hashtag_help.<indicator>:
@@ -37,16 +37,18 @@ module Pito
       }.freeze
 
       # @param target [String]       the reply_target string (e.g. "game_detail")
-      # @param action [String, nil]  an action word (e.g. "footage") or nil for target page
+      # @param action [String, nil]  an action word (e.g. "price") or nil for target page
       # @param event  [Event, nil]   the source event; when supplied the universal share
       #                              tool rows are gated on Share existence for that event.
       # @return [Hash, nil]          { "html" => true, "body" => "..." } or nil
       # Action aliases that share copy with another action.
       # "order" has no own copy block; it renders the "sort" page instead.
       ACTION_ALIASES = {
-        "order" => "sort",
-        "vids"  => "videos",  # per-target reply alias of the `videos` tool
-        "more"  => "next"     # per-target reply alias of the pager `next` tool
+        "order"  => "sort",
+        "vids"   => "videos",  # per-target reply alias of the `videos` tool
+        "more"   => "next",    # per-target reply alias of the pager `next` tool
+        "use"    => "apply",   # per-target reply alias of the ai_message `apply` tool
+        "accept" => "apply"    # per-target reply alias of the ai_message `apply` tool
       }.freeze
 
       def call(target:, action: nil, event: nil)

@@ -420,6 +420,116 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
   end
 
+  # ── confirm / video_metadata_mass (WP4) ───────────────────────────────────
+  #
+  # PER ROW, deliberately no transaction: a missing vid is a collected failure
+  # that never stops the rows around it (unlike video_schedule_mass's
+  # all-or-nothing rollback). Outcome text names updated + failed counts.
+
+  describe ".confirm — video_metadata_mass" do
+    let!(:mm_channel) { create(:channel) }
+    let!(:mm_video1)  { create(:video, channel: mm_channel, title: "Episode One", tags: [ "old" ]) }
+    let!(:mm_video2)  { create(:video, channel: mm_channel, title: "Episode Two", tags: [ "old" ]) }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    def mm_payload(field, items)
+      { "command" => "video_metadata_mass", "field" => field, "items" => items }
+    end
+
+    context "happy path — every item resolves" do
+      let(:items) do
+        [
+          { "video_id" => mm_video1.id, "video_title" => "Episode One", "staged_value" => [ "a", "b" ] },
+          { "video_id" => mm_video2.id, "video_title" => "Episode Two", "staged_value" => [ "c" ] }
+        ]
+      end
+
+      it "updates tags on EVERY item" do
+        described_class.confirm("video_metadata_mass", mm_payload("tags", items))
+        expect(mm_video1.reload.tags).to eq([ "a", "b" ])
+        expect(mm_video2.reload.tags).to eq([ "c" ])
+      end
+
+      it "enqueues VideoRemoteStatusSync with fields: [tags] per item" do
+        described_class.confirm("video_metadata_mass", mm_payload("tags", items))
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(mm_video1.id, fields: [ "tags" ])
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(mm_video2.id, fields: [ "tags" ])
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).exactly(2).times
+      end
+
+      it "enqueues VideoEmbedIndexJob once per item" do
+        expect { described_class.confirm("video_metadata_mass", mm_payload("tags", items)) }
+          .to have_enqueued_job(VideoEmbedIndexJob).with(mm_video1.id)
+          .and have_enqueued_job(VideoEmbedIndexJob).with(mm_video2.id)
+      end
+
+      it "returns outcome text mentioning the updated count, no failures" do
+        text = described_class.confirm("video_metadata_mass", mm_payload("tags", items))
+        expect(text).to include("2")
+      end
+    end
+
+    context "partial failure — one item's vid vanished between staging and confirming" do
+      let(:items) do
+        [
+          { "video_id" => mm_video1.id, "video_title" => "Episode One", "staged_value" => "new description" },
+          { "video_id" => 0, "video_title" => "Ghost", "staged_value" => "new description" }
+        ]
+      end
+
+      it "does not raise" do
+        expect { described_class.confirm("video_metadata_mass", mm_payload("description", items)) }.not_to raise_error
+      end
+
+      it "updates the vid that DID resolve — the rest of the batch is NOT rolled back" do
+        described_class.confirm("video_metadata_mass", mm_payload("description", items))
+        expect(mm_video1.reload.description).to eq("new description")
+      end
+
+      it "enqueues exactly ONE VideoRemoteStatusSync (for the vid that resolved)" do
+        described_class.confirm("video_metadata_mass", mm_payload("description", items))
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(mm_video1.id, fields: [ "description" ])
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).exactly(1).times
+      end
+
+      it "returns present outcome text naming both the update and the failure" do
+        text = described_class.confirm("video_metadata_mass", mm_payload("description", items))
+        expect(text).to be_present
+        expect(text).to include("1")
+      end
+    end
+
+    context "every item's vid vanished" do
+      let(:items) do
+        [
+          { "video_id" => 0, "video_title" => "Ghost One", "staged_value" => "x" },
+          { "video_id" => 0, "video_title" => "Ghost Two", "staged_value" => "y" }
+        ]
+      end
+
+      it "does not raise and writes nothing" do
+        expect { described_class.confirm("video_metadata_mass", mm_payload("description", items)) }.not_to raise_error
+      end
+
+      it "enqueues zero jobs" do
+        described_class.confirm("video_metadata_mass", mm_payload("description", items))
+        expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+      end
+    end
+
+    it "returns the generic confirmed copy, does NOT write, and enqueues nothing for a field outside the allowlist" do
+      items = [ { "video_id" => mm_video1.id, "video_title" => "Episode One", "staged_value" => "Sneaky New Title" } ]
+      text  = nil
+      expect {
+        text = described_class.confirm("video_metadata_mass", mm_payload("title", items))
+      }.not_to have_enqueued_job(VideoEmbedIndexJob)
+      expect(text).to be_present
+      expect(mm_video1.reload.title).to eq("Episode One")
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
   # ── confirm / video_schedule ──────────────────────────────────────────────
 
   describe ".confirm — video_schedule" do
@@ -709,6 +819,248 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
         })
       }.to raise_error(ArgumentError)
       expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
+  # ── confirm / video_schedule (WP2: 60-min spacing conflict at confirm time) ─
+  #
+  # video.save!(context: :schedule) trips Video#publish_spacing_within_channel;
+  # the rescue must return the schedule_conflict copy directly — NEVER raise
+  # (so it can't fall into Pito::FollowUp::Handlers::Confirmation's generic
+  # `execution_failed` rescue), and must NOT enqueue VideoRemoteStatusSync.
+
+  describe ".confirm — video_schedule (edge: spacing conflict at confirm time)" do
+    let!(:conflict_channel) { create(:channel) }
+    # Truncated to whole seconds: a real schedule's publish_at always passes
+    # through Time#iso8601 (the confirmation payload's transport format),
+    # which truncates fractional seconds — mirror that here so the exact-60m
+    # boundary test isn't flaky against stray sub-second precision this
+    # fixture would otherwise carry (and a real schedule never would).
+    let(:anchor_at)         { 10.days.from_now.utc.change(usec: 0) }
+    let!(:anchor_video) do
+      create(:video, channel: conflict_channel, title: "Anchor Episode",
+                     privacy_status: :private, publish_at: anchor_at)
+    end
+    let!(:conflicting_video) do
+      create(:video, channel: conflict_channel, title: "Too Close Episode",
+                     privacy_status: :public, publish_at: nil)
+    end
+    let(:colliding_at) { anchor_at + 20.minutes }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "does not raise — the RecordInvalid is rescued locally" do
+      expect {
+        described_class.confirm("video_schedule", {
+          "video_id"    => conflicting_video.id,
+          "video_title" => "Too Close Episode",
+          "publish_at"  => colliding_at.iso8601
+        })
+      }.not_to raise_error
+    end
+
+    it "does not persist the colliding privacy_status/publish_at" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => conflicting_video.id,
+        "video_title" => "Too Close Episode",
+        "publish_at"  => colliding_at.iso8601
+      })
+      conflicting_video.reload
+      expect(conflicting_video.privacy_status).to eq("public")
+      expect(conflicting_video.publish_at).to be_nil
+    end
+
+    it "does NOT enqueue VideoRemoteStatusSync" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => conflicting_video.id,
+        "video_title" => "Too Close Episode",
+        "publish_at"  => colliding_at.iso8601
+      })
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+
+    it "returns the schedule_conflict copy, naming both videos" do
+      text = described_class.confirm("video_schedule", {
+        "video_id"    => conflicting_video.id,
+        "video_title" => "Too Close Episode",
+        "publish_at"  => colliding_at.iso8601
+      })
+      expect(text).to include("Too Close Episode")
+      expect(text).to include("Anchor Episode")
+    end
+
+    it "is valid at exactly 60 minutes away (boundary — no conflict)" do
+      text = described_class.confirm("video_schedule", {
+        "video_id"    => conflicting_video.id,
+        "video_title" => "Too Close Episode",
+        "publish_at"  => (anchor_at + 60.minutes).iso8601
+      })
+      expect(conflicting_video.reload.privacy_status).to eq("private")
+      expect(text).not_to include("Anchor Episode")
+    end
+  end
+
+  # ── confirm / video_schedule_mass (WP3) ───────────────────────────────────
+  #
+  # All-or-nothing: items apply ascending by publish_at inside ONE transaction.
+  # A mid-batch failure rolls back EVERY item (nothing partially scheduled) and
+  # enqueues ZERO jobs. VideoRemoteStatusSync only fires after a clean, full
+  # commit — one per vid.
+
+  describe ".confirm — video_schedule_mass" do
+    let!(:mass_channel) { create(:channel) }
+    let!(:mass_video1) do
+      create(:video, channel: mass_channel, title: "Episode One", privacy_status: :public, publish_at: nil)
+    end
+    let!(:mass_video2) do
+      create(:video, channel: mass_channel, title: "Episode Two", privacy_status: :public, publish_at: nil)
+    end
+    let(:time1) { 10.days.from_now.utc.change(usec: 0) }
+    let(:time2) { 12.days.from_now.utc.change(usec: 0) }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    def mass_payload(items)
+      { "items" => items }
+    end
+
+    context "happy path — every item clears validation" do
+      let(:items) do
+        [
+          { "video_id" => mass_video1.id, "video_title" => "Episode One", "publish_at" => time1.iso8601 },
+          { "video_id" => mass_video2.id, "video_title" => "Episode Two", "publish_at" => time2.iso8601 }
+        ]
+      end
+
+      it "sets privacy_status private and publish_at on EVERY video" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(mass_video1.reload.privacy_status).to eq("private")
+        expect(mass_video1.reload.publish_at).to be_within(1.second).of(time1)
+        expect(mass_video2.reload.privacy_status).to eq("private")
+        expect(mass_video2.reload.publish_at).to be_within(1.second).of(time2)
+      end
+
+      it "enqueues VideoRemoteStatusSync once per video" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(mass_video1.id)
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).with(mass_video2.id)
+        expect(VideoRemoteStatusSync).to have_received(:perform_later).exactly(2).times
+      end
+
+      it "returns outcome text mentioning the batch count" do
+        text = described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(text).to include("2")
+      end
+
+      it "applies items regardless of input order (ascending by publish_at, driven by the payload, not array order)" do
+        # Payload items given latest-first; the executor sorts ascending itself.
+        reversed = items.reverse
+        described_class.confirm("video_schedule_mass", mass_payload(reversed))
+        expect(mass_video1.reload.publish_at).to be_within(1.second).of(time1)
+        expect(mass_video2.reload.publish_at).to be_within(1.second).of(time2)
+      end
+    end
+
+    context "mid-batch spacing collision against an ALREADY-SCHEDULED row" do
+      let!(:anchor_video) do
+        create(:video, channel: mass_channel, title: "Anchor Episode",
+                       privacy_status: :private, publish_at: time1 + 20.minutes)
+      end
+      let(:items) do
+        [
+          { "video_id" => mass_video1.id, "video_title" => "Episode One", "publish_at" => time1.iso8601 },
+          { "video_id" => mass_video2.id, "video_title" => "Episode Two", "publish_at" => time2.iso8601 }
+        ]
+      end
+
+      it "does not raise — RecordInvalid is rescued locally" do
+        expect { described_class.confirm("video_schedule_mass", mass_payload(items)) }.not_to raise_error
+      end
+
+      it "rolls back EVERY item — including the one that validated fine" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(mass_video1.reload.privacy_status).to eq("public")
+        expect(mass_video1.reload.publish_at).to be_nil
+        expect(mass_video2.reload.privacy_status).to eq("public")
+        expect(mass_video2.reload.publish_at).to be_nil
+      end
+
+      it "enqueues ZERO jobs" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+      end
+
+      it "names the offending vid and the row it collided with" do
+        text = described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(text).to include("Episode One")
+        expect(text).to include("Anchor Episode")
+      end
+    end
+
+    context "mid-batch INTRA-batch spacing collision (caught by construction: the first save is visible to the second's own validation)" do
+      let(:items) do
+        [
+          { "video_id" => mass_video1.id, "video_title" => "Episode One", "publish_at" => time1.iso8601 },
+          { "video_id" => mass_video2.id, "video_title" => "Episode Two", "publish_at" => (time1 + 20.minutes).iso8601 }
+        ]
+      end
+
+      it "rolls back BOTH items — the first save never persists once the second fails" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(mass_video1.reload.privacy_status).to eq("public")
+        expect(mass_video1.reload.publish_at).to be_nil
+        expect(mass_video2.reload.privacy_status).to eq("public")
+        expect(mass_video2.reload.publish_at).to be_nil
+      end
+
+      it "enqueues ZERO jobs" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+      end
+
+      it "names the second vid and the first as the colliding row" do
+        text = described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(text).to include("Episode Two")
+        expect(text).to include("Episode One")
+      end
+    end
+
+    context "a video vanished between staging and confirming" do
+      let(:items) do
+        [
+          { "video_id" => mass_video1.id, "video_title" => "Episode One", "publish_at" => time1.iso8601 },
+          { "video_id" => 0, "video_title" => "Ghost", "publish_at" => time2.iso8601 }
+        ]
+      end
+
+      it "does not raise" do
+        expect { described_class.confirm("video_schedule_mass", mass_payload(items)) }.not_to raise_error
+      end
+
+      it "rolls back the earlier item that DID save" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(mass_video1.reload.privacy_status).to eq("public")
+        expect(mass_video1.reload.publish_at).to be_nil
+      end
+
+      it "enqueues ZERO jobs" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+      end
+
+      it "returns present outcome text" do
+        text = described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(text).to be_present
+      end
+    end
+
+    it "is valid at exactly 60 minutes away from an existing row (boundary — no conflict)" do
+      create(:video, channel: mass_channel, title: "Boundary Anchor",
+                     privacy_status: :private, publish_at: time1 + 60.minutes)
+      items = [ { "video_id" => mass_video1.id, "video_title" => "Episode One", "publish_at" => time1.iso8601 } ]
+      text = described_class.confirm("video_schedule_mass", mass_payload(items))
+      expect(mass_video1.reload.privacy_status).to eq("private")
+      expect(text).not_to include("Boundary Anchor")
     end
   end
 

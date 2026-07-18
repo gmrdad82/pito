@@ -15,6 +15,11 @@
 //   - Shift+Space cycles periods (authenticated only)
 //   - a stale body[data-pito-cable-offline] flag does NOT block submit (no reload, no lost message)
 //   - handleKeydown returns early (no cycle) when unauthenticated
+//   - Shift+U at caret 0 clicks the LAST [data-pito-use-widget-fill] in the scrollback
+//   - Shift+U guards mirror Shift+R (Ctrl+Shift+U passthrough, no-op when none, global listener)
+//   - `#<handle> apply|use|accept` fast-path clicks that message's fill widget and
+//     blocks submit; absent handle/widget or trailing text falls through to a normal
+//     submit (server-side fallback handles it)
 //
 // SKIPPED (jsdom limitations):
 //   - requestSubmit form submission actually sending a request (no network in jsdom)
@@ -544,6 +549,260 @@ describe("pito--chat-form controller", () => {
 
     expect(inputField.value).toBe("")
     expect(pickerEvents.length).toBe(0)
+  })
+
+  // ── Shift+U stages the latest use-widget vs. Ctrl+Shift+U guard ──────────────
+
+  // Build a scrollback carrying `count` use-widget fill buttons
+  // (Pito::UseWidgetComponent, fill: true) — the only thing #stageLatestSuggestion
+  // looks for, so a bare button with the marker attribute is enough.
+  function buildScrollbackWithFillButtons(count) {
+    const scrollback = document.createElement("div")
+    scrollback.id = "pito-scrollback"
+    const buttons = []
+    for (let i = 0; i < count; i++) {
+      const btn = document.createElement("button")
+      btn.setAttribute("data-pito-use-widget-fill", "")
+      scrollback.appendChild(btn)
+      buttons.push(btn)
+    }
+    document.body.appendChild(scrollback)
+    return { scrollback, buttons }
+  }
+
+  it("Shift+U at caret 0 clicks the LAST use-widget fill button when several are rendered", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, buttons } = buildScrollbackWithFillButtons(2)
+
+    const clicks = []
+    buttons[0].addEventListener("click", () => clicks.push("first"))
+    buttons[1].addEventListener("click", () => clicks.push("second"))
+
+    inputField.value = ""
+    inputField.focus() // box focused → the global listener defers to the textarea action (no double-fire)
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "U", { shiftKey: true, code: "KeyU" })
+
+    expect(clicks).toEqual(["second"])
+    scrollback.remove()
+  })
+
+  it("Shift+U is a no-op when no use-widget fill button is rendered", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "U", { shiftKey: true, code: "KeyU" })
+
+    expect(inputField.value).toBe("") // unchanged — nothing to stage
+  })
+
+  it("Shift+U mid-line (caret not at 0) does NOT click the widget", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, buttons } = buildScrollbackWithFillButtons(1)
+
+    let clicked = 0
+    buttons[0].addEventListener("click", () => clicked++)
+
+    inputField.value = "hello"
+    inputField.focus()
+    inputField.selectionStart = inputField.selectionEnd = 3
+    keydown(inputField, "U", { shiftKey: true, code: "KeyU" })
+
+    expect(clicked).toBe(0)
+    scrollback.remove()
+  })
+
+  it("Ctrl+Shift+U does NOT stage (mirrors Shift+R's modifier guard)", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, buttons } = buildScrollbackWithFillButtons(1)
+
+    let clicked = 0
+    buttons[0].addEventListener("click", () => clicked++)
+
+    inputField.value = ""
+    inputField.focus()
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "U", { shiftKey: true, ctrlKey: true, code: "KeyU" })
+
+    expect(clicked).toBe(0)
+    scrollback.remove()
+  })
+
+  it("Shift+U fires globally even when the chatbox is not focused", async () => {
+    buildScaffold()
+    await waitForConnect()
+    const { scrollback, buttons } = buildScrollbackWithFillButtons(1)
+
+    let clicked = 0
+    buttons[0].addEventListener("click", () => clicked++)
+
+    // Nothing editable is focused (activeElement defaults to <body>), so the
+    // global document listener — not the textarea's own keydown action —
+    // must be the one that handles this.
+    keydown(document, "U", { shiftKey: true, code: "KeyU" })
+
+    expect(clicked).toBe(1)
+    scrollback.remove()
+  })
+
+  it("Shift+U global listener does NOT hijack typing in another editable element", async () => {
+    buildScaffold()
+    await waitForConnect()
+    const { scrollback, buttons } = buildScrollbackWithFillButtons(1)
+
+    const otherInput = document.createElement("input")
+    document.body.appendChild(otherInput)
+    otherInput.focus()
+
+    let clicked = 0
+    buttons[0].addEventListener("click", () => clicked++)
+
+    keydown(otherInput, "U", { shiftKey: true, code: "KeyU" })
+
+    expect(clicked).toBe(0)
+    scrollback.remove()
+    otherInput.remove()
+  })
+
+  // ── `#<handle> apply|use|accept` fast-path (WP6) ──────────────────────────────
+
+  // Build a `.pito-segment` message container carrying a `data-pito-handle`
+  // token and (optionally) a use-widget fill button as SIBLINGS — mirroring the
+  // real AiComponent markup, where MetaLineComponent's #handle and the
+  // SuggestionBlockComponent's fill button are both descendants of the SAME
+  // Pito::Segment::Component root (id="event_<id>", class="pito-segment").
+  function buildAiMessageSegment(handle, { withWidget = true } = {}) {
+    const scrollback = document.createElement("div")
+    scrollback.id = "pito-scrollback"
+
+    const segment = document.createElement("div")
+    segment.className = "pito-segment"
+
+    const handleSpan = document.createElement("span")
+    handleSpan.dataset.pitoHandle = handle
+    segment.appendChild(handleSpan)
+
+    let widget = null
+    if (withWidget) {
+      widget = document.createElement("button")
+      widget.setAttribute("data-pito-use-widget-fill", "")
+      segment.appendChild(widget)
+    }
+
+    scrollback.appendChild(segment)
+    document.body.appendChild(scrollback)
+    return { scrollback, segment, widget }
+  }
+
+  it.each(["apply", "use", "accept"])("Enter on '#h1 %s' clicks the fill widget and does NOT submit", async (action) => {
+    const { form, inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, widget } = buildAiMessageSegment("h1")
+
+    let clicked = 0
+    widget.addEventListener("click", () => clicked++)
+    let submitted = 0
+    form.addEventListener("submit", () => submitted++)
+
+    inputField.value = `#h1 ${action}`
+    keydown(inputField, "Enter")
+
+    expect(clicked).toBe(1)
+    expect(submitted).toBe(0)
+    scrollback.remove()
+  })
+
+  it("is case-insensitive on both the handle and the action word", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, widget } = buildAiMessageSegment("kappa-5874")
+
+    let clicked = 0
+    widget.addEventListener("click", () => clicked++)
+
+    inputField.value = "#KAPPA-5874 APPLY"
+    keydown(inputField, "Enter")
+
+    expect(clicked).toBe(1)
+    scrollback.remove()
+  })
+
+  it("falls through to a normal submit when the handle isn't found", async () => {
+    const { form, inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, widget } = buildAiMessageSegment("h1")
+
+    let clicked = 0
+    widget.addEventListener("click", () => clicked++)
+    let submitted = 0
+    form.addEventListener("submit", () => submitted++)
+
+    inputField.value = "#nope-0000 apply"
+    keydown(inputField, "Enter")
+
+    expect(clicked).toBe(0)
+    expect(submitted).toBeGreaterThan(0)
+    scrollback.remove()
+  })
+
+  it("falls through to a normal submit when the message has no fill widget (server fallback handles it)", async () => {
+    const { form, inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback } = buildAiMessageSegment("h1", { withWidget: false })
+
+    let submitted = 0
+    form.addEventListener("submit", () => submitted++)
+
+    inputField.value = "#h1 apply"
+    keydown(inputField, "Enter")
+
+    expect(submitted).toBeGreaterThan(0)
+    expect(inputField.value).toBe("") // the normal Enter path clears the field
+    scrollback.remove()
+  })
+
+  it("falls through to a normal submit when trailing text follows the action word", async () => {
+    const { form, inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback, widget } = buildAiMessageSegment("h1")
+
+    let clicked = 0
+    widget.addEventListener("click", () => clicked++)
+    let submitted = 0
+    form.addEventListener("submit", () => submitted++)
+
+    inputField.value = "#h1 apply now"
+    keydown(inputField, "Enter")
+
+    expect(clicked).toBe(0)
+    expect(submitted).toBeGreaterThan(0)
+    scrollback.remove()
+  })
+
+  it("does not click a fill widget belonging to a DIFFERENT message", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const { scrollback: sb1, widget: widget1 } = buildAiMessageSegment("h1")
+    const { scrollback: sb2 } = buildAiMessageSegment("h2", { withWidget: false })
+    // Merge both segments under one scrollback (buildAiMessageSegment makes its
+    // own #pito-scrollback each call — collapse to a single one, as the real DOM
+    // only ever has one).
+    while (sb2.firstChild) sb1.appendChild(sb2.firstChild)
+    sb2.remove()
+
+    let clicked = 0
+    widget1.addEventListener("click", () => clicked++)
+
+    inputField.value = "#h2 apply"
+    keydown(inputField, "Enter")
+
+    expect(clicked).toBe(0) // h2's segment has no widget of its own
+    sb1.remove()
   })
 
   // ── Unauthenticated: handleKeydown returns early ──────────────────────────────

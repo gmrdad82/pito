@@ -39,6 +39,11 @@ RSpec.describe Pito::Share::LinkComponent, type: :component do
     expect(fb.text.strip).to eq("")
   end
 
+  it "is copy-only — no stage-in-chatbox fill button (the URL isn't a command)" do
+    expect(node.at_css("[data-pito-use-widget-fill]")).to be_nil
+    expect(node.css(".pito-copy__btn").size).to eq(1)
+  end
+
   it "keeps the inline timestamp slot on the first line" do
     expect(node.at_css("[data-pito-ts-slot]")).to be_present
   end

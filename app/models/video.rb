@@ -121,4 +121,42 @@ class Video < ApplicationRecord
 
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true
+
+  # 60-min ROLLING spacing between scheduled publishes on the SAME channel
+  # (exactly 60 minutes apart is allowed). Only pending schedules count — a
+  # past publish never blocks a new one (Video.scheduled already excludes
+  # `publish_at <= Time.current` / nil).
+  #
+  # Context-scoped (`on: :schedule`) so the ordinary save path — publish
+  # (publish_at: nil), unlist, sync, import, plain metadata saves — NEVER
+  # runs this: a Studio-side violating schedule still mirrors in freely. Only
+  # the chat `schedule` tool's own stage-time dry-run
+  # (Pito::Chat::Handlers::Schedule) and confirm-time save
+  # (Pito::Confirmation::Executor#confirm_video_schedule) opt into the
+  # :schedule context.
+  SCHEDULE_SPACING = 60.minutes
+
+  validate :publish_spacing_within_channel, on: :schedule
+
+  # The other scheduled video on this channel whose publish_at falls within
+  # SCHEDULE_SPACING of this video's (possibly just-assigned, not yet saved)
+  # publish_at, or nil when there is no collision. Exposed as its own reader
+  # — not folded silently into the validation — so callers building the
+  # `schedule_conflict` copy's `other`/`when` args (the stage-time dry-run in
+  # the chat handler, the confirm-time rescue in the executor) read the SAME
+  # collision the validation itself found, instead of re-deriving it from an
+  # error string.
+  def publish_spacing_collision
+    return nil if publish_at.blank? || channel_id.blank?
+
+    channel.videos.where.not(id: id).scheduled
+      .where("publish_at > ? AND publish_at < ?",
+             publish_at - SCHEDULE_SPACING, publish_at + SCHEDULE_SPACING)
+      .order(:publish_at).first
+  end
+
+  def publish_spacing_within_channel
+    collision = publish_spacing_collision
+    errors.add(:publish_at, "within 60 minutes of ##{collision.id} (#{collision.title})") if collision
+  end
 end

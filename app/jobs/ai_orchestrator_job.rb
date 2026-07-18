@@ -64,8 +64,9 @@ class AiOrchestratorJob < ApplicationJob
        text block — use a kv_table block (label/value pairs) or a table block.
        CLOSE WITH A SUGGESTION whenever the answer implies a next step the owner
        could take — view something in full, link it, import it, reindex it, search
-       for more, apply a change you only described, and so on: end with one or more
-       suggestion blocks for that step. This is the EXPECTED close for an
+       for more, apply a change you only described, and so on: end with EXACTLY ONE
+       suggestion block for that step (a mass command counts as one; never more
+       than one suggestion). This is the EXPECTED close for an
        actionable answer, not an optional extra — skip it only when the answer is
        purely informational with no natural next action (never invent one just to
        have something to suggest). Every suggestion's `command` MUST be a complete,
@@ -110,12 +111,16 @@ class AiOrchestratorJob < ApplicationJob
     "import <title>",
     "sync vids | sync channels",
     "update game footage <id> <hours>",
+    "update game footage <id> <hours>, <id> <hours>, ...",
     "update game price <id> <amount>",
     "update game platform <id> <name>",
     "update vid description <id> <text>",
+    "update vid description <id> <text>, <id> <text>, ...",
+    "update vid tags <id> <tag1, tag2, ...>",
     "publish vid <id>",
     "unlist vid <id>",
     "schedule vid <id> <dd-mm-yyyy>",
+    "schedule <id> in 2 hours, <id> tomorrow at 18:00, <id> <dd-mm-yyyy> <hh:mm>",
     "delete game <id> | delete vid <id>",
     "reindex game <id> | reindex vid <id>"
   ].freeze
@@ -139,7 +144,12 @@ class AiOrchestratorJob < ApplicationJob
     @command_cheat_sheet ||=
       "CHEAT-SHEET (valid pito command shapes — swap <placeholders> for real " \
       "ids/@handles/text from what you already gathered; every other word is " \
-      "literal):\n#{COMMAND_SHAPES.map { |line| "  #{line}" }.join("\n")}"
+      "literal):\n#{COMMAND_SHAPES.map { |line| "  #{line}" }.join("\n")}\n" \
+      "MASS RULES: mass forms are comma-separated '<id> <value>' rows; mass " \
+      "schedule is all-or-nothing behind ONE confirmation and enforces " \
+      "60-minute spacing per channel (check list vids private first); mass " \
+      "update applies row by row. Suggest AT MOST ONE command per answer — " \
+      "a mass command counts as one."
   end
   private_class_method :command_cheat_sheet
 
@@ -409,8 +419,10 @@ class AiOrchestratorJob < ApplicationJob
       "effort" => @client&.effort.presence
     ).merge(message_cost).compact
     # EVERY answer is repliable: `#<handle> @ai <text>` continues the thread
-    # anchored here, and `#<handle> apply [n]` runs suggestion n through the
-    # normal pipeline when suggestions are present.
+    # anchored here, and `#<handle> apply` STAGES the answer's one suggestion
+    # (the web client's fast-path fills the chatbox before any POST; the
+    # non-web fallback hands the command back as plain text) — it never runs
+    # anything itself.
     Pito::FollowUp.make_followupable!(payload, target: "ai_message", conversation: @conversation)
     @event.update!(payload:)
     @broadcaster.replace_event(@event)

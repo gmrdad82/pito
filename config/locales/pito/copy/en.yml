@@ -2116,6 +2116,12 @@ en:
           not_configured: "AI isn't configured yet — run `/config ai` to add your OpenCode Zen key and pick a model."
           failed: "The AI provider call failed. Try again in a moment."
           capped: "I hit this turn's exploration limit before finishing an answer. Try a narrower question."
+        # Non-web fallback for the `apply`/`use`/`accept` reply (the web client
+        # normally intercepts it client-side and stages the command without ever
+        # reaching the server — see follow_up/handlers/ai_message.rb). Terse and
+        # mechanical, matching pito.copy.nl.ran/did_you_mean's tone, not the
+        # witty 1-or-50 pools above.
+        apply_fallback: "Type or paste this to run it: `%{command}`"
         status:
           handshake:
             - "Waking the model…"
@@ -6890,6 +6896,12 @@ en:
           - "Not a valid future time. %{title} needs a datetime that's coming up."
           - "Time: not rewound. %{title}: needs a future publish slot."
           - "The past is off-limits. %{title}: future date required."
+        # WP2: the 60-min ROLLING per-channel spacing conflict (see
+        # Video#publish_spacing_within_channel, on: :schedule) — raised both by
+        # the chat handler's stage-time dry-run and the executor's confirm-time
+        # save. args: title (the vid being scheduled), other (the colliding
+        # vid's title), when (the colliding vid's publish time, DD-MM-YYYY HH:MM).
+        schedule_conflict: "%{title} is too close to %{other}, already set for %{when} — give it 60 minutes of breathing room."
         metadata_confirm: "Update %{title}'s %{field} on YouTube? New value: %{preview}"
         metadata_updated: "%{title}'s %{field} updated — pushing to YouTube now."
         publish_confirm:
@@ -7045,6 +7057,34 @@ en:
           - "Private now, public at %{when}: %{title} — proceed?"
           - "Schedule: %{title} → %{when} — confirm?"
           - "%{title} at %{when} — set and confirm?"
+        # WP3: `schedule <id> <when>, <id> <when>, …` — the mass form. ONE
+        # confirmation card for the whole comma-separated batch (all-or-nothing);
+        # args: count (the batch size).
+        mass_schedule_confirm: "Schedule %{count} vids? All or nothing — one hiccup and none of them go out."
+        # The mass confirm's own outcome text (args: count — the number actually
+        # scheduled, always the FULL batch since a mid-batch failure rolls back
+        # everything and never reaches here).
+        mass_scheduled: "%{count} vids scheduled."
+        # WP3: the 60-min ROLLING per-channel spacing conflict, MASS variant —
+        # raised both by the chat handler's stage-time dry-run (a DB collision OR
+        # an in-memory pairwise hit against an earlier batch item) and the
+        # executor's confirm-time save. Unlike the single schedule_conflict, a hit
+        # here rolls back the WHOLE batch, so the copy says so explicitly.
+        # args: title (the vid that tripped it), other (the colliding vid's
+        # title — a DB row or an earlier batch-mate), when (the colliding
+        # publish time, DD-MM-YYYY HH:MM).
+        mass_schedule_conflict: "%{title} lands within 60 minutes of %{other} (%{when}) — nothing in the batch got scheduled."
+        # WP3: a single mass segment couldn't be turned into an <id> + <when> —
+        # unparseable time, a non-numeric ref (mass has no title resolution), a
+        # vid id not in the library, a past time, or under 30 minutes out. ONE
+        # key covers every reason (see reason:) since the outcome is identical
+        # either way: abort the whole batch, name the offending segment.
+        # args: segment (the raw text of the failing comma-separated piece),
+        # reason (a short lowercase phrase — e.g. "that time is already in the past").
+        mass_schedule_bad_segment: "Couldn't make sense of '%{segment}' (%{reason}) — nothing in the batch got scheduled."
+        # WP3: the same vid id appears more than once in a comma-separated batch.
+        # args: id (the local numeric video id that repeated).
+        mass_schedule_duplicate: "Vid #%{id} shows up twice in that batch — nothing scheduled."
         list_intro:
           - "Your %{noun} — %{count}."
           - "%{count} %{noun} on the shelf."
@@ -7301,6 +7341,46 @@ en:
           - "Your channels don't include %{handle}."
           - "%{handle} — check your connected channels."
           - "Release when ready, champ"
+      # WP4: `update <noun> <field> <id> <value>, <id> <value>, …` — the mass
+      # form. Game fields (footage/price/platform) apply PER ROW and never
+      # abort on a bad row (Pito::MessageBuilder::Game::MassUpdateSummary
+      # renders the report). Vid fields (description/tags) never write
+      # directly — a valid row stages into ONE "video_metadata_mass"
+      # confirmation card; the executor (Pito::Confirmation::Executor
+      # #confirm_video_metadata_mass) applies that batch PER ROW too, no
+      # transaction, on `#<handle> confirm`.
+      update:
+        # The game mass-update report header. args: noun ("game"), field
+        # (footage/price/platform), applied/skipped (row counts). One
+        # deterministic line — a receipt, not chat banter.
+        mass_summary_header: "Update %{noun} %{field} — %{applied} applied, %{skipped} skipped"
+        # One report/expand_detail row that DID apply. args: ref ("#<id>"),
+        # title, value (the applied/staged value, already display-formatted).
+        # Shared by the game summary AND the vid mass confirmation card.
+        mass_row_applied: "%{ref} %{title} → %{value}"
+        # One report row that did NOT apply (game mass only — the vid mass
+        # confirmation card's own skip line carries a "skipped:" prefix
+        # instead, see mass_metadata_row_skipped). args: ref, reason (a short
+        # lowercase phrase, e.g. "not found").
+        mass_row_skipped: "%{ref} — %{reason}"
+        # The vid mass "update N vids' <field>?" confirmation body. args:
+        # count (valid rows only — skipped rows never reach the card), field.
+        mass_metadata_confirm: "Update %{count} vids' %{field}?"
+        # A skipped row inside the vid mass confirmation's expand_detail —
+        # prefixed so it reads apart from the applied rows in the same list.
+        # args: ref, reason.
+        mass_metadata_row_skipped: "Skipped: %{ref} — %{reason}"
+        # The mass metadata confirm's own outcome text — every staged row
+        # resolved and wrote through. args: count, field.
+        mass_metadata_updated: "%{count} vids' %{field} updated — pushing to YouTube now."
+        # Every staged row vanished between staging and confirming (rare —
+        # the confirmation card only ever stages rows that resolved). args:
+        # count (rows that failed), field.
+        mass_metadata_failed: "None of those %{count} vids could be found — nothing updated."
+        # A mix — some rows wrote through, some vanished before the confirm.
+        # args: updated (count that wrote through), field, failed (count that
+        # didn't).
+        mass_metadata_partial: "%{updated} vids' %{field} updated; %{failed} couldn't be found."
       refresh_nudge:
         lines:
           - "Fresh paint arrived backstage — this page still wears the old coat. %{combo} to change."

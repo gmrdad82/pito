@@ -1,3 +1,0 @@
-<%# Shared copy affordance: a self-contained pito--clipboard controller + the
-    lucide copy ICON button (action-shimmer coloured) + a "Copied!" feedback span.
-    Emitted with NO inter-element whitespace so it sits flush inline after a link. %><span class="pito-copy" data-controller="pito--clipboard" data-pito--clipboard-text-value="<%= text %>"><button type="button" class="pito-copy__btn" data-action="click->pito--clipboard#copy" aria-label="<%= aria_label %>"><%= render(Pito::IconComponent.new(name: "copy")) %></button><span class="pito-copy__feedback" data-pito--clipboard-target="feedback" aria-live="polite"></span></span>

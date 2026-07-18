@@ -2,7 +2,7 @@
   <div class="flex items-center gap-2">
     <span class="text-fg-faded">&gt;</span>
     <span class="text-fg"><%= command %></span>
-    <%= render(Pito::CopyButtonComponent.new(text: command, aria_label: "Copy command")) %>
+    <%= render(Pito::UseWidgetComponent.new(text: command, aria_label: "Copy command", fill: true)) %>
   </div>
   <% if note %>
     <div class="text-fg-dim"><%= note %></div>

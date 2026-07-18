@@ -158,6 +158,50 @@ describe("pito--ai-picker controller", () => {
     expect(root.querySelector(`[${T}="effortValue"]`).textContent).toBe("low")
   })
 
+  // Footer-hint taps (touch parity) — the ERB wires each hint's click to one
+  // of these PUBLIC methods (see picker_component.html.erb / spec); calling
+  // them directly here unit-tests the controller side of that contract,
+  // mirroring the physical chord's own private-method call exactly.
+  it("hintMove advances the selection like ArrowDown", () => {
+    const visible = rows().filter((r) => !r.hidden)
+    expect(selected()).toBe(visible[0]) // effort row, selected on connect()
+
+    ctrl.hintMove()
+
+    expect(selected()).toBe(visible[1])
+  })
+
+  it("hintEnter activates the currently selected row like physical Enter", async () => {
+    const target = rows().find((r) => r.dataset.value === "m-1")
+    selectRow(target)
+
+    ctrl.hintEnter()
+    await Promise.resolve()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(lastBody()).toEqual({ provider: "alpha", model: "m-1" })
+  })
+
+  it("hintFavorite toggles favorite on the currently selected row", async () => {
+    const target = rows().find((r) => r.dataset.value === "m-1")
+    selectRow(target)
+
+    ctrl.hintFavorite()
+    await Promise.resolve()
+
+    expect(lastBody()).toEqual({ favorite: "alpha/m-1" })
+  })
+
+  it("hintClearKey clears the currently selected row's provider key", async () => {
+    const target = rows().find((r) => r.dataset.value === "m-2")
+    selectRow(target)
+
+    ctrl.hintClearKey()
+    await Promise.resolve(); await Promise.resolve()
+
+    expect(lastBody()).toEqual({ provider: "alpha", clear_key: true })
+  })
+
   it("filters model rows by provider/id substring, leaving other row types alone", () => {
     const search = root.querySelector(`[${T}="search"]`)
     search.value = "b-"

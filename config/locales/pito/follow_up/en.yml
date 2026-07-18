@@ -1,6 +1,10 @@
 en:
   pito:
     follow_up:
+      ai_message:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: apply / use / accept, or #<handle> @ai <question>."
+          no_suggestion: "This answer doesn't have a suggested command to apply."
       resume_missing:
         errors:
           invalid_action: "Unknown action '%{action}'. Reply `new` to create it, or click a suggestion."
@@ -9,11 +13,10 @@ en:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
       game_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: channels, similar, vids, analyze, reindex, footage <hours>, price set <amount> / unset, link to vid <id|title>, or unlink."
+          invalid_action: "Unknown action '%{action}'. Try: channels, similar, vids, analyze, reindex, price set <amount> / unset, link to vid <id|title>, or unlink."
           game_not_found: "Couldn't find the game for this message."
           video_not_found: "No vid matching \"%{ref}\"."
           missing_video_ref: "Specify a vid. Try: link to vid <id|title>."
-          missing_hours: "Specify the footage hours. Try: footage <hours> (e.g. footage 12.5)."
           missing_price: "Specify a positive amount. Try: price set <amount> (e.g. price set 59.99) or price unset."
       video_list:
         errors:

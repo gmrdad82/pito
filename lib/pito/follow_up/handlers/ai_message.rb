@@ -5,16 +5,26 @@ module Pito
     module Handlers
       # Follow-up handler for :ai answers.
       #
-      #   #a7 @ai <text>  → CONTINUE the thread anchored on that answer: a new
-      #                     pending :ai event whose orchestrator run guarantees
-      #                     the anchored exchange (the owner's prompt + this
-      #                     answer) rides in the model's context even when it
-      #                     has scrolled out of the history window.
+      #   #a7 @ai <text>          → CONTINUE the thread anchored on that
+      #                             answer: a new pending :ai event whose
+      #                             orchestrator run guarantees the anchored
+      #                             exchange (the owner's prompt + this
+      #                             answer) rides in the model's context even
+      #                             when it has scrolled out of the history
+      #                             window.
+      #   #a7 apply|use|accept    → STAGE the answer's suggested command. The
+      #                             web client intercepts this token BEFORE it
+      #                             ever reaches the server (chat_form_
+      #                             controller.js clicks the answer's
+      #                             Pito::UseWidgetComponent fill button, no
+      #                             POST). This handler only runs for the
+      #                             non-web fallback: it hands the command
+      #                             text back as a plain system message for
+      #                             the owner to copy/type themselves — it
+      #                             NEVER executes the command.
       #
       # The source :ai message stays live (consume: false) so the owner can
-      # keep talking. Suggested commands are clickable/copyable content, run by
-      # typing them — the old `apply` reply was dropped (owner call: one less
-      # indirection). share/revoke arrive via the universal reply set.
+      # keep talking. share/revoke arrive via the universal reply set.
       class AiMessage < Pito::FollowUp::Handler
         self.target "ai_message"
 
@@ -26,10 +36,9 @@ module Pito
           end
 
           action, = parse_rest(rest)
-          Result::Error.new(
-            message_key:  "pito.follow_up.errors.unknown_action",
-            message_args: { action: action.to_s }
-          )
+          return undeclared_action(action) unless declared?(action)
+
+          apply_fallback(event:)
         end
 
         private
@@ -49,6 +58,26 @@ module Pito
           }
           payload["web"] = true if web
           Result::Append.new(events: [ { kind: :ai, payload: } ], consume: false)
+        end
+
+        # Non-web fallback for apply/use/accept — the web client's fast-path
+        # click never reaches here. Requires a `type: "suggestion"` block in
+        # the answer's payload (the same block the UseWidgetComponent fill
+        # button is rendered from); otherwise there is nothing to hand back.
+        def apply_fallback(event:)
+          suggestion = Array(event.payload["blocks"]).find { |b| b.is_a?(Hash) && b["type"].to_s == "suggestion" }
+          unless suggestion
+            return Result::Error.new(
+              message_key:  "pito.follow_up.ai_message.errors.no_suggestion",
+              message_args: {}
+            )
+          end
+
+          command = suggestion["command"].to_s
+          Result::Append.new(
+            events: [ { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.ai.apply_fallback", command:) } ],
+            consume: false
+          )
         end
       end
     end

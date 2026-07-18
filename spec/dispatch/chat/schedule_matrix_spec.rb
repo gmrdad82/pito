@@ -71,6 +71,16 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     allow(Pito::HandleGenerator).to receive(:call).and_return("mock-1234")
     # Default: every Video.find_by succeeds.
     allow(::Video).to receive(:find_by).and_return(video_double)
+    # WP2: every non-past, non-too-soon path now runs a stage-time dry-run
+    # (assign_attributes + valid?(:schedule) + restore_attributes) before
+    # building the confirmation. This is a recognition-only matrix — no real
+    # Video rows exist, so the model's own 60-min-spacing query never runs;
+    # default the dry-run to "no collision" so the existing confirmation
+    # matrix is unaffected. Only the "stage-time spacing conflict" section
+    # below overrides valid? to exercise the conflict branch.
+    allow(video_double).to receive(:assign_attributes)
+    allow(video_double).to receive(:valid?).with(:schedule).and_return(true)
+    allow(video_double).to receive(:restore_attributes)
   end
 
   # Build and invoke a Schedule handler from a raw chat input string.
@@ -534,6 +544,41 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     end
   end
 
+  # ── Stage-time spacing conflict (WP2) ─────────────────────────────────────────
+  #
+  # After the past/too_soon guards, the handler dry-runs the real :schedule
+  # context validation (assign_attributes + valid?(:schedule)) — DB mocked, so
+  # this exercises the handler's BRANCHING on valid?/publish_spacing_collision,
+  # not the model's real query (that's video_spec.rb + executor_spec.rb).
+  describe "stage-time spacing conflict → :system event (schedule_conflict), not :confirmation" do
+    let(:collision_double) do
+      double("Video", title: "Collision Video", publish_at: Time.zone.local(2026, 6, 17, 9, 30))
+    end
+
+    before do
+      allow(video_double).to receive(:valid?).with(:schedule).and_return(false)
+      allow(video_double).to receive(:publish_spacing_collision).and_return(collision_double)
+    end
+
+    it "emits a :system event (no command key) instead of :confirmation" do
+      result = call("schedule 5 tomorrow")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["command"]).to be_nil
+    end
+
+    it "the text names the colliding video" do
+      result = call("schedule 5 tomorrow")
+      expect(result.events.first[:payload]["text"]).to include("Collision Video")
+    end
+
+    it "restores the dry-run assignment (restore_attributes) before returning" do
+      call("schedule 5 tomorrow")
+      expect(video_double).to have_received(:restore_attributes)
+    end
+  end
+
   # ── Slate keyword → slate planner path ────────────────────────────────────────
   #
   # When the last body token (after noun-filter strip) is "slate", the handler
@@ -711,6 +756,9 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     # not the card's video_id.
     it "typed id on a video_detail reply targets the TYPED id, not the card's video" do
       typed = double("Video", id: 7, title: "Typed Video")
+      allow(typed).to receive(:assign_attributes)
+      allow(typed).to receive(:valid?).with(:schedule).and_return(true)
+      allow(typed).to receive(:restore_attributes)
       allow(::Video).to receive(:find_by).with(id: "7").and_return(typed)
       ctx = Pito::Chat::FollowUpContext.new(source_event:, rest: "7 tomorrow")
       result = call("schedule 7 tomorrow", follow_up: ctx)
@@ -759,6 +807,245 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       ctx = Pito::Chat::FollowUpContext.new(source_event: list_event, rest: "tomorrow")
       result = call("schedule tomorrow", follow_up: ctx)
       expect_bad_when(result)
+    end
+  end
+
+  # ── Mass form (WP3): `schedule <id> <when>, <id> <when>, …` ──────────────────
+  #
+  # Grammar: a comma ANYWHERE in the (noun-filler-stripped) body routes to the
+  # mass ladder; no comma stays the single path, byte-identical (see "grammar
+  # detection" below). Real Lexer+KeywordSanitizer+Parser build body_tokens
+  # here — NOT the naive whitespace-splitter `make_handler`/`call` use above —
+  # because mass detection depends on a genuine :comma TOKEN, and the naive
+  # splitter never produces one unless a comma is its own whitespace-separated
+  # word, which is not how anyone types `schedule 5 tomorrow, 6 in 2 hours`.
+  # DB stays mocked, same spirit as the rest of this file: ::Video.where is
+  # stubbed per-example against hand-built doubles (mirrors video_double /
+  # SCHED_STUB_ID above), never a real AR query — except the "not found" case,
+  # which deliberately stubs an id OUT so the lookup misses it.
+  describe "mass form (WP3)" do
+    def mass_handler(raw, follow_up: nil)
+      tokens = Pito::Lex::KeywordSanitizer.call(Pito::Lex::Lexer.call(raw))
+      msg    = Pito::Chat::Parser.call(tokens, raw: raw, conversation: conversation)
+      Pito::Chat::Handlers::Schedule.new(message: msg, conversation: conversation, follow_up: follow_up)
+    end
+
+    def mass_call(raw, follow_up: nil)
+      mass_handler(raw, follow_up:).call
+    end
+
+    def mass_video(id:, title:, channel_id: 1, valid: true, collision: nil)
+      v = double("Video##{id}", id: id, title: title, channel_id: channel_id)
+      allow(v).to receive(:assign_attributes)
+      allow(v).to receive(:valid?).with(:schedule).and_return(valid)
+      allow(v).to receive(:publish_spacing_collision).and_return(collision)
+      allow(v).to receive(:restore_attributes)
+      v
+    end
+
+    def stub_mass_videos(*doubles)
+      by_id = doubles.index_by { |v| v.id.to_s }
+      allow(::Video).to receive(:where) do |cond|
+        ids = Array(cond[:id]).map(&:to_s)
+        by_id.values_at(*ids).compact
+      end
+    end
+
+    def expect_mass_abort(result, includes:)
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["command"]).to be_nil
+      expect(event[:payload]["text"]).to include(includes)
+    end
+
+    describe "grammar detection" do
+      it "a comma anywhere routes to the mass ladder, not the single path" do
+        stub_mass_videos(mass_video(id: 5, title: "V5"), mass_video(id: 6, title: "V6"))
+        result = mass_call("schedule 5 tomorrow, 6 in 2 hours")
+        expect(result.events.first[:kind]).to eq(:confirmation)
+        expect(result.events.first[:payload]["command"]).to eq("video_schedule_mass")
+      end
+
+      it "no comma stays the single path — byte-identical, untouched by WP3" do
+        result = mass_call("schedule 5 tomorrow")
+        expect(result.events.first[:kind]).to eq(:confirmation)
+        expect(result.events.first[:payload]["command"]).to eq("video_schedule")
+      end
+    end
+
+    describe "stage 1 — parse: TimeParser match AND a single numeric #?\\d+ ref" do
+      it "an unparseable trailing segment aborts, naming that segment" do
+        result = mass_call("schedule 5 tomorrow, 6 blah")
+        expect_mass_abort(result, includes: "6 blah")
+      end
+
+      it "an unparseable LEADING segment aborts too — every segment is checked before any later stage" do
+        result = mass_call("schedule 5 blah, 6 tomorrow")
+        expect_mass_abort(result, includes: "5 blah")
+      end
+
+      it "a non-numeric (title) ref aborts — mass has no title resolution" do
+        result = mass_call("schedule five tomorrow, 6 in 2 hours")
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["command"]).to be_nil
+      end
+
+      it "a dangling trailing comma yields an empty segment and aborts" do
+        result = mass_call("schedule 5 tomorrow,")
+        expect(result.events.first[:kind]).to eq(:system)
+      end
+    end
+
+    describe "stage 2 — no duplicate ids across segments" do
+      it "the same id twice aborts naming the id, before any DB lookup" do
+        result = mass_call("schedule 5 tomorrow, 5 in 2 hours")
+        expect_mass_abort(result, includes: "5")
+      end
+
+      it "#5 and bare 5 (same id, different ref spelling) still count as a duplicate" do
+        result = mass_call("schedule #5 tomorrow, 5 in 2 hours")
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["command"]).to be_nil
+      end
+    end
+
+    describe "stage 3 — every id must resolve to a real vid" do
+      it "an id with no matching vid aborts naming that segment" do
+        stub_mass_videos(mass_video(id: 5, title: "V5"))
+        result = mass_call("schedule 5 tomorrow, 999999 in 2 hours")
+        expect_mass_abort(result, includes: "999999")
+      end
+    end
+
+    describe "stage 4 — every <when> must be future AND at least 30 minutes out" do
+      it "a past segment aborts naming it, even though the other segment is fine" do
+        stub_mass_videos(mass_video(id: 5, title: "V5"), mass_video(id: 6, title: "V6"))
+        result = mass_call("schedule 5 in 2 hours, 6 01-01-2020")
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["command"]).to be_nil
+      end
+
+      it "a too-soon segment (under 30 minutes) aborts" do
+        # SCHED_NOW = 2026-06-16 10:00 UTC (the file's own `around` hook).
+        stub_mass_videos(mass_video(id: 5, title: "V5"), mass_video(id: 6, title: "V6"))
+        result = mass_call("schedule 5 in 2 hours, 6 in 10m")
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["command"]).to be_nil
+      end
+    end
+
+    describe "stage 5 — spacing: DB dry-run vs an already-scheduled row" do
+      it "a segment that collides with an existing scheduled row aborts, naming both" do
+        collision = double("Video", title: "Existing Anchor", publish_at: Time.zone.local(2026, 7, 1, 9, 30))
+        stub_mass_videos(
+          mass_video(id: 5, title: "V5", valid: false, collision: collision),
+          mass_video(id: 6, title: "V6")
+        )
+        result = mass_call("schedule 5 tomorrow, 6 in 2 hours")
+        expect_mass_abort(result, includes: "Existing Anchor")
+      end
+    end
+
+    describe "stage 5 — spacing: in-memory pairwise (same channel, batch-mates never persisted)" do
+      it "two same-channel segments under 60 minutes apart abort, naming both" do
+        stub_mass_videos(
+          mass_video(id: 5, title: "V5", channel_id: 1),
+          mass_video(id: 6, title: "V6", channel_id: 1)
+        )
+        result = mass_call("schedule 5 today at 14:00, 6 today at 14:20")
+        expect_mass_abort(result, includes: "V5")
+      end
+
+      it "exactly 60 minutes apart on the same channel is NOT a conflict (boundary)" do
+        stub_mass_videos(
+          mass_video(id: 5, title: "V5", channel_id: 1),
+          mass_video(id: 6, title: "V6", channel_id: 1)
+        )
+        result = mass_call("schedule 5 today at 14:00, 6 today at 15:00")
+        expect(result.events.first[:kind]).to eq(:confirmation)
+      end
+
+      it "the same time gap on DIFFERENT channels is not a conflict" do
+        stub_mass_videos(
+          mass_video(id: 5, title: "V5", channel_id: 1),
+          mass_video(id: 6, title: "V6", channel_id: 2)
+        )
+        result = mass_call("schedule 5 today at 14:00, 6 today at 14:20")
+        expect(result.events.first[:kind]).to eq(:confirmation)
+      end
+    end
+
+    describe "happy path — confirmation payload" do
+      it "builds a video_schedule_mass confirmation with items sorted ascending by publish_at" do
+        stub_mass_videos(
+          mass_video(id: 5, title: "Later One", channel_id: 1),
+          mass_video(id: 6, title: "Earlier One", channel_id: 2)
+        )
+        result  = mass_call("schedule 5 tomorrow, 6 in 2 hours")
+        event   = result.events.first
+        expect(event[:kind]).to eq(:confirmation)
+        payload = event[:payload]
+        expect(payload["command"]).to eq("video_schedule_mass")
+        ids = payload["items"].map { |i| i["video_id"] }
+        expect(ids).to eq([ 6, 5 ]) # "in 2 hours" (#6) lands before "tomorrow" (#5)
+      end
+
+      it "3+ segments that all clear the ladder → one confirmation" do
+        stub_mass_videos(
+          mass_video(id: 5, title: "V5", channel_id: 1),
+          mass_video(id: 6, title: "V6", channel_id: 2),
+          mass_video(id: 7, title: "V7", channel_id: 3)
+        )
+        result = mass_call("schedule 5 in 2 hours, 6 tomorrow, 7 next week")
+        expect(result.events.first[:kind]).to eq(:confirmation)
+        expect(result.events.first[:payload]["items"].size).to eq(3)
+      end
+    end
+
+    # ── video_list / video_search mass reply follow-ups ────────────────────────
+    #
+    # Mirrors the single path's own follow-up sections above: the ToolDelegator
+    # re-enters Pito::Dispatch::Router with the FULL rest (tool word included),
+    # so the handler sees the same body_tokens (comma included) it would from
+    # free chat — one code path, no reply-specific mass branching.
+    # prepend_follow_up_ref no-ops on a mass reply since the first typed token
+    # is always numeric (the first segment's id).
+    describe "video_list / video_search mass reply follow-ups" do
+      let(:list_event) do
+        instance_double(Event, payload: { "reply_target" => "video_list", "video_ids" => [ 5, 6 ] })
+      end
+      let(:search_event) do
+        instance_double(Event, payload: { "reply_target" => "video_search", "video_ids" => [ 5, 6 ] })
+      end
+
+      it "a mass reply on a video_list card runs the SAME mass path as free chat" do
+        stub_mass_videos(mass_video(id: 5, title: "V5"), mass_video(id: 6, title: "V6"))
+        ctx    = Pito::Chat::FollowUpContext.new(source_event: list_event, rest: "5 tomorrow, 6 in 2 hours")
+        result = mass_call("schedule 5 tomorrow, 6 in 2 hours", follow_up: ctx)
+        expect(result.events.first[:kind]).to eq(:confirmation)
+        expect(result.events.first[:payload]["command"]).to eq("video_schedule_mass")
+      end
+
+      it "follow_up? is true for a mass reply" do
+        ctx     = Pito::Chat::FollowUpContext.new(source_event: list_event, rest: "5 tomorrow, 6 in 2 hours")
+        handler = mass_handler("schedule 5 tomorrow, 6 in 2 hours", follow_up: ctx)
+        expect(handler.follow_up?).to be true
+      end
+
+      it "a ladder failure on a mass reply aborts the same way as free chat" do
+        ctx    = Pito::Chat::FollowUpContext.new(source_event: list_event, rest: "5 tomorrow, 5 in 2 hours")
+        result = mass_call("schedule 5 tomorrow, 5 in 2 hours", follow_up: ctx)
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["command"]).to be_nil
+      end
+
+      it "a mass reply on a video_search card runs the same mass path too" do
+        stub_mass_videos(mass_video(id: 5, title: "V5"), mass_video(id: 6, title: "V6"))
+        ctx    = Pito::Chat::FollowUpContext.new(source_event: search_event, rest: "5 tomorrow, 6 in 2 hours")
+        result = mass_call("schedule 5 tomorrow, 6 in 2 hours", follow_up: ctx)
+        expect(result.events.first[:kind]).to eq(:confirmation)
+      end
     end
   end
 end

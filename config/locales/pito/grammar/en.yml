@@ -19,7 +19,6 @@ en:
         list: "List your library — games, vids, or channels; filter by genre and more (ls rpg games). Use it for the catalog, not analytics."
         show: "Open ONE game, vid, or channel in full detail by id (show game 42). For a quick read use at-a-glance; for metrics use analyze."
         import: "Add a game to your library from IGDB by title (import game hades). Vids arrive via sync, never import."
-        footage: "Record how many hours of footage you have for a game (footage 12 8.5) — a manual per-game total, never inferred."
         delete: "Remove a game or vid from the library (by id or title). Library-only: never touches YouTube."
         reindex: "Re-embed a game or vid with the local embedding model (by id or title) — refreshes search and similarity for that row."
         platform: "Add or remove a game's platform (platform set 12 ps5, platform unset 12 ps5)."

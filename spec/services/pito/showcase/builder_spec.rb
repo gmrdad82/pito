@@ -93,7 +93,7 @@ RSpec.describe Pito::Showcase::Builder do
 
     it "includes footage update for the game id" do
       result = call
-      expect(result).to include("footage update ##{game.id} 2")
+      expect(result).to include("update game footage ##{game.id} 2")
     end
 
     it "includes analyze games for the game id" do

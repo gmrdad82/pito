@@ -102,14 +102,22 @@ RSpec.describe Pito::Ai::PickerComponent, type: :component do
     expect(node.css('[data-section="recents"]')).to be_empty
   end
 
-  it "shows the effort cycler only when the active provider declares reasoning" do
-    none = render_picker # opencode → reasoning none
-    expect(none.css('[data-row-type="effort"]')).to be_empty
-
+  it "shows the effort cycler when the active provider declares reasoning" do
     with = render_picker(active_provider: "openrouter", active_model: "or-1", effort: "high")
     row  = with.css('[data-row-type="effort"]').first
     expect(row).to be_present
+    expect(row.name).to eq("button")
+    expect(row["data-pito--ai-picker-target"]).to eq("row")
     expect(row.text).to include("high")
+  end
+
+  it "renders the effort row as a read-only dim line — never absent — when the active provider declares no reasoning" do
+    node = render_picker # opencode → reasoning none
+    row  = node.css('[data-row-type="effort"]').first
+    expect(row).to be_present
+    expect(row.name).to eq("div")
+    expect(row["data-pito--ai-picker-target"]).to be_nil
+    expect(row.text).to include("effort: model default — provider manages reasoning")
   end
 
   it "shows 'model default' when effort is unset" do
@@ -132,5 +140,24 @@ RSpec.describe Pito::Ai::PickerComponent, type: :component do
     expect {
       described_class.new(providers:, active_provider: "opencode", api_key: "sk-leak")
     }.to raise_error(ArgumentError)
+  end
+
+  describe "footer hints — tappable on touch (kbd_click)" do
+    let(:footer) { render_picker.css(".text-fg-faded").last }
+    let(:hints)  { footer.css("span.pito-kbd-shimmer") }
+
+    it "wires all four footer hints to pito--kbd-click, same as the title-row Esc hint" do
+      expect(hints.map(&:text)).to eq(%w[↑/↓ enter ctrl+f ctrl+x])
+      hints.each { |hint| expect(hint["data-controller"]).to eq("pito--kbd-click") }
+    end
+
+    it "merges each hint's own click action onto the base kbd_click wiring — the mechanism stays intact" do
+      by_text = hints.index_by(&:text)
+      { "↑/↓" => "hintMove", "enter" => "hintEnter", "ctrl+f" => "hintFavorite", "ctrl+x" => "hintClearKey" }
+        .each do |text, method|
+          action = by_text.fetch(text)["data-action"]
+          expect(action).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire click->pito--ai-picker##{method}")
+        end
+    end
   end
 end

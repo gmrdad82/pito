@@ -282,6 +282,58 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
     end
   end
 
+  # ── Stage-time spacing conflict (WP2) ────────────────────────────────────────
+  # The handler dry-runs the real :schedule-context validation (assign +
+  # valid?(:schedule)) before building the confirmation, so a collision with
+  # another scheduled video on the SAME channel (±60 min) is caught before the
+  # user ever sees a confirmation prompt. Anchored to a fixed local time (not
+  # *.from_now) so the DD-MM-YYYY HH:MM <when> text — which carries only
+  # minute precision — lines up exactly with the fixture's publish_at; no
+  # sub-minute drift near the 60-minute boundary test.
+  context "stage-time spacing conflict" do
+    around { |example| travel_to(Time.zone.local(2026, 6, 16, 10, 0)) { example.run } }
+
+    let(:anchor_at) { Time.zone.local(2026, 6, 26, 15, 0) }
+    let!(:anchor) do
+      create(:video, channel: channel, title: "Anchor Ep", privacy_status: :private, publish_at: anchor_at)
+    end
+
+    it "emits a :system schedule_conflict event instead of :confirmation when within 60 minutes of another scheduled video" do
+      result = schedule_real("schedule video #{video.id} #{(anchor_at + 20.minutes).strftime('%d-%m-%Y %H:%M')}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["command"]).to be_nil
+    end
+
+    it "the conflict text names both the staged video and the colliding video" do
+      result = schedule_real("schedule video #{video.id} #{(anchor_at + 20.minutes).strftime('%d-%m-%Y %H:%M')}")
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Episode One")
+      expect(text).to include("Anchor Ep")
+    end
+
+    it "does NOT mutate the video — the dry-run assignment is restored, not persisted" do
+      schedule_real("schedule video #{video.id} #{(anchor_at + 20.minutes).strftime('%d-%m-%Y %H:%M')}")
+      expect(video.reload.privacy_status).to eq("public")
+      expect(video.reload.publish_at).to be_nil
+    end
+
+    it "is valid at exactly 60 minutes away (boundary — emits :confirmation, not a conflict)" do
+      result = schedule_real("schedule video #{video.id} #{(anchor_at + 60.minutes).strftime('%d-%m-%Y %H:%M')}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "a colliding time on a DIFFERENT channel is not a conflict" do
+      other_channel = create(:channel)
+      other_video = create(:video, channel: other_channel, title: "Other Channel Ep")
+      result = schedule_real("schedule video #{other_video.id} #{(anchor_at + 10.minutes).strftime('%d-%m-%Y %H:%M')}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+  end
+
   # ── slate: the upcoming-schedule planning view ────────────────────────────────
 
   describe "schedule <id> slate" do

@@ -2,9 +2,12 @@
 
 require "rails_helper"
 
-# The ai_message follow-up: `apply [n]` runs a suggested command; `@ai <text>`
-# continues the thread with a new pending :ai event anchored on the source
-# answer (the orchestrator pins that exchange into the model's context).
+# The ai_message follow-up: `apply`/`use`/`accept` STAGE the answer's
+# suggested command (the web client intercepts this client-side and never
+# reaches this handler — this is the non-web fallback that hands the command
+# text back as a system message); `@ai <text>` continues the thread with a
+# new pending :ai event anchored on the source answer (the orchestrator pins
+# that exchange into the model's context).
 RSpec.describe Pito::FollowUp::Handlers::AiMessage do
   let(:conversation) { Conversation.singleton }
 
@@ -65,14 +68,51 @@ RSpec.describe Pito::FollowUp::Handlers::AiMessage do
     end
   end
 
-  describe "anything else" do
-    it "rejects unknown actions — apply is gone (owner call), @ai is the only reply verb" do
+  describe "anything else — truly unknown actions" do
+    it "rejects an undeclared action with the target-scoped invalid_action key" do
       event  = make_ai_event
-      %w[frobnicate apply].each do |action|
+      result = described_class.new.call(event:, rest: "frobnicate", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.ai_message.errors.invalid_action")
+      expect(result.message_args).to eq(action: "frobnicate")
+    end
+  end
+
+  describe "apply/use/accept — the non-web fallback (WP6)" do
+    let(:suggestion_block) { { "type" => "suggestion", "command" => "show vid #12" } }
+
+    %w[apply use accept].each do |action|
+      it "hands back the suggested command as a system message for `#{action}` (consume: false)" do
+        event  = make_ai_event(blocks: [ { "type" => "text", "text" => "answer" }, suggestion_block ])
         result = described_class.new.call(event:, rest: action, conversation:)
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.errors.unknown_action")
+
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to be(false)
+        expect(result.events.length).to eq(1)
+
+        appended = result.events.first
+        expect(appended[:kind]).to eq(:system)
+        expect(appended[:payload]).to eq(
+          Pito::MessageBuilder::Text.call("pito.copy.ai.apply_fallback", command: "show vid #12")
+        )
       end
+    end
+
+    it "errors with no_suggestion when the answer carries no suggestion block" do
+      event  = make_ai_event(blocks: [ { "type" => "text", "text" => "just words, no command" } ])
+      result = described_class.new.call(event:, rest: "apply", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.ai_message.errors.no_suggestion")
+    end
+
+    it "errors with no_suggestion when the answer has no blocks at all" do
+      event  = make_ai_event(blocks: [])
+      result = described_class.new.call(event:, rest: "use", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.ai_message.errors.no_suggestion")
     end
   end
 end

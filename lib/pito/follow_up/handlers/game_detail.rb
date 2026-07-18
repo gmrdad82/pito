@@ -20,12 +20,6 @@ module Pito
       #     → Delegated to Chat::Handlers::Link via ToolDelegator. The handler
       #       reads game_id from the source event and the video ref from rest.
       #
-      #   #<handle> footage [update] <hours>
-      #     → Set this game's total footage hours (ceil'd UP to the next 0.5),
-      #       mirroring the `footage update <id> <hours>` chat tool (the id is
-      #       implied by the card). Reachable via shift+r, which seeds `#<handle> `.
-      #       (The `footage snippet` ffprobe one-liner moved to pito-tui (ctrl+f)
-      #       2026-07-13 — this reply no longer has a snippet branch.)
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
 
@@ -46,8 +40,6 @@ module Pito
             Pito::FollowUp::AnalyzeReply.append(
               level: :game, ids: [ event.payload["game_id"] ].compact, conversation:, period:
             )
-          when "footage"
-            handle_footage(event, args, conversation)
           when "price"
             handle_price(event, args, conversation)
           else
@@ -62,42 +54,6 @@ module Pito
         end
 
         private
-
-        # ── footage [update] <hours> ──────────────────────────────────────────────
-
-        # `#<handle> footage [update] <hours>` sets the game's footage total (id
-        # implied by the card) — parity with the `footage update <id> <hours>`
-        # chat tool.
-        def handle_footage(event, args, conversation)
-          game = resolve_game_from_event(event)
-          return game_not_found_error if game.nil?
-
-          hours = parse_footage_hours(args)
-          if hours.nil?
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_detail.errors.missing_hours",
-              message_args: {}
-            )
-          end
-
-          game.update!(footage_hours: hours)
-
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: :system, payload: Pito::MessageBuilder::Text.call(
-              "pito.copy.footage.updated",
-              game:  game.title,
-              hours: Pito::Formatter::FootageHours.call(game.footage_hours)
-            ) } ]
-          )
-        end
-
-        # Parse the `footage` args tail into footage hours, ceil'd UP to the next
-        # 0.5 (1800 s = 0.5 h) via the shared Pito::Games::FootageAmount parser
-        # (the same one the `:footage_hours` reply resolver wraps — one canonical
-        # parse, no fork). Tolerates an optional leading `update` token.
-        def parse_footage_hours(args)
-          Pito::Games::FootageAmount.parse(args)
-        end
 
         # ── price [set] <amount> | price unset ────────────────────────────────────
 

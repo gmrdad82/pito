@@ -523,7 +523,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
     it "includes the expected chat tools" do
       names = specs.map(&:name)
       expect(names).to include(
-        :list, :show, :analyze, :import, :sync, :footage,
+        :list, :show, :analyze, :import, :sync,
         :price, :delete, :reindex, :platform, :publish, :unlist,
         :schedule, :link, :unlink, :help, :shinies, :greet, :farewell
       )
