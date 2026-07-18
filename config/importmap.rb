@@ -10,3 +10,4 @@ pin "pito/auth", to: "pito/auth.js"
 pin "pito/settings", to: "pito/settings.js"
 pin "pito/turbo_actions", to: "pito/turbo_actions.js"
 pin "pito/ready", to: "pito/ready.js"
+pin "@hotwired/hotwire-native-bridge", to: "@hotwired--hotwire-native-bridge.js" # @1.2.2

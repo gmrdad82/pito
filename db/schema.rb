@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_17_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_18_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -155,6 +155,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_17_010000) do
     t.index ["deleting_at"], name: "index_conversations_on_deleting_at"
     t.index ["source"], name: "index_conversations_on_source"
     t.index ["uuid"], name: "index_conversations_on_uuid", unique: true
+  end
+
+  create_table "device_tokens", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.string "platform", default: "android", null: false
+    t.string "token", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token"], name: "index_device_tokens_on_token", unique: true
   end
 
   create_table "events", force: :cascade do |t|

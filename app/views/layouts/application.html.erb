@@ -37,6 +37,17 @@
           data-pito--fx-config-value="<%= Pito::Fx::Registry.as_json.to_json %>"></canvas>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
+  <%# FCM push, web slice (W1): mounted ONLY inside the Hotwire Native shell —
+      a bridge component has nothing to talk to in a plain browser. On
+      connect, pito--push-registration asks native for the FCM token via the
+      "push-registration" bridge component and POSTs it to POST
+      /device_tokens (native never handles cookies; the web side makes the
+      authenticated call). If native never replies (permission denied, or
+      Firebase unconfigured in that build) the controller simply does
+      nothing — no timeout, nothing user-visible. %>
+  <% if hotwire_native_app? %>
+    <div class="hidden" data-controller="pito--push-registration"></div>
+  <% end %>
   <%# The version heartbeat's landing pad: VersionHeartbeatJob replaces
       this node on pito:global every 5 min; pito--version-watch compares its
       value against the pito-version meta and raises the refresh nudge when
