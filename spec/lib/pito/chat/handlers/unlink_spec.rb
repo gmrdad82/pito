@@ -309,4 +309,15 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
       expect(result.message_key).to eq("pito.chat.unlink.follow_up_usage.list")
     end
   end
+
+  # ── Follow-up from a single-row list/search card (implied source) ─────────────
+
+  describe "follow-up from a single-row list/search card (implied source)" do
+    it "destroys the link via the implied source when no source id is typed" do
+      payload = { "reply_target" => "game_list", "game_ids" => [ game.id ] }
+      expect {
+        follow_up_handler(payload: payload, rest: "from #{video.id}").call
+      }.to change(VideoGameLink, :count).by(-1)
+    end
+  end
 end

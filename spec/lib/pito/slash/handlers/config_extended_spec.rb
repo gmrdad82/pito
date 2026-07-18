@@ -262,8 +262,10 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
       create(:video)
 
       embeddable_kind = Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS.first
-      create(:event, kind: embeddable_kind, embedding: Array.new(768, 0.1))
-      create(:event, kind: embeddable_kind)
+      completed_turn  = create(:turn, completed_at: Time.current)
+      create(:event, kind: embeddable_kind, embedding: Array.new(768, 0.1), turn: completed_turn,
+                      conversation: completed_turn.conversation)
+      create(:event, kind: embeddable_kind, turn: completed_turn, conversation: completed_turn.conversation)
       create(:event, kind: "thinking") # not embeddable — excluded from the scope entirely
 
       Pito::Nl::Router::Example.create!(tool: "list", phrase: "embedded phrase", digest: "d-embedded",
@@ -273,11 +275,29 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
       result = build_handler(args: [ "embeddings" ], raw: "/config embeddings").call
 
       expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload][:body]).to eq(I18n.t("pito.slash.config.status.section.embeddings"))
+      expect(I18n.t("pito.slash.config.status.section.embeddings")).to eq("Embeddings status")
       expect(row_value(result, "Embedder")).to eq(I18n.t("pito.slash.config.status.ok"))
       expect(row_value(result, "Games")).to eq("1/2")
       expect(row_value(result, "Vids")).to eq("1/3")
       expect(row_value(result, "Conversation events")).to eq("1/2")
       expect(row_value(result, "NL examples")).to eq("1/2")
+    end
+
+    it "excludes events of in-flight (not yet completed) turns from the conversation-events fraction" do
+      allow_any_instance_of(Pito::Embedding::Client).to receive(:healthy?).and_return(true)
+
+      embeddable_kind = Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS.first
+      completed_turn  = create(:turn, completed_at: Time.current)
+      create(:event, kind: embeddable_kind, embedding: Array.new(768, 0.1), turn: completed_turn,
+                      conversation: completed_turn.conversation)
+
+      in_flight_turn = create(:turn, completed_at: nil)
+      create(:event, kind: embeddable_kind, turn: in_flight_turn, conversation: in_flight_turn.conversation)
+
+      result = build_handler(args: [ "embeddings" ], raw: "/config embeddings").call
+
+      expect(row_value(result, "Conversation events")).to eq("1/1")
     end
 
     it "shows MISSING for the embedder when the sidecar is unreachable" do

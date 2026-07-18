@@ -12,6 +12,14 @@ module Pito
       #   4. Resolve each target, run the link/unlink operation, and produce a
       #      single summary Result::Ok system event.
       #
+      # LIST context source, in detail: a numeric id typed LEFT of the connector
+      # always wins. Absent that (no connector typed at all, or the left slice
+      # isn't a bare id), a single-row list/search card — its stamped game_ids/
+      # video_ids has exactly one id — implies the source, same as DETAIL's card-
+      # implied entity. Two-or-more rows (or zero) keep the usage-hint/
+      # follow_up_usage error unchanged: explicit still beats implied, and an
+      # ambiguous card never silently picks a row.
+      #
       # Callers include this module and call `follow_up_multi` with a block that
       # performs the per-target operation (link or unlink).
       module MultiLinkHelpers
@@ -41,29 +49,35 @@ module Pito
             source_record = source_class.find_by(id: payload[detail_id_key])
             return not_found_for(source_class, "") if source_record.nil?
 
-            targets_text = if parts.size >= 2
-              parts[1].strip
-            else
-              # No connector typed — strip an optional leading connector word and noun
-              rest_clean = follow_up.rest.to_s.strip
-              rest_clean = rest_clean.sub(/\A(?:#{connectors.map { |c| Regexp.escape(c) }.join('|')})\b\s*/i, "")
-              rest_clean = rest_clean.sub(/\A(?:#{(source_nouns + other_nouns).join('|')})\b\s*/i, "")
-              rest_clean
-            end
+            targets_text = parts.size >= 2 ? parts[1].strip : no_connector_targets_text(connectors, source_nouns, other_nouns)
           else
             # LIST: source id is on the LEFT of the connector; targets on the RIGHT.
-            return follow_up_usage(is_detail: false, copy_op: copy_op) if parts.size < 2
+            left_id = nil
+            if parts.size >= 2
+              # Strip leading noun filler from left.
+              left_clean = parts[0].strip.sub(/\A(?:#{source_nouns.join('|')})\b\s*/i, "")
+              candidate  = left_clean.delete_prefix("#").strip
+              left_id    = candidate if candidate.match?(/\A\d+\z/)
+            end
 
-            left_text = parts[0].strip
-            # Strip leading noun filler from left.
-            left_clean = left_text.sub(/\A(?:#{source_nouns.join('|')})\b\s*/i, "")
-            left_id    = left_clean.delete_prefix("#").strip
-            return usage_hint unless left_id.match?(/\A\d+\z/)
+            if left_id
+              source_record = source_class.find_by(id: left_id)
+              return not_found_for(source_class, left_id) if source_record.nil?
 
-            source_record = source_class.find_by(id: left_id)
-            return not_found_for(source_class, left_id) if source_record.nil?
+              targets_text = parts[1].strip
+            else
+              # No typed numeric left — fall back to the card's displayed rows: a
+              # single-row list/search card implies the source unambiguously.
+              implied_id = single_row_id(payload, source_class)
 
-            targets_text = parts[1].strip
+              return follow_up_usage(is_detail: false, copy_op: copy_op) if implied_id.nil? && parts.size < 2
+              return usage_hint if implied_id.nil?
+
+              source_record = source_class.find_by(id: implied_id)
+              return not_found_for(source_class, implied_id) if source_record.nil?
+
+              targets_text = parts.size >= 2 ? parts[1].strip : no_connector_targets_text(connectors, source_nouns, other_nouns)
+            end
           end
 
           # Parse targets_text into a deduped list of numeric ids.
@@ -124,6 +138,26 @@ module Pito
         end
 
         private
+
+        # When no connector was typed, targets_text is the rest string with an
+        # optional leading connector word and an optional leading noun (either
+        # entity's filler word) stripped. Shared by DETAIL and by an implied
+        # LIST source (single-row card) — both have an unambiguous source and
+        # treat the rest of the text as target refs.
+        def no_connector_targets_text(connectors, source_nouns, other_nouns)
+          rest_clean = follow_up.rest.to_s.strip
+          rest_clean = rest_clean.sub(/\A(?:#{connectors.map { |c| Regexp.escape(c) }.join('|')})\b\s*/i, "")
+          rest_clean.sub(/\A(?:#{(source_nouns + other_nouns).join('|')})\b\s*/i, "")
+        end
+
+        # The implied source id for a LIST context with no typed left id: the
+        # single id in the card's stamped game_ids/video_ids, when there is
+        # EXACTLY one. nil for zero or 2+ rows (ambiguous — no implied source).
+        def single_row_id(payload, source_class)
+          id_list_key = source_class == ::Video ? "video_ids" : "game_ids"
+          ids = payload[id_list_key]
+          ids.first if ids.is_a?(Array) && ids.size == 1
+        end
 
         # Context-appropriate usage for a malformed follow-up link/unlink — shows
         # the REPLY syntax, not the free-chat noun form.

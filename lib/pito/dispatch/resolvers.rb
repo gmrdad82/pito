@@ -354,7 +354,12 @@ module Pito
       # Resolves the SOURCE record of a link/unlink reply. Detail context (the
       # source class's singular id is in the payload — incl. game_linked_videos,
       # whose parent game_id marks the Game as source): the entity from the payload.
-      # List context: the id LEFT of the connector, scoped by the handler to a numeric.
+      # List context: the id LEFT of the connector, scoped by the handler to a
+      # numeric. Absent a typed numeric left id, a single-row list/search card
+      # (the payload's video_ids/game_ids has exactly one id) implies the source —
+      # mirroring Pito::Chat::Handlers::MultiLinkHelpers#follow_up_multi (wrap,
+      # don't fork). Two-or-more rows (or zero) fall through to the existing
+      # Invalid — explicit still beats implied.
       #
       # Required context: context[:source_event] (#payload → Hash with :reply_target
       # and the source id_key). Input: the full reply args.
@@ -372,6 +377,14 @@ module Pito
         else
           left = input.to_s.split(LINK_CONNECTOR, 2).first.to_s.strip.sub(LINK_NOUN, "")
           id   = left.delete_prefix("#").strip
+
+          unless id.match?(/\A\d+\z/)
+            # No typed numeric left — fall back to the card's displayed rows.
+            id_list_key = source_class == ::Video ? :video_ids : :game_ids
+            row_ids     = payload[id_list_key]
+            id          = row_ids.first.to_s if row_ids.is_a?(Array) && row_ids.size == 1
+          end
+
           next Invalid.new(reason: "no source id in: #{input.inspect}") unless id.match?(/\A\d+\z/)
 
           source_class.find_by(id:) || Invalid.new(reason: "#{source_class} not found: ##{id}")

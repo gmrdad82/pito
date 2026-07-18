@@ -340,4 +340,43 @@ RSpec.describe Pito::Chat::Handlers::Link do
       expect(result.message_key).to eq("pito.chat.link.follow_up_usage.list")
     end
   end
+
+  # ── Follow-up from a single-row list/search card (implied source) ─────────────
+
+  describe "follow-up from a single-row list/search card (implied source)" do
+    let(:other_video) { create(:video, title: "Lies of P Boss Guide") }
+
+    it "links the single displayed game to multiple vids when no source id is typed" do
+      payload = { "reply_target" => "game_list", "game_ids" => [ game.id ] }
+      expect {
+        follow_up_handler(payload: payload, rest: "to ##{video.id},#{other_video.id}").call
+      }.to change(VideoGameLink, :count).by(2)
+      expect(game.reload.linked_videos).to include(video, other_video)
+    end
+
+    it "still returns the usage error when the card shows more than one row" do
+      g2 = create(:game, title: "Bloodborne")
+      payload = { "reply_target" => "game_list", "game_ids" => [ game.id, g2.id ] }
+      result = follow_up_handler(payload: payload, rest: "to #{video.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+    end
+
+    it "prefers a typed source id over the card's single implied row" do
+      other_game = create(:game, title: "Bloodborne")
+      payload = { "reply_target" => "game_list", "game_ids" => [ game.id ] }
+      expect {
+        follow_up_handler(payload: payload, rest: "#{other_game.id} to #{video.id}").call
+      }.to change(VideoGameLink, :count).by(1)
+      expect(VideoGameLink.find_by(video: video, game: other_game)).not_to be_nil
+      expect(VideoGameLink.find_by(video: video, game: game)).to be_nil
+    end
+
+    it "links the other way around from a single-row video_search card" do
+      payload = { "reply_target" => "video_search", "video_ids" => [ video.id ] }
+      expect {
+        follow_up_handler(payload: payload, rest: "to #{game.id}").call
+      }.to change(VideoGameLink, :count).by(1)
+      expect(video.reload.linked_games).to include(game)
+    end
+  end
 end

@@ -134,7 +134,14 @@ module Pito
             # models under this class's own `Pito::Slash::Handlers::Config`
             # nesting.
             reachable    = Pito::Embedding::Client.new.healthy?
+            # EventEmbedJob is only enqueued at Broadcaster#complete_turn, once
+            # a turn finishes — an in-flight turn's events (including the echo
+            # of this very /config command) never had an embed pass scheduled
+            # yet, so counting them made a healthy box permanently read N/N+1.
+            # Completed turns only: a healthy box reads N/N, and a genuinely
+            # stuck event (completed turn, NULL vector) still surfaces.
             events_scope = ::Event.where(kind: Pito::Embedding::EventIndexer::EMBEDDABLE_KINDS)
+                                   .joins(:turn).where.not(turns: { completed_at: nil })
 
             {
               Pito::Copy.render("pito.copy.config.embeddings.embedder") => status_flag(reachable),
