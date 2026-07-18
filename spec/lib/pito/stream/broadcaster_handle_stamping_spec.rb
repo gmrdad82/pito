@@ -24,7 +24,15 @@ RSpec.describe Pito::Stream::Broadcaster, "handle stamping" do
     end
 
     it "stamps reply_handle on :confirmation events" do
-      payload = { "command" => "test", "body" => "Confirm?" }
+      # Realistic shape: production confirmations always carry reply_target
+      # (make_followupable!(target: "confirmation") runs upstream, in the
+      # message builder). "confirmation" is a Registry-registered target with
+      # its own confirm/cancel actions, so it mints a handle via the
+      # registered-target branch — "confirmation" kind is deliberately NOT in
+      # the universal_reply.share `kinds:` list, so a target-less confirmation
+      # payload would no longer mint one (Pito::FollowUp.actions_possible? —
+      # the owner's "no actions → no handle" rule).
+      payload = { "command" => "test", "body" => "Confirm?", "reply_target" => "confirmation" }
       event = broadcaster.emit(turn:, kind: :confirmation, payload:)
       expect(event.payload["reply_handle"]).to be_present
     end

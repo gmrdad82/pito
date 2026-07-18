@@ -1757,6 +1757,9 @@ tools:
 
   logout:
     aliases: [exit, quit]
+    # Slash result chrome, not a shareable artifact (see the HOW-TO at the top
+    # of this file) — same reasoning applies to every remaining slash tool below.
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.logout
@@ -1765,6 +1768,7 @@ tools:
         controller: logout
 
   connect:
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.connect
@@ -1775,6 +1779,7 @@ tools:
   new:
     # Slash: create a new named conversation (controller-routed).
     # Reply: create the named conversation from a resume_missing card (aliases: create).
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.new
@@ -1792,6 +1797,7 @@ tools:
           # Name taken from event payload `resume_name`; creates + renames Conversation.
 
   resume:
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.resume
@@ -1840,6 +1846,7 @@ tools:
         channel_ref: { type: string, required: true, hint: "channel @handle" }
       input: "games channel %{channel_ref}"
     auth: session
+    universal_reply: false
     chat:
       dispatch: Chat::Handlers::SegmentTool
       segment_of: { tool: show, segment: games }
@@ -1882,6 +1889,7 @@ tools:
     # The grammar uses the `literal` sentinel provider, a conditional `when:` enum
     # (only `sound` takes on/off), and a repeatable `kv` for credential keys — the
     # provider→keys palette shape.
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.config
@@ -1905,6 +1913,7 @@ tools:
       dispatch: Slash::Handlers::Config
 
   disconnect:
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.disconnect
@@ -1918,6 +1927,7 @@ tools:
   jobs:
     # `/jobs [subcommand] [id|key]` — SolidQueue operator control.
     # validates_own_arity: true — handler manages polymorphic arity (requeue <id>, run <key>).
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.jobs
@@ -1932,6 +1942,7 @@ tools:
     aliases: [notifs]
     # Opens the notifications sidebar panel (sidebar_open: "notifications").
     # Broadcasts via Pito::Stream::Broadcaster#broadcast_notifications_sidebar.
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.notifications
@@ -1947,6 +1958,7 @@ tools:
         max_page_size: 100
 
   rename:
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.rename
@@ -1960,6 +1972,7 @@ tools:
     # Opens the theme picker sidebar entirely client-side (sidebar_open: "theme").
     # Theme selection and preview happen in the sidebar UI via PATCH /settings/theme;
     # there are no subcommands. The dispatcher's arity guard rejects any extra token.
+    universal_reply: false
     slash:
       auth: authenticated_only
       description: pito.grammar.slash.theme

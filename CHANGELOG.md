@@ -6,6 +6,24 @@ All notable changes to PITO are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Slash-command chrome stops offering itself for sharing** — every
+  slash-dispatching tool (`/config`, `/jobs`, `/notifications`, and friends)
+  now opts out of the universal `share` / `unshare` reply actions: a
+  credentials table or a queue-status readout is chrome, not a shareable
+  artifact. One `universal_reply: false` per tool in tools.yml — the
+  mechanism that always existed, now applied across the slash surface.
+- **No actions, no hashtag** — a message now mints and renders its `#handle`
+  only when at least one reply action is actually available (its own reply
+  target's actions, or a universal action that applies to its tool and
+  kind). The rule is general, not special-cased: old messages whose actions
+  have since gone away simply come back chipless on re-render, because
+  payloads are data and rendering applies current rules. This also retires
+  the stale display-only handle on legacy theme-diff cards.
+
+## [3.3.0] — 2026-07-18
+
 ### Added
 
 - **Phone notifications, no extra apps** — every pito notification now also

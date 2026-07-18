@@ -32,11 +32,20 @@ module Pito
       end
 
       # The reply affordance (`#a7 apply …`) — present only when the answer
-      # carries suggestions and the reply hasn't been retired.
+      # carries suggestions, the reply hasn't been retired, AND — when a
+      # persisted event backs this render — currently has at least one
+      # available reply action (the owner's "no actions → no handle, no
+      # chip" rule; see SystemComponent#followupable? for the full
+      # rationale, identical here). Payload-only renders with no @event
+      # (component-level specs) skip that extra check.
       def reply_handle
         return nil if Pito::FollowUp.consumed?(@payload)
 
-        @payload[:reply_handle].presence
+        handle = @payload[:reply_handle].presence
+        return nil unless handle
+        return nil unless @event.nil? || Pito::FollowUp.renderable_actions?(@event)
+
+        handle
       end
 
       def component_for(block, timestamp: nil)

@@ -30,6 +30,25 @@ module Pito
   #
   #   Pito::FollowUp.followupable?(payload)  → true when reply_handle is present
   #   Pito::FollowUp.consumed?(payload)      → true when reply_consumed is truthy
+  #
+  # == Availability — the owner's rule
+  #
+  # A #hashtag is minted AND rendered ONLY when the event has at least one
+  # available action. No actions → no handle, no chip. Two predicates enforce
+  # this at the two moments that matter:
+  #
+  #   Pito::FollowUp.actions_possible?(payload:, kind:)  — MINT-TIME (no Event
+  #     row exists yet). Consulted by #ensure_handle! before it stamps a
+  #     universal-only handle.
+  #   Pito::FollowUp.renderable_actions?(event)          — RENDER-TIME (a
+  #     persisted Event). Consulted by every component/renderer that decides
+  #     whether to show the #handle chip.
+  #
+  # `make_followupable!` stays unconditional — a caller passing a `target:` is
+  # claiming a REGISTERED handler for it, and a registered target implies
+  # actions. (If a registered target's own Registry.actions_for ever comes up
+  # empty, #renderable_actions? still hides the chip on render — the
+  # generalization catches that case too, no special-casing needed.)
   module FollowUp
     module_function
 
@@ -66,19 +85,90 @@ module Pito
     # assigning it to a specific follow-up handler.
     # Idempotent: a payload that already carries reply_handle is returned unchanged.
     #
+    # `kind:` is the mint-time availability gate (see #actions_possible?): when
+    # given, a handle is withheld entirely for a payload with NO possible action
+    # (an opted-out tool's message, or a kind the universal share/revoke/unshare
+    # set doesn't cover) — the owner's "no actions → no handle" rule. All three
+    # call sites (Finalizer#persist, Broadcaster#emit, AiOrchestratorJob
+    # #convert_ai_event) know their event kind and pass it. Omitting it (nil)
+    # skips the gate — kept optional only so a caller with no kind on hand
+    # doesn't need a workaround; every current caller passes one.
+    #
     # @param payload       [Hash]   mutable payload hash (string or symbol keys).
     # @param conversation: [Conversation] used by HandleGenerator for uniqueness.
+    # @param kind:         [Symbol, String, nil] the event kind the payload is
+    #                      about to persist under; gates minting when given.
     # @return              [Hash]   the same hash, with reply_handle injected (if absent).
-    def ensure_handle!(payload, conversation:)
+    def ensure_handle!(payload, conversation:, kind: nil)
       return payload if payload["reply_handle"].present? || payload[:reply_handle].present?
       # Frozen payloads (e.g. test constants) cannot be mutated — skip gracefully.
       # In production all handler payloads are mutable Hashes; this guard is a
       # test-only safety net.
       return payload if payload.frozen?
+      return payload if kind && !actions_possible?(payload:, kind:)
 
       handle = Pito::HandleGenerator.call(conversation)
       payload["reply_handle"] = handle
       payload
+    end
+
+    # MINT-TIME availability — true when *payload*, about to persist under
+    # *kind*, will have at least one action once it exists: either its
+    # `reply_target` names a Registry-registered handler with its own
+    # action(s), or the universal share/revoke/unshare actions could ever
+    # apply (the origin tool hasn't opted out via `universal_reply: false`,
+    # AND `kind` is one the `universal_reply.share.kinds:` config covers).
+    #
+    # Deliberately TEMPORAL-FREE: unlike
+    # `Pito::Share::UniversalActions.tools_for`, this ignores the resolved?
+    # (message still mid-render) and Share-exists (nothing to revoke yet)
+    # gates — those are rendering-MOMENT concerns, not "could this ever be
+    # actionable" concerns. A message that's mid-render now will resolve
+    # moments later and become shareable; withholding its handle at mint time
+    # over that would make it permanently unrepliable. (See
+    # #renderable_actions? below for why the render-time check reuses this
+    # same rule instead of calling `tools_for` directly.)
+    #
+    # @param payload [Hash]           the payload about to be stamped (string or symbol keys).
+    # @param kind     [Symbol, String] the event kind the payload is about to persist under.
+    # @return [Boolean]
+    def actions_possible?(payload:, kind:)
+      target = payload["reply_target"] || payload[:reply_target]
+      return true if target.present? && Pito::FollowUp::Registry.actions_for(target).any?
+
+      origin = payload["origin_verb"] || payload[:origin_verb] ||
+               payload["origin_tool"] || payload[:origin_tool]
+      return false if Pito::Dispatch::UniversalReply.opted_out?(origin)
+
+      Pito::Share::UniversalActions.kind_allowed?(kind)
+    end
+
+    # RENDER-TIME availability — true when a PERSISTED `event` currently has
+    # at least one available reply action: not consumed, and the SAME
+    # temporal-free rule #actions_possible? uses.
+    #
+    # Deliberately reuses #actions_possible? rather than calling
+    # `Pito::Share::UniversalActions.tools_for(event)` directly: tools_for's
+    # resolved? gate hides a universal-only message's actions while its
+    # thinking indicator is still spinning — but indicator resolution
+    # (Broadcaster#resolve_thinking_for) replaces ONLY the indicator's own DOM
+    # segment, never the message's. A chip hidden on first broadcast (every
+    # message's indicator is still unresolved at that instant — #complete
+    # resolves it moments later, in a SEPARATE broadcast the message itself
+    # never receives) would therefore never come back. Using the temporal-free
+    # rule here instead sidesteps that race entirely: a re-render (replace_event,
+    # an async fill landing, consume_prior_live_replies) recomputes this fresh
+    # from CURRENT payload/kind regardless of when it happens — that's also
+    # how an OLD persisted event whose origin tool has since opted out (or
+    # whose target lost its actions) ends up silently chipless on its next
+    # render: payloads are data, re-render yields current rules.
+    #
+    # @param event [Event] a persisted event.
+    # @return [Boolean]
+    def renderable_actions?(event)
+      return false if consumed?(event.payload)
+
+      actions_possible?(payload: event.payload, kind: event.kind)
     end
   end
 end

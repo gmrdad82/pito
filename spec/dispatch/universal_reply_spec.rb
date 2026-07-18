@@ -51,6 +51,14 @@ RSpec.describe "Universal reply per-verb opt-out", type: :dispatch do
         expect(described_class.opted_out?("list")).to be(false)
       end
 
+      it "is true for 'config' (slash tool opt-out wave)" do
+        expect(described_class.opted_out?("config")).to be(true)
+      end
+
+      it "is true for 'jobs' (slash tool opt-out wave)" do
+        expect(described_class.opted_out?("jobs")).to be(true)
+      end
+
       it "is false for nil" do
         expect(described_class.opted_out?(nil)).to be(false)
       end
@@ -124,6 +132,16 @@ RSpec.describe "Universal reply per-verb opt-out", type: :dispatch do
     it "includes 'share' for the same shape of event when origin_verb is 'list'" do
       event = make_event(kind: :system, payload: { "origin_verb" => "list" })
       expect(Pito::Share::UniversalActions.tools_for(event)).to include("share")
+    end
+
+    it "offers nothing ([]) for a :system event whose origin_verb is 'config' (slash tool opt-out wave)" do
+      event = make_event(kind: :system, payload: { "origin_verb" => "config" })
+      expect(Pito::Share::UniversalActions.tools_for(event)).to eq([])
+    end
+
+    it "offers nothing ([]) for a :system event whose origin_verb is 'jobs' (slash tool opt-out wave)" do
+      event = make_event(kind: :system, payload: { "origin_verb" => "jobs" })
+      expect(Pito::Share::UniversalActions.tools_for(event)).to eq([])
     end
   end
 
