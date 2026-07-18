@@ -28,6 +28,15 @@ RSpec.describe Pito::Recommendation::DisplayScore do
     it "casts a non-Float similarity before scaling" do
       expect(described_class.display_score(1, floor: 0.5)).to eq(100.0)
     end
+
+    it "anchors 100 at a caller-measured ceiling instead of 1.0 when given one (3.1.2 — query→doc regimes never reach 1.0)" do
+      expect(described_class.display_score(0.70, floor: 0.55, ceiling: 0.70)).to eq(100.0)
+      expect(described_class.display_score(0.625, floor: 0.55, ceiling: 0.70)).to eq(50.0)
+    end
+
+    it "clamps an above-ceiling similarity to 100" do
+      expect(described_class.display_score(0.9, floor: 0.55, ceiling: 0.70)).to eq(100.0)
+    end
   end
 
   describe "VID_FLOOR" do

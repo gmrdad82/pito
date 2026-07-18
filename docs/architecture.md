@@ -338,11 +338,15 @@ vids; `like`/`for` everywhere):
   `Pito::Recommendation::GameSimilarity`, then gates to genuinely relevant
   results (shares a genre with the seed, or a blended-score floor when the
   seed has no genres on record).
-- **`search games for <title>`** / bare **`search games <title>`** (bare =
-  `for`, 3.0.0) — exact-name matching: case-insensitive substring over
-  `games.title` OR any `games.alternative_names` entry, title-ordered.
-  "tekken" returns games actually titled Tekken-something, never a
-  genre/theme neighbor (that's what `like` is for).
+- **`search games for <title>`** — exact-name matching: case-insensitive
+  substring over `games.title` OR any `games.alternative_names` entry,
+  title-ordered. "tekken" returns games actually titled Tekken-something,
+  never a genre/theme neighbor (that's what `like` is for).
+- **`search games <anything>`** (bare, no keyword — 3.1.2) — routed to the
+  same free-text semantic search as `about`: the catch-all, so natural
+  phrasings ("search games forcing skillful play") need no connector
+  vocabulary at all. Typing `for` is the explicit literal path when
+  exactness matters (bare = `for` was the 3.0.0 rule; superseded).
 - **`search conversations like <text>`** (`Pito::Chat::Handlers::
 SearchConversations`, delegated from `Search#call` rather than registered as
   its own tool — `search` keeps one dispatch slot in `tools.yml`/the
@@ -373,7 +377,9 @@ a free-text, qualitative description and searches by meaning rather than
 exact wording — the same semantic space `like` draws its similarity from.
 Keyword precedence is positional (the keyword typed earliest wins), so a
 query that merely _contains_ "about" or "like" mid-sentence is never
-hijacked. All modes keep results honest about a miss: when nothing is
+hijacked; a games/vids query with no keyword at all rides the `about` path —
+write whatever, it goes to the vectors. All modes keep results honest about
+a miss: when nothing is
 genuinely relevant they return nothing, never a page padded out with weak
 matches just to fill it.
 
