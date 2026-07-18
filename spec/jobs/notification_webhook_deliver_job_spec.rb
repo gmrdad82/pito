@@ -22,6 +22,14 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
     allow(AppSetting).to receive(:discord_webhook_url).and_return(nil)
   end
 
+  def fcm_outcome(ok: false, unregistered: false, disabled: false)
+    Pito::Fcm::Sender::Outcome.new(ok: ok, unregistered: unregistered, disabled: disabled)
+  end
+
+  def create_device_token(token:)
+    DeviceToken.create!(token: token, last_seen_at: Time.current)
+  end
+
   describe "#perform — missing notification" do
     it "is a silent no-op when the row has been deleted" do
       missing_id = notification.id + 99_999
@@ -118,6 +126,76 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
       expect(discord_client).to have_received(:deliver).with({
         "embeds" => [ { "description" => "ℹ️ **Hi**", "color" => 5337343 } ]
       })
+    end
+  end
+
+  describe "#perform — FCM" do
+    let(:fcm_sender) { instance_double(Pito::Fcm::Sender) }
+
+    before do
+      allow(Pito::Fcm::Sender).to receive(:new).and_return(fcm_sender)
+      # Default: every call succeeds. Individual examples override per-token
+      # (via a more specific `.with`) or wholesale, as needed.
+      allow(fcm_sender).to receive(:call).and_return(fcm_outcome(ok: true))
+    end
+
+    it "sends one call per device token with the notification's message and level" do
+      first  = create_device_token(token: "token-1")
+      second = create_device_token(token: "token-2")
+
+      described_class.new.perform(notification.id)
+
+      expect(fcm_sender).to have_received(:call).with(
+        token: first.token, message: notification.message, level: notification.level
+      )
+      expect(fcm_sender).to have_received(:call).with(
+        token: second.token, message: notification.message, level: notification.level
+      )
+    end
+
+    it "prunes exactly the token whose outcome is unregistered" do
+      dead  = create_device_token(token: "dead-token")
+      alive = create_device_token(token: "alive-token")
+      allow(fcm_sender).to receive(:call)
+        .with(hash_including(token: dead.token)).and_return(fcm_outcome(unregistered: true))
+      allow(fcm_sender).to receive(:call)
+        .with(hash_including(token: alive.token)).and_return(fcm_outcome(ok: true))
+
+      described_class.new.perform(notification.id)
+
+      expect(DeviceToken.exists?(dead.id)).to be(false)
+      expect(DeviceToken.exists?(alive.id)).to be(true)
+    end
+
+    it "short-circuits the whole token loop on a disabled outcome" do
+      create_device_token(token: "token-1")
+      create_device_token(token: "token-2")
+      create_device_token(token: "token-3")
+      allow(fcm_sender).to receive(:call).and_return(fcm_outcome(disabled: true))
+
+      described_class.new.perform(notification.id)
+
+      expect(fcm_sender).to have_received(:call).once
+    end
+
+    it "does not prevent later tokens from being attempted after a failed (not unregistered) outcome" do
+      first  = create_device_token(token: "flaky-token")
+      second = create_device_token(token: "fine-token")
+      allow(fcm_sender).to receive(:call)
+        .with(hash_including(token: first.token)).and_return(fcm_outcome(ok: false))
+      allow(fcm_sender).to receive(:call)
+        .with(hash_including(token: second.token)).and_return(fcm_outcome(ok: true))
+
+      described_class.new.perform(notification.id)
+
+      expect(fcm_sender).to have_received(:call).with(hash_including(token: second.token))
+    end
+
+    it "never instantiates or calls the Sender when there are no device tokens" do
+      described_class.new.perform(notification.id)
+
+      expect(Pito::Fcm::Sender).not_to have_received(:new)
+      expect(fcm_sender).not_to have_received(:call)
     end
   end
 end

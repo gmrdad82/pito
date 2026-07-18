@@ -4,6 +4,21 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Phone notifications, no extra apps** — every pito notification now also
+  lands on your phone as a real push, with the pito icon, tap-to-open into
+  your conversation, delivered even when the app has been closed for days.
+  The Android shell registers its device silently the first time you open it
+  with a session (one Android 13+ permission ask, native-side), and the
+  server fans pushes out beside the existing Slack/Discord webhooks. Dead
+  tokens self-prune the moment FCM reports a device gone; an instance with
+  no Firebase credentials configured simply skips the lane. Requires
+  pito-android with push wiring and a `PITO_FCM_CREDENTIALS_PATH` pointing
+  at a Firebase service-account key.
+
 ## [3.2.1] — 2026-07-18
 
 ### Fixed

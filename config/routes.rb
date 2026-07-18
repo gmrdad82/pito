@@ -84,6 +84,11 @@ Rails.application.routes.draw do
   get "/configurations/android_v1", to: "configurations#android_v1",
       as: :android_v1_configuration, defaults: { format: :json }
 
+  # FCM push plumbing: the Android shell POSTs its device token here once it
+  # has a session (unlike android_v1 above, this IS authenticated — see
+  # DeviceTokensController). No sender yet — this just persists the token.
+  resources :device_tokens, only: :create
+
   # Dynamic error pages — rendered by exceptions_app = routes so the 404
   # page shows the full start screen with the suggestions-enabled chatbox.
   # /404 is the primary path Rails internally redirects to on a routing error.
