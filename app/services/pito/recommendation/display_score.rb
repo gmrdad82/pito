@@ -31,11 +31,17 @@ module Pito
       # @param similarity [Float] raw cosine similarity (1.0 - distance);
       #   1.0 = identical, 0.0 = orthogonal.
       # @param floor [Float] the measured "everything looks similar" baseline
-      #   for this embedding space. Similarity AT floor displays as 0;
-      #   similarity of 1.0 always displays as 100, regardless of floor.
+      #   for this embedding space. Similarity AT floor displays as 0.
+      # @param ceiling [Float] the measured practical maximum for this
+      #   COMPARISON TYPE — doc-to-doc similarities approach 1.0, but a short
+      #   query against a long document structurally cannot (query→game
+      #   matches top out ~0.70 in this space), so anchoring 100 at 1.0
+      #   renders every honest query hit as a sad sliver. Similarity AT (or
+      #   above) ceiling displays as 100. Default 1.0 = the doc-to-doc
+      #   behavior every pre-3.1.2 caller had.
       # @return [Float] 0.0..100.0, unrounded — callers round as they already did.
-      def display_score(similarity, floor:)
-        ((similarity.to_f - floor) / (1.0 - floor) * 100).clamp(0.0, 100.0)
+      def display_score(similarity, floor:, ceiling: 1.0)
+        ((similarity.to_f - floor) / (ceiling - floor) * 100).clamp(0.0, 100.0)
       end
     end
   end

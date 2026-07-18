@@ -25,9 +25,13 @@ module Pito
       #                                distinguishes `for` from a straight title
       #                                lookup; ranked similarity is `like`'s job).
       #                                Title-ordered, deterministic.
-      #   search games <title>       → bare = `for` semantics (#owner 2026-07-15:
-      #                                bare means EXACT, not similar, under the
-      #                                3.0.0 like/for grammar split).
+      #   search games <text>        → bare = `about` semantics (#owner
+      #                                2026-07-18: "either pass like, for or
+      #                                about — or write whatever and pass them
+      #                                to the vectors"; the catch-all. This
+      #                                SUPERSEDES the 2026-07-15 bare-means-
+      #                                EXACT ruling — `for` is now the one
+      #                                explicitly-literal path).
       #   search games about <text>  → free-text, qualitative search: no seed,
       #                                no title — just a vibe ("about brutal
       #                                but worth every second"). Embeds <text>
@@ -89,7 +93,7 @@ module Pito
         # "search games like tekken 7" → captures "tekken 7". FOR_CLAUSE and
         # ABOUT_CLAUSE mirror it byte-for-byte — same clause shape, different
         # keyword — so a bare query (no keyword present) can fall through to
-        # `for` semantics.
+        # `about` semantics (the vectors catch-all).
         LIKE_CLAUSE  = /\blike\b\s+(.+?)\s*\z/i
         FOR_CLAUSE   = /\bfor\b\s+(.+?)\s*\z/i
         ABOUT_CLAUSE = /\babout\b\s+(.+?)\s*\z/i
@@ -130,7 +134,8 @@ module Pito
 
         # "games", "conversations", or "vids" (search_nouns' members), defaulting
         # to "games" — today's behavior — when the second token isn't a noun at
-        # all (it's a `like`/`for` keyword, or the start of a titled/bare query).
+        # all (it's an `about`/`like`/`for` keyword, or the start of a bare
+        # catch-all query).
         def noun
           @noun ||= begin
             vocab = Pito::Grammar::Registry.vocabulary(:search_nouns)
@@ -164,15 +169,19 @@ module Pito
         # and `about something like dark souls` stays a vibe search for
         # "something like dark souls". Fixed-order precedence would hijack
         # both directions, because all three keywords are ordinary English
-        # words that appear mid-query constantly. No keyword at all → :for on
-        # the whole remainder (bare = exact).
+        # words that appear mid-query constantly. No keyword at all → :about
+        # on the whole remainder — the catch-all (#owner 2026-07-18, see the
+        # class header): "search games forcing skillful play" needs no
+        # connector vocabulary, it just goes to the vectors. Typos ride free
+        # (the embedder shrugs at "requireing"; a substring match never
+        # would). `for` is the explicit literal path when exactness matters.
         def extract_query
           raw     = message.raw.to_s
           matches = { about: raw.match(ABOUT_CLAUSE), like: raw.match(LIKE_CLAUSE), for: raw.match(FOR_CLAUSE) }
           mode, m = matches.compact.min_by { |_mode, match| match.begin(0) }
           return [ mode, m[1].strip ] if m
 
-          [ :for, bare_query(raw) ]
+          [ :about, bare_query(raw) ]
         end
 
         # Strips the tool word and an immediately-following noun token, leaving
@@ -250,19 +259,30 @@ module Pito
           return about_empty if results.empty?
 
           rows   = results.map { |r| r[:record] }
-          scores = results.to_h { |r| [ r[:record].id, about_score(r[:similarity]) ] }
+          top    = results.first[:similarity]
+          scores = results.to_h { |r| [ r[:record].id, about_score(r[:similarity], top: top) ] }
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: build_payload(rows, scores: scores) } ])
         end
 
-        # An `about` hit's bar is rescaled from the semantic floor via the
-        # same Pito::Recommendation::DisplayScore mechanism #vid_score uses —
-        # raw ×100 would pin every bar into a mushy 55-68 band (everything
-        # below Semantic's floor is already gone), and a bar that can't
-        # discriminate a weak hit from a strong one isn't a score.
-        def about_score(similarity)
+        # An `about` hit's bar is scored RELATIVE TO THE TOP HIT of its own
+        # result set (#owner 2026-07-18: "the 1st result should always be 100
+        # and the rest scaled to reflect this"): the ceiling passed to
+        # DisplayScore is the set's best similarity, so the leader reads 100
+        # by construction and everyone else reads how far above the honesty
+        # floor they sit relative to it — a close second reads ~93, a distant
+        # one ~15, and the bar discriminates in both cases. 100 therefore
+        # means "the best you've got for THIS query", not "objectively
+        # identical" — an honest claim, because Pito::Search::Semantic's
+        # floor already refused to show anything that isn't genuinely close.
+        # (Raw ×100 pinned bars into a mushy 55-68 band; floor-to-1.0 pinned
+        # them 0-33 with the library's best answer rendered as a sad 16.)
+        def about_score(similarity, top:)
+          floor = Pito::Search::Semantic::DEFAULT_FLOOR
+          return 100 if top <= floor # sole degenerate case: top AT the floor
+
           Pito::Recommendation::DisplayScore.display_score(
-            similarity, floor: Pito::Search::Semantic::DEFAULT_FLOOR
+            similarity, floor: floor, ceiling: top
           ).round
         end
 
@@ -384,7 +404,8 @@ module Pito
           return about_empty if results.empty?
 
           rows   = results.map { |r| r[:record] }
-          scores = results.to_h { |r| [ r[:record].id, about_score(r[:similarity]) ] }
+          top    = results.first[:similarity]
+          scores = results.to_h { |r| [ r[:record].id, about_score(r[:similarity], top: top) ] }
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: build_video_payload(rows, scores: scores) } ])
         end
@@ -538,7 +559,7 @@ module Pito
           text("pito.copy.videos.not_found", ref: title)
         end
 
-        # Zero exact matches for a `for`/bare query — a real, filtered miss (not
+        # Zero exact matches for an explicit `for` query — a real, filtered miss (not
         # "the library is empty"), so it reuses the same copy `list games` uses
         # for an empty-after-filtering result. Also reused for vids' `for` miss
         # and vids' `like` no-embedding degrade (search_conversations.rb

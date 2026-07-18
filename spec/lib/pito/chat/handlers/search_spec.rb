@@ -119,10 +119,20 @@ RSpec.describe Pito::Chat::Handlers::Search do
       expect(payload["game_ids"]).not_to include(decoy.id)
     end
 
-    it "treats a bare query exactly like the `for` form" do
-      for_ids  = search("search games for tekken").events.first[:payload]["game_ids"]
-      bare_ids = search("search games tekken").events.first[:payload]["game_ids"]
-      expect(bare_ids).to eq(for_ids)
+    it "routes a bare query to the vectors (the 3.1.2 catch-all — bare = `about`, no longer `for`)" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([])
+
+      search("search games forcing skillful play")
+      expect(Pito::Search::Semantic).to have_received(:call)
+        .with(hash_including(query: "forcing skillful play"))
+    end
+
+    it "keeps `for` as the explicit literal path a bare query no longer takes" do
+      allow(Pito::Search::Semantic).to receive(:call)
+
+      for_ids = search("search games for tekken").events.first[:payload]["game_ids"]
+      expect(for_ids).to eq([ tekken8.id, tekken_tag.id ])
+      expect(Pito::Search::Semantic).not_to have_received(:call)
     end
 
     it "renders the list-filter-empty copy for a `for` query with no matches" do
@@ -249,15 +259,27 @@ RSpec.describe Pito::Chat::Handlers::Search do
       expect(payload["game_ids"]).to eq([ hit.id ])
     end
 
-    it "rescales similarity from the semantic floor via DisplayScore so bars discriminate" do
+    it "scores the top hit 100 — the set's best similarity IS the bar's ceiling (#owner 2026-07-18)" do
       allow(Pito::Search::Semantic).to receive(:call).and_return([ { record: hit, similarity: 0.612 } ])
 
-      payload  = search("search games about anything").events.first[:payload]
-      row      = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
-      expected = Pito::Recommendation::DisplayScore.display_score(
-        0.612, floor: Pito::Search::Semantic::DEFAULT_FLOOR
-      ).round
-      expect(row[:cells].last).to eq(score: expected)
+      payload = search("search games about anything").events.first[:payload]
+      row     = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
+      expect(row[:cells].last).to eq(score: 100)
+    end
+
+    it "scales the rest band-relative to the top (close second reads close, distant second reads distant)" do
+      other = create(:game, title: "Runner Up")
+      allow(Pito::Search::Semantic).to receive(:call).and_return([
+        { record: hit,   similarity: 0.70 },
+        { record: other, similarity: 0.60 }
+      ])
+
+      payload = search("search games about anything").events.first[:payload]
+      top_row = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
+      second  = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{other.id}" }
+      expect(top_row[:cells].last).to eq(score: 100)
+      # (0.60 - 0.55) / (0.70 - 0.55) = 33% of the band above the floor
+      expect(second[:cells].last).to eq(score: 33)
     end
 
     it "wins when typed first, even when the query text contains `like`/`for` (positional precedence)" do
@@ -459,6 +481,16 @@ RSpec.describe Pito::Chat::Handlers::Search do
     end
   end
 
+  context "search vids <bare> (3.1.2 catch-all)" do
+    it "routes a keyword-less vids query to the vectors too" do
+      allow(Pito::Search::Semantic).to receive(:call).and_return([])
+
+      search("search vids where everything goes wrong")
+      expect(Pito::Search::Semantic).to have_received(:call)
+        .with(hash_including(scope: ::Video, query: "where everything goes wrong"))
+    end
+  end
+
   context "search vids about <text> (free-text semantic search)" do
     let!(:hit) { create(:video, title: "Speedrun Special") }
 
@@ -486,15 +518,12 @@ RSpec.describe Pito::Chat::Handlers::Search do
       expect(payload["list_footer"].to_s).to include("next")
     end
 
-    it "rescales similarity from the semantic floor via DisplayScore so bars discriminate" do
+    it "scores the top hit 100 (the set-relative bar, mirroring games)" do
       allow(Pito::Search::Semantic).to receive(:call).and_return([ { record: hit, similarity: 0.612 } ])
 
-      payload  = search("search vids about anything").events.first[:payload]
-      row      = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
-      expected = Pito::Recommendation::DisplayScore.display_score(
-        0.612, floor: Pito::Search::Semantic::DEFAULT_FLOOR
-      ).round
-      expect(row[:cells].last).to eq(score: expected)
+      payload = search("search vids about anything").events.first[:payload]
+      row     = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{hit.id}" }
+      expect(row[:cells].last).to eq(score: 100)
     end
 
     it "returns a Result::Error with the embedder-unavailable copy when the embedder is unreachable" do

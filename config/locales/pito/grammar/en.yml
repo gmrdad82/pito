@@ -28,7 +28,7 @@ en:
         unlist: "Unlist a vid on YouTube (reachable by link, hidden from browse)."
         schedule: "Set a vid to go public on YouTube at a future time (schedule 9 slate). For right-now use publish."
         find: "Search VIDS by title, genre, or platform (find boss fight). For games or conversations use search."
-        search: "Search games, vids, or conversations. `like <x>` = related by meaning to a game/vid you name (search games like tekken → other fighters); `about <x>` = free-text, vibe search with no title needed, games and vids only (search games about brutal but worth every second); `for <x>` or bare = exact names/words, all three nouns (search games for tekken → games titled Tekken)."
+        search: "Search games, vids, or conversations. `like <x>` = related by meaning to a game/vid you name (search games like tekken → other fighters); `about <x>` = free-text, vibe search with no title needed, games and vids only (search games about brutal but worth every second); `for <x>` = exact names/words, all three nouns (search games for tekken → games titled Tekken); no keyword at all = the same vibe search as `about` for games/vids (search games forcing skillful play — just write it), exact matching for conversations."
         ai: "Ask the AI assistant anything about your library (@ai <question>) — free text, full context, runnable suggestions back."
         update: "The one metadata setter: game footage/price/platform or vid description/tags (update game price 12 20). Vid fields stage a confirm before pushing to YouTube."
         link: "Link a vid to its game (link 17 42 = vid 17 → game 42). Links are explicit — pito suggests after import, only you link."

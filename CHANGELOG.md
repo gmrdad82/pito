@@ -4,6 +4,31 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [3.1.2] — 2026-07-18
+
+### Changed
+
+- **Semantic Match bars are scored relative to the top hit** — the `about`
+  bar used to anchor its 100 at cosine similarity 1.0, which a short query
+  against a long game description structurally cannot reach, so the
+  library's best answer to "brutal but worth every second" rendered a sad
+  score of 16. Now the first result always reads 100 and the rest scale to
+  how far above the honesty floor they sit relative to it — a close second
+  reads in the 90s, a genuinely distant one stays low. 100 means "the best
+  you've got for this query"; the nothing-close floor keeps that claim
+  honest, and the ranking itself is untouched.
+
+- **A bare search goes straight to the vectors** — "search games forcing
+  skillful play", "search games with a good story", "search games
+  requireing patience" (typo and all): a query with no `like`/`for`/`about`
+  keyword now rides the same semantic path as `about`, because natural
+  phrasings are an open set no connector vocabulary could enumerate — and
+  the embedder shrugs at typos where a substring match never would. This
+  supersedes 3.0.0's "bare means exact": `for` is now the one explicitly
+  literal path ("search games for hades" when you want games actually
+  titled that), and conversations keep their own grammar untouched. The
+  result card's footer still tells you which engine answered.
+
 ## [3.1.1] — 2026-07-17
 
 ### Added
