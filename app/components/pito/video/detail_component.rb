@@ -46,7 +46,7 @@ module Pito
         I18n.t("pito.video.detail.privacy_status.#{@video.privacy_status}", default: @video.privacy_status.to_s.capitalize)
       end
 
-      # Scheduled go-live as a bare "DD-MM-YYYY HH:MM" timestamp — the show-detail
+      # Scheduled go-live as the house stamp (SyncStamp) — the show-detail
       # counterpart to the `publish_at` list column (same field name list accepts).
       # nil (row hidden) for already-live / never-scheduled vids.
       def publish_at_label

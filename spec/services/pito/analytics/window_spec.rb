@@ -162,7 +162,10 @@ RSpec.describe Pito::Analytics::Window, type: :service do
       it { expect(window.end_date).to eq(Date.new(2026, 6, 20)) }
       it { expect(window.prev_start).to eq(Date.new(2026, 5, 1)) }
       it { expect(window.prev_end).to eq(Date.new(2026, 5, 20)) }
-      it { expect(window.label).to eq("Jun '26") }
+      # House month-granularity label: bom's year (2026) matches ref's year
+      # (ref stands in for "today" here — the class never calls Date.current
+      # itself), so the year drops.
+      it { expect(window.label).to eq("Jun") }
       it { expect(window.comparable?).to be true }
 
       it "prev window covers the same number of days (same elapsed span)" do
@@ -195,7 +198,9 @@ RSpec.describe Pito::Analytics::Window, type: :service do
       it { expect(window.end_date).to eq(Date.new(2026, 5, 31)) }
       it { expect(window.prev_start).to eq(Date.new(2026, 4, 1)) }
       it { expect(window.prev_end).to eq(Date.new(2026, 4, 30)) }
-      it { expect(window.label).to eq("May '26") }
+      # House month-granularity label: target_bom's year (2026) matches ref's
+      # year, so the year drops.
+      it { expect(window.label).to eq("May") }
       it { expect(window.comparable?).to be true }
     end
 
@@ -207,8 +212,19 @@ RSpec.describe Pito::Analytics::Window, type: :service do
       it { expect(window.end_date).to eq(Date.new(2026, 4, 30)) }
       it { expect(window.prev_start).to eq(Date.new(2026, 3, 1)) }
       it { expect(window.prev_end).to eq(Date.new(2026, 3, 31)) }
-      it { expect(window.label).to eq("Apr '26") }
+      # House month-granularity label: target_bom's year (2026) matches ref's
+      # year, so the year drops.
+      it { expect(window.label).to eq("Apr") }
       it { expect(window.comparable?).to be true }
+    end
+
+    context "m1 crossing into a prior year (ref in January)" do
+      # ref=2026-01-15; bom=2026-01-01; m1=Dec 2025 — a DIFFERENT year from
+      # ref, so the house label carries the '%y suffix.
+      subject(:window) { described_class.for("m1", reference_date: Date.new(2026, 1, 15)) }
+
+      it { expect(window.start_date).to eq(Date.new(2025, 12, 1)) }
+      it { expect(window.label).to eq("Dec '25") }
     end
 
     context "y0 (current partial year)" do
@@ -261,7 +277,9 @@ RSpec.describe Pito::Analytics::Window, type: :service do
     it "includes human labels" do
       labels = cycle.map { _1[:label] }
       expect(labels).to include("7d", "28d", "3m", "1y", "lifetime")
-      expect(labels).to include("Jun '26", "May '26", "Apr '26")
+      # House month-granularity: ref's year is 2026, so m0/m1/m2 (all 2026
+      # months here) drop the year.
+      expect(labels).to include("Jun", "May", "Apr")
       expect(labels).to include("2026", "2025")
     end
 

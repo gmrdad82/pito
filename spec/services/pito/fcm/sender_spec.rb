@@ -135,6 +135,44 @@ RSpec.describe Pito::Fcm::Sender, type: :service do
           expect(sent_bodies.first["message"]).not_to have_key("notification")
         end
 
+        it "includes data.title when a title is given" do
+          sent_bodies = []
+          stub_request(:post, send_endpoint).with do |request|
+            sent_bodies << JSON.parse(request.body)
+            true
+          end.to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+          described_class.new.call(token: device_token, message: "hello", level: "warn", title: "Unpublished vids")
+
+          expect(sent_bodies.first["message"]["data"]).to eq(
+            "message" => "hello", "level" => "warn", "title" => "Unpublished vids"
+          )
+        end
+
+        it "omits data.title entirely when title is nil" do
+          sent_bodies = []
+          stub_request(:post, send_endpoint).with do |request|
+            sent_bodies << JSON.parse(request.body)
+            true
+          end.to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+          described_class.new.call(token: device_token, message: "hello", level: "warn", title: nil)
+
+          expect(sent_bodies.first["message"]["data"]).not_to have_key("title")
+        end
+
+        it "omits data.title entirely when title is blank (never sends an empty string)" do
+          sent_bodies = []
+          stub_request(:post, send_endpoint).with do |request|
+            sent_bodies << JSON.parse(request.body)
+            true
+          end.to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+          described_class.new.call(token: device_token, message: "hello", level: "warn", title: "")
+
+          expect(sent_bodies.first["message"]["data"]).not_to have_key("title")
+        end
+
         it "defaults level to info when not given" do
           sent_bodies = []
           stub_request(:post, send_endpoint).with do |request|

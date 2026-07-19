@@ -151,13 +151,16 @@ module Pito
 
         # Format a Date for an x-axis tick:
         #   current year → "24 Feb"  (day of month + abbreviated month)
-        #   prior year   → "June 2025" (full month + year)
+        #   prior year   → "Feb '25" (house month-granularity shape — owner
+        #                  decision: ticks keep month-only granularity for
+        #                  other years to save canvas width; only the
+        #                  punctuation follows the house rule)
         def format_date(date)
           if date.year == Date.current.year
             date.strftime("%-d %b")
           else
-            # The short form — "Jan'25", never the axis-flooding "January 2025".
-            date.strftime("%b'%y")
+            # The short form — "Feb '25", never the axis-flooding "February 2025".
+            date.strftime("%b '%y")
           end
         end
 

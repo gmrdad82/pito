@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::MessageBuilder::Video::ScheduleConfirmation do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:conversation) { create(:conversation) }
   let!(:channel)     { create(:channel) }
   let(:video)        { create(:video, channel: channel, title: "Dungeon Clear") }
@@ -27,9 +29,19 @@ RSpec.describe Pito::MessageBuilder::Video::ScheduleConfirmation do
       expect(payload["body"]).to include("Dungeon Clear")
     end
 
-    it "includes the formatted when in body (DD-MM-YYYY local format)" do
-      local_time = publish_time.in_time_zone(Time.zone)
-      expect(payload["body"]).to include(local_time.strftime("%d-%m-%Y"))
+    it "includes the house-formatted when in body" do
+      travel_to(Time.zone.local(2026, 6, 2, 9, 0)) do
+        local_time = publish_time.in_time_zone(Time.zone)
+        expect(payload["body"]).to include(Pito::Formatter::HouseDate.stamp(local_time))
+      end
+    end
+
+    it "renders the TODAY collapse (bare HH:MM) when publish_time falls on today" do
+      travel_to(Time.zone.local(2026, 6, 2, 9, 0)) do
+        today_publish = Time.zone.local(2026, 6, 2, 18, 45)
+        body = described_class.call(video, conversation: conversation, when: today_publish)["body"]
+        expect(body).to include("18:45")
+      end
     end
 
     it "stamps video_id in the payload" do

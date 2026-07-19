@@ -67,14 +67,20 @@ module Pito
 
       # Sends one data-only push to `token`. `message` and `level` ride in
       # the `data` block verbatim (the Android side reads them to build its
-      # own notification). Never raises — see file header Outcome contract.
-      def call(token:, message:, level: "info")
+      # own notification). `title` is optional (only some notification
+      # sources have an obvious, copy-driven one — see
+      # Pito::Notifications::Source::PrivateReminder) and rides in `data.title`
+      # ONLY when present; a blank title is omitted entirely rather than sent
+      # as "" (FCM data values must be strings, and an empty title is not a
+      # value worth shipping — the Android side falls back to "PITO" when the
+      # key is absent). Never raises — see file header Outcome contract.
+      def call(token:, message:, level: "info", title: nil)
         return disabled_outcome unless configured?
 
         creds = self.class.credentials
         return disabled_outcome if creds.nil?
 
-        response = post_message(creds, token: token, message: message, level: level)
+        response = post_message(creds, token: token, message: message, level: level, title: title)
         outcome_for(response)
       rescue StandardError => e
         Rails.logger.warn("[Pito::Fcm::Sender] send failed: #{e.class}: #{e.message}")
@@ -95,7 +101,7 @@ module Pito
         Outcome.new(ok: false, unregistered: false, disabled: true)
       end
 
-      def post_message(creds, token:, message:, level:)
+      def post_message(creds, token:, message:, level:, title:)
         uri = URI.parse(format(SEND_URL_TEMPLATE, project_id: creds.project_id))
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"]  = "application/json"
@@ -103,10 +109,7 @@ module Pito
         request.body = JSON.generate(
           message: {
             token: token,
-            data: {
-              message: message,
-              level:   level
-            },
+            data: data_for(message: message, level: level, title: title),
             android: { priority: "high" }
           }
         )
@@ -116,6 +119,14 @@ module Pito
                         open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
           http.request(request)
         end
+      end
+
+      # `title` only joins the data block when present — see #call doc for
+      # why a blank title is omitted rather than sent as "".
+      def data_for(message:, level:, title:)
+        data = { message: message, level: level }
+        data[:title] = title if title.present?
+        data
       end
 
       def outcome_for(response)

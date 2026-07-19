@@ -25,7 +25,11 @@ module Pito
           message = message_for(connection)
           return nil if Notification.unread.where(message:).exists?
 
-          Notification.create!(message:, level: "warning")
+          Notification.create!(
+            message:,
+            level: "warning",
+            title: Pito::Copy.render("pito.copy.notifications.youtube_reauth_title")
+          )
         end
 
         # Names the connection's channels (or its email when none) so the operator

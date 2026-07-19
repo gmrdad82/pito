@@ -31,7 +31,9 @@ module Pito
     #   threshold:   (Integer) — one of the 22 milestone steps.
     #   metric:      (String, Symbol) — achievement metric key.
     #   unlocked_on: (Date, nil) — when present and form is :extended, appends
-    #                "Mon 'YY" in a muted block span; nil or compact omits it.
+    #                the house month-granularity date ("Mon" this year, "Mon
+    #                'YY" otherwise) in a muted block span; nil or compact
+    #                omits it.
     #   form:        (:compact | :extended) — display form; default :extended.
     class BadgeComponent < ViewComponent::Base
       FORMS = %i[compact extended].freeze
@@ -87,11 +89,17 @@ module Pito
         parts = [ "#{value} #{word}" ]
 
         if @form == :extended && @unlocked_on
-          parts << tag.span(@unlocked_on.strftime("%b '%y"),
-                            class: "pito-shiny__date block")
+          parts << tag.span(unlocked_label, class: "pito-shiny__date block")
         end
 
         parts
+      end
+
+      # House month-granularity shape (no day component — see
+      # Pito::Formatter::HouseDate's docs): current year drops the year
+      # ("Jun"); any other year carries it ("Jun '25").
+      def unlocked_label
+        @unlocked_on.year == Time.zone.today.year ? @unlocked_on.strftime("%b") : @unlocked_on.strftime("%b '%y")
       end
     end
   end

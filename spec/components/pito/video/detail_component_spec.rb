@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Video::DetailComponent do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:channel) { create(:channel) }
   let(:video) do
     create(:video,
@@ -90,9 +92,11 @@ RSpec.describe Pito::Video::DetailComponent do
 
   describe "last sync at row (C1)" do
     it "renders the last-sync stamp" do
-      video.update!(last_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
-      text = render_inline(described_class.new(video: video)).text
-      expect(text).to include("Last sync at").and include("26-06-2026 14:30")
+      travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+        video.update!(last_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+        text = render_inline(described_class.new(video: video)).text
+        expect(text).to include("Last sync at").and include("26 Jun 14:30")
+      end
     end
 
     it "renders an em-dash when never synced" do

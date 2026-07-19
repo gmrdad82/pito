@@ -133,12 +133,21 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
     expect(result.events.first[:kind]).to eq(:system)
   end
 
-  context "confirmation body displays time in local format (DD-MM-YYYY HH:MM)" do
-    it "includes DD-MM-YYYY formatted date in the body" do
+  context "confirmation body displays time in the house date format" do
+    it "includes the house-formatted date in the body" do
       travel_to Time.zone.local(2026, 6, 9, 10, 0) do
         result = schedule_real("schedule video #{video.id} 16-06-2026 15:30")
         body = result.events.first[:payload]["body"]
-        expect(body).to include("16-06-2026")
+        expect(body).to include("16 Jun 15:30")
+      end
+    end
+
+    it "collapses to bare HH:MM when the scheduled date IS today" do
+      travel_to Time.zone.local(2026, 6, 9, 10, 0) do
+        result = schedule_real("schedule video #{video.id} 09-06-2026 15:30")
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("15:30")
+        expect(body).not_to include("09-06-2026")
       end
     end
   end

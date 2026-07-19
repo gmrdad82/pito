@@ -259,7 +259,7 @@ RSpec.describe AiOrchestratorJob do
       expect(event.payload["blocks"]).to eq([ { "type" => "text", "text" => "Play Tekken 7." } ])
     end
 
-    it "stamps ONLY the provider-REPORTED cost (T16.22: pito never computes a price)" do
+    it "stamps the provider-REPORTED cost with NO estimate flag (T16.22)" do
       event, = run_with([
         response(cost: 0.0042, tool_calls: [ tool_call(Ai::Toolset::RESPOND,
           "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
@@ -267,9 +267,40 @@ RSpec.describe AiOrchestratorJob do
 
       expect(event.payload["cost_amount"]).to eq(0.0042)
       expect(event.payload["cost_currency"]).to eq("USD")
+      expect(event.payload).not_to have_key("cost_estimated")
     end
 
-    it "stamps NO cost when the provider reports none — unknown is not free" do
+    it "keeps the reported cost even when the model ALSO has catalog pricing — reported beats computed" do
+      allow(Ai::ModelCatalog).to receive(:pricing_for).and_return({ input: 3.0, output: 15.0 })
+
+      event, = run_with([
+        response(cost: 0.0042, input: 1_000_000, output: 1_000_000, tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
+      ])
+
+      expect(event.payload["cost_amount"]).to eq(0.0042)
+      expect(event.payload).not_to have_key("cost_estimated")
+    end
+
+    it "computes an ESTIMATE-MARKED cost from catalog pricing when the provider reported none " \
+       "(reinstated 2026-07-19, partial reversal of T16.22)" do
+      allow(Ai::ModelCatalog).to receive(:pricing_for)
+        .with(provider: "scripted", model: "scripted-model")
+        .and_return({ input: 3.0, output: 15.0 })
+
+      event, = run_with([
+        response(input: 1_000_000, output: 1_000_000, tool_calls: [ tool_call(Ai::Toolset::RESPOND,
+          "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
+      ])
+
+      expect(event.payload["cost_amount"]).to eq(18.0)
+      expect(event.payload["cost_currency"]).to eq("USD")
+      expect(event.payload["cost_estimated"]).to eq(true)
+    end
+
+    it "stamps NO cost when neither the provider nor the catalog prices the call — unknown is not free" do
+      allow(Ai::ModelCatalog).to receive(:pricing_for).and_return(nil)
+
       event, = run_with([
         response(tool_calls: [ tool_call(Ai::Toolset::RESPOND,
           "blocks" => [ { "type" => "text", "text" => "hi" } ]) ])
@@ -277,6 +308,7 @@ RSpec.describe AiOrchestratorJob do
 
       expect(event.payload).not_to have_key("cost_amount")
       expect(event.payload).not_to have_key("cost_currency")
+      expect(event.payload).not_to have_key("cost_estimated")
     end
 
     it "stamps the answering model into the payload (the message's ✨ badge)" do

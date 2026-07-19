@@ -46,7 +46,10 @@ production:
 
   # AI model catalog + pricing refresh — daily at 01:30 UTC (owner: nightly is
   # enough). Re-fetches every reachable provider's model list (keyed providers,
-  # OpenCode Zen, OpenRouter — the pricing mirror), replacing lazy TTL refreshes.
+  # OpenCode Zen unauthenticated) and, on rows that carry one, mirrors their
+  # per-1M-token pricing — the computed-cost chip's estimate fallback prices
+  # off this mirror when a provider doesn't report a call's cost itself
+  # (2026-07-19) — replacing lazy TTL refreshes.
   ai_model_catalog_refresh:
     class: AiModelCatalogRefreshJob
     schedule: "30 1 * * *"
@@ -194,7 +197,10 @@ development:
 
   # AI model catalog + pricing refresh — daily at 01:30 UTC (owner: nightly is
   # enough). Re-fetches every reachable provider's model list (keyed providers,
-  # OpenCode Zen, OpenRouter — the pricing mirror), replacing lazy TTL refreshes.
+  # OpenCode Zen unauthenticated) and, on rows that carry one, mirrors their
+  # per-1M-token pricing — the computed-cost chip's estimate fallback prices
+  # off this mirror when a provider doesn't report a call's cost itself
+  # (2026-07-19) — replacing lazy TTL refreshes.
   ai_model_catalog_refresh:
     class: AiModelCatalogRefreshJob
     schedule: "30 1 * * *"

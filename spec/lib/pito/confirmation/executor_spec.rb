@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Confirmation::Executor, type: :service do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:connection) { create(:youtube_connection) }
   let!(:channel)   { create(:channel, handle: "@pito", youtube_connection: connection) }
   let!(:video1)    { create(:video, channel:) }
@@ -585,14 +587,16 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
     end
 
-    it "renders the time in local DD-MM-YYYY HH:MM form without a 'UTC' label" do
-      text = described_class.confirm("video_schedule", {
-        "video_id"    => sc_video.id,
-        "video_title" => "Dungeon Clear",
-        "publish_at"  => publish_at.iso8601
-      })
-      expect(text).not_to include("UTC")
-      expect(text).to match(/\d{2}-\d{2}-\d{4} \d{2}:\d{2}/)
+    it "renders the time in the house date format without a 'UTC' label" do
+      travel_to(Time.zone.local(2026, 6, 1, 9, 0)) do
+        text = described_class.confirm("video_schedule", {
+          "video_id"    => sc_video.id,
+          "video_title" => "Dungeon Clear",
+          "publish_at"  => publish_at.iso8601
+        })
+        expect(text).not_to include("UTC")
+        expect(text).to match(/\d{1,2} \w{3} \d{2}:\d{2}/)
+      end
     end
   end
 

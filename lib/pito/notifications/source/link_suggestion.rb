@@ -23,7 +23,11 @@ module Pito
         # @param games [Array<Game>]  ranked candidates, `Video::GameLinkSuggester.call(video)`
         # @return [Notification]
         def report!(video:, games:)
-          Notification.create!(message: build_message(video:, games:), level: "info")
+          Notification.create!(
+            message: build_message(video:, games:),
+            level:   "info",
+            title:   Pito::Copy.render("pito.copy.notifications.link_suggestion.push_title")
+          )
         end
 
         # Builds the HTML message string.

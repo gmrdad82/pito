@@ -34,6 +34,16 @@ RSpec.describe "GET /notifications.json", type: :request do
     expect(unread_row["created_at"]).to eq(unread.created_at.iso8601)
   end
 
+  it "returns markup- and dedup-marker-free text (pito-tui is a plain terminal)" do
+    login!
+    marked = create(:notification, message: "<strong>Finish uploading 3 vids.</strong> <!-- pito:private_reminder:2026-07-19 -->")
+
+    get "/notifications", headers: { "Accept" => "application/json" }
+
+    row = response.parsed_body["rows"].find { |r| r["id"] == marked.id }
+    expect(row["message"]).to eq("Finish uploading 3 vids.")
+  end
+
   # ── ?limit= (viewport-driven paging, 3.0.0) ─────────────────────────────────
   # pito-tui sends its visible-row count as `limit`; the server honors it via
   # ApplicationController#client_page_limit, clamped to the :notifications

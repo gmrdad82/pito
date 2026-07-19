@@ -8404,6 +8404,9 @@ en:
           failures_header: "%{count} game(s) failed to sync"
           releasing_soon_header: "%{count} game(s) releasing within 30 days"
           releasing_soon_item: "%{title} — %{release_date}"
+          # Push notification title (Pito::Fcm::Sender's data.title) — the
+          # Android lockscreen headline for this source's Notification.
+          push_title: "Games sync"
         # Fired once per newly-imported, still-unlinked video that scored at
         # least one game-link candidate (LinkSuggestionJob). The heading names
         # the vid; each item is a ranked candidate rendered as a ready-to-run
@@ -8411,6 +8414,8 @@ en:
         link_suggestion:
           heading: "New vid \"%{title}\" has no game linked — possible match(es):"
           item: "%{rank}. %{game} — `link vid %{video_id} to game %{game_id}`"
+          # Push notification title — see nightly_games_sync.push_title above.
+          push_title: "Link suggestion"
         # Daily release-countdown reminder. Each variant is a witty
         # "N days until <title>" line using %{n} (days remaining) and
         # %{title}. 50 variants so the 1-or-50 dictionary guard is satisfied
@@ -8466,6 +8471,32 @@ en:
           - "Just %{n} days separate you from %{title} on %{platforms}."
           - "%{n} days until %{title} unlocks on %{platforms}. Almost go time."
           - "%{title} drops on %{platforms} in %{n} days. Let the anticipation simmer."
+        # Push notification titles (Pito::Fcm::Sender's data.title) for the
+        # notification sources whose body copy lives outside this namespace
+        # (release_countdown's body is the array right above; video_sync's
+        # and sync_rejected's bodies are pito.copy.videos.*; shiny_unlocked's
+        # is built inline in the source; youtube_reauth's is a hardcoded
+        # string in the source) — kept together here, one flat key per
+        # source, so every push title lives in one place regardless of where
+        # its message body is rendered from.
+        release_countdown_title: "Release countdown"
+        video_sync_title: "Vids synced"
+        sync_rejected_title: "Update rejected"
+        shiny_unlocked_title: "Shiny unlocked"
+        youtube_reauth_title: "Reconnect YouTube"
+        # Pito::Notifications::WebhookDigest's previewed surface (Discord
+        # embed description / Slack attachment text) — the phone
+        # notification shade renders this VERBATIM, so it must stay plain
+        # (no fenced code block, no markdown). Deliberately generic: the
+        # digest is shared by AchievementsRefreshJob and ReleaseCountdownJob,
+        # so this reads as a neutral "count: list" line rather than
+        # committing to either caller's vocabulary (no "unlocked" /
+        # "upcoming" verb). %{list} arrives pre-capped (see
+        # WebhookDigest::SUMMARY_LIST_LIMIT) — no pluralization needed here.
+        webhook_digest_summary: "%{count}: %{list}"
+        # Label for the Discord embed / Slack attachment field that carries
+        # the full aligned table — the rich detail the shade never previews.
+        webhook_digest_details_label: "Details"
 
       stats:
         heading: "Stats"
@@ -9377,6 +9408,9 @@ en:
         - "%{count} here. %{rest} more hidden below. `%{tool}` reveals them."
         - "Partial load: %{count} of %{total}. Full load requires `%{tool}`."
         - "%{count} rows. The list continues for %{rest} more. `%{tool}`."
+      # Push notification title (Pito::Fcm::Sender's data.title) for the
+      # private_reminder Notification below.
+      private_reminder_title: "Unpublished vids"
       # Nightly private-vids reminder (P19, 2026-07-14): %{count} privates
       # older than a day — uploaded, processed, and going nowhere until the
       # owner publishes or schedules them. One variant per night.

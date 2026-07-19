@@ -30,12 +30,17 @@ class NotificationsController < ApplicationController
       # client_page_limit — clamped to the :notifications tool's
       # max_page_size; absent/invalid falls back to Notification::PAGE_SIZE.
       # Auth is enforced by the concern (anonymous JSON → 401 before this runs).
+      # `message` goes through Pito::Notifications::PlainMessage — the tui is
+      # a plain terminal with no HTML renderer, so it gets the same markup-
+      # and dedup-marker-free text the FCM push body gets (the web drawer's
+      # own HTML rendering path, _row.html.erb, keeps using `sanitize`
+      # instead since it DOES want the HTML rendered, just safely).
       format.json do
         render json: {
           rows: @notifications.map { |n|
             {
               id:         n.id,
-              message:    n.message,
+              message:    Pito::Notifications::PlainMessage.call(n.message),
               read:       n.read?,
               created_at: n.created_at.iso8601
             }

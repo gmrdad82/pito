@@ -4,15 +4,21 @@ require "rails_helper"
 
 # Pito::Event::Ai::KvTableBlockComponent renders one KeyValueRowComponent per
 # normalized Ai::Blocks kv_table row ([key, value] or [key, value, command]).
-# WP-B mobile polish: label truncation, the house SyncStamp date format, and
-# the id-token list-cell treatment for `show vid|game|channel #<id>` rows.
+# WP-B mobile polish: label truncation, the house date/stamp format (SyncStamp
+# for a time component, HouseDate.date for date-only), and the id-token
+# list-cell treatment for `show vid|game|channel #<id>` rows. Also covers the
+# table-alignment extension: a PLAIN value right-aligns when it shapes as a
+# Pito::Event::Ai::CellShapes family (numeric / #id / date-time), same as a
+# typed value — the key column and prose values are untouched.
 RSpec.describe Pito::Event::Ai::KvTableBlockComponent, type: :component do
+  include ActiveSupport::Testing::TimeHelpers
+
   describe "grid + truncation" do
-    it "renders one grid wrapper with the minmax(0, max-content) label column" do
+    it "renders one grid wrapper with the fit-content(max(20ch,55%)) label column" do
       node = render_inline(described_class.new(rows: [ [ "Genre", "RPG" ] ]))
       grid = node.at_css("div.grid")
 
-      expect(grid["class"]).to eq("grid grid-cols-[minmax(0,max-content)_1fr] gap-x-2 gap-y-1")
+      expect(grid["class"]).to eq("grid grid-cols-[fit-content(max(20ch,55%))_minmax(0,1fr)] gap-x-2 gap-y-1")
     end
 
     it "renders a colon-suffixed key + value span per row" do
@@ -22,11 +28,18 @@ RSpec.describe Pito::Event::Ai::KvTableBlockComponent, type: :component do
       expect(node.text).to include("RPG").and include("84")
     end
 
-    it "caps the key span at a fixed ch width and lets it truncate instead of widening the column" do
+    it "keeps the key span truncation-ready but drops the old unconditional ch cap" do
       node = render_inline(described_class.new(rows: [ [ "Genre", "RPG" ] ]))
       classes = node.at_css("span.text-cyan")["class"].split
 
-      expect(classes).to include("whitespace-nowrap", "overflow-hidden", "text-ellipsis", "min-w-0", "max-w-[20ch]")
+      # The cap now lives on the grid TRACK (fit-content(max(20ch,55%)) in the
+      # wrapper's grid-cols-[...], asserted above) — the key span itself only
+      # needs to be ready to ellipsis-truncate once that track actually
+      # pinches; whether it visually does is a compiled-CSS concern (see the
+      # scratch-build proof in the kv_table_block_component.rb KEY_CLASS
+      # comment / the task's Tailwind CLI grep), not a unit-spec concern.
+      expect(classes).to include("whitespace-nowrap", "overflow-hidden", "text-ellipsis", "min-w-0")
+      expect(classes).not_to include("max-w-[20ch]")
     end
 
     it "never touches KeyValueRowComponent's own defaults" do
@@ -36,40 +49,124 @@ RSpec.describe Pito::Event::Ai::KvTableBlockComponent, type: :component do
     end
   end
 
+  describe "plain values that shape-align (Pito::Event::Ai::CellShapes)" do
+    it "right-aligns a plain #id value" do
+      node = render_inline(described_class.new(rows: [ [ "Linked", "#38" ] ]))
+      value = node.css("span").find { |c| c.text == "#38" }
+
+      expect(value["class"]).to include("text-right")
+    end
+
+    it "right-aligns a plain house date+time value" do
+      node = render_inline(described_class.new(rows: [ [ "Synced", "19 Jul 12:00" ] ]))
+      value = node.css("span").find { |c| c.text == "19 Jul 12:00" }
+
+      expect(value["class"]).to include("text-right")
+    end
+
+    it "right-aligns a plain numeric value" do
+      node = render_inline(described_class.new(rows: [ [ "Views", "7,709" ] ]))
+      value = node.css("span").find { |c| c.text == "7,709" }
+
+      expect(value["class"]).to include("text-right")
+    end
+
+    it "does not right-align plain prose" do
+      node = render_inline(described_class.new(rows: [ [ "Genre", "RPG" ] ]))
+      value = node.css("span").find { |c| c.text == "RPG" }
+
+      expect(value["class"]).not_to include("text-right")
+      expect(value["class"]).to eq(Pito::Table::KeyValueRowComponent::DEFAULT_VALUE_CLASS)
+    end
+
+    it "leaves typed-value alignment unchanged" do
+      rows = [ [ "Price", { "v" => "9.99", "format" => "price" } ] ]
+      node = render_inline(described_class.new(rows: rows))
+
+      expect(node.at_css("span.text-right")["class"]).to eq("text-fg-dim text-right")
+    end
+  end
+
   describe "house date format (typed values)" do
-    it "renders a typed date with a time component through SyncStamp (DD-MM-YYYY HH:MM)" do
-      rows = [ [ "Synced", { "v" => "2026-07-19T14:30:00", "format" => "date" } ] ]
-      node = render_inline(described_class.new(rows: rows))
+    it "renders a typed date with a time component through SyncStamp — this year, not today" do
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Synced", { "v" => "2026-07-19T14:30:00", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
 
-      expect(node.at_css("span.text-right").text).to eq("19-07-2026 14:30")
+        expect(node.at_css("span.text-right").text).to eq("19 Jul 14:30")
+      end
     end
 
-    it "renders a typed house-format (dd-mm-yyyy hh:mm) datetime through SyncStamp" do
-      rows = [ [ "Synced", { "v" => "19-07-2026 14:30", "format" => "date" } ] ]
-      node = render_inline(described_class.new(rows: rows))
+    it "renders a typed house-format (dd-mm-yyyy hh:mm) datetime through SyncStamp — this year, not today" do
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Synced", { "v" => "19-07-2026 14:30", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
 
-      expect(node.at_css("span.text-right").text).to eq("19-07-2026 14:30")
+        expect(node.at_css("span.text-right").text).to eq("19 Jul 14:30")
+      end
     end
 
-    it "renders a date-only ISO value date-only (no invented midnight)" do
-      rows = [ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ]
-      node = render_inline(described_class.new(rows: rows))
+    it "collapses a typed datetime that IS today to bare HH:MM (the date drops entirely)" do
+      travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+        rows = [ [ "Synced", { "v" => "2026-07-19T14:30:00", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
 
-      expect(node.at_css("span.text-right").text).to eq("19-07-2026")
+        expect(node.at_css("span.text-right").text).to eq("14:30")
+      end
     end
 
-    it "renders a date-only house-format value date-only" do
-      rows = [ [ "Release", { "v" => "19-07-2026", "format" => "date" } ] ]
-      node = render_inline(described_class.new(rows: rows))
+    it "renders a date-only ISO value through the house date — current year drops the year" do
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
 
-      expect(node.at_css("span.text-right").text).to eq("19-07-2026")
+        expect(node.at_css("span.text-right").text).to eq("19 Jul")
+      end
+    end
+
+    it "renders a date-only house-format (dd-mm-yyyy) value through the house date — current year drops the year" do
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Release", { "v" => "19-07-2026", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
+
+        expect(node.at_css("span.text-right").text).to eq("19 Jul")
+      end
+    end
+
+    it "carries the '%y suffix for a date-only value from another year" do
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Release", { "v" => "2025-07-19", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
+
+        expect(node.at_css("span.text-right").text).to eq("19 Jul '25")
+      end
+    end
+
+    it "never collapses a date-only value that IS today (still renders the date)" do
+      travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+        rows = [ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
+
+        expect(node.at_css("span.text-right").text).to eq("19 Jul")
+      end
     end
 
     it "no longer renders the old US-order, tz-ignorant %b %-d, %Y shape" do
-      rows = [ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ]
-      node = render_inline(described_class.new(rows: rows))
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
 
-      expect(node.text).not_to include("Jul 19, 2026")
+        expect(node.text).not_to include("Jul 19, 2026")
+      end
+    end
+
+    it "no longer renders the old dd-mm-yyyy date-only shape" do
+      travel_to(Time.zone.local(2026, 8, 1)) do
+        rows = [ [ "Release", { "v" => "2026-07-19", "format" => "date" } ] ]
+        node = render_inline(described_class.new(rows: rows))
+
+        expect(node.text).not_to include("19-07-2026")
+      end
     end
 
     it "falls back to the raw string for an unparseable typed date" do

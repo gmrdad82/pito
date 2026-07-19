@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Games::DetailComponent do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:game) { create(:game, title: "Super Test Game", summary: "A great game.", platforms: %w[PS5 Switch]) }
 
   # ── Root layout (mobile-first responsive) ─────────────────────────────────
@@ -186,10 +188,12 @@ RSpec.describe Pito::Games::DetailComponent do
 
   describe "release label" do
     it "renders the release label (single, no per-platform rows)" do
-      released_game = create(:game, release_year: 2023, release_month: 3, release_day: 15,
-                                    release_date: Date.new(2023, 3, 15))
-      node = render_inline(described_class.new(game: released_game))
-      expect(node.text).to include("2023")
+      travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+        released_game = create(:game, release_year: 2023, release_month: 3, release_day: 15,
+                                      release_date: Date.new(2023, 3, 15))
+        node = render_inline(described_class.new(game: released_game))
+        expect(node.text).to include("15 Mar '23")
+      end
     end
 
     it "renders the per-platform release rows with logos when present (Item 24)" do
@@ -205,9 +209,11 @@ RSpec.describe Pito::Games::DetailComponent do
 
   describe "last sync at row (C1)" do
     it "renders the IGDB last-sync stamp after Price" do
-      g    = create(:game, price: BigDecimal("59.99"), igdb_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
-      text = render_inline(described_class.new(game: g)).css(".pito-game-detail__right, .grid").text
-      expect(text).to include("Last sync at").and include("26-06-2026 14:30")
+      travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+        g    = create(:game, price: BigDecimal("59.99"), igdb_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+        text = render_inline(described_class.new(game: g)).css(".pito-game-detail__right, .grid").text
+        expect(text).to include("Last sync at").and include("26 Jun 14:30")
+      end
     end
 
     it "renders an em-dash when never IGDB-synced" do

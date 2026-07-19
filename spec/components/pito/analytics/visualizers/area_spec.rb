@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Analytics::Visualizers::Area do
+  include ActiveSupport::Testing::TimeHelpers
+
   def render_chart(metric: :views, series:, target_daily: 5.0, caption: "Views: 42.")
     render_inline(described_class.new(metric:, series:, target_daily:, caption:))
   end
@@ -254,18 +256,22 @@ RSpec.describe Pito::Analytics::Visualizers::Area do
     expect(xticks.map(&:text)).not_to include("1")
   end
 
-  # G107: the short form the owner had before — "Jun'25", never "June 2025".
-  it "renders date-labelled x-ticks in the short Mon'YY form for prior-year dates" do
-    prior_year = Date.current.year - 1
-    start = Date.new(prior_year, 6, 1)
-    dates = (0..29).map { |i| (start + i).iso8601 }
-    node  = render_inline(described_class.new(
-      metric: :views, series: (1..30).to_a, target_daily: 5.0,
-      caption: "x", dates: dates
-    ))
-    xticks = node.css(".pito-metric__xticks span")
-    # All ticks should be "Month YYYY" since the dates are in a prior year
-    expect(xticks.map(&:text)).to all(match(/\A[A-Z][a-z]{2}'\d{2}\z/))
+  # G107: the short form the owner had before — "Jun '25", never "June 2025".
+  # House punctuation (owner decree): the month-granularity space before the
+  # apostrophe-year — "Jun '25", not "Jun'25". Ticks still keep month-only
+  # granularity for other years (canvas width) — only the punctuation changed.
+  it "renders date-labelled x-ticks in the short 'Mon 'YY' form for prior-year dates" do
+    travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+      start = Date.new(2025, 6, 1)
+      dates = (0..29).map { |i| (start + i).iso8601 }
+      node  = render_inline(described_class.new(
+        metric: :views, series: (1..30).to_a, target_daily: 5.0,
+        caption: "x", dates: dates
+      ))
+      xticks = node.css(".pito-metric__xticks span")
+      # All ticks should be "Mon 'YY" since the dates are in a prior year
+      expect(xticks.map(&:text)).to all(match(/\A[A-Z][a-z]{2} '\d{2}\z/))
+    end
   end
 
   it "returns the retention 0%→100% labels regardless of dates" do

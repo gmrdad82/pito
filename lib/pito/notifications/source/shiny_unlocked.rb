@@ -37,7 +37,12 @@ module Pito
         #   firing their own webhook the moment a shiny unlocks.
         # @return [Notification]
         def report!(achievement, skip_webhook: false)
-          Notification.create!(message: build_message(achievement), level: "shiny", skip_webhook: skip_webhook)
+          Notification.create!(
+            message:      build_message(achievement),
+            level:        "shiny",
+            title:        Pito::Copy.render("pito.copy.notifications.shiny_unlocked_title"),
+            skip_webhook: skip_webhook
+          )
         end
 
         # The `[witty achievement name, entity display name]` pair for one
