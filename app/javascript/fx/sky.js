@@ -22,8 +22,12 @@
 // drawSky paints onto any CanvasRenderingContext2D. The engine controller
 // owns the clock; this owns the field.
 
-export const CELL = 16 // px per sampling cell (the terminal's "column")
-export const DENSITY = 80 // ~1 star per this many cells
+// CELL/DENSITY are fallbacks for calling the pure functions standalone
+// (vitest, no config); the engine controller threads the real values in
+// from config/pito/fx.yml effects.sky.knobs (house law — fx tuning is a
+// YAML edit, never a code edit).
+export const CELL = 22 // px per sampling cell (the terminal's "column"); was 16 — owner-authorized 2026-07-19 perf cut, coarser cells for ~46% fewer starAt calls/frame
+export const DENSITY = 80 // ~1 star per this many cells — held steady 2026-07-19 (the CELL cut alone clears the halving target; the sparser field still reads full)
 export const LAYERS = [
   { speed: 3, salt: 0 },
   { speed: 8, salt: 3691 }, // the TUI's layer salt, verbatim
@@ -74,10 +78,11 @@ export function sizeFor(h) {
 }
 
 // Deterministic star lookup for a sampling cell. Same (row, col) → same
-// star, forever. Returns null for empty cells (~79 of 80).
-export function starAt(row, col) {
+// star, forever. Returns null for empty cells (~79 of 80). `density`
+// defaults to the fallback constant; the engine passes fx.yml's knob.
+export function starAt(row, col, density = DENSITY) {
   const h = fnv1a(`${row}:${col}`)
-  if (h % DENSITY !== 0) return null
+  if (h % density !== 0) return null
   const sub = fnv1a(`${row}/${col}`)
   return {
     offset: ((h >>> 16) % 997) / 997,
@@ -109,8 +114,9 @@ export function lerpColor(a, b, t) {
 
 // All visible stars of one layer for a viewport, at a drift phase. The
 // sampling grid slides by base cells; fractional drift lands in px so the
-// glide is continuous (sub-pixel, no crossfade needed).
-export function layerStars(layer, widthPx, heightPx, phase, tilt = { x: 0, y: 0 }) {
+// glide is continuous (sub-pixel, no crossfade needed). `cell`/`density`
+// default to the fallback constants; the engine passes fx.yml's knobs.
+export function layerStars(layer, widthPx, heightPx, phase, tilt = { x: 0, y: 0 }, cell = CELL, density = DENSITY) {
   // Device-tilt parallax (owner: "can the phone movement affect the sky?"):
   // the tilt offset scales with the layer's drift speed, so near stars sway
   // more than far ones — depth you can feel in the hand.
@@ -118,19 +124,19 @@ export function layerStars(layer, widthPx, heightPx, phase, tilt = { x: 0, y: 0 
   const tiltY = tilt.y * layer.speed
   const drift = phase * layer.speed
   const base = Math.floor(drift)
-  const fracPx = (drift - base) * CELL
-  const cols = Math.ceil(widthPx / CELL) + 1
-  const rows = Math.ceil(heightPx / CELL)
+  const fracPx = (drift - base) * cell
+  const cols = Math.ceil(widthPx / cell) + 1
+  const rows = Math.ceil(heightPx / cell)
   const stars = []
   for (let row = 0; row < rows; row++) {
     const saltedRow = row + layer.salt
     for (let col = 0; col < cols; col++) {
-      const star = starAt(saltedRow, col + base)
+      const star = starAt(saltedRow, col + base, density)
       if (!star) continue
       stars.push({
         star,
-        x: (col + star.jx) * CELL - fracPx + tiltX,
-        y: (row + star.jy) * CELL + tiltY,
+        x: (col + star.jx) * cell - fracPx + tiltX,
+        y: (row + star.jy) * cell + tiltY,
       })
     }
   }
@@ -138,11 +144,12 @@ export function layerStars(layer, widthPx, heightPx, phase, tilt = { x: 0, y: 0 
 }
 
 // Paint one frame of sky. `alpha` scales the whole pass (the crossfade mix
-// knob — 1 at rest, → 0 as an enforcer takes the frame).
-export function drawSky(ctx, widthPx, heightPx, phase, alpha = 1, tilt = { x: 0, y: 0 }) {
+// knob — 1 at rest, → 0 as an enforcer takes the frame). `cell`/`density`
+// default to the fallback constants; the engine passes fx.yml's knobs.
+export function drawSky(ctx, widthPx, heightPx, phase, alpha = 1, tilt = { x: 0, y: 0 }, cell = CELL, density = DENSITY) {
   if (alpha <= 0) return
   for (const layer of LAYERS) {
-    for (const { star, x, y } of layerStars(layer, widthPx, heightPx, phase, tilt)) {
+    for (const { star, x, y } of layerStars(layer, widthPx, heightPx, phase, tilt, cell, density)) {
       const pulse = pulseAt(star, phase) * alpha
       const c = lerpColor(BG, star.tint, pulse)
       const { radius, flare } = SIZES[star.size]

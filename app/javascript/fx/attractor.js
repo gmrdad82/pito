@@ -75,6 +75,25 @@ export function createButterfly({ random = Math.random } = {}) {
       forceDart = true
     },
 
+    // The cable push's "move" plan (fx/impulse.js): forces a BRAND-NEW leg
+    // toward an explicit destination, applied immediately from wherever the
+    // body sits right now. Unlike kick()'s forced dart — which only ever
+    // hops NEARBY (newLeg's quick-tempo ±0.2 offset) — leap() picks the
+    // destination itself and may span the full field, so it's the one way
+    // to send a member clear across the viewport on a real event. Clamped
+    // to the same margins as every other destination in this file.
+    leap(now, toX, toY, durationMs) {
+      impulse = Math.max(impulse, 1)
+      leg = {
+        fromX: x,
+        fromY: y,
+        toX: Math.min(0.92, Math.max(0.08, toX)),
+        toY: Math.min(0.92, Math.max(0.08, toY)),
+        start: now,
+        duration: Math.max(1, durationMs),
+      }
+    },
+
     update(now, bias = null) {
       if (!leg) newLeg(now)
       let t = (now - leg.start) / leg.duration

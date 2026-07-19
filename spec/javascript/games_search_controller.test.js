@@ -103,9 +103,15 @@ describe("pito--games-search controller", () => {
   it("focuses the input after connect()", async () => {
     const { input } = buildScaffold()
     const focusSpy = vi.spyOn(input, "focus")
-    await tick()
+    // Stimulus connects via MutationObserver — under machine load the
+    // connect→focus hop can outrun a single 50ms tick (the proven repeat
+    // flake, 3× on 2026-07-19). Poll generously instead of racing it; the
+    // happy path still exits on the first lap.
+    for (let lap = 0; lap < 40 && focusSpy.mock.calls.length === 0; lap++) {
+      await tick()
+    }
     expect(focusSpy).toHaveBeenCalled()
-  })
+  }, 15000)
 
   it("calls select() on the input when prefill is non-empty", async () => {
     const { input } = buildScaffold({ prefill: "Hollow Knight" })

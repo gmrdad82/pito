@@ -1,7 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
-import { drawSky } from "fx/sky"
+import { drawSky, CELL, DENSITY } from "fx/sky"
 import { createEngine } from "fx/engine"
 import { createButterfly } from "fx/attractor"
+import { TRAIL_LENGTH, drawTrail } from "fx/butterfly_trail"
+import { planCablePush, isPlanLive } from "fx/impulse"
 import renderers from "fx/renderers"
 
 // perp() rotates a vector 90° — the crosswise deflection behind every
@@ -70,11 +72,22 @@ export default class extends Controller {
     this._dprCap = engine.dpr_cap || 1.0
     // Sky tunables ride fx.yml (owner tuning is a YAML edit, never code):
     // drift_scale slows/hastens the resting glide; tilt_gain multiplies the
-    // hand-tilt sway.
+    // hand-tilt sway; cell/density drive the sampling grid's per-frame cost
+    // (2026-07-19 perf cut — see fx/sky.js CELL/DENSITY for the arithmetic).
     this._enforcerAlpha = engine.enforcer_alpha ?? 1.0
+    // The cable push's strength/duration ranges (fx/impulse.js planCablePush)
+    // — owner-tunable, fx.yml is the only place these move.
+    this._cablePushKnobs = {
+      strengthMin: engine.cable_push_strength_min ?? 0.35,
+      strengthMax: engine.cable_push_strength_max ?? 0.85,
+      durationMsMin: engine.cable_push_duration_ms_min ?? 400,
+      durationMsMax: engine.cable_push_duration_ms_max ?? 1600,
+    }
     const knobs = this.configValue?.effects?.sky?.knobs || {}
     this._driftScale = knobs.drift_scale ?? 1.0
     this._tiltGain = knobs.tilt_gain ?? 1.0
+    this._skyCell = knobs.cell ?? CELL
+    this._skyDensity = knobs.density ?? DENSITY
 
     this._phase = 0
     this._running = false
@@ -159,9 +172,34 @@ export default class extends Controller {
     // happened on the first mood change).
     this.#rollRingExtras()
     this._attractor = { x: 0.5, y: 0.5, vx: 0, vy: 0, impulse: 0, flock: [] }
+    // The RANDOMIZED cable push (owner: "random per butterfly, random per
+    // payload event, random in everything — push tilt pull move whatever").
+    // pito:fx:impulse now fires ONLY from the real cable signal (below,
+    // "turbo:before-stream-render" — the MutationObserver that used to
+    // dispatch it on any DOM churn now only re-enrolls dominance targets),
+    // so every dispatch here IS a received message. Reduced motion gets no
+    // plans at all (a static frame never moves); a hidden tab still marks
+    // activity for the ring idle gate but skips the roll — nothing renders
+    // to see it move, and the rAF clock (and therefore #wander) is already
+    // stopped by #onVisibility.
     window.addEventListener("pito:fx:impulse", () => {
       markActivity()
-      for (const member of this._flock) member.fly.kick(1)
+      if (this._reduced.matches || document.hidden) return
+      const now = performance.now()
+      const plans = planCablePush(Math.random, this._flock.length, this._cablePushKnobs, now)
+      plans.forEach((plan, i) => {
+        const member = this._flock[i]
+        if (!plan || !member) return
+        if (plan.mode === "push") {
+          member.fly.kick(plan.strength)
+        } else if (plan.mode === "move") {
+          member.fly.leap(now, plan.toX, plan.toY, plan.durationMs)
+        } else {
+          // pull / tilt: #wander applies this as a per-frame bias until it
+          // expires, then the member falls back to its normal mouse lean.
+          member.cablePush = plan
+        }
+      })
     }, { signal })
 
     // Live enforcer instances, keyed name:eventId — at most the active one
@@ -209,6 +247,9 @@ export default class extends Controller {
       ring: { x: 0.5, y: 0.5 },
       trail: [],
       lastTrailAt: 0,
+      // The live cable-push "pull"/"tilt" plan (fx/impulse.js), or null —
+      // set by the pito:fx:impulse listener, read + expired by #wander.
+      cablePush: null,
     }
   }
 
@@ -361,7 +402,7 @@ export default class extends Controller {
       drawSky(this._ctx, this._w, this._h, this._phase, mix.skyAlpha, {
         x: (lead.x - 0.5) * 2 * this._tiltGain,
         y: (lead.y - 0.5) * 2 * this._tiltGain,
-      })
+      }, this._skyCell, this._skyDensity)
     }
     // Compositor: each live pass renders offscreen and lands here at its
     // crossfade alpha (F4 — one visible canvas, passes composited).
@@ -486,12 +527,28 @@ export default class extends Controller {
           }
         : null
     const raw = this._flock.map((member, i) => {
-      const bias = hand
+      // A live cable-push "pull"/"tilt" plan OWNS the lean for its duration
+      // — it's the flock's random reaction to a real message, so it takes
+      // over from the gentle personality/mouse lean until it expires (F7's
+      // lean resumes on its own the very next frame after that).
+      const cable = isPlanLive(member.cablePush, now) ? member.cablePush : null
+      if (member.cablePush && !cable) member.cablePush = null
+      const bias = cable
         ? {
-            ...personalityBiasTarget(member.personality, member.state, hand),
-            weight: BIAS_WEIGHT[i] ?? 0.15 + (i % 4) * 0.02,
+            // Reuse the SAME shapes the mouse lean already uses (top of
+            // file): "pull" leans straight at the point (attracted's
+            // target = p itself); "tilt" deflects crosswise off the
+            // member's own live position (tilted's perp offset) — see
+            // personalityBiasTarget's header comment.
+            ...personalityBiasTarget(cable.mode === "tilt" ? "tilted" : "attracted", member.state, cable),
+            weight: cable.weight,
           }
-        : null
+        : hand
+          ? {
+              ...personalityBiasTarget(member.personality, member.state, hand),
+              weight: BIAS_WEIGHT[i] ?? 0.15 + (i % 4) * 0.02,
+            }
+          : null
       const s = member.fly.update(now, bias)
       member.impulse = s.impulse
       return { x: s.x, y: s.y }
@@ -528,7 +585,7 @@ export default class extends Controller {
       // trail rings).
       if (!member.lastTrailAt || now - member.lastTrailAt > 45) {
         member.trail.push({ x: nx, y: ny })
-        if (member.trail.length > 14) member.trail.shift()
+        if (member.trail.length > TRAIL_LENGTH) member.trail.shift()
         member.lastTrailAt = now
       }
     })
@@ -545,7 +602,7 @@ export default class extends Controller {
       member.ring.y += (ny - member.ring.y) * 0.035
       if (!member.lastTrailAt || now - member.lastTrailAt > 45) {
         member.trail.push({ x: nx, y: ny })
-        if (member.trail.length > 14) member.trail.shift()
+        if (member.trail.length > TRAIL_LENGTH) member.trail.shift()
         member.lastTrailAt = now
       }
     }
@@ -566,6 +623,14 @@ export default class extends Controller {
   // cascading behind the extra-slow ring follower, a rim whose pair-colored
   // conic gradient ROTATES, all additive so overlaps bloom. SKY ONLY,
   // idle-gated — the bodies fade with skyAlpha.
+  //
+  // 2026-07-19 perf cut (owner-authorized, "the allocation storm"): at 6-10
+  // bodies this method used to createRadialGradient ~16 times/body (14
+  // trail samples + glow + disk) — up to 160 gradients/frame under
+  // "lighter" compositing. Trail samples are now drawn by fx/butterfly_trail
+  // (plain alpha-faded circles, zero gradients); the glow + disk gradients
+  // below are untouched — the cascade's soul. New worst case: 2
+  // gradients/body × 10 bodies = 20/frame, an 8x cut on the gradient budget.
   #drawButterfly(skyAlpha = 1) {
     if (skyAlpha <= 0.01) return
     const ctx = this._ctx
@@ -587,27 +652,12 @@ export default class extends Controller {
       // Halved (owner: the cascades — "I like a lot more" — were 2x too
       // big); everything hangs off r, so one coefficient halves it all.
       const r = (13 + member.state.impulse * 5) * scale
-      // The trailing cascade: big soft glow fills, ~double size with tight
-      // gaps (owner) — the far tail wears the biggest, faintest circle.
-      for (let i = 0; i < member.trail.length; i++) {
-        const p = member.trail[i]
-        const age = (i + 1) / member.trail.length // old → young
-        const tr = r * (0.7 + age * 1.3)
-        const tx = p.x * this._w
-        const ty = p.y * this._h
-        const mix = age
-        const cr = Math.round(C1[0] + (C2[0] - C1[0]) * mix)
-        const cg = Math.round(C1[1] + (C2[1] - C1[1]) * mix)
-        const cb = Math.round(C1[2] + (C2[2] - C1[2]) * mix)
-        const fill = ctx.createRadialGradient(tx, ty, 0, tx, ty, tr)
-        fill.addColorStop(0, `rgb(${cr} ${cg} ${cb} / ${(0.015 * age * skyAlpha).toFixed(4)})`)
-        fill.addColorStop(0.72, `rgb(${cr} ${cg} ${cb} / ${(0.05 * age * skyAlpha).toFixed(4)})`)
-        fill.addColorStop(1, "rgb(0 0 0 / 0)")
-        ctx.beginPath()
-        ctx.arc(tx, ty, tr, 0, Math.PI * 2)
-        ctx.fillStyle = fill
-        ctx.fill()
-      }
+      // The trailing cascade: ~double size with tight gaps (owner) — the
+      // far tail wears the biggest, faintest circle. 2026-07-19 perf cut:
+      // factored into fx/butterfly_trail.js (drawTrail) — plain alpha-faded
+      // circles instead of a createRadialGradient per sample (the storm);
+      // see that module's header for the gradient-budget arithmetic.
+      drawTrail(ctx, member.trail, { widthPx: this._w, heightPx: this._h, r, pair: [C1, C2], skyAlpha })
       // The body: soft pair-colored inner glow + the ROTATING conic rim —
       // each pair's two colors chase each other around the circle.
       const glow = ctx.createRadialGradient(px, py, r * 0.3, px, py, r * 1.35)
@@ -656,8 +706,10 @@ export default class extends Controller {
   // Dominance: the eligible message covering the most viewport height (and
   // at least 35% of it) declares the mood; anything less is a sky moment.
   // IntersectionObserver feeds a live map; a MutationObserver re-enrolls
-  // appended/replaced messages (listener two — it also doubles as the
-  // butterfly's impulse source via pito:fx:impulse).
+  // appended/replaced messages (listener two). The butterfly's impulse
+  // source lives here too, but on a THIRD, real-signal listener below —
+  // "turbo:before-stream-render" — not the churn-triggered MutationObserver
+  // (2026-07-19: a re-render is not a received message).
   #watchDominance(signal) {
     this._visible = new Map()
     const scrollback = document.getElementById("pito-scrollback")
@@ -678,12 +730,22 @@ export default class extends Controller {
     }
     enroll()
 
-    this._mo = new MutationObserver(() => {
-      enroll()
-      window.dispatchEvent(new CustomEvent("pito:fx:impulse", { detail: { kind: "stream" } }))
-    })
+    this._mo = new MutationObserver(enroll)
     this._mo.observe(scrollback, { childList: true, subtree: true })
     scrollback.addEventListener("scroll", () => this.#declareDominant(), { signal, passive: true })
+
+    // The REAL cable signal (cable_health_controller.js's own pattern):
+    // "turbo:before-stream-render" fires once per received Turbo Stream
+    // payload — a received message, not "the DOM churned" (a scroll-driven
+    // re-enrollment, an unrelated Turbo Frame swap, or this very impulse's
+    // own DOM writes used to all count as "activity" under the old
+    // MutationObserver dispatch, with zero randomness). This is now the
+    // ONLY pito:fx:impulse source (see connect()'s listener).
+    document.addEventListener(
+      "turbo:before-stream-render",
+      () => window.dispatchEvent(new CustomEvent("pito:fx:impulse", { detail: { kind: "cable" } })),
+      { signal }
+    )
   }
 
   #declareDominant() {

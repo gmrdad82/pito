@@ -1,7 +1,12 @@
-// plasma — domain-warped 5-octave fbm noise, dark → pito-blue (#5170ff) →
-// purple palette. Ported verbatim (GLSL only) from pitomd's PLASMA_FRAG +
-// plasma() factory (src/scripts/fx-webgl.js lines 898-1018); the JS wiring
-// is rebuilt here to the enforcer renderer contract (see ./index.js):
+// plasma — domain-warped 4-octave fbm noise (was 5), dark → pito-blue
+// (#5170ff) → purple palette. Ported verbatim (GLSL only) from pitomd's
+// PLASMA_FRAG + plasma() factory (src/scripts/fx-webgl.js lines 898-1024).
+// Re-synced 2026-07-19 to pitomd's fidelity tuning: OCTAVES 5→4, and the old
+// second fbm-pair ("r", a re-warp reusing warped*1.6 ± 4.0) folded into
+// reusing the first warp field q — 3 fbm calls/pixel now, was 5. Both ports
+// share pitomd's ≤12 fbm-octave/pixel budget (3 calls * OCTAVES(4) = 12,
+// was 5 calls * 5 octaves = 25 — a ~52% cut). The JS wiring is rebuilt here
+// to the enforcer renderer contract (see ./index.js):
 //
 //   - own offscreen canvas (created here, never queried from the DOM)
 //   - frame(dtMs, phase, attractor) replaces pitomd's raw cursor/mouse feed —
@@ -47,10 +52,16 @@ float noise(vec2 p) {
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
+// Octave count per fbm call — was 5. Perf budget (owner: halve plasma's
+// per-pixel cost): main() below issues 3 fbm calls/pixel (was 5 — the old
+// "r" re-warp pair collapsed into reusing q, see below), so
+// 3 calls * OCTAVES(4) = 12 octave-units/pixel (was 5 calls * 5 octaves = 25).
+const int OCTAVES = 4;
+
 float fbm(vec2 p) {
   float sum = 0.0;
   float amp = 0.5;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < OCTAVES; i++) {
     sum += amp * noise(p);
     p *= 2.02;
     amp *= 0.5;
@@ -76,11 +87,11 @@ void main() {
   float pull = exp(-dist * 2.2) * (1.0 + u_pull * 0.5);
   warped = mix(warped, focusUv, pull * 0.5);
 
-  vec2 r = vec2(
-    fbm(warped * 1.6 + 4.0 + u_time * 0.03),
-    fbm(warped * 1.6 - 4.0 - u_time * 0.03)
-  );
-  float n = fbm(warped * 1.2 + r * 1.4);
+  // re-warp: reuse q instead of a second fbm-pair "r" field (previously 2
+  // more fbm calls: r.x/r.y from warped, phase +/-4.0, at 0.03 * u_time) —
+  // folds the same warp field back in, still reads as a domain-warped
+  // re-warp for 2 fewer fbm calls per pixel.
+  float n = fbm(warped * 1.2 + q * 1.4);
 
   vec3 dark = vec3(0.02, 0.02, 0.04);
   vec3 blue = vec3(0.318, 0.439, 1.0);

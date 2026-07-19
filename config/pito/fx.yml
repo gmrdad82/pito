@@ -48,6 +48,17 @@ engine:
   # has been idle this long — activity fades them out, idling fades them
   # back in (owner 2026-07-13).
   ring_idle_ms: 8000
+  # The CABLE PUSH (2026-07-19, owner: "random per butterfly, random per
+  # payload event, random in everything — push tilt pull move whatever"):
+  # every received Turbo Stream (fx/impulse.js's planCablePush) rolls each
+  # flock member an independent push/pull/tilt/move/sit-out reaction. These
+  # are the only two tunable ranges — strength feeds kick magnitude AND
+  # pull/tilt bias weight; duration_ms feeds how long a pull/tilt lean (or a
+  # "move" leg) lasts. New knobs, no prior value to compare against.
+  cable_push_strength_min: 0.35
+  cable_push_strength_max: 0.85
+  cable_push_duration_ms_min: 400
+  cable_push_duration_ms_max: 1600
 
 # Every effect the engine can mount.
 #   engine:      css | canvas | webgl — which renderer family drives it.
@@ -65,9 +76,15 @@ effects:
     # a slower, calmer glide. tilt_gain scales the sky's sway with the
     # LEADER butterfly (no mood reads the device directly; the hand reaches
     # everything through the flock).
+    # Owner-authorized perf cut (2026-07-19): cell was 16 — coarser sampling
+    # cells trade ~46% of drawSky's per-frame starAt/paint work (1920x1080:
+    # 16456 -> 8900 starAt calls) for a somewhat sparser field that still
+    # reads full. density held steady — the cell cut alone clears the target.
     knobs:
       drift_scale: 0.5
       tilt_gain: 3.0
+      cell: 22
+      density: 80
   plasma:
     engine: webgl
     covers: none

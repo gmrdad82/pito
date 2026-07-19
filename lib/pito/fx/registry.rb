@@ -30,7 +30,11 @@ module Pito
       PATH = Rails.root.join("config/pito/fx.yml")
 
       TOP_KEYS          = %w[schema_version engine effects contexts].freeze
-      ENGINE_KEYS        = %w[fps dpr_cap crossfade_ms hysteresis_ms enforcer_alpha butterflies ring_idle_ms].freeze
+      ENGINE_KEYS        = %w[
+        fps dpr_cap crossfade_ms hysteresis_ms enforcer_alpha butterflies ring_idle_ms
+        cable_push_strength_min cable_push_strength_max
+        cable_push_duration_ms_min cable_push_duration_ms_max
+      ].freeze
       EFFECT_KEYS        = %w[engine covers needs_float tint_source knobs].freeze
       EFFECT_REQUIRED_KEYS = %w[engine covers needs_float tint_source].freeze
       CONTEXT_KEYS       = %w[covers pool].freeze

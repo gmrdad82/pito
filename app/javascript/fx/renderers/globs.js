@@ -63,9 +63,10 @@ void main() {
     field += 0.020 / (dot(d, d) + 0.0009);
   }
 
-  // six drifting blobs, each on its own lissajous-ish orbit (ambient,
-  // time-driven only — unchanged from the source).
-  for (int i = 0; i < 6; i++) {
+  // drifting ambient blobs, each on its own lissajous-ish orbit (time-
+  // driven only). 4 was 6 — mirrors the 2026-07-20 pitomd metaballs trim
+  // (the source this port tracks), ~29% less field math per pixel.
+  for (int i = 0; i < 4; i++) {
     float fi = float(i);
     float speed = 0.35 + fi * 0.08;
     float radius = 0.5 + fi * 0.15;
