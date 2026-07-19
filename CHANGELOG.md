@@ -4,6 +4,36 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [3.7.0] — 2026-07-20
+
+### Added
+
+- **The flock answers the cable** — every received message now rolls a
+  fresh, independent reaction per butterfly: a push of random strength, a
+  lean toward a random point, a crosswise tilt, a full-field leap to a
+  new destination, or sitting this one out entirely — random per
+  butterfly, random per payload, random in everything (owner's spec,
+  verbatim). The trigger is the real per-payload cable event
+  (`turbo:before-stream-render`), retiring the old DOM-mutation impulse
+  that startled every body identically on any re-render. The plan-maker
+  is a pure module (`fx/impulse.js`) proven with seeded randomness the
+  same way the flight model is; strength and duration ranges are fx.yml
+  knobs; reduced motion sits perfectly still.
+
+### Changed
+
+- **The fx pay half rent** — the night sky samples a coarser grid
+  (`cell 16→22` via new fx.yml sky knobs: ~47% fewer per-frame hash
+  calls, proportionally fewer, brighter-feeling stars); the butterfly
+  ring trails shorten (14→8 samples) and trade their per-sample radial
+  gradients for cheap alpha-falloff circles — from ~160 gradient
+  allocations a frame to at most two per body (the body glow and disk
+  keep theirs; the soul stays). Plasma mirrors pitomd's tuned shader
+  byte-for-byte (25→12 fbm-octave units, 52% — the port citation and a
+  text-pin test hold the budget in both repos). Op-count budgets are
+  pinned by counting-Proxy tests; the long-running sky presence test
+  finally gets the generous timeout it always needed.
+
 ## [3.6.0] — 2026-07-19
 
 ### Added

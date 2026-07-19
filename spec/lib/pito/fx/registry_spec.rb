@@ -21,7 +21,7 @@ RSpec.describe Pito::Fx::Registry do
   # bare arrays.
   VALID = <<~YML
     schema_version: 2
-    engine: { fps: 30, dpr_cap: 1.0, crossfade_ms: 700, hysteresis_ms: 300, enforcer_alpha: 0.62, butterflies: 4, ring_idle_ms: 8000 }
+    engine: { fps: 30, dpr_cap: 1.0, crossfade_ms: 700, hysteresis_ms: 300, enforcer_alpha: 0.62, butterflies: 4, ring_idle_ms: 8000, cable_push_strength_min: 0.35, cable_push_strength_max: 0.85, cable_push_duration_ms_min: 400, cable_push_duration_ms_max: 1600 }
     effects:
       sky: { engine: canvas, covers: none, needs_float: false, tint_source: fixed, knobs: { drift_scale: 0.5 } }
       plasma: { engine: webgl, covers: none, needs_float: false, tint_source: theme }
@@ -285,6 +285,12 @@ RSpec.describe Pito::Fx::Registry do
     it "loads config/pito/fx.yml without raising" do
       expect { described_class.reload! }.not_to raise_error
       expect(described_class.effects).to be_frozen
+    end
+
+    it "threads the sky's perf-tuned sampling knobs (owner-authorized 2026-07-19 CELL/DENSITY cut)" do
+      expect(described_class.effects[:sky][:knobs]).to include(
+        drift_scale: 0.5, tilt_gain: 3.0, cell: 22, density: 80
+      )
     end
 
     it "pins the owner placement law: locked single-cover moods + glow; walls 50/50 with plasma" do
