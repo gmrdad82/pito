@@ -91,8 +91,8 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
       expect(Pito::Dispatch::Matrix.actions_for("channel_detail")).to include("visit", "sync", "analyze")
     end
 
-    it "actions_for('channel_detail') contains the declared set (segment verbs joined in G123)" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_detail")).to match_array(%w[visit sync analyze at-a-glance videos vids games shinies])
+    it "actions_for('channel_detail') contains the declared set (segment verbs joined in G123; @ai joined the anchored-reply roster)" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_detail")).to match_array(%w[visit sync analyze at-a-glance videos vids games shinies @ai])
     end
 
     it "is not internal (appears in help and suggestions)" do

@@ -3,8 +3,10 @@
 require "rails_helper"
 
 # Follow-up handler for `analyze` messages (reply_target: "analyze_message").
-# Mode: :mutate — re-renders the 0/1 cells in-place from the persisted scaffold.
-# Actions: "with" / "without" — accumulates the metric selection.
+# "with" / "without" are :mutate — re-render the 0/1 cells in-place from the
+# persisted scaffold; "@ai" (anchored-reply roster) is :append, so the
+# TARGET's base mode (action: nil) is :append too — mixed tool modes fall to
+# :append (see Pito::Dispatch::Matrix#mode_for).
 RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
   subject(:handler) { described_class.new }
 
@@ -44,12 +46,28 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
     expect(described_class.target).to eq("analyze_message")
   end
 
-  it "Matrix serves :mutate mode for analyze_message" do
-    expect(Pito::Dispatch::Matrix.mode_for("analyze_message")).to eq(:mutate)
+  it "Matrix serves :append mode for analyze_message (mixed tool modes fall to :append)" do
+    expect(Pito::Dispatch::Matrix.mode_for("analyze_message")).to eq(:append)
   end
 
   it "Matrix advertises 'with' and 'without' for analyze_message" do
     expect(Pito::Dispatch::Matrix.actions_for("analyze_message")).to include("with", "without")
+  end
+
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:source_event) { build_analyze_event }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this card (short-circuits BEFORE the with/without metrics parsing)" do
+      result = handler.call(event: source_event, rest: "@ai what's driving these numbers", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("what's driving these numbers")
+      expect(pending[:payload]["anchor_event_id"]).to eq(source_event.id)
+    end
   end
 
   # ── without <metric> ────────────────────────────────────────────────────────
@@ -183,8 +201,8 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
       expect(Pito::FollowUp::Registry.for("analyze_message")).to eq(described_class)
     end
 
-    it "has mode :mutate" do
-      expect(Pito::FollowUp::Registry.mode_for("analyze_message")).to eq(:mutate)
+    it "has base mode :append (mixed tool modes fall to :append)" do
+      expect(Pito::FollowUp::Registry.mode_for("analyze_message")).to eq(:append)
     end
   end
 end

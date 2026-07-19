@@ -301,6 +301,11 @@ export default class extends Controller {
       name:        it.label,
       insert:      it.insert,
       description: it.description || "",
+      // Additive wire field, @ai only (see Pito::Suggestions::{Catalog,Engine}
+      // ai_model_for): the ACTIVE model id, carried through untouched so
+      // _renderPalette can accent it. Undefined for every other row — no
+      // behavior change.
+      model:       it.model,
       // Drill-down rows (e.g. /config namespace picker): a non-empty
       // `children` array is carried through untouched so
       // _acceptPaletteSelection can expand it in place instead of inserting
@@ -347,13 +352,14 @@ export default class extends Controller {
       // Verb palettes (hashtag reply verbs) carry an explicit label shown
       // verbatim; trigger-prefixed palettes (slash verbs, hashtag handles) glue
       // the "/" or "#" glyph onto the entry name.
-      cmd.textContent = entry.label != null
+      const labelText = entry.label != null
         ? entry.label
         : ((this._paletteTrigger || "/") + (entry.name || ""))
+      this._appendLabelText(cmd, labelText, entry.model)
       row.appendChild(cmd)
       if (entry.description) {
         const desc = document.createElement("span")
-        desc.className   = "pito-suggestions-desc"
+        desc.className = "pito-suggestions-desc"
         desc.textContent = entry.description
         row.appendChild(desc)
       }
@@ -372,6 +378,36 @@ export default class extends Controller {
 
     palette.classList.remove("hidden")
     this._paletteOpen = true
+  }
+
+  // Fill a row's label span, splitting out the ACTIVE model substring
+  // (entry.model — the additive @ai-only wire field, see
+  // Pito::Suggestions::{Catalog,Engine} ai_model_for) into an orange accent
+  // span so the rest keeps the ordinary label colour — the label carries the
+  // model mention (SUPERSEDES painting it inside the description — showing
+  // it twice in one row was noise), the client mirror of
+  // Pito::Palette::Suggestions::Component#label_html. Built from
+  // createElement/createTextNode only — NEVER innerHTML, even though the
+  // label is server text (no HTML injection from JS, ever). No entry.model,
+  // or the substring not found inside the label (older servers without the
+  // field, or a model name that isn't in the label text), falls back to
+  // plain textContent.
+  _appendLabelText(cmd, text, model) {
+    const idx = model ? text.indexOf(model) : -1
+
+    if (!model || idx === -1) {
+      cmd.textContent = text
+      return
+    }
+
+    const before = text.slice(0, idx)
+    const after  = text.slice(idx + model.length)
+    if (before) cmd.appendChild(document.createTextNode(before))
+    const span = document.createElement("span")
+    span.className   = "text-orange"
+    span.textContent = model
+    cmd.appendChild(span)
+    if (after) cmd.appendChild(document.createTextNode(after))
   }
 
   // Move selection by delta (+1 down, -1 up), wrapping within bounds.

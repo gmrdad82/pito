@@ -202,6 +202,62 @@ RSpec.describe Video, type: :model do
     end
   end
 
+  # ── already_published? / publish_at_requires_never_published (:schedule
+  # context) — root cause of the 2026-07-19 invalidPublishAt production
+  # incident: YouTube's status.publishAt is settable only on a vid that is
+  # private AND has never gone public. See Video#already_published?.
+  describe "#already_published? and publish_at_requires_never_published (:schedule context)" do
+    let!(:ap_channel) { create(:channel) }
+
+    it "already_published? is true for a currently-public video (no pending change)" do
+      video = create(:video, channel: ap_channel, privacy_status: :public)
+      expect(video.already_published?).to be true
+    end
+
+    it "already_published? is false for a currently-private video (no pending change)" do
+      video = create(:video, channel: ap_channel, privacy_status: :private)
+      expect(video.already_published?).to be false
+    end
+
+    it "already_published? is false for a currently-unlisted video" do
+      video = create(:video, channel: ap_channel, privacy_status: :unlisted)
+      expect(video.already_published?).to be false
+    end
+
+    it "already_published? reads the PRE-assignment state via privacy_status_was, even after assign_attributes flips it to private" do
+      video = create(:video, channel: ap_channel, privacy_status: :public)
+      video.assign_attributes(privacy_status: :private, publish_at: 10.days.from_now)
+      expect(video.privacy_status).to eq("private") # the assignment did happen
+      expect(video.already_published?).to be true    # but it WAS public
+    end
+
+    it "default context (plain save): scheduling an already-public video is VALID — the validation never runs" do
+      video = create(:video, channel: ap_channel, privacy_status: :public)
+      video.assign_attributes(privacy_status: :private, publish_at: 10.days.from_now)
+      expect(video).to be_valid
+      expect { video.save! }.not_to raise_error
+    end
+
+    it ":schedule context: invalid when the video was already public before this assignment" do
+      video = create(:video, channel: ap_channel, privacy_status: :public)
+      video.assign_attributes(privacy_status: :private, publish_at: 10.days.from_now)
+      expect(video.valid?(:schedule)).to be false
+      expect(video.errors[:privacy_status]).to be_present
+    end
+
+    it ":schedule context: valid when the video was already private before this assignment (a re-schedule)" do
+      video = create(:video, channel: ap_channel, privacy_status: :private, publish_at: 3.days.from_now)
+      video.assign_attributes(privacy_status: :private, publish_at: 10.days.from_now)
+      expect(video.valid?(:schedule)).to be true
+    end
+
+    it ":schedule context: valid when the video was already unlisted before this assignment" do
+      video = create(:video, channel: ap_channel, privacy_status: :unlisted)
+      video.assign_attributes(privacy_status: :private, publish_at: 10.days.from_now)
+      expect(video.valid?(:schedule)).to be true
+    end
+  end
+
   # ── #thumbnail_variant_url ───────────────────────────────────────
   describe "#thumbnail_variant_url" do
     let(:saved) { create(:video) }

@@ -39,6 +39,39 @@ module Ai
       new(provider:, model:, effort:, api_key: key)
     end
 
+    # Non-raising readiness check — the presentation-layer twin of #current's
+    # raise conditions (model + key present; provider always resolves via
+    # DEFAULT_PROVIDER, so it is never itself the missing piece). The single
+    # source Pito::Dispatch::Availability's "ai_configured" condition reads,
+    # so a palette/help pass can ask "is @ai usable right now?" without
+    # wrapping #current in a rescue just to probe it.
+    def self.configured?
+      provider = AppSetting.get("ai_provider").presence || DEFAULT_PROVIDER
+      model    = AppSetting.get("ai_model").presence
+      key      = AppSetting.get("#{provider}_api_key").presence
+
+      model.present? && key.present?
+    end
+
+    # The active model id (AppSetting "ai_model"), or nil when unset — the
+    # presentation-layer fact every @ai label/menu-item reads (the seam
+    # Pito::Suggestions::{Catalog,Engine} call ai_model_for).
+    def self.active_model
+      AppSetting.get("ai_model").presence
+    end
+
+    # The "@ai" token as it should be PRESENTED wherever it renders in a
+    # palette or a reply-vocabulary listing: the bare dispatch token with the
+    # ACTIVE model parenthesized on, e.g. "@ai(claude-sonnet-5)" — display
+    # only, every dispatcher still matches on the bare "@ai" token, never
+    # this string. #configured? (and therefore Pito::Dispatch::Availability's
+    # "ai_configured") is what keeps an unready @ai out of a palette in the
+    # first place, so `model` is normally present here — but this stays total
+    # (falls back to the bare token) rather than assume that gate ran.
+    def self.ai_label(model: active_model)
+      model ? "@ai(#{model})" : "@ai"
+    end
+
     def initialize(provider:, model:, api_key:, effort: nil)
       @provider = provider.to_s
       @model    = model

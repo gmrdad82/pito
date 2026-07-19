@@ -536,7 +536,12 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
   describe ".confirm — video_schedule" do
     let!(:sc_channel) { create(:channel) }
-    let!(:sc_video)   { create(:video, channel: sc_channel, title: "Dungeon Clear", privacy_status: :public, publish_at: nil) }
+    # Private + never-published — the realistic pre-schedule state. YouTube's
+    # own status.publishAt constraint (Video#already_published?) refuses a vid
+    # that's ever gone public; that rejection gets its own dedicated describe
+    # block below (the exact scenario this fixture used to silently model as
+    # a success, before the 2026-07-19 invalidPublishAt fix).
+    let!(:sc_video)   { create(:video, channel: sc_channel, title: "Dungeon Clear", privacy_status: :private, publish_at: nil) }
     let(:publish_at)  { 7.days.from_now.utc }
 
     before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
@@ -845,9 +850,13 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       create(:video, channel: conflict_channel, title: "Anchor Episode",
                      privacy_status: :private, publish_at: anchor_at)
     end
+    # privacy_status: :private isolates the concern under test (spacing) from
+    # the already-published guard exercised in its own describe block below —
+    # a :public fixture here would trip THAT guard first and mask the spacing
+    # assertions this block exists to make.
     let!(:conflicting_video) do
       create(:video, channel: conflict_channel, title: "Too Close Episode",
-                     privacy_status: :public, publish_at: nil)
+                     privacy_status: :private, publish_at: nil)
     end
     let(:colliding_at) { anchor_at + 20.minutes }
 
@@ -870,7 +879,7 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
         "publish_at"  => colliding_at.iso8601
       })
       conflicting_video.reload
-      expect(conflicting_video.privacy_status).to eq("public")
+      expect(conflicting_video.privacy_status).to eq("private")
       expect(conflicting_video.publish_at).to be_nil
     end
 
@@ -904,6 +913,65 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
   end
 
+  # ── confirm / video_schedule (edge: already published on YouTube) ──────────
+  #
+  # Root cause of the 2026-07-19 invalidPublishAt production incident: YouTube's
+  # status.publishAt is settable only on a vid that's private AND has never
+  # gone public (developers.google.com/youtube/v3/docs/videos). The chat
+  # handler's stage-time check (Video#already_published?) catches this for the
+  # normal flow, but the confirm click can land after the vid went public on
+  # YouTube in the interim — save!(context: :schedule) re-validates for real
+  # here, same spirit as the spacing-conflict re-check above.
+
+  describe ".confirm — video_schedule (edge: already published on YouTube)" do
+    let!(:pub_channel) { create(:channel) }
+    let!(:pub_video) do
+      create(:video, channel: pub_channel, title: "Went Live Already",
+                     privacy_status: :public, publish_at: nil)
+    end
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "does not raise — the RecordInvalid is rescued locally" do
+      expect {
+        described_class.confirm("video_schedule", {
+          "video_id"    => pub_video.id,
+          "video_title" => "Went Live Already",
+          "publish_at"  => 7.days.from_now.utc.iso8601
+        })
+      }.not_to raise_error
+    end
+
+    it "does not persist privacy_status/publish_at" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => pub_video.id,
+        "video_title" => "Went Live Already",
+        "publish_at"  => 7.days.from_now.utc.iso8601
+      })
+      pub_video.reload
+      expect(pub_video.privacy_status).to eq("public")
+      expect(pub_video.publish_at).to be_nil
+    end
+
+    it "does NOT enqueue VideoRemoteStatusSync" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => pub_video.id,
+        "video_title" => "Went Live Already",
+        "publish_at"  => 7.days.from_now.utc.iso8601
+      })
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+
+    it "returns the schedule_already_public copy, naming the video" do
+      text = described_class.confirm("video_schedule", {
+        "video_id"    => pub_video.id,
+        "video_title" => "Went Live Already",
+        "publish_at"  => 7.days.from_now.utc.iso8601
+      })
+      expect(text).to include("Went Live Already")
+    end
+  end
+
   # ── confirm / video_schedule_mass (WP3) ───────────────────────────────────
   #
   # All-or-nothing: items apply ascending by publish_at inside ONE transaction.
@@ -913,11 +981,14 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
   describe ".confirm — video_schedule_mass" do
     let!(:mass_channel) { create(:channel) }
+    # Private + never-published — the realistic pre-schedule state; the
+    # already-published guard (root cause of the 2026-07-19 invalidPublishAt
+    # incident) gets its own describe block below.
     let!(:mass_video1) do
-      create(:video, channel: mass_channel, title: "Episode One", privacy_status: :public, publish_at: nil)
+      create(:video, channel: mass_channel, title: "Episode One", privacy_status: :private, publish_at: nil)
     end
     let!(:mass_video2) do
-      create(:video, channel: mass_channel, title: "Episode Two", privacy_status: :public, publish_at: nil)
+      create(:video, channel: mass_channel, title: "Episode Two", privacy_status: :private, publish_at: nil)
     end
     let(:time1) { 10.days.from_now.utc.change(usec: 0) }
     let(:time2) { 12.days.from_now.utc.change(usec: 0) }
@@ -983,9 +1054,9 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
       it "rolls back EVERY item — including the one that validated fine" do
         described_class.confirm("video_schedule_mass", mass_payload(items))
-        expect(mass_video1.reload.privacy_status).to eq("public")
+        expect(mass_video1.reload.privacy_status).to eq("private")
         expect(mass_video1.reload.publish_at).to be_nil
-        expect(mass_video2.reload.privacy_status).to eq("public")
+        expect(mass_video2.reload.privacy_status).to eq("private")
         expect(mass_video2.reload.publish_at).to be_nil
       end
 
@@ -1011,9 +1082,9 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
       it "rolls back BOTH items — the first save never persists once the second fails" do
         described_class.confirm("video_schedule_mass", mass_payload(items))
-        expect(mass_video1.reload.privacy_status).to eq("public")
+        expect(mass_video1.reload.privacy_status).to eq("private")
         expect(mass_video1.reload.publish_at).to be_nil
-        expect(mass_video2.reload.privacy_status).to eq("public")
+        expect(mass_video2.reload.privacy_status).to eq("private")
         expect(mass_video2.reload.publish_at).to be_nil
       end
 
@@ -1043,7 +1114,7 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
       it "rolls back the earlier item that DID save" do
         described_class.confirm("video_schedule_mass", mass_payload(items))
-        expect(mass_video1.reload.privacy_status).to eq("public")
+        expect(mass_video1.reload.privacy_status).to eq("private")
         expect(mass_video1.reload.publish_at).to be_nil
       end
 
@@ -1065,6 +1136,47 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       text = described_class.confirm("video_schedule_mass", mass_payload(items))
       expect(mass_video1.reload.privacy_status).to eq("private")
       expect(text).not_to include("Boundary Anchor")
+    end
+
+    # Root cause of the 2026-07-19 invalidPublishAt production incident: a
+    # batch item that's already public on YouTube trips the confirm-time
+    # save!(context: :schedule) re-validation (Video#already_published?) —
+    # the stage-time chat handler dry-run already catches this for the normal
+    # flow, but the confirm click can land after the vid went public in the
+    # interim. All-or-nothing like every other mass_schedule_* failure.
+    context "mid-batch item already published on YouTube" do
+      let!(:published_video) do
+        create(:video, channel: mass_channel, title: "Went Live Already",
+                       privacy_status: :public, publish_at: nil)
+      end
+      let(:items) do
+        [
+          { "video_id" => mass_video1.id,     "video_title" => "Episode One",       "publish_at" => time1.iso8601 },
+          { "video_id" => published_video.id, "video_title" => "Went Live Already", "publish_at" => time2.iso8601 }
+        ]
+      end
+
+      it "does not raise — RecordInvalid is rescued locally" do
+        expect { described_class.confirm("video_schedule_mass", mass_payload(items)) }.not_to raise_error
+      end
+
+      it "rolls back EVERY item — including the one that validated fine" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(mass_video1.reload.privacy_status).to eq("private")
+        expect(mass_video1.reload.publish_at).to be_nil
+        expect(published_video.reload.privacy_status).to eq("public")
+        expect(published_video.reload.publish_at).to be_nil
+      end
+
+      it "enqueues ZERO jobs" do
+        described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+      end
+
+      it "names the already-published vid via mass_schedule_already_public" do
+        text = described_class.confirm("video_schedule_mass", mass_payload(items))
+        expect(text).to include("Went Live Already")
+      end
     end
   end
 

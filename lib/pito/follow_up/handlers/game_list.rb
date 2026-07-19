@@ -57,7 +57,8 @@ module Pito
         def mutate_sort(event:, conversation:, args:)
           payload = event.payload.with_indifferent_access
 
-          current_cols = Array(payload["list_columns"]).map(&:to_sym)
+          current_cols       = Array(payload["list_columns"]).map(&:to_sym)
+          suppressed_columns = Array(payload["suppressed_columns"]).map(&:to_sym)
 
           # Strip optional leading "by" particle.
           tokens = args.to_s.strip.split(/\s+/)
@@ -90,7 +91,8 @@ module Pito
           new_payload = Pito::MessageBuilder::Game::List.call(
             games,
             conversation:,
-            columns:      current_cols
+            columns:            current_cols,
+            suppressed_columns:
           )
 
           new_payload["reply_handle"] = payload["reply_handle"]
@@ -115,8 +117,13 @@ module Pito
         def mutate_columns(event:, conversation:, action:, args:)
           payload = event.payload.with_indifferent_access
 
-          current_cols = Array(payload["list_columns"]).map(&:to_sym)
-          vocab        = Pito::MessageBuilder::Game::ListColumns.vocabulary
+          current_cols       = Array(payload["list_columns"]).map(&:to_sym)
+          suppressed_columns = Array(payload["suppressed_columns"]).map(&:to_sym)
+          # A per-list-suppressed column (e.g. :channels on a single-channel
+          # result set) is excluded from the vocabulary for THIS mutation only
+          # — "with channel" then resolves to nothing, same silent no-op as any
+          # other unrecognized token (never a crash, never re-adds the column).
+          vocab = Pito::MessageBuilder::Game::ListColumns.vocabulary.reject { |_, canonical| suppressed_columns.include?(canonical) }
 
           # Parse the requested delta columns from the comma-list.
           delta_cols = args.split(/\s*,\s*/).filter_map { |t|
@@ -139,7 +146,8 @@ module Pito
           new_payload = Pito::MessageBuilder::Game::List.call(
             games,
             conversation:,
-            columns:      new_cols
+            columns:            new_cols,
+            suppressed_columns:
           )
 
           # make_followupable! is idempotent, but we need to PRESERVE the original
@@ -175,8 +183,9 @@ module Pito
             )
           end
 
-          offset     = cursor["offset"].to_i
-          columns    = Array(cursor["columns"]).map(&:to_sym)
+          offset             = cursor["offset"].to_i
+          columns            = Array(cursor["columns"]).map(&:to_sym)
+          suppressed_columns = Array(cursor["suppressed_columns"]).map(&:to_sym)
           sort_token = cursor["sort_token"].presence
           sort_dir   = cursor["sort_direction"].presence
 
@@ -235,16 +244,17 @@ module Pito
             )
           end
 
-          new_payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:)
+          new_payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:, suppressed_columns:)
 
           if all_games.size > (offset + page_sz)
             new_cursor = {
-              "offset"         => offset + page_sz,
-              "raw"            => cursor["raw"],
-              "channel"        => cursor["channel"],
-              "sort_token"     => sort_token,
-              "sort_direction" => sort_dir,
-              "columns"        => columns.map(&:to_s)
+              "offset"             => offset + page_sz,
+              "raw"                => cursor["raw"],
+              "channel"            => cursor["channel"],
+              "sort_token"         => sort_token,
+              "sort_direction"     => sort_dir,
+              "columns"            => columns.map(&:to_s),
+              "suppressed_columns" => suppressed_columns.map(&:to_s)
             }
             new_cursor["ranked_ids"] = cursor["ranked_ids"] if cursor["ranked_ids"]
             # Without carrying "tool", page 3+ would resolve the pager against

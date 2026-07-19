@@ -12,18 +12,20 @@ RSpec.describe AiOrchestratorJob do
   # Minimal stand-in honoring Ai::Client's loop-facing API. Messages passed to
   # each chat call are snapshotted for assertions.
   class ScriptedClient
-    attr_reader :calls, :model, :provider, :effort
+    attr_reader :calls, :model, :provider, :effort, :systems
 
     def initialize(responses, model: "scripted-model", provider: "scripted", effort: nil)
       @responses = responses
       @calls     = []
+      @systems   = []
       @model     = model
       @provider  = provider
       @effort    = effort
     end
 
     def chat(messages:, tools:, system:)
-      @calls << messages.map(&:dup)
+      @calls   << messages.map(&:dup)
+      @systems << system
       raise "script exhausted" if @responses.empty?
 
       @responses.shift
@@ -450,6 +452,82 @@ RSpec.describe AiOrchestratorJob do
       _, client, = run_with([ response(text: "ok") ])
 
       expect(client.calls.first.last).to eq({ role: "user", content: "test question" })
+    end
+  end
+
+  # The anchored `#<handle> @ai …` reply's explicit ANCHOR block — the
+  # owner's "real content, never raw jsonb, never a lossy history accident"
+  # ask. Target-agnostic: the anchor here is a plain :system card (a
+  # game_detail-shaped payload), not a prior :ai answer.
+  describe "anchored reply — the ANCHOR system-prompt block (T? — Ai::Projector)" do
+    def make_anchor_event(payload)
+      anchor_turn = make_turn("show game 5")
+      Event.create_with_position!(conversation:, turn: anchor_turn, kind: :system, payload:)
+    end
+
+    it "run_system_prompt includes the ANCHOR block, projecting the anchored event's REAL content" do
+      job    = described_class.new
+      anchor = make_anchor_event(
+        "body" => "<div><h2>Lies of P</h2><p>Genre: Action RPG</p></div>", "html" => true, "game_id" => 5
+      )
+      turn  = make_turn("@ai question")
+      event = make_pending_event(turn, "is this any good")
+      event.update!(payload: event.payload.merge("anchor_event_id" => anchor.id))
+      job.instance_variable_set(:@event, event)
+
+      prompt = job.send(:run_system_prompt)
+      expect(prompt).to include("ANCHOR: The owner is replying to this message:")
+      expect(prompt).to include("Lies of P")
+      expect(prompt).to include("Genre: Action RPG")
+    end
+
+    it "omits the ANCHOR block entirely when the event carries no anchor_event_id" do
+      job   = described_class.new
+      turn  = make_turn("@ai question")
+      event = make_pending_event(turn, "hello")
+      job.instance_variable_set(:@event, event)
+
+      expect(job.send(:run_system_prompt)).not_to include("ANCHOR:")
+    end
+
+    it "reaches the actual wire call: the projected anchor text arrives in the system prompt the client receives" do
+      anchor = make_anchor_event(
+        "body" => "<div><h2>Lies of P</h2><p>Genre: Action RPG</p></div>", "html" => true, "game_id" => 5
+      )
+      turn  = make_turn("@ai question")
+      event = make_pending_event(turn, "is this any good")
+      event.update!(payload: event.payload.merge("anchor_event_id" => anchor.id))
+
+      client = ScriptedClient.new([ response(text: "sure, worth a shot") ])
+      allow(Ai::Client).to receive(:current).and_return(client)
+      described_class.perform_now(turn.id)
+
+      system_prompt = client.systems.first
+      expect(system_prompt).to include(
+        "ANCHOR: The owner is replying to this message:", "Lies of P", "Genre: Action RPG"
+      )
+    end
+
+    it "keeps today's behavior for an :ai anchor — no duplicate ANCHOR block (Ai::History's must_include_turn already carries that exchange)" do
+      answer_turn  = make_turn("@ai earlier question")
+      answer_event = Event.create_with_position!(
+        conversation:, turn: answer_turn, kind: :ai,
+        payload: { "status" => "done", "blocks" => [ { "type" => "text", "text" => "earlier answer" } ] }
+      )
+
+      turn  = make_turn("@ai follow-up")
+      event = make_pending_event(turn, "and what about tekken")
+      event.update!(payload: event.payload.merge("anchor_event_id" => answer_event.id))
+      job = described_class.new
+      job.instance_variable_set(:@event, event)
+
+      # Ai::Projector's :ai-shaped payload no-op (Ai::Mcp::EventText has
+      # nothing structured to project from "blocks") means the block is
+      # simply absent — not a bug, the deliberate no-op documented on
+      # Ai::Projector and AiOrchestratorJob#anchor_addendum.
+      expect(job.send(:run_system_prompt)).not_to include("ANCHOR:")
+      # But the anchor TURN itself still guarantees into Ai::History.
+      expect(job.send(:anchor_turn)).to eq(answer_turn)
     end
   end
 end

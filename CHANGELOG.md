@@ -4,6 +4,70 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [3.6.0] — 2026-07-19
+
+### Added
+
+- **The AI suggestion line grows a visible accept affordance** — the
+  stage-into-chatbox icon is gone; the line keeps one copy icon and gains
+  a "shift+u to accept" chip (the house kbd shimmer plus copy-driven hint
+  text) that stages that line's own command on click or tap — the same
+  target the Shift+U key and the `apply`/`use`/`accept` reply words have
+  always clicked, now something you can see.
+- **The @ai palette entry names its answering model** — "… — answered by
+  %{model}." interpolated server-side into the autocomplete description,
+  with the model painted orange in both the web popup and the TUI's
+  completion row (an additive `model` field on the wire; old clients read
+  the plain sentence). No model configured → a clean sentence with no
+  placeholder residue.
+- **Zero-downtime deploys** — the web container becomes two blue/green
+  slots behind the existing Caddy, which health-checks `/up` on both and
+  routes to whichever is alive. A deploy pulls the new image into the
+  idle slot, waits for it to pass health (migrations run there while the
+  old slot still serves — the additive-migration rule makes that safe),
+  then drains the old slot; a failed health check aborts with the live
+  slot untouched. `pito update`/autoupdate flip instead of bouncing; a
+  one-time idempotent migration moves existing single-slot installs over
+  on their next update — the last restart that ever drops a request.
+- **@ai replies wherever list, show, and analyze took you** — every
+  message those three tools mint now answers to `#handle @ai <question>`:
+  the reply anchors on that exact message and the model receives its REAL
+  content — a clean projection of the persisted payload (intro text,
+  table cells, card fields; chrome never) through the same projection the
+  MCP tools already read — behind a one-line "the owner is replying to
+  this message" preamble. Config-declared like every reply tool: the
+  targets are YAML lines on the `@ai` entry, nothing else changed.
+- **The @ai option knows who answers — and vanishes when nobody would** —
+  wherever @ai is offered (the chat palette, the reply vocabularies) the
+  option itself now reads `@ai(claude-sonnet-5)`: the ACTIVE model baked
+  in server-side, painted orange, display-only (tab still inserts plain
+  `@ai` — you're not passing a parameter). And when no provider/model/key
+  is configured, @ai simply isn't offered anywhere: a declared
+  `enabled_if: ai_configured` condition on the tools.yml entry, resolved
+  by one readiness check and honored generically by every presenting
+  surface — no hardcoded tool checks. Typing it blind still gets the
+  polite not-configured answer. (The short-lived "— answered by %{model}"
+  description suffix retired in favor of the label — one mention, not two.)
+- **List intros name their channel(s); single-channel lists drop the
+  column** — `list vids`/`list games` intros carry the result set's
+  channel handle(s) as reference tokens, and when the WHOLE result set
+  lives on one channel the channel column vanishes: from the table, from
+  the `with`/`without` vocabulary and footer, and from `sort` — the
+  intro's reference already says it, and a 19-row column of the same
+  truncated handle said nothing. Multi-channel sets keep the column
+  exactly as before; later pages inherit page 1's decision.
+
+### Fixed
+
+- **Schedule refuses vids YouTube would refuse** — YouTube rejects
+  `publishAt` for any video that has ever been published; a mass schedule
+  over previously-public vids sailed through pito's confirmation and died
+  minutes later as `invalidPublishAt` watchdog errors (2026-07-19, live).
+  The rule now lives in pito: stage-time and confirm-time guards name the
+  already-public vid with honest copy, single and mass alike — and the
+  wire format was proven correct all along (a new spec pins the exact
+  UTC RFC3339 `publishAt` through the real single and mass paths).
+
 ## [3.5.0] — 2026-07-19
 
 ### Added

@@ -7,7 +7,11 @@ require "rails_helper"
 # reaches this handler — this is the non-web fallback that hands the command
 # text back as a system message); `@ai <text>` continues the thread with a
 # new pending :ai event anchored on the source answer (the orchestrator pins
-# that exchange into the model's context).
+# that exchange into the model's context). `@ai` now routes through the SAME
+# target-agnostic path (ToolDelegator -> the uniform Router contract ->
+# Chat::Handlers::Ai) every OTHER rostered card's `@ai` reply takes — these
+# specs exercise the REAL delegation end to end (no hand-rolled regex left
+# in the handler to unit-test in isolation).
 RSpec.describe Pito::FollowUp::Handlers::AiMessage do
   let(:conversation) { Conversation.singleton }
 

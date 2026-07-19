@@ -14,7 +14,12 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
   end
 
   let!(:channel) { create(:channel) }
-  let!(:video)   { create(:video, channel: channel, title: "Episode One", privacy_status: :public, publish_at: nil) }
+  # Private + never-published — the realistic pre-schedule state. YouTube's own
+  # status.publishAt constraint (Video#already_published?) refuses a vid that
+  # has ever gone public, so an ALREADY-public fixture here would silently
+  # model the exact 2026-07-19 production bug instead of the happy path; that
+  # scenario gets its own dedicated context below.
+  let!(:video)   { create(:video, channel: channel, title: "Episode One", privacy_status: :private, publish_at: nil) }
 
   # ── Happy paths ───────────────────────────────────────────────────────────────
 
@@ -32,7 +37,7 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
 
   it "does NOT update the video directly" do
     schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
-    expect(video.reload.privacy_status).to eq("public")
+    expect(video.reload.privacy_status).to eq("private")
     expect(video.reload.publish_at).to be_nil
   end
 
@@ -153,9 +158,11 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
   end
 
   # ── State-guard edge cases ────────────────────────────────────────────────────
-  # The handler does not gate on video state or channel connection — both are
-  # enforced at the job level (VideoRemoteStatusSync). Any resolvable video +
-  # valid future <when> → :confirmation.
+  # The handler does not gate on channel connection — that's enforced at the
+  # job level (VideoRemoteStatusSync). It DOES gate on one piece of video
+  # state: whether the vid has already gone public on YouTube (see the
+  # "already published on YouTube" context below) — that one is YouTube's own
+  # status.publishAt constraint, not an app-level connection concern.
 
   context "state-guard: handler does not gate on video state or channel connection" do
     it "emits :confirmation for an already-private video (privacy_status: :private, publish_at: nil)" do
@@ -183,12 +190,49 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
     it "emits :confirmation when the video's channel has no youtube_connection" do
       # :channel factory never attaches youtube_connection by default — only
       # the :on_connection trait does. The handler must not gate on this.
+      # privacy_status: :private isolates the concern under test (connection
+      # state) from the already-published guard exercised separately below.
       disconnected_channel = create(:channel)
       disconnected_video = create(:video, channel: disconnected_channel, title: "No Connection Vid",
-                                  privacy_status: :public, publish_at: nil)
+                                  privacy_status: :private, publish_at: nil)
       result = schedule_real("schedule video #{disconnected_video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+  end
+
+  # ── Already-published guard (root cause of the 2026-07-19 invalidPublishAt
+  # production incident) ────────────────────────────────────────────────────
+  # YouTube's status.publishAt: "This property can only be set if the video's
+  # privacy status is private and the video has never been published"
+  # (developers.google.com/youtube/v3/docs/videos). A vid that is CURRENTLY
+  # public on YouTube has already been published — pairing privacyStatus:
+  # private with publishAt in the SAME PUT does not satisfy the "never
+  # published" half, so YouTube still rejects it. This is the failure that a
+  # `privacy_status: :public` fixture on the schedule handler would have
+  # silently modeled as a success before this guard existed.
+
+  context "already published on YouTube" do
+    let!(:published_video) do
+      create(:video, channel: channel, title: "Live Already", privacy_status: :public, publish_at: nil)
+    end
+
+    it "does NOT emit a :confirmation event" do
+      result = schedule_real("schedule video #{published_video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "names the video in a schedule_already_public message" do
+      result = schedule_real("schedule video #{published_video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Live Already")
+    end
+
+    it "does not mutate the video" do
+      schedule_real("schedule video #{published_video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
+      expect(published_video.reload.privacy_status).to eq("public")
+      expect(published_video.reload.publish_at).to be_nil
     end
   end
 
@@ -324,7 +368,7 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
 
     it "does NOT mutate the video — the dry-run assignment is restored, not persisted" do
       schedule_real("schedule video #{video.id} #{(anchor_at + 20.minutes).strftime('%d-%m-%Y %H:%M')}")
-      expect(video.reload.privacy_status).to eq("public")
+      expect(video.reload.privacy_status).to eq("private")
       expect(video.reload.publish_at).to be_nil
     end
 

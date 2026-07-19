@@ -71,21 +71,21 @@ RSpec.describe "Dispatch matrix — analyze_message follow-up (recognition, DB m
         .to eq(Pito::FollowUp::Handlers::AnalyzeMessage)
     end
 
-    it "mode_for('analyze_message') is :mutate" do
-      expect(Pito::FollowUp::Registry.mode_for("analyze_message")).to eq(:mutate)
+    it "mode_for('analyze_message') is :append (with/without are :mutate, but @ai — :append — joined the target, so the base mode is mixed)" do
+      expect(Pito::FollowUp::Registry.mode_for("analyze_message")).to eq(:append)
     end
 
-    it "actions_for('analyze_message') is exactly ['with', 'without']" do
+    it "actions_for('analyze_message') is exactly ['with', 'without', '@ai']" do
       expect(Pito::FollowUp::Registry.actions_for("analyze_message"))
-        .to match_array(%w[with without])
+        .to match_array(%w[with without @ai])
     end
 
     it "class target is 'analyze_message'" do
       expect(Pito::FollowUp::Handlers::AnalyzeMessage.target).to eq("analyze_message")
     end
 
-    it "Matrix serves :mutate mode for analyze_message" do
-      expect(Pito::Dispatch::Matrix.mode_for("analyze_message")).to eq(:mutate)
+    it "Matrix serves :append mode for analyze_message (mixed tool modes fall to :append — see Matrix#mode_for)" do
+      expect(Pito::Dispatch::Matrix.mode_for("analyze_message")).to eq(:append)
     end
   end
 

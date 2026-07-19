@@ -35,6 +35,34 @@ RSpec.describe Ai::Client do
     end
   end
 
+  describe ".configured?" do
+    it "is false when no model is selected" do
+      expect(described_class.configured?).to be(false)
+    end
+
+    it "is false when a model is selected but the provider has no API key" do
+      AppSetting.set("ai_model", "claude-sonnet-5")
+      expect(described_class.configured?).to be(false)
+    end
+
+    it "is true once both a model and the provider's API key are set — never raises, unlike .current" do
+      AppSetting.set("ai_model", "claude-sonnet-5")
+      AppSetting.set("opencode_api_key", "sk-test")
+
+      expect { described_class.configured? }.not_to raise_error
+      expect(described_class.configured?).to be(true)
+    end
+
+    it "reflects a mid-conversation /config ai change on the very next read" do
+      AppSetting.set("ai_model", "claude-sonnet-5")
+      AppSetting.set("opencode_api_key", "sk-test")
+      expect(described_class.configured?).to be(true)
+
+      AppSetting.set("ai_model", nil)
+      expect(described_class.configured?).to be(false)
+    end
+  end
+
   describe "#chat" do
     it "delegates to the wire with the resolved model and effort" do
       wire = instance_double(Ai::Wire::OpenAiChat)

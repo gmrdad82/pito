@@ -553,18 +553,19 @@ describe("pito--chat-form controller", () => {
 
   // ── Shift+U stages the latest use-widget vs. Ctrl+Shift+U guard ──────────────
 
-  // Build a scrollback carrying `count` use-widget fill buttons
-  // (Pito::UseWidgetComponent, fill: true) — the only thing #stageLatestSuggestion
-  // looks for, so a bare button with the marker attribute is enough.
+  // Build a scrollback carrying `count` shift+u accept chips
+  // (Pito::Event::Ai::SuggestionBlockComponent's chip — a <span>, mirroring
+  // the real markup) — the only thing #stageLatestSuggestion looks for, so a
+  // bare span with the marker attribute is enough.
   function buildScrollbackWithFillButtons(count) {
     const scrollback = document.createElement("div")
     scrollback.id = "pito-scrollback"
     const buttons = []
     for (let i = 0; i < count; i++) {
-      const btn = document.createElement("button")
-      btn.setAttribute("data-pito-use-widget-fill", "")
-      scrollback.appendChild(btn)
-      buttons.push(btn)
+      const chip = document.createElement("span")
+      chip.setAttribute("data-pito-use-widget-fill", "")
+      scrollback.appendChild(chip)
+      buttons.push(chip)
     }
     document.body.appendChild(scrollback)
     return { scrollback, buttons }
@@ -672,9 +673,9 @@ describe("pito--chat-form controller", () => {
   // ── `#<handle> apply|use|accept` fast-path (WP6) ──────────────────────────────
 
   // Build a `.pito-segment` message container carrying a `data-pito-handle`
-  // token and (optionally) a use-widget fill button as SIBLINGS — mirroring the
+  // token and (optionally) a shift+u accept chip as SIBLINGS — mirroring the
   // real AiComponent markup, where MetaLineComponent's #handle and the
-  // SuggestionBlockComponent's fill button are both descendants of the SAME
+  // SuggestionBlockComponent's chip are both descendants of the SAME
   // Pito::Segment::Component root (id="event_<id>", class="pito-segment").
   function buildAiMessageSegment(handle, { withWidget = true } = {}) {
     const scrollback = document.createElement("div")
@@ -689,7 +690,7 @@ describe("pito--chat-form controller", () => {
 
     let widget = null
     if (withWidget) {
-      widget = document.createElement("button")
+      widget = document.createElement("span")
       widget.setAttribute("data-pito-use-widget-fill", "")
       segment.appendChild(widget)
     }

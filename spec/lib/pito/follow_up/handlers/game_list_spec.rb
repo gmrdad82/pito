@@ -61,6 +61,22 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     expect(result).to be_a(Pito::FollowUp::Result::Error)
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:ai_event) { instance_double(Event, id: 4242, payload: event.payload) }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this list" do
+      result = handler.call(event: ai_event, rest: "@ai which of these is worth my time", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("which of these is worth my time")
+      expect(pending[:payload]["anchor_event_id"]).to eq(4242)
+    end
+  end
+
   it "delegates `delete <id>` to the same delete confirmation" do
     result = handler.call(event:, rest: "delete ##{game.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)
@@ -345,6 +361,35 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
         expect(text).to be_present
         # The list_end copy does NOT contain "next" (it's not a list_more variant).
         expect(text).not_to match(/%\{/)
+      end
+    end
+
+    # A single-channel list's page-1 suppression must survive into every later
+    # page — never re-derived per page, never re-offering/re-adding :channels.
+    context "single-channel suppression inherited from the cursor" do
+      let(:suppressed_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "game_list",
+          "list_cursor"  => {
+            "offset"             => 2,
+            "raw"                => "list games",
+            "channel"            => nil,
+            "sort_token"         => nil,
+            "sort_direction"     => nil,
+            "columns"            => [ "genre" ],
+            "suppressed_columns" => [ "channels" ]
+          }
+        })
+      end
+
+      it "carries suppressed_columns forward onto the next page's payload" do
+        result = handler.call(event: suppressed_cursor_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["suppressed_columns"]).to eq([ "channels" ])
+      end
+
+      it "excludes channel from the next page's options footer" do
+        result = handler.call(event: suppressed_cursor_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["list_footer"]).not_to include("channel")
       end
     end
   end

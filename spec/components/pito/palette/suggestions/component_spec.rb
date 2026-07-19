@@ -115,6 +115,58 @@ RSpec.describe Pito::Palette::Suggestions::Component, type: :component do
     end
   end
 
+  # ── @ai model mention (additive "model" field → orange substring in the LABEL) ──
+  #
+  # SUPERSEDES the earlier description-side painting: the label now carries
+  # "@ai(<model>)" server-prepared, and only the model substring inside it
+  # paints orange — the description stays plain (showing it twice was noise).
+
+  describe "model mention (@ai orange highlight)" do
+    let(:model_items) do
+      [
+        {
+          label: "@ai(claude-sonnet-5)",
+          description: "Ask the AI assistant anything about your library.",
+          model: "claude-sonnet-5",
+          masked: false
+        }
+      ]
+    end
+
+    it "wraps the model substring in a text-orange span inside the label" do
+      node = render_inline(described_class.new(mode: :hashtag, items: model_items))
+      row = node.css(".pito-suggestions-row").first
+      orange = row.css("span.text-orange")
+      expect(orange.first).to be_present
+      expect(orange.first.text).to eq("claude-sonnet-5")
+    end
+
+    it "keeps the surrounding parens inside the same label span" do
+      node = render_inline(described_class.new(mode: :hashtag, items: model_items))
+      row = node.css(".pito-suggestions-row").first
+      expect(row.text).to include("@ai(claude-sonnet-5)")
+    end
+
+    it "keeps the description plain — no orange span there" do
+      node = render_inline(described_class.new(mode: :hashtag, items: model_items))
+      desc = node.css(".pito-suggestions-row").first.css("span.text-fg-dim").first
+      expect(desc.css("span.text-orange")).to be_empty
+      expect(desc.text).to include("Ask the AI assistant anything about your library.")
+    end
+
+    it "renders no orange span when items carry no model field (today's rendering, unchanged)" do
+      node = render_inline(described_class.new(mode: :slash, items: items))
+      expect(node.css("span.text-orange")).to be_empty
+    end
+
+    it "falls back to plain text (no crash) when model isn't found inside the label" do
+      broken_items = [ { label: "@ai", description: "no mention here", model: "claude-sonnet-5", masked: false } ]
+      node = render_inline(described_class.new(mode: :hashtag, items: broken_items))
+      expect(node.css("span.text-orange")).to be_empty
+      expect(node.text).to include("@ai")
+    end
+  end
+
   describe "stable hook classes and attributes" do
     subject(:node) { render_inline(described_class.new(mode: :slash, items: items)) }
 

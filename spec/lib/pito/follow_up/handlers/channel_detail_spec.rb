@@ -47,6 +47,22 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     expect(described_class.internal?).to be false
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:source_event) { build_detail_event }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this card" do
+      result = handler.call(event: source_event, rest: "@ai is this channel growing", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("is this channel growing")
+      expect(pending[:payload]["anchor_event_id"]).to eq(source_event.id)
+    end
+  end
+
   # ── visit channel ─────────────────────────────────────────────────────────────
 
   describe "#call — visit channel (canonical destination)" do

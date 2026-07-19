@@ -166,8 +166,8 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
         expect(described_class.mode_for("analytics_glance", action: nil)).to eq(:append)
       end
 
-      it "returns :mutate for analyze_message (all tool entries are mutate)" do
-        expect(described_class.mode_for("analyze_message", action: nil)).to eq(:mutate)
+      it "returns :append for analyze_message (with/without are mutate, but @ai — mode: append — joined the target)" do
+        expect(described_class.mode_for("analyze_message", action: nil)).to eq(:append)
       end
 
       it "returns :mutate for channel_visit (only tool is consume → mutate)" do

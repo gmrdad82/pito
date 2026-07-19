@@ -83,6 +83,11 @@ module Pito
               level: :vid, ids: Array(event.payload["video_ids"]).map(&:to_i),
               conversation:, period:
             )
+          when "@ai"
+            # Delegated to Chat::Handlers::Ai via ToolDelegator — the SAME
+            # target-agnostic anchored-reply path every other rostered card
+            # takes (see its class header).
+            Pito::FollowUp::ToolDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           else
             # Declared-but-unhandled (a tools.yml/handler mismatch) — reject rather
             # than silently drop. The top-of-method gate already handles undeclared.

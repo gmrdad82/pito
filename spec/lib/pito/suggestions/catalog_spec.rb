@@ -132,6 +132,64 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
     end
   end
 
+  # ── Chat: @ai names the active model ────────────────────────────────────
+  #
+  # @ai is the one chat tool whose LABEL is model-aware (AppSetting
+  # "ai_model") — "@ai(claude-sonnet-5)". The additive "label"/"model" wire
+  # fields ride only on @ai's own catalog entry — every other tool's entry
+  # stays exactly as before. When AI isn't ready (tools.yml
+  # `enabled_if: ai_configured`, Ai::Client.configured?) @ai is ABSENT from
+  # the catalog entirely, not a degraded entry.
+
+  describe ".to_h chat — @ai model mention", :db do
+    def ai_entry
+      described_class.to_h(authenticated: true)[:chat].find { |e| e[:insert] == "@ai " }
+    end
+
+    context "when a model is configured and AI is ready" do
+      before do
+        AppSetting.set("ai_model", "claude-sonnet-5")
+        allow(Ai::Client).to receive(:configured?).and_return(true)
+      end
+
+      it "carries the label with the live model parenthesized" do
+        expect(ai_entry[:label]).to eq("@ai(claude-sonnet-5)")
+      end
+
+      it "keeps the plain name/insert — the model never enters the identity token" do
+        expect(ai_entry[:name]).to eq("@ai")
+        expect(ai_entry[:insert]).to eq("@ai ")
+      end
+
+      it "keeps the description plain — the label carries the model now" do
+        expect(ai_entry[:description]).to eq(I18n.t("pito.grammar.chat.ai"))
+      end
+
+      it "carries the additive model field" do
+        expect(ai_entry[:model]).to eq("claude-sonnet-5")
+      end
+
+      it "no other chat entry carries the additive model or label field" do
+        chat = described_class.to_h(authenticated: true)[:chat]
+        others = chat.reject { |e| e[:name] == "@ai" }
+        expect(others).not_to be_empty
+        expect(others.none? { |e| e.key?(:model) }).to be true
+        expect(others.none? { |e| e.key?(:label) }).to be true
+      end
+
+      it "other tools' descriptions stay untouched" do
+        chat = described_class.to_h(authenticated: true)[:chat]
+        expect(chat.find { |e| e[:name] == "analyze" }[:description]).to eq(I18n.t("pito.grammar.chat.analyze"))
+      end
+    end
+
+    context "when AI is not configured" do
+      it "drops @ai from the catalog entirely — absent, not a plain entry" do
+        expect(ai_entry).to be_nil
+      end
+    end
+  end
+
   # ── Chat slot emission ─────────────────────────────────────────────────────
   #
   # Catalog#slots_for emits only :enum slots with a Symbol source.

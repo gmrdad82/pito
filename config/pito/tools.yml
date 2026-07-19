@@ -1311,12 +1311,28 @@ tools:
   # orchestrator loop (the handler reads message.raw; the grammar never
   # normalizes it). The parser fuses the lexer's bare "@" + word and downcases,
   # so @AI/@Ai/@aI all reach here. Deliberately NOT exposed to MCP.
-  # Reply form: `#a7 @ai <text>` continues the thread anchored on that answer —
-  # the orchestrator guarantees the anchored exchange rides in the model's
-  # context even when it has scrolled out of the history window.
+  #
+  # Reply form: `#<handle> @ai <text>` continues the thread ANCHORED on the
+  # replied-to card — every list/show/analyze mint below, not only a prior
+  # :ai answer (the owner's "their full options" scoping; nothing outside
+  # this roster gets it). One target-agnostic path (Chat::Handlers::Ai via
+  # ToolDelegator + the uniform Router contract) handles ALL of them: the
+  # orchestrator guarantees the anchored exchange rides in the model's
+  # context even when it has scrolled out of the history window, and
+  # projects the anchored card's REAL content under an explicit ANCHOR block
+  # (Ai::Projector) — never raw jsonb, never a lossy history accident.
+  #
+  # `enabled_if: ai_configured` (Pito::Dispatch::Availability) is a
+  # PRESENTATION-ONLY gate: when no AI provider/model/key is configured,
+  # `@ai` drops out of every reply palette/help listing (Pito::FollowUp::
+  # Registry#presentable_actions_for) and the chat palette (a sibling task) —
+  # but a typed `@ai …` / `#<handle> @ai …` still dispatches HONESTLY into
+  # the existing polite not_configured error (AiOrchestratorJob rescues
+  # Ai::Client::NotConfigured); presentation is gated, dispatch never lies.
   "@ai":
     description: pito.grammar.chat.ai
     auth: session
+    enabled_if: ai_configured
     chat:
       dispatch: Chat::Handlers::Ai
       # Explicit per-message opt-in for the web tool pair (P14): only a prompt
@@ -1328,6 +1344,37 @@ tools:
           optional: true
     reply:
       targets:
+        # The list mints (Chat::Handlers::List) — table_rows cards.
+        game_list:
+          mode: append
+        video_list:
+          mode: append
+        channel_list:
+          mode: append
+        # The show mints (Chat::Handlers::Show segments) — detail cards +
+        # their enhanced card sub-targets.
+        channel_detail:
+          mode: append
+        video_detail:
+          mode: append
+        game_detail:
+          mode: append
+        channel_games:
+          mode: append
+        game_channels:
+          mode: append
+        game_similar:
+          mode: append
+        game_linked_videos:
+          mode: append
+        # The analyze mint (MessageBuilder::Analyze::Message) — both roles
+        # (numbers/breakdowns) stamp this SAME target.
+        analyze_message:
+          mode: append
+        # The show `at-a-glance` segment mint (MessageBuilder::Analytics::Enhanced).
+        analytics_glance:
+          mode: append
+        # The pre-existing target: a prior :ai answer.
         ai_message:
           mode: append
 
@@ -1684,12 +1731,12 @@ tools:
     # Reply tool on :ai messages — STAGES the answer's suggested command into
     # the chatbox; it NEVER runs it. The web client intercepts this token
     # client-side (chat_form_controller.js: Enter on `#<handle> apply|use|
-    # accept` clicks the rendered Pito::UseWidgetComponent fill button, no
-    # POST — a user gesture is required to write the clipboard, and this
-    # Enter keypress IS one, precedent: bare `/config ai`). This reply-tool
-    # branch is the non-web FALLBACK (see follow_up/handlers/ai_message.rb):
-    # it hands the command text back as a system message for the owner to
-    # copy/type themselves.
+    # accept` clicks the answer's accept chip — the
+    # [data-pito-use-widget-fill] span, wired to pito--chat-prefill#fill,
+    # which writes straight into the chatbox textarea, no clipboard, no
+    # POST). This reply-tool branch is the non-web FALLBACK (see
+    # follow_up/handlers/ai_message.rb): it hands the command text back as a
+    # system message for the owner to copy/type themselves.
     # Aliases live on the TARGET (not top-level, unlike confirm/cancel below)
     # so use/accept surface as their own actions_for("ai_message") tokens —
     # the follow-up palette needs them selectable, not just chat-context

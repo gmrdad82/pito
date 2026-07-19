@@ -26,14 +26,26 @@ module Pito
         #   a score bar — see Pito::Event::SystemComponent#normalized_cell). nil (every other
         #   caller: `list vids`, follow-up pagers) → no Similarity column, output identical to
         #   before this param existed.
+        # @param channels [Array<String>] distinct @handles for the FULL (un-paginated) result
+        #   set — decided once by the chat handler, never per-page. Appended to the intro body
+        #   as a reference clause via Pito::Lists::ChannelReference: one handle names itself,
+        #   several enumerate with a cap. [] (every other caller) → no clause, output identical
+        #   to before this param existed.
+        # @param suppressed_columns [Array<Symbol>] columns withheld for THIS list only (e.g.
+        #   :channel when `channels` collapses to a single handle) — excluded from the options
+        #   footer's addable set and stamped so with/without follow-ups can reject them too.
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
-        def call(videos, conversation:, columns: [], scores: nil)
-          cols    = Array(columns).map(&:to_sym)
+        def call(videos, conversation:, columns: [], scores: nil, channels: [], suppressed_columns: [])
+          cols       = Array(columns).map(&:to_sym)
+          suppressed = Array(suppressed_columns).map(&:to_sym)
           payload = {
-            "body"          => Pito::Copy.render_html(
-              "pito.copy.videos.list_intro",
-              { count: videos.size, noun: videos.size == 1 ? "vid" : "vids" },
-              shimmer: [ :count, :noun ]
+            "body"          => Pito::Lists::ChannelReference.append(
+              Pito::Copy.render_html(
+                "pito.copy.videos.list_intro",
+                { count: videos.size, noun: videos.size == 1 ? "vid" : "vids" },
+                shimmer: [ :count, :noun ]
+              ),
+              channels
             ),
             "html"          => true,
             "table_heading" => [
@@ -57,7 +69,11 @@ module Pito
             # reload the same videos and rebuild with an updated column set.
             "video_ids"     => videos.map(&:id),
             "list_columns"  => cols.map(&:to_s),
-            "list_footer"   => ListColumns.options_footer(cols)
+            # Stamped so with/without follow-ups (and later pages) can keep
+            # rejecting a per-list-suppressed column instead of silently
+            # re-adding it — see Pito::FollowUp::Handlers::VideoList#mutate_columns.
+            "suppressed_columns" => suppressed.map(&:to_s),
+            "list_footer"   => ListColumns.options_footer(cols, suppressed:)
           }
           Pito::FollowUp.make_followupable!(payload, target: "video_list", conversation: conversation)
           payload

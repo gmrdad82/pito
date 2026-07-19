@@ -27,6 +27,27 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     expect(actions).not_to include("visit")
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:ai_event) do
+      instance_double(Event, id: 4244, payload: {
+        "reply_target" => "channel_list",
+        "channel_ids"  => [ channel.id ]
+      })
+    end
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this list" do
+      result = handler.call(event: ai_event, rest: "@ai who's my biggest channel", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("who's my biggest channel")
+      expect(pending[:payload]["anchor_event_id"]).to eq(4244)
+    end
+  end
+
   describe "sort / order replies (mutate — table re-sorts in place)" do
     let(:conversation) { Conversation.singleton }
     let!(:turn)        { create(:turn, conversation:) }
@@ -198,7 +219,11 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
 
   describe "invalid action" do
     it "returns Result::Error for an unknown action" do
-      result = handler.call(event: nil, rest: "open @alpha", conversation:)
+      # A real event is required now: an unrecognized action routes through
+      # ToolDelegator (mirrors GameList/VideoList), whose own Matrix-backed
+      # gate rejects it — it reads source_event.payload before that gate.
+      source_event = instance_double(Event, payload: { "reply_target" => "channel_list" })
+      result = handler.call(event: source_event, rest: "open @alpha", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
       expect(result.message_key).to eq("pito.follow_up.channel_list.errors.invalid_action")
     end

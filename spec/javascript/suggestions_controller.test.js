@@ -981,6 +981,102 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── Model-span rendering (@ai label accent) ──────────────────────────────
+  //
+  // The engine's free-mode tool-stage completions (@ai only) carry an
+  // additive `model` field alongside a server-prepared `label`
+  // (e.g. "@ai(claude-sonnet-5)") — SUPERSEDES the earlier description-side
+  // painting. The client mirrors Pito::Palette::Suggestions::Component#label_html:
+  // when the row carries `model` AND the label contains that substring, the
+  // model occurrence renders inside a `.text-orange` span within the LABEL;
+  // the description always renders as plain text.
+
+  describe("model-span rendering (@ai label accent)", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "free"
+    })
+
+    it("wraps the model substring in a .text-orange span inside the label when the entry carries model", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mode: "free",
+          stage: "tool",
+          menu_items: [
+            {
+              label:       "@ai(claude-sonnet-5)",
+              insert:      "@ai ",
+              description: "Ask the assistant.",
+              model:       "claude-sonnet-5",
+            },
+          ],
+          ghost: { complete_current: "", next_hint: "" },
+        }),
+      }))
+      textarea.value = "a"; textarea.selectionStart = textarea.selectionEnd = 1
+      await ctrl._fetchArgSuggestions("a", 1)
+
+      const cmd  = palette.querySelector(".pito-suggestions-cmd")
+      const span = cmd.querySelector("span.text-orange")
+      expect(span).not.toBeNull()
+      expect(span.textContent).toBe("claude-sonnet-5")
+      expect(cmd.textContent).toBe("@ai(claude-sonnet-5)")
+
+      const desc = palette.querySelector(".pito-suggestions-desc")
+      expect(desc.querySelector("span.text-orange")).toBeNull()
+      expect(desc.textContent).toBe("Ask the assistant.")
+    })
+
+    it("renders plain text when the entry carries no model", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mode: "free",
+          stage: "tool",
+          menu_items: [
+            { label: "list", insert: "list ", description: "List entities" },
+          ],
+          ghost: { complete_current: "", next_hint: "" },
+        }),
+      }))
+      textarea.value = "l"; textarea.selectionStart = textarea.selectionEnd = 1
+      await ctrl._fetchArgSuggestions("l", 1)
+
+      const cmd = palette.querySelector(".pito-suggestions-cmd")
+      expect(cmd.querySelector("span.text-orange")).toBeNull()
+      expect(cmd.textContent).toBe("list")
+    })
+
+    it("renders plain text when model is present but not found in the label", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mode: "free",
+          stage: "tool",
+          menu_items: [
+            {
+              label:       "@ai",
+              insert:      "@ai ",
+              description: "Ask the assistant.",
+              model:       "claude-sonnet-5",
+            },
+          ],
+          ghost: { complete_current: "", next_hint: "" },
+        }),
+      }))
+      textarea.value = "a"; textarea.selectionStart = textarea.selectionEnd = 1
+      await ctrl._fetchArgSuggestions("a", 1)
+
+      const cmd = palette.querySelector(".pito-suggestions-cmd")
+      expect(cmd.querySelector("span.text-orange")).toBeNull()
+      expect(cmd.textContent).toBe("@ai")
+    })
+  })
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   describe("lifecycle", () => {

@@ -18,7 +18,7 @@ RSpec.describe "Pito::Copy capitalization guard", type: :service do
   ALLOWLISTED_LEAVES = %w[
     usage opt_with opt_sorted opt_without opt_sort
     delete_button sync_cta singular na start_chatting jump_to_end
-    glyphs count
+    glyphs count suggestion_accept_hint
   ].freeze
 
   # Interpolations whose values always render lowercase at sentence start.

@@ -27,6 +27,22 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     expect(Pito::Dispatch::Matrix.mode_for("video_list")).to eq(:append)
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:ai_event) { instance_double(Event, id: 4243, payload: event.payload) }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this list" do
+      result = handler.call(event: ai_event, rest: "@ai which vid should I promote", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("which vid should I promote")
+      expect(pending[:payload]["anchor_event_id"]).to eq(4243)
+    end
+  end
+
   describe "analyze" do
     let(:other) { create(:video, :public, title: "Second", channel:) }
     let(:list_event) do
@@ -104,6 +120,12 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
   # emits a witty past/too-soon event) — freeze the clock to this morning.
   context "schedule replies (clock frozen to 2026-06-20 09:00)" do
     around { |example| travel_to(Time.zone.local(2026, 6, 20, 9, 0)) { example.run } }
+
+    # The file-level fixture is a :public vid — YouTube refuses publishAt for a
+    # video that has ever been published (the 2026-07-19 invalidPublishAt root
+    # cause), so the stage-time guard now rejects it with a system message.
+    # These examples prove schedule DELEGATION, so they get a schedulable vid.
+    let!(:video) { create(:video, :private, title: "Boss Rush", channel:) }
 
     it "delegates `schedule <#id> today at 14:30` to the schedule confirmation" do
       result = handler.call(event:, rest: "schedule ##{video.id} today at 14:30", conversation:)
@@ -311,6 +333,35 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
         text = result.events.first[:payload]["text"].to_s
         expect(text).to be_present
         expect(text).not_to match(/%\{/)
+      end
+    end
+
+    # A single-channel list's page-1 suppression must survive into every later
+    # page — never re-derived per page, never re-offering/re-adding :channel.
+    context "single-channel suppression inherited from the cursor" do
+      let(:suppressed_cursor_event) do
+        instance_double(Event, payload: {
+          "reply_target" => "video_list",
+          "list_cursor"  => {
+            "offset"             => 2,
+            "channel"            => nil,
+            "filter"             => nil,
+            "sort_token"         => nil,
+            "sort_direction"     => nil,
+            "columns"            => [ "visibility" ],
+            "suppressed_columns" => [ "channel" ]
+          }
+        })
+      end
+
+      it "carries suppressed_columns forward onto the next page's payload" do
+        result = handler.call(event: suppressed_cursor_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["suppressed_columns"]).to eq([ "channel" ])
+      end
+
+      it "excludes channel from the next page's options footer" do
+        result = handler.call(event: suppressed_cursor_event, rest: "next", conversation:)
+        expect(result.events.first[:payload]["list_footer"]).not_to include("channel")
       end
     end
   end

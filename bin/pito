@@ -13,22 +13,27 @@
 #   down [args]       Stop the stack (docker compose down).
 #   boot [args]       Alias for `up`.
 #   totp              Enroll / re-enroll the owner's TOTP (prints the otpauth URI).
-#   console           Open a Rails console in the running web container.
-#   logs [args]       Tail container logs (default: follow web). e.g. pito logs --tail 50
+#   console           Open a Rails console in the ACTIVE deploy slot's container.
+#   logs [args]       Tail container logs (default: follow the active slot). e.g. pito logs --tail 50
 #   rake [task ...]   No task → list pito:* tasks; with a task → run it in-container.
 #   clean             Clear regenerable tmp + dev logs (pito:clean).
 #   backup [--list]   Back up DB + assets to ./backups/<ts>/ (keeps newest PITO_BACKUP_KEEP, default 7); --list shows existing.
 #   restore <dir>     Restore a backup dir (DB + assets) over the live stack (destructive, prompts).
 #   backup-schedule   Install a daily systemd timer that runs `pito backup`.
 #   install [args]    Fetch + first-boot a fresh install (script/install.sh).
-#   update [args]     Pull the latest image + restart (script/update.sh).
+#   update [args]     Pull the latest image + apply it with a zero-downtime
+#                     blue/green flip (script/update.sh → script/deploy-flip.sh).
+#   deploy-flip <tag> Run the zero-downtime flip directly (manual/debug use —
+#                     `pito update` already calls this for you).
 #   autoupdate [args] Keep this install on the newest release unattended:
 #                     bare = check/update once; --check = dry-run;
 #                     --install / --uninstall = 15-min systemd timer + logrotate.
 #   build [args]      Build the image LOCALLY from a source checkout, tagged
-#                     ghcr.io/gmrdad82/pito:${PITO_TAG:-local}. Deploy it from an
-#                     install dir by setting PITO_TAG to that tag + `pito up`
-#                     (NOT `pito update`, which pulls from GHCR). Same Docker host.
+#                     ghcr.io/gmrdad82/pito:${PITO_TAG:-local}. Deploy it into
+#                     an install dir's IDLE slot by setting PITO_TAG_BLUE or
+#                     PITO_TAG_GREEN to that tag + `docker compose up -d
+#                     web-<slot>` (NOT `pito update`, which pulls from GHCR).
+#                     Same Docker host.
 #   self-update       Refresh just the pito CLI from the repo (no image pull, no
 #                     restart — your running stack/data is untouched). (alias: cli-update)
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
@@ -71,6 +76,14 @@ cd "$PROJECT_DIR"
 
 dc() { docker compose "$@"; }
 
+# The currently-active blue/green deploy slot's service name (see
+# script/deploy-flip.sh) — every command below that used to hardcode `web`
+# targets this instead, so it always reaches whichever slot is actually
+# serving traffic. Defaults to blue (matches a fresh install / an
+# install.sh-seeded .env).
+active_slot=$(sed -n 's/^PITO_ACTIVE_SLOT=//p' .env 2>/dev/null | head -1); active_slot="${active_slot:-blue}"
+WEB_SVC="web-$active_slot"
+
 # Run a helper script (install.sh / update.sh). In a repo checkout it lives under
 # script/; in a fetched install dir it doesn't, so pull it from the repo first.
 # shellcheck disable=SC2034  # kept for reference; fetch now uses $ref from .env
@@ -100,15 +113,15 @@ cmd="${1:-}"
 case "$cmd" in
   up|boot)   dc up "$@" ;;
   down)      dc down "$@" ;;
-  totp)      dc run --rm web bin/rails pito:totp ;;
-  console)   dc exec web bin/rails console ;;
+  totp)      dc run --rm "$WEB_SVC" bin/rails pito:totp ;;
+  console)   dc exec "$WEB_SVC" bin/rails console ;;
   logs)
-    if [ $# -eq 0 ]; then dc logs -f --tail=200 web; else dc logs "$@"; fi
+    if [ $# -eq 0 ]; then dc logs -f --tail=200 "$WEB_SVC"; else dc logs "$@"; fi
     ;;
   rake)
-    if [ $# -eq 0 ]; then dc exec web bin/rails -T pito; else dc exec web bin/rails "$@"; fi
+    if [ $# -eq 0 ]; then dc exec "$WEB_SVC" bin/rails -T pito; else dc exec "$WEB_SVC" bin/rails "$@"; fi
     ;;
-  clean)     dc exec web bin/rails pito:clean ;;
+  clean)     dc exec "$WEB_SVC" bin/rails pito:clean ;;
   backup)
     BACKUP_DIR="${PITO_BACKUP_DIR:-backups}"
     if [ "${1:-}" = "--list" ]; then
@@ -132,7 +145,7 @@ case "$cmd" in
     mkdir -p "$dest"
     echo "Backing up to $dest"
     dc exec -T postgres pg_dump -U pito --no-owner --no-privileges pito_production | gzip > "$dest/database.sql.gz"
-    dc exec -T web tar cf - -C /var/lib/pito-assets . | gzip > "$dest/active_storage.tar.gz"
+    dc exec -T "$WEB_SVC" tar cf - -C /var/lib/pito-assets . | gzip > "$dest/active_storage.tar.gz"
     echo "Done. Backup at $dest"
     ls -lh "$dest"
     N="${PITO_BACKUP_KEEP:-7}"
@@ -167,7 +180,7 @@ case "$cmd" in
     echo "Restoring database…"
     gunzip -c "$dir/database.sql.gz" | dc exec -T postgres psql -U pito -d pito_production
     echo "Restoring assets…"
-    gunzip -c "$dir/active_storage.tar.gz" | dc exec -T web tar xf - -C /var/lib/pito-assets
+    gunzip -c "$dir/active_storage.tar.gz" | dc exec -T "$WEB_SVC" tar xf - -C /var/lib/pito-assets
     if command -v systemctl >/dev/null 2>&1 && systemctl cat pito.service >/dev/null 2>&1; then
       echo "Restarting pito service…"
       sudo systemctl restart pito
@@ -185,26 +198,31 @@ case "$cmd" in
   install)   run_script install.sh "$@" ;;
   update)    run_script update.sh "$@" ;;
   autoupdate) run_script autoupdate.sh "$@" ;;
+  deploy-flip) run_script deploy-flip.sh "$@" ;;
   build)
     # Build the production image LOCALLY from a source checkout (needs the
     # Dockerfile + repo context). Tags it ghcr.io/gmrdad82/pito:${PITO_TAG:-local}
-    # — the install-dir compose runs that tag without pulling. Default tag `local`
-    # so a hand-built image never collides with a published release tag.
+    # — an install dir's web-blue/web-green pick it up via PITO_TAG_BLUE /
+    # PITO_TAG_GREEN. Default tag `local` so a hand-built image never
+    # collides with a published release tag. Plain `docker build` (not
+    # `docker compose build`) on purpose: the blue/green slots tag their
+    # image from PER-SLOT vars, not the bare PITO_TAG this command uses, so
+    # there's no single compose service left to target.
     if [ ! -f "$PROJECT_DIR/Dockerfile" ]; then
       echo "pito build: no Dockerfile in $PROJECT_DIR — run this from a pito source checkout." >&2
       echo "  git clone https://github.com/gmrdad82/pito && cd pito && PITO_TAG=local pito build" >&2
       exit 1
     fi
     PITO_TAG="${PITO_TAG:-local}"
-    export PITO_TAG
     echo "Building ghcr.io/gmrdad82/pito:$PITO_TAG locally…"
-    dc build "$@" web
+    docker build -t "ghcr.io/gmrdad82/pito:$PITO_TAG" --build-arg "PITO_VERSION=${PITO_VERSION:-}" "$@" "$PROJECT_DIR"
     echo
     echo "Built ghcr.io/gmrdad82/pito:$PITO_TAG"
-    echo "Deploy it from your install dir (SAME Docker host):"
-    echo "  1) set  PITO_TAG=$PITO_TAG  in <install-dir>/.env"
-    echo "  2) cd <install-dir> && pito up -d        # runs the local image, no pull"
-    echo "Note: use 'pito up' (NOT 'pito update' — update pulls from GHCR and replaces it)."
+    echo "Deploy it from your install dir (SAME Docker host) into the IDLE slot, e.g.:"
+    echo "  1) set  PITO_TAG_GREEN=$PITO_TAG  in <install-dir>/.env  (swap _GREEN for _BLUE if that's idle)"
+    echo "  2) cd <install-dir> && docker compose up -d web-green   # runs the local image, no pull"
+    echo "Note: use 'docker compose up -d web-<slot>' directly (NOT 'pito update'/'pito deploy-flip'"
+    echo "— those pull from GHCR and would replace it)."
     ;;
   self-update|cli-update)
     # Refresh ONLY the pito CLI from the repo — no image pull, no restart, stack
@@ -233,13 +251,14 @@ case "$cmd" in
     tag=$(sed -n 's/^PITO_TAG=//p' .env 2>/dev/null | head -1); tag="${tag:-latest}"
     ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
     case "$ref" in main|"") channel="edge" ;; *) channel="stable" ;; esac
-    # Prefer the actual image the stack uses; fall back to the ghcr ref.
-    img=$(dc images -q web 2>/dev/null | head -1)
+    # Prefer the actual image the ACTIVE slot runs; fall back to the ghcr ref.
+    img=$(dc images -q "$WEB_SVC" 2>/dev/null | head -1)
     [ -z "$img" ] && img="ghcr.io/gmrdad82/pito:$tag"
     ver=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$img" 2>/dev/null)
     rev=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$img" 2>/dev/null)
     [ -z "$ver" ] && ver="$tag"
     printf 'pito %s (%s)\n' "$ver" "$channel"
+    printf '  active slot: %s\n' "$WEB_SVC"
     if [ -n "$rev" ]; then
       printf '  image: ghcr.io/gmrdad82/pito:%s  (rev %s)\n' "$tag" "$(printf '%s' "$rev" | cut -c1-8)"
     else

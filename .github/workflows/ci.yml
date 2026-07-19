@@ -291,7 +291,7 @@ jobs:
 
       - name: shellcheck + sh -n
         run: |
-          for f in bin/pito bin/boot bin/dev bin/test bin/test-prepare script/install.sh script/update.sh; do
+          for f in bin/pito bin/boot bin/dev bin/test bin/test-prepare script/install.sh script/update.sh script/deploy-flip.sh; do
             echo "== $f =="
             sh -n "$f" || bash -n "$f"
             shellcheck -S warning "$f"

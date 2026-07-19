@@ -156,13 +156,14 @@ export default class extends Controller {
       }
 
       // Shift+U at the very start of the field → stage the LATEST rendered AI
-      // suggestion's command into the chatbox (the widget's own click handler
-      // does copy + fill + focus + caret-end — zero new widget JS here). Only
-      // fires when the caret is at position 0 so it never hijacks a literal
-      // "U" mid-line. Plain Shift+U only — never when Ctrl/Meta/Alt is held —
-      // mirrors Shift+R's guards exactly.
+      // suggestion's command into the chatbox (the suggestion line's accept
+      // chip is click-to-stage: pito--chat-prefill#fill does fill + focus +
+      // caret-end, stage-only — zero new widget JS here). Only fires when the
+      // caret is at position 0 so it never hijacks a literal "U" mid-line.
+      // Plain Shift+U only — never when Ctrl/Meta/Alt is held — mirrors
+      // Shift+R's guards exactly.
       //
-      //   • a use-widget fill button is rendered → click the LAST one.
+      //   • an accept chip is rendered → click the LAST one.
       //   • none rendered → no-op (let the keystroke pass through).
       if (
         event.shiftKey &&
@@ -182,15 +183,15 @@ export default class extends Controller {
     if (event.key !== "Enter" || event.shiftKey) return;
 
     // `#<handle> apply|use|accept` fast-path: click the SOURCE answer's
-    // use-widget fill button (Pito::UseWidgetComponent, fill: true) instead
-    // of POSTing to the server — clipboard writes need a user gesture, and
-    // this Enter keypress IS one (precedent: bare `/config ai`). The
-    // widget's own click handler does copy + fill + focus + caret-end,
-    // replacing whatever was typed; no #syncHidden, no requestSubmit. Absent
-    // handle/widget, or ANY trailing text after the action word, falls
-    // straight through to the normal submit below, where the server-side
-    // fallback (Pito::FollowUp::Handlers::AiMessage#apply_fallback) still
-    // answers in kind.
+    // accept chip (the [data-pito-use-widget-fill] span on the AI suggestion
+    // line, Pito::Event::Ai::SuggestionBlockComponent) instead of POSTing to
+    // the server. The chip's pito--chat-prefill#fill does fill + focus +
+    // caret-end, replacing whatever was typed — stage-only, no clipboard, no
+    // #syncHidden, no requestSubmit. Absent handle/chip, or ANY trailing
+    // text after the action word, falls straight through to the normal
+    // submit below, where the server-side fallback
+    // (Pito::FollowUp::Handlers::AiMessage#apply_fallback) still answers in
+    // kind.
     if (this.#clickApplyWidget(this.inputFieldTarget.value)) {
       event.preventDefault();
       return;
@@ -285,10 +286,11 @@ export default class extends Controller {
   }
 
   // Stage the LATEST rendered AI suggestion's command into the chatbox: find
-  // every use-widget fill button in the scrollback (Pito::UseWidgetComponent,
-  // fill: true) and click the LAST one — its own click handler does copy +
-  // fill + focus + caret-end (zero new widget JS here). Returns true when it
-  // acted, false when there is nothing to stage (no-op).
+  // every accept chip in the scrollback (the [data-pito-use-widget-fill]
+  // span on each AI suggestion line) and click the LAST one — its
+  // pito--chat-prefill#fill does fill + focus + caret-end, stage-only (zero
+  // new widget JS here). Returns true when it acted, false when there is
+  // nothing to stage (no-op).
   #stageLatestSuggestion() {
     const widgets = document.querySelectorAll(
       "#pito-scrollback [data-pito-use-widget-fill]",
@@ -302,11 +304,11 @@ export default class extends Controller {
   // submit): finds the LIVE `[data-pito-handle="<handle>"]` token in the
   // scrollback, walks up to its enclosing message (`.pito-segment` — the
   // Pito::Segment::Component root every scrollback message renders through,
-  // stamped `id="event_<id>"`), and clicks the use-widget fill button
-  // WITHIN that same message (Pito::UseWidgetComponent, fill: true — the
-  // AI suggestion block). Returns true when it acted (staged), false when
-  // the input doesn't match the pattern or nothing was found to click (the
-  // caller then falls through to a normal submit).
+  // stamped `id="event_<id>"`), and clicks the accept chip
+  // ([data-pito-use-widget-fill] — the AI suggestion line's shift+u chip)
+  // WITHIN that same message. Returns true when it acted (staged), false
+  // when the input doesn't match the pattern or nothing was found to click
+  // (the caller then falls through to a normal submit).
   #clickApplyWidget(value) {
     const m = value.match(APPLY_FAST_PATH);
     if (!m) return false;

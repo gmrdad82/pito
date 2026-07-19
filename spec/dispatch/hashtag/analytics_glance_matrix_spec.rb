@@ -81,9 +81,9 @@ RSpec.describe "Dispatch matrix — analytics_glance follow-up (recognition, DB 
       expect(Pito::FollowUp::Registry.mode_for("analytics_glance")).to eq(:append)
     end
 
-    it "actions_for('analytics_glance') is exactly ['with', 'without', 'analyze']" do
+    it "actions_for('analytics_glance') is exactly ['with', 'without', 'analyze', '@ai']" do
       expect(Pito::FollowUp::Registry.actions_for("analytics_glance"))
-        .to match_array(%w[with without analyze])
+        .to match_array(%w[with without analyze @ai])
     end
 
     it "class target is 'analytics_glance'" do

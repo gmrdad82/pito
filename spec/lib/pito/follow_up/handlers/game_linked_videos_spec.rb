@@ -42,6 +42,22 @@ RSpec.describe Pito::FollowUp::Handlers::GameLinkedVideos do
     end
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:ai_event) { instance_double(Event, id: 4249, kind: "enhanced", payload: event.payload) }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this list" do
+      result = handler.call(event: ai_event, rest: "@ai which of these needs a better title", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("which of these needs a better title")
+      expect(pending[:payload]["anchor_event_id"]).to eq(4249)
+    end
+  end
+
   # ── show ─────────────────────────────────────────────────────────────────────
 
   describe "#call — show <id>" do

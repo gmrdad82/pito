@@ -326,4 +326,79 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       end
     end
   end
+
+  # ── Channel reference (single-channel intro + column suppression) ───────────
+
+  describe ".call with channels: [] (default) — identical to before the param existed" do
+    let(:games) { ::Game.order(:title) }
+
+    subject(:payload) { described_class.call(games, conversation: conversation) }
+
+    it "does not append a pito-token reference span to the body" do
+      expect(payload["body"]).not_to match(/pito-token/)
+    end
+
+    it "stamps an empty suppressed_columns array" do
+      expect(payload["suppressed_columns"]).to eq([])
+    end
+  end
+
+  describe ".call with channels: [one handle]" do
+    let(:games) { ::Game.order(:title) }
+
+    subject(:payload) { described_class.call(games, conversation: conversation, channels: [ "@gmrdad82" ]) }
+
+    it "appends the handle as a plain pito-token reference (never shimmer/clickable)" do
+      expect(payload["body"]).to match(%r{<span class="pito-token">@gmrdad82</span>})
+    end
+
+    it "does not use the clickable/shimmer reference classes (TUI-safe plain token)" do
+      expect(payload["body"]).not_to match(/pito-action-shimmer/)
+      expect(payload["body"]).not_to match(/pito-reference-shimmer/)
+    end
+  end
+
+  describe ".call with channels: [multiple handles]" do
+    let(:games) { ::Game.order(:title) }
+    let(:handles) { %w[@alpha @beta @gamma @delta @epsilon] }
+
+    subject(:payload) { described_class.call(games, conversation: conversation, channels: handles) }
+
+    it "enumerates the first few handles capped with a '+N more' tail, wrapped as ONE token" do
+      expect(payload["body"]).to match(%r{<span class="pito-token">@alpha, @beta, @gamma \+2 more</span>})
+    end
+  end
+
+  describe ".call with intro: given — channels: is ignored (the caller owns the whole body)" do
+    let(:games) { ::Game.order(:title) }
+
+    subject(:payload) do
+      described_class.call(games, conversation: conversation, intro: "Custom intro.".html_safe, channels: [ "@gmrdad82" ])
+    end
+
+    it "renders the caller's intro verbatim, with no appended reference clause" do
+      expect(payload["body"]).to eq("Custom intro.")
+    end
+  end
+
+  describe ".call with suppressed_columns: [:channels]" do
+    let(:games) { ::Game.order(:title) }
+
+    subject(:payload) do
+      described_class.call(games, conversation: conversation, columns: [ :genre ], suppressed_columns: [ :channels ])
+    end
+
+    it "stamps suppressed_columns as strings" do
+      expect(payload["suppressed_columns"]).to eq([ "channels" ])
+    end
+
+    it "excludes channels from the options footer's addable columns" do
+      expect(payload["list_footer"]).not_to include("channel")
+    end
+
+    it "does not affect the visible (non-suppressed) columns" do
+      heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+      expect(heading_texts).to include("Genre")
+    end
+  end
 end

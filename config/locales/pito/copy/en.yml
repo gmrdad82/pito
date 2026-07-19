@@ -2122,6 +2122,11 @@ en:
         # mechanical, matching pito.copy.nl.ran/did_you_mean's tone, not the
         # witty 1-or-50 pools above.
         apply_fallback: "Type or paste this to run it: `%{command}`"
+        # Dim hint text riding beside the shift+u chip on every suggestion line
+        # (Pito::Event::Ai::SuggestionBlockComponent) — pairs with the
+        # kbd-shimmer "shift+u" band, e.g. "shift+u to accept". Terse, matches
+        # apply_fallback's mechanical tone above.
+        suggestion_accept_hint: "to accept"
         status:
           handshake:
             - "Waking the model…"
@@ -4291,6 +4296,118 @@ en:
         # Shown when a `list …` token is a near-miss for a real genre/platform/noun
         # (e.g. `list rpgg`). %{suggestions} is a backtick-wrapped, comma-joined list.
         did_you_mean: "Didn't recognize that. Did you mean %{suggestions}?"
+        # Single-channel intro clause (Pito::Lists::ChannelReference), appended
+        # after the count intro when a video/game list's FULL result set traces
+        # back to exactly one channel — the channel then belongs in the intro,
+        # not repeated down its own noisy column. %{channel} is the @handle,
+        # rendered as a cyan pito-token reference (never shimmer — see the
+        # reference: kwarg contract on Pito::Copy.render_html).
+        channel_reference:
+          - "All from %{channel}."
+          - "Every one of these is %{channel}."
+          - "One channel behind all of it: %{channel}."
+          - "Straight from %{channel}."
+          - "%{channel}, top to bottom."
+          - "Solely %{channel}."
+          - "All %{channel}, no exceptions."
+          - "One source: %{channel}."
+          - "Every entry traces back to %{channel}."
+          - "Just %{channel} here."
+          - "%{channel} owns this whole list."
+          - "Nothing but %{channel}."
+          - "All roads lead to %{channel}."
+          - "The only channel in play: %{channel}."
+          - "%{channel}, wall to wall."
+          - "This one's all %{channel}."
+          - "Single source: %{channel}."
+          - "%{channel} is the only name here."
+          - "Every row belongs to %{channel}."
+          - "It's %{channel} through and through."
+          - "One channel, %{channel}, start to finish."
+          - "All of it comes from %{channel}."
+          - "%{channel} and nobody else."
+          - "One and only: %{channel}."
+          - "The whole list is %{channel}."
+          - "%{channel}, exclusively."
+          - "No mixing here — just %{channel}."
+          - "Everything you see is %{channel}."
+          - "%{channel} claims the whole table."
+          - "One channel's work: %{channel}."
+          - "All from the one channel — %{channel}."
+          - "%{channel} all the way down."
+          - "This is %{channel}'s show."
+          - "Only %{channel} made the cut."
+          - "One name covers it all: %{channel}."
+          - "%{channel} — the sole contributor."
+          - "It's all %{channel} in here."
+          - "A single-channel haul: %{channel}."
+          - "%{channel} is behind every row."
+          - "Nothing outside %{channel}."
+          - "Just the one: %{channel}."
+          - "%{channel} accounts for all of it."
+          - "The full set is %{channel}."
+          - "One channel did all this: %{channel}."
+          - "%{channel}, uncontested."
+          - "All %{channel}, every single one."
+          - "This list has one home: %{channel}."
+          - "%{channel} — nothing else made it in."
+          - "The whole batch is %{channel}."
+          - "One channel, %{channel}, the whole way."
+        # Multi-channel intro clause (Pito::Lists::ChannelReference) — appended
+        # when the FULL result set spans more than one channel. %{channels} is
+        # already the pre-enumerated, capped string ("@a, @b, @c +2 more"),
+        # rendered as ONE cyan pito-token reference, not one token per handle.
+        channels_reference:
+          - "Spanning %{channels}."
+          - "Pulled from %{channels}."
+          - "Sourced across %{channels}."
+          - "A mix from %{channels}."
+          - "Drawn from %{channels}."
+          - "Covering %{channels}."
+          - "This spans %{channels}."
+          - "Blended from %{channels}."
+          - "Across the board: %{channels}."
+          - "Several channels in the mix: %{channels}."
+          - "A cross-channel haul: %{channels}."
+          - "From %{channels}, all together."
+          - "Multiple channels here: %{channels}."
+          - "Gathered from %{channels}."
+          - "This one crosses channels: %{channels}."
+          - "%{channels} share this list."
+          - "A team effort: %{channels}."
+          - "Channels represented: %{channels}."
+          - "It's a mix — %{channels}."
+          - "Sourced from more than one: %{channels}."
+          - "%{channels} all made the cut."
+          - "Coming from %{channels}."
+          - "Split across %{channels}."
+          - "Various channels: %{channels}."
+          - "This crosses over: %{channels}."
+          - "A blend of %{channels}."
+          - "%{channels} — no single owner here."
+          - "Multiple sources: %{channels}."
+          - "This one's shared by %{channels}."
+          - "From across %{channels}."
+          - "%{channels} contributed to this list."
+          - "Not just one — %{channels}."
+          - "A joint effort from %{channels}."
+          - "Several hands here: %{channels}."
+          - "%{channels} all show up."
+          - "This spans more than one: %{channels}."
+          - "Cross-channel: %{channels}."
+          - "%{channels} share the credit."
+          - "Together: %{channels}."
+          - "It takes %{channels} to fill this one."
+          - "A gathering from %{channels}."
+          - "%{channels} — the full lineup."
+          - "This one's channel-agnostic: %{channels}."
+          - "Voices from %{channels}."
+          - "%{channels} all pitched in."
+          - "Mixed bag: %{channels}."
+          - "Coming in from %{channels}."
+          - "%{channels} round out this list."
+          - "A wider net: %{channels}."
+          - "Several channels, one list: %{channels}."
         # Footer after the table rows when there are still columns to add. The
         # builder interpolates %{columns} (e.g. "views, likes, comments"). Reply
         # `with <column>` to a list message to bring them in. Italic, witty.
@@ -6902,6 +7019,14 @@ en:
         # save. args: title (the vid being scheduled), other (the colliding
         # vid's title), when (the colliding vid's publish time, DD-MM-YYYY HH:MM).
         schedule_conflict: "%{title} is too close to %{other}, already set for %{when} — give it 60 minutes of breathing room."
+        # YouTube's own status.publishAt constraint (developers.google.com/
+        # youtube/v3/docs/videos): publishAt can be set only on a vid whose
+        # privacy status is private AND that has never gone public — pairing
+        # it with privacyStatus: private in the SAME PUT does not satisfy the
+        # "never published" half, so YouTube still rejects it (invalidPublishAt).
+        # Raised by both the chat handler's stage-time check (Video#already_published?)
+        # and the executor's confirm-time save. args: title.
+        schedule_already_public: "%{title} already went live on YouTube — once a vid's public, it won't take a new publishAt. Use unlist or publish for visibility changes instead."
         metadata_confirm: "Update %{title}'s %{field} on YouTube? New value: %{preview}"
         metadata_updated: "%{title}'s %{field} updated — pushing to YouTube now."
         publish_confirm:
@@ -7074,6 +7199,11 @@ en:
         # title — a DB row or an earlier batch-mate), when (the colliding
         # publish time, DD-MM-YYYY HH:MM).
         mass_schedule_conflict: "%{title} lands within 60 minutes of %{other} (%{when}) — nothing in the batch got scheduled."
+        # MASS variant of schedule_already_public — YouTube's status.publishAt
+        # constraint (private + never-published only) tripped by one item in
+        # the batch. All-or-nothing like every other mass_schedule_* failure:
+        # nothing gets scheduled. args: title (the vid that's already public).
+        mass_schedule_already_public: "%{title} already went live on YouTube — publishAt won't take on a published vid, so nothing in the batch got scheduled."
         # WP3: a single mass segment couldn't be turned into an <id> + <when> —
         # unparseable time, a non-numeric ref (mass has no title resolution), a
         # vid id not in the library, a past time, or under 30 minutes out. ONE

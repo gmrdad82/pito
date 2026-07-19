@@ -62,8 +62,8 @@ module Pito
               next if handler_class.respond_to?(:internal?) && handler_class.internal?
 
               entity  = entity_for(target_id)
-              actions = Pito::FollowUp::Registry.actions_for(target_id)
-              label   = actions.any? ? actions.join(", ") : "—"
+              actions = Pito::FollowUp::Registry.presentable_actions_for(target_id)
+              label   = actions.any? ? actions.map { |a| display_action_token(a) }.join(", ") : "—"
               grouped[entity] << { "key" => target_id, "value" => label }
             end
 
@@ -81,6 +81,12 @@ module Pito
           def entity_for(target_id)
             prefix = target_id.to_s.split("_").first
             ENTITY_MAP.fetch(prefix, "OTHER")
+          end
+
+          # @ai's action token carries the ACTIVE model parenthesized on
+          # (Ai::Client.ai_label) — every other action renders as itself.
+          def display_action_token(action)
+            action.to_s == "@ai" ? ::Ai::Client.ai_label : action.to_s
           end
         end
       end

@@ -47,10 +47,12 @@ module Pito
           when "next", "more"
             list_next_channels(event:, conversation:)
           else
-            Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.channel_list.errors.invalid_action",
-              message_args: { action: action }
-            )
+            # Every OTHER declared reply tool this card accepts (currently
+            # `@ai`) routes through the matrix-gated ToolDelegator — tools.yml
+            # `reply.targets` is the single source of truth; an undeclared
+            # action never reaches here (Handler#declared? / ToolDelegator's
+            # own gate reject it first).
+            Pito::FollowUp::ToolDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
         end
 

@@ -200,14 +200,19 @@ module Pito
         # set and delegates rendering to Pito::Lists::OptionsFooter. Recomputes on
         # every List.call, so with/without follow-ups update it automatically.
         #
-        # addable   — available columns not yet shown (COLUMNS.keys − cols)
+        # addable   — available columns not yet shown (COLUMNS.keys − cols − suppressed)
         # removable — all currently-visible optional columns (cols; id+title/game
         #             heading are hardcoded and cannot be removed)
         # sort_keys — base sort tokens (id, title) + the primary sort token for
         #             each visible optional column (all game columns are sortable,
         #             so compact is a no-op here but kept for safety).
-        def options_footer(cols)
-          addable   = (COLUMNS.keys - cols).map { |c| display_token(c) }
+        #
+        # @param suppressed [Array<Symbol>] columns withheld for THIS list only
+        #   (e.g. :channels when the FULL result set traces to one channel —
+        #   see the chat handler's channel-context helpers) — never offered as
+        #   addable, a per-list decision rather than a permanent one.
+        def options_footer(cols, suppressed: [])
+          addable   = (COLUMNS.keys - cols - suppressed).map { |c| display_token(c) }
           removable = cols.map { |c| display_token(c) }
           sort_keys = base_sort_tokens + cols.map { |c| SORT_VOCAB.key(c) }.compact
           Pito::Lists::OptionsFooter.call(addable:, removable:, sort_keys:, noun: "columns")

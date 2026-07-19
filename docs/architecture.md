@@ -121,8 +121,10 @@ read-only, OAuth-gated, and isolated in its own container.
   - the `SessionThrottle` IP throttle; comparisons are timing-safe.
 - **Container.** `docker-compose.yml` runs a dedicated `pito-mcp` Puma (same image,
   `-p 3001`, no SolidQueue supervisor) exposed at `127.0.0.1:3029`; cloudflared on
-  the host routes `^/(mcp|oauth|\.well-known)` there and everything else to `web`,
-  so a stuck tool call cannot starve the app/APK/TUI workers.
+  the host routes `^/(mcp|oauth|\.well-known)` there and everything else to `lb`
+  (`127.0.0.1:3028`, the internal load balancer fronting the web-blue/web-green
+  deploy slots — see Zero-downtime deploys below), so a stuck tool call cannot
+  starve the app/APK/TUI workers.
 
 ## AI assistant (2.0.0)
 
@@ -202,8 +204,8 @@ kwargs: { enable_thinking: false }` plus a trailing `/no_think` prompt suffix
 - Both are CPU-only (no GPU assumed), 1GB memory-capped, and each own a
   dedicated model-cache volume (`embedder_models` / `nlmapper_models`, dev and
   prod scoped separately by compose project) — no coupling between the two.
-  No host port in production — `web`/`pito-mcp` reach them over the compose
-  network only; dev publishes 8091/8092 for the host-Puma app.
+  No host port in production — the web deploy slots/`pito-mcp` reach them over
+  the compose network only; dev publishes 8091/8092 for the host-Puma app.
 - **Forgiving vs strict, mirrored on both clients (K2 data honesty).**
   `Client#embed` and `CompletionClient#chat` never raise — an unconfigured
   URL, non-2xx, malformed body, or network error all degrade to nil (or an
@@ -764,17 +766,95 @@ multi-arch image.
 - **`bin/pito`** — the self-contained operator CLI (no repo / no host Ruby): drives
   `docker compose` against the compose file beside it (an install dir) or one level
   up (this repo). Subcommands: `up`/`down`, `totp`, `console`, `logs`, `rake`,
-  `clean`, `install`, `update`, `service`, `cloudflared`. `bin/boot` is a thin
-  compatibility shim forwarding to it.
+  `clean`, `install`, `update`, `deploy-flip`, `service`, `cloudflared`. `bin/boot`
+  is a thin compatibility shim forwarding to it. Every command that used to target
+  a container named `web` now targets `web-<PITO_ACTIVE_SLOT>` (see below).
 - **`script/install.sh` / `update.sh`** — `curl | sh` install/update: fetch the
-  compose file + CLI, generate secrets non-interactively, pull the image, enroll
-  TOTP, and optionally configure a Cloudflare tunnel + systemd unit. No git clone.
+  compose file + CLI + `Caddyfile.lb`, generate secrets non-interactively, pull the
+  image, enroll TOTP, and optionally configure a Cloudflare tunnel + systemd unit.
+  No git clone.
 - **Host** — `PITO_APP_BASE_URL` (read in `production.rb`, mirrored by
   `Pito::PublicHosts`) drives Host Authorization, URL helpers, and `asset_host`. SSL
   is always forced, so a non-localhost host sits behind a TLS proxy (e.g. cloudflared).
 - **Hygiene** — `pito:clean` (`Pito::Tools::Clean`) clears the `tmp/` scratch
   (keeping `tmp/storage`, `tmp/pids`, `.keep`) + truncates dev `log/*.log`; dev blobs
   live in `public/pito-storage`, not tmp/. In Docker, logs are STDOUT (json-file rotation).
+
+### Zero-downtime deploys (blue/green, 3.6.0)
+
+`web` is split into two compose services, `web-blue` / `web-green`, each
+Compose-`profiles`-gated on its own name ("blue" / "green") so a bare
+`docker compose up`/`pull` (no service args) only ever touches whichever one
+matches `COMPOSE_PROFILES` in `.env` — the idle slot starts only when
+`script/deploy-flip.sh` names it explicitly (Compose starts a profiled
+service regardless of active profiles when it's targeted by name). Each
+slot's image tag is its own env var (`PITO_TAG_BLUE` / `PITO_TAG_GREEN`), so
+the two can briefly run different versions during a flip; `PITO_ACTIVE_SLOT`
+is pure bookkeeping (which slot a future deploy treats as idle) — nothing
+reads it to route traffic.
+
+Routing is owned by `lb`, a THIRD, ALWAYS-ON (never profile-gated) Caddy
+service (`Caddyfile.lb`, repo-managed, refreshed every update — distinct
+from the owner-editable `./Caddyfile` used by the optional direct-HTTPS
+`caddy` service). It publishes the stack's stable public entry point,
+`127.0.0.1:3028` — unchanged from the pre-3.6.0 single-`web` port, so
+cloudflared/tunnel configs need no update — and reverse-proxies to both
+slots with `lb_policy first` + an active health check against `/up`, sent
+with `Host: localhost` (`health_headers`): Rails Host Authorization always
+allows localhost, while the default probe Host (the upstream dial address,
+`web-blue:80`) would be 403'd — marking both slots unhealthy.
+Because a deploy flip only ever runs 0 or 1 web containers in steady state
+(the idle slot is `docker compose stop`ped, not just failing a health
+check), `lb`'s config never needs rewriting across a deploy — it just
+follows whichever slot is actually up.
+
+`script/deploy-flip.sh <tag>` (called by `update.sh`, or by hand /
+`pito deploy-flip`) is the flip: pull the idle slot's image → start it (its
+entrypoint runs `db:prepare` before Puma can pass `/up`, so old code is
+always what's serving during a migration — pito's additive-migration
+discipline is what makes that safe) → poll the idle slot's own
+loopback probe port (`web-blue`:3030 / `web-green`:3031) for `/up`, bounded
+retries → on success, `docker compose stop` the old slot (SIGTERM drain;
+`Pito::Stream`/ActionCable clients reconnect through `lb` to the new slot on
+their own — see `cable_health_controller.js`) → flip `PITO_ACTIVE_SLOT` +
+`COMPOSE_PROFILES` in `.env`. The stack-wide `PITO_TAG` (part of every
+slot's container env) is written BEFORE the idle slot starts, so the new
+container boots with exactly the env `update.sh`'s final bare `up -d`
+recomputes — no config drift, so that sweep never recreates the slot that
+just went live. A failed health check restores `PITO_TAG`, stops the idle
+slot and aborts loudly; the active slot is never touched.
+
+Both slots' SolidQueue supervisors (`SOLID_QUEUE_IN_PUMA`) briefly run at
+once during the overlap. Safe by construction: job execution is
+DB-claimed with `SKIP LOCKED`, and the recurring schedule
+(`config/recurring.yml`) is deduped by `solid_queue_recurring_executions`'s
+unique index on `(task_key, run_at)` (see the `solid_queue` gem's
+`RecurringExecution.create_or_insert!` / `RecurringTask#enqueue`, which
+rescues the resulting `AlreadyRecorded` from the loser) — two independent
+in-Puma schedulers racing the same scheduled tick never enqueue it twice,
+and the whole enqueue-then-record happens in one DB transaction, so the
+loser leaves no orphaned job row either. Every recurring job was also
+checked for its OWN idempotency as a second layer: achievement unlocks
+insert with `ON CONFLICT DO NOTHING` on a unique index
+(`Pito::Achievements::Evaluate`), and the notification-sourced jobs
+(`PrivateReminderJob`, `ReleaseCountdownJob`, `YoutubeReauthCheckJob`) each
+carry their own daily/marker/unread-based dedup.
+
+An existing single-`web`-shape install migrates on its next `pito update`
+(`script/update.sh`): seed `PITO_TAG_BLUE` (mirroring whatever was already
+running) + the `blue` profile, fetch `Caddyfile.lb`, and — if a direct-HTTPS
+`./Caddyfile` exists — repoint its one `reverse_proxy web:80` line at
+`lb:8080`, once (the "edit freely, updates never overwrite it" promise on
+that file otherwise holds forever). That migration still needs one ordinary
+full bounce (there's no blue/green shape to flip between yet), preceded by a
+`docker compose down --remove-orphans` sweep: the legacy `web` container is
+an orphan under the new compose file and still holds `127.0.0.1:3028`, which
+`lb` needs. `PITO_ACTIVE_SLOT=blue` — the marker the migration keys on — is
+written only after that bounce, so a failed attempt re-runs the whole
+(idempotent) migration on the next update instead of continuing
+half-migrated. The version actually requested then lands via the new
+zero-downtime flip, in the same `update.sh` run — so the migration's restart
+is the last downtime-ful one.
 
 ## The living background (fx, 2.1.0)
 

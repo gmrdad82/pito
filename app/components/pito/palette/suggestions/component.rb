@@ -24,6 +24,27 @@ module Pito
         def echo_char
           @mode == :hashtag ? "#" : "/"
         end
+
+        # Returns the item's label, splitting out the ACTIVE model substring
+        # (item[:model] — the additive @ai-only wire field, see
+        # Pito::Suggestions::{Catalog,Engine}) into an orange accent span so
+        # the rest keeps its ordinary label colour. The label carries the
+        # model mention (SUPERSEDES the earlier description-side painting —
+        # showing it in both places was noise). No item[:model], or the
+        # substring not found inside the label, falls back to the label
+        # rendered plain — never raises.
+        def label_html(item)
+          text  = item[:label].to_s
+          model = item[:model]
+          return text if model.blank?
+
+          idx = text.index(model)
+          return text unless idx
+
+          before = text[0...idx]
+          after  = text[(idx + model.length)..]
+          safe_join([ before, tag.span(model, class: "text-orange"), after ])
+        end
       end
     end
   end

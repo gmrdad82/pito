@@ -10,7 +10,7 @@
       <% @items.each_with_index do |item, i| %>
         <div class="pito-suggestions-row py-0.5 px-2.5 <%= 'is-selected' if i == @selected_index %>"
              data-index="<%= i %>">
-          <span class="text-fg inline-block" style="width: 16ch;"><%= item[:label] %></span>
+          <span class="text-fg inline-block" style="width: 16ch;"><%= label_html(item) %></span>
           <span class="text-fg-dim"><%= item[:description] %></span>
           <% if item[:masked] %>
             <span class="text-fg-faded">(hidden)</span>

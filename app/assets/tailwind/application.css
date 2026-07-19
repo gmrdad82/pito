@@ -2877,13 +2877,15 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 .pito-coin       { height: 1.3em; width: auto; display: inline-block; vertical-align: middle; }
 .pito-coin--free { height: 1.45em; }
 
-/* ── Use widget (Pito::UseWidgetComponent) — the SHARED copy + stage-in-chatbox
-   affordance used by the share-link message (copy-only) AND the AI suggestion
-   block (copy + fill), so both icons are styled in ONE place. The lucide
-   ICONs wear the ACTION shimmer (pito-blue↔purple), matching every clickable
-   link/token — NOT the old cyan. Since the icon is an SVG (stroke:currentColor),
-   the gradient-clip text shimmer can't apply, so we animate `color` between the
-   action base/band. No hover, border-radius 0. */
+/* ── Use widget (Pito::UseWidgetComponent) — the SHARED copy-to-clipboard
+   affordance used by the share-link message AND the AI suggestion block, so
+   the icon is styled in ONE place. The lucide ICON wears the ACTION shimmer
+   (pito-blue↔purple), matching every clickable link/token — NOT the old
+   cyan. Since the icon is an SVG (stroke:currentColor), the gradient-clip
+   text shimmer can't apply, so we animate `color` between the action
+   base/band. No hover, border-radius 0. The suggestion block's own
+   stage-in-chatbox affordance is a separate shift+u chip (kbd shimmer, see
+   .pito-kbd-shimmer) — not a second icon here. */
 /* position: relative anchors the "Copied!" overlay (see __feedback below). */
 .pito-copy { display: inline-flex; align-items: center; margin-left: 0.5ch; position: relative; }
 .pito-copy__btn {
@@ -2901,9 +2903,6 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-/* The stage-in-chatbox button (fill: true) — same shimmering icon button,
-   just offset from the copy icon it sits beside. */
-.pito-copy__fill { margin-left: 0.5ch; }
 /* "Copied!" feedback — ONE rule for every host: the label
    overlays to the LEFT of the icon, its right edge anchored at the icon, so it
    can NEVER clip the container's right edge, regardless of where the icon sits

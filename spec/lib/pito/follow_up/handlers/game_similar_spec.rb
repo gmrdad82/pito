@@ -28,6 +28,22 @@ RSpec.describe Pito::FollowUp::Handlers::GameSimilar do
     expect(Pito::Dispatch::Matrix.actions_for("game_similar")).to include("show")
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:ai_event) { instance_double(Event, id: 4247, payload: event.payload) }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this strip" do
+      result = handler.call(event: ai_event, rest: "@ai are any of these actually similar", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("are any of these actually similar")
+      expect(pending[:payload]["anchor_event_id"]).to eq(4247)
+    end
+  end
+
   describe "#call — show <id>" do
     it "returns a Result::Append for a known game id" do
       result = handler.call(event:, rest: "show #{game.id}", conversation:)

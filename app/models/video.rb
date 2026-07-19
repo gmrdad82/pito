@@ -159,4 +159,38 @@ class Video < ApplicationRecord
     collision = publish_spacing_collision
     errors.add(:publish_at, "within 60 minutes of ##{collision.id} (#{collision.title})") if collision
   end
+
+  # YouTube's own `status.publishAt` constraint (developers.google.com/youtube/
+  # v3/docs/videos): "This property can only be set if the video's privacy
+  # status is private and the video has never been published." Pairing
+  # `privacyStatus: private` with `publishAt` in the SAME PUT (exactly what
+  # `schedule` does) only satisfies the first half — a vid that was ALREADY
+  # public gets `invalidPublishAt` back regardless (root cause of the
+  # 2026-07-19 mass-schedule rejections; nothing to do with RFC3339 formatting,
+  # which was already correct). `privacy_status_was` reads right whether this
+  # is called BEFORE any assignment (no pending change, so `_was` == current)
+  # or AFTER the schedule flow's own `assign_attributes(privacy_status:
+  # :private, …)` (the dirty-tracked original survives until an actual save).
+  #
+  # Deliberately scoped to `public` only, not `unlisted`: that's the one state
+  # both Google's own docs text and the production evidence name ("already
+  # public/processed"). Whether YouTube also blocks scheduling a vid that went
+  # public once and is now manually private again (still "has been published"
+  # per the docs) is a real gap this column set can't detect — pito has no
+  # "ever gone public" flag, only the current mirrored privacy_status — and is
+  # left for a future fix rather than guessed at here.
+  def already_published?
+    privacy_status_was == "public"
+  end
+
+  # Context-scoped like publish_spacing_within_channel: only the chat
+  # `schedule` tool's stage-time dry-run and confirm-time save opt in — an
+  # ordinary sync/import mirror of a Studio-side public video never runs this.
+  validate :publish_at_requires_never_published, on: :schedule
+
+  def publish_at_requires_never_published
+    return unless already_published?
+
+    errors.add(:privacy_status, "already public on YouTube — publishAt can't be set on a published vid")
+  end
 end

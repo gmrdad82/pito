@@ -7,6 +7,11 @@
 # indicator keeps spinning until the answer lands). The loop:
 #
 #   1. Builds the wire messages: prior-turn history (Ai::History) + the prompt.
+#      On an anchored `#<handle> @ai …` reply (ANY rostered card, not just a
+#      prior :ai answer), the anchored turn is guaranteed into that history
+#      AND its message gets an explicit Ai::Projector projection under the
+#      system prompt's ANCHOR block (#anchor_addendum) — the owner's REAL
+#      content, never raw jsonb, never a lossy history accident.
 #   2. Calls the ACTIVE provider (Ai::Client — resolved fresh, so a mid-
 #      conversation /config ai switch takes effect immediately).
 #   3. Read tool calls execute via Ai::ToolExecutor (markdown back to the
@@ -132,6 +137,11 @@ class AiOrchestratorJob < ApplicationJob
   NAMING_LAW = "NAMING: the product is always written PITO — all caps, " \
                "never Pito or pito."
 
+  # The one-line preamble ahead of an anchored reply's projection (see
+  # #anchor_addendum below) — model-facing, so a plain Ruby string, exactly
+  # like SYSTEM_PROMPT/NAMING_LAW above, never owner-facing Pito::Copy.
+  ANCHOR_PREAMBLE = "The owner is replying to this message:"
+
   def self.system_prompt
     "#{SYSTEM_PROMPT}\n#{NAMING_LAW}\n#{command_cheat_sheet}\n" \
       "CONTENT RULES:\n#{Ai::ContentRegistry.prompt_rules}"
@@ -158,10 +168,21 @@ class AiOrchestratorJob < ApplicationJob
     event.kind.to_s == "ai" && event.payload["status"].to_s == "pending"
   end
 
-  # The `#a7 @ai …` reply anchor — the turn whose exchange History must carry.
+  # The `#<handle> @ai …` reply anchor — the turn whose exchange History must
+  # carry. Target-agnostic: the anchored event can be ANY rostered card
+  # (list/detail/analyze/…), not just a prior :ai answer — nothing here reads
+  # its kind or reply_target.
   def anchor_turn
-    anchor_id = @event.payload["anchor_event_id"].presence
-    anchor_id && Event.find_by(id: anchor_id)&.turn
+    anchor_event&.turn
+  end
+
+  # The anchored event itself, memoized — both #anchor_turn and
+  # #anchor_addendum read it.
+  def anchor_event
+    return @anchor_event if defined?(@anchor_event)
+
+    anchor_id     = @event.payload["anchor_event_id"].presence
+    @anchor_event = anchor_id && Event.find_by(id: anchor_id)
   end
 
   def perform(turn_id)
@@ -283,18 +304,37 @@ class AiOrchestratorJob < ApplicationJob
     end
   end
 
-  # The static prompt, plus — on a --web turn — an explicit availability
+  # The static prompt, plus — on a `#<handle> @ai …` reply — the anchor block
+  # (see #anchor_addendum), plus — on a --web turn — an explicit availability
   # line: small models otherwise trust stale scrollback ("no key is set"
   # cards from before the key existed) over their own tool list and refuse
   # to search (smoke-found 2026-07-12).
   def run_system_prompt
-    base = self.class.system_prompt
+    base = self.class.system_prompt + anchor_addendum
     return base unless @event.payload["web"] == true
 
     base + "\nWEB: the owner explicitly enabled web access for THIS question " \
            "(--web): the web_search and web_fetch tools ARE available and " \
            "configured — use them for anything beyond the library. Never " \
            "claim web access is missing, whatever older messages say."
+  end
+
+  # The anchored reply's context line: a deterministic Ai::Projector
+  # projection of the message the owner is replying to, under a one-line
+  # preamble so the model treats it as the question's subject — never raw
+  # jsonb, never a lossy history accident (a turn that just happens to still
+  # sit inside Ai::History's window). Model-facing, so a plain Ruby string
+  # (like SYSTEM_PROMPT/NAMING_LAW above), not owner-facing Pito::Copy.
+  #
+  # Blank when there is no anchor, or the anchor projects to nothing — the
+  # ONLY payload shape that does is an :ai answer's ("blocks", not
+  # table_rows/body): that case is a deliberate no-op, not a gap — see
+  # Ai::Projector's class header and #anchor_turn above.
+  def anchor_addendum
+    projection = Ai::Projector.call(anchor_event)
+    return "" if projection.blank?
+
+    "\nANCHOR: #{ANCHOR_PREAMBLE}\n#{projection}"
   end
 
   # Row-bearing blocks preview ROW BY ROW while still being written: the

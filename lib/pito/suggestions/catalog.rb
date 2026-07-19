@@ -71,13 +71,21 @@ module Pito
         # Hashtag: insert is the bare tool token (no leading #, because the
         # #handle token precedes the tool in the actual input stream).
         # Chat:    insert is the bare tool token as well.
+        #
+        # PRESENTATION-ONLY availability gate (Pito::Dispatch::Matrix,
+        # tools.yml `enabled_if:`): a tool whose declared readiness condition
+        # is unmet drops out of the catalog entirely — @ai with no AI
+        # provider/model/key configured is absent, not a degraded entry.
+        # Generic — zero tool-name conditionals; any future `enabled_if:`
+        # tool is gated the same way.
         def namespace_entries(namespace)
           Pito::Grammar::Registry.specs(namespace:)
-                  .map { |spec| spec_to_entry(spec) }
+                  .select { |spec| Pito::Dispatch::Matrix.tool_enabled?(spec.name.to_s) }
+                  .map    { |spec| spec_to_entry(spec) }
         end
 
         def spec_to_entry(spec)
-          {
+          entry = {
             name:        spec.name.to_s,
             # The client's exact-complete Enter rule must honor every
             # alias ("ls" + Enter sends), so entries carry the full set.
@@ -86,6 +94,14 @@ module Pito
             description: description_for(spec),
             slots:       slots_for(spec)
           }
+          # Additive wire fields, @ai only, absent whenever unset (see
+          # ai_model_for) — every other tool's entry is untouched. `label`
+          # carries the ACTIVE model parenthesized on ("@ai(claude-sonnet-5)")
+          # for display; `name`/`insert` stay the bare token.
+          model = ai_model_for(spec)
+          return entry unless model
+
+          entry.merge(label: ::Ai::Client.ai_label(model:), model:)
         end
 
         # Emit enum slots for a chat spec so the client ghost-logic can be
@@ -124,6 +140,16 @@ module Pito
           return "" if spec.description_key.nil?
 
           I18n.t(spec.description_key)
+        end
+
+        # The active AI model id — @ai only, nil for every other spec and nil
+        # when no model is configured. Drives the additive "model" wire field
+        # and the label decoration on @ai's entry (description stays the
+        # plain grammar sentence — the label carries the model now).
+        def ai_model_for(spec)
+          return nil unless spec.name == :"@ai"
+
+          ::Ai::Client.active_model
         end
       end
     end

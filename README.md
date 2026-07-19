@@ -395,11 +395,13 @@ pito --help      # the rest
 Same on Linux, macOS, and Windows (WSL2) — and on both amd64 and arm64 (the image is
 multi-arch, so a Raspberry Pi 5 or Apple Silicon box is fine too).
 
-**The MCP service.** Alongside the `web` container, the compose file ships a second
-Puma, `pito-mcp` — the same image on an isolated port, so a slow AI tool-loop can
-never starve the app. `pito update` re-fetches `docker-compose.yml`, then bring it
-up with `docker compose up -d pito-mcp`. Your tunnel/reverse proxy routes the paths
-`^/(mcp|oauth|\.well-known)` to it (port 3029) and everything else to `web`.
+**The MCP service.** Alongside the two `web` deploy slots, the compose file ships a
+second Puma, `pito-mcp` — the same image on an isolated port, so a slow AI tool-loop
+can never starve the app. `pito update` re-fetches `docker-compose.yml`, then brings
+it up with `docker compose up -d pito-mcp`. Your tunnel/reverse proxy routes the
+paths `^/(mcp|oauth|\.well-known)` to it (port 3029) and everything else to
+`127.0.0.1:3028` — the internal load balancer (`lb`) that fronts the two deploy
+slots (see [Zero-downtime deploys](#zero-downtime-deploys) below).
 
 ### Connect an AI chat (MCP)
 
@@ -508,22 +510,23 @@ or `./pito` from the install dir):
 
 <p align="center"><img src="docs/media/pito-cli-cast.gif" width="820" alt="the pito CLI in action — help, version, logs, rake, backup"></p>
 
-| Command            | What it does                                           |
-| ------------------ | ------------------------------------------------------ |
-| `pito up` / `down` | start / stop the stack                                 |
-| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated)  |
-| `pito console`     | a Rails console inside the running container           |
-| `pito rake [task]` | list `pito:*` tasks, or run one in the container       |
-| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs   |
-| `pito totp`        | (re)enroll your login                                  |
-| `pito version`     | show the running version + channel (stable/edge)       |
-| `pito update`      | update — pick a release (stable) or edge, then restart |
-| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)   |
-| `pito build`       | build the image **locally** from a source checkout     |
-| `pito self-update` | refresh just the CLI (no image pull / restart)         |
-| `pito caddy`       | direct HTTPS via Caddy — the no-tunnel alternative     |
-| `pito hetzner`     | provision a Hetzner Cloud box ready to run PITO        |
-| `pito autoupdate`  | pull new releases automatically (15-min systemd timer) |
+| Command            | What it does                                            |
+| ------------------ | ------------------------------------------------------- |
+| `pito up` / `down` | start / stop the stack                                  |
+| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated)   |
+| `pito console`     | a Rails console inside the running container            |
+| `pito rake [task]` | list `pito:*` tasks, or run one in the container        |
+| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs    |
+| `pito totp`        | (re)enroll your login                                   |
+| `pito version`     | show the running version + channel (stable/edge)        |
+| `pito update`      | update — pick a release (stable) or edge, zero-downtime |
+| `pito deploy-flip` | run the zero-downtime blue/green flip by hand           |
+| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)    |
+| `pito build`       | build the image **locally** from a source checkout      |
+| `pito self-update` | refresh just the CLI (no image pull / restart)          |
+| `pito caddy`       | direct HTTPS via Caddy — the no-tunnel alternative      |
+| `pito hetzner`     | provision a Hetzner Cloud box ready to run PITO         |
+| `pito autoupdate`  | pull new releases automatically (15-min systemd timer)  |
 
 **`pito update`** is the one you'll reach for most — it's interactive: it lists the
 available releases (or **edge**) and switches the whole stack (image **and** CLI) to
@@ -591,8 +594,55 @@ restarts the service). The equivalent manual one-liners, if you prefer:
 
 ```bash
 gunzip -c backups/<ts>/database.sql.gz | docker compose exec -T postgres psql -U pito -d pito_production
-gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T web tar xf - -C /var/lib/pito-assets
+# <slot> is whichever of web-blue / web-green is currently active — `pito version` says which:
+gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T <slot> tar xf - -C /var/lib/pito-assets
 ```
+
+### Zero-downtime deploys
+
+`pito update` doesn't stop-and-start the app — it flips between two deploy
+**slots**, `web-blue` and `web-green`, one active at a time:
+
+1. Pull the new image into the **idle** slot and start it. Its entrypoint runs
+   `db:prepare` for any pending migration **before** it can pass its health
+   check — the active slot keeps serving the old code the whole time (this is
+   exactly why every PITO migration is additive-only: old code has to keep
+   working against the new schema for however long that takes).
+2. Wait for the idle slot to answer `/up` (bounded retries). If it never does,
+   the idle slot is stopped and the update aborts loudly — **the active slot
+   is never touched**, so a bad deploy is a no-op for anyone using the app.
+3. Once healthy, stop the old slot (`SIGTERM`; Puma drains in-flight
+   requests). ActionCable clients reconnect through the load balancer to the
+   new slot on their own — that's exactly what they're built to do.
+4. Flip the bookkeeping (`PITO_ACTIVE_SLOT` in `.env`) so the next deploy
+   knows which slot is idle.
+
+An internal Caddy instance (`lb`, always running, `127.0.0.1:3028` — the same
+port cloudflared/your tunnel already points at) sits in front of both slots
+with an active health check against `/up`; whichever slot answers gets 100%
+of traffic. **Nothing about `lb` changes during a deploy** — a flip never
+rewrites its config, it just starts/stops containers and lets the health
+check catch up.
+
+Both slots briefly run at once during the overlap window — safe by
+construction: SolidQueue is DB-backed with `SKIP LOCKED` job claims, and its
+recurring schedule (`config/recurring.yml`) is deduped by a database unique
+index (`task_key`, `run_at`), so two independent schedulers never enqueue the
+same scheduled run twice.
+
+**Recovery.** If a flip ever leaves things in a bad spot, `sudo systemctl
+restart pito` remains the full-stack bounce — it's downtime-ful (the old
+"just restart everything" behavior) but always works, regardless of which
+slot is stuck. `pito deploy-flip <tag>` re-runs the flip by hand if you want
+to retry without a full restart.
+
+**Upgrading an existing install.** Installs from before this feature have no
+`PITO_ACTIVE_SLOT` — their **next** `pito update` migrates the compose file,
+`.env`, and (if you run direct-HTTPS Caddy) `./Caddyfile` to the two-slot
+shape automatically, once. That migration itself needs one last ordinary
+restart (there's no shape to flip between yet); the version you actually
+asked for then lands via the new zero-downtime flip, in the same run. Every
+update after that is zero-downtime.
 
 ### Auto-update (your server pulls new releases)
 
@@ -730,12 +780,15 @@ Point the tunnel at `127.0.0.1:3028` and set Cloudflare's SSL/TLS mode to **Full
 ### Caddy direct HTTPS (no tunnel)
 
 For a server with its own public IP (a VPS — see `pito hetzner`), skip the tunnel:
-**`pito caddy`** writes a `Caddyfile` for your domain and enables the dormant
-`caddy` compose profile in `.env`. Caddy terminates TLS with automatic
-Let's Encrypt certificates and proxies to the web container (WebSockets included).
+**`pito caddy`** writes a `Caddyfile` for your domain and adds the dormant
+`caddy` compose profile alongside your active deploy-slot profile in `.env`.
+Caddy terminates TLS with automatic Let's Encrypt certificates and proxies to
+`lb` — the always-on internal load balancer that fronts the two zero-downtime
+deploy slots (see [Zero-downtime deploys](#zero-downtime-deploys)) —
+WebSockets included.
 
 ```bash
-pito caddy            # writes ./Caddyfile + sets COMPOSE_PROFILES=caddy
+pito caddy            # writes ./Caddyfile + adds "caddy" to COMPOSE_PROFILES
 pito down && pito up -d
 ```
 

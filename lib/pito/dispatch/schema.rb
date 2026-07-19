@@ -31,7 +31,7 @@ module Pito
       TOP_KEYS             = %i[schema_version universal_reply vocabularies tools mcp_readers nl].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      TOOL_KEYS            = %i[aliases description availability auth internal universal_reply read_only chat slash reply segments concerns mcp capabilities nl_examples].freeze
+      TOOL_KEYS            = %i[aliases description availability enabled_if auth internal universal_reply read_only chat slash reply segments concerns mcp capabilities nl_examples].freeze
 
       # A tool-level `read_only:` boolean (3.0.1 P13) — declares whether EXECUTING
       # the tool mutates owner data. This is the NL auto-run gate's question
@@ -143,6 +143,12 @@ module Pito
       #
       # Derived from the live Pito::Dispatch::Predicates registry (named emit_if: guards).
       PREDICATES = Pito::Dispatch::Predicates.names.freeze
+      # Derived from the live Pito::Dispatch::Availability registry (named
+      # tool-level `enabled_if:` gates — NOT the pre-existing `availability:`
+      # Hash above, which is the unrelated chat/slash SURFACE-reachability
+      # block; `enabled_if:` is a GLOBAL readiness condition, in the spirit
+      # of `auth:` but resolved live instead of by session state).
+      AVAILABILITY_CONDITIONS = Pito::Dispatch::Availability.names.freeze
       # Derived from the live Pito::Dispatch::Resolvers registry — the registry
       # is the single source of truth — this constant is a string projection of
       # Resolvers.names for the schema validator.
@@ -319,6 +325,7 @@ module Pito
           validate_aliases(body[:aliases], path) if body.key?(:aliases)
           validate_string(body[:description], join(path, "description")) if body.key?(:description)
           validate_availability(body[:availability], join(path, "availability")) if body.key?(:availability)
+          validate_tool_condition(body[:enabled_if], join(path, "enabled_if")) if body.key?(:enabled_if)
           validate_enum(body[:auth], Schema::TOOL_AUTH, join(path, "auth"), "auth") if body.key?(:auth)
           validate_boolean(body[:internal], join(path, "internal")) if body.key?(:internal)
           validate_boolean(body[:universal_reply], join(path, "universal_reply")) if body.key?(:universal_reply)
@@ -866,6 +873,12 @@ module Pito
           return err(path, "expected a predicate name String, got #{name.class}") unless name.is_a?(String)
 
           validate_membership(name, Schema::PREDICATES, path, "predicate")
+        end
+
+        def validate_tool_condition(name, path)
+          return err(path, "expected a condition name String, got #{name.class}") unless name.is_a?(String)
+
+          validate_membership(name, Schema::AVAILABILITY_CONDITIONS, path, "condition")
         end
 
         def validate_membership(value, allowed, path, label)
