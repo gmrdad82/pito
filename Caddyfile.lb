@@ -1,0 +1,34 @@
+# Caddyfile.lb — pito's internal, ALWAYS-ON load balancer between the
+# web-blue/web-green deploy slots (zero-downtime deploys, 3.6.0 — see
+# script/deploy-flip.sh). REPO-MANAGED: fetched fresh on every `pito update`,
+# exactly like docker-compose.yml — never hand-edit this file. The SEPARATE,
+# owner-editable ./Caddyfile (written by `pito caddy`) is for the optional
+# direct-HTTPS domain block; it reverse_proxy's to lb:8080, same as here.
+#
+# No hostname on this block, so Caddy never attempts to issue a certificate
+# for it — it's plain HTTP on the compose network / loopback only (published
+# as 127.0.0.1:3028, same host port the single `web` container used to own).
+#
+# lb_policy first + active health checks against /up: whichever slot answers
+# healthy gets 100% of traffic. A deploy never touches this file — it starts
+# the idle slot, waits for /up itself (script/deploy-flip.sh's own bounded
+# probe), then stops the old slot; this health check follows along on its
+# own next interval and Caddy fails over automatically.
+:8080 {
+    reverse_proxy web-blue:80 web-green:80 {
+        lb_policy first
+        health_uri /up
+        health_interval 5s
+        health_timeout 3s
+        health_status 200
+        # Without this, the probe's Host header is the upstream dial address
+        # (web-blue:80 / web-green:80) — Rails Host Authorization (driven by
+        # PITO_APP_BASE_URL, see config/environments/production.rb) would 403
+        # it, marking BOTH slots unhealthy and turning every request into a
+        # 502. "localhost" is always on Rails' allowlist there, whatever the
+        # public host is set to.
+        health_headers {
+            Host localhost
+        }
+    }
+}

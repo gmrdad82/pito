@@ -210,15 +210,20 @@ module Pito
 
           # :schedule-context save — the chat handler already dry-ran this same
           # validation at stage time, but the confirm click may land minutes
-          # later (another schedule could have landed on the channel meanwhile),
-          # so the collision check runs again here, for real, at save time.
-          # Rescued locally (never re-raised) so this NEVER falls through to the
-          # generic `pito.copy.confirmation.execution_failed` rescue in
-          # Pito::FollowUp::Handlers::Confirmation — a schedule conflict gets
+          # later (another schedule could have landed on the channel meanwhile,
+          # or the vid could have gone public on YouTube in the interim), so
+          # BOTH the eligibility and the collision checks run again here, for
+          # real, at save time. Rescued locally (never re-raised) so this NEVER
+          # falls through to the generic `pito.copy.confirmation.execution_failed`
+          # rescue in Pito::FollowUp::Handlers::Confirmation — each failure gets
           # its own witty, specific outcome text instead.
           begin
             video.save!(context: :schedule)
           rescue ActiveRecord::RecordInvalid
+            if video.already_published?
+              return Pito::Copy.render("pito.copy.videos.schedule_already_public", { title: title })
+            end
+
             collision = video.publish_spacing_collision
             return Pito::Copy.render("pito.copy.videos.schedule_conflict", {
               title: title,
@@ -267,6 +272,11 @@ module Pito
               begin
                 video.save!(context: :schedule)
               rescue ActiveRecord::RecordInvalid
+                if video.already_published?
+                  failure = { key: "pito.copy.videos.mass_schedule_already_public", args: { title: video.title } }
+                  raise ActiveRecord::Rollback
+                end
+
                 collision = video.publish_spacing_collision
                 failure = { key: "pito.copy.videos.mass_schedule_conflict", args: {
                   title: video.title,

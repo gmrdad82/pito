@@ -2,7 +2,14 @@
   <div class="flex items-center gap-2">
     <span class="text-fg-faded">&gt;</span>
     <span class="text-fg"><%= command %></span>
-    <%= render(Pito::UseWidgetComponent.new(text: command, aria_label: "Copy command", fill: true)) %>
+    <%= render(Pito::UseWidgetComponent.new(text: command, aria_label: "Copy command")) %>
+    <%# The accept chip — ALWAYS visible (no lasthashtag-style reveal): tapping
+        it stages THIS line's own command (stage-only, never submits), mirroring
+        MetaLineComponent's shift+r chip. The marker + pito--chat-prefill wiring
+        ride on this span so #stageLatestSuggestion (Shift+U, latest) and the
+        `#<handle> apply|use|accept` fast-path (chat_form_controller.js) keep
+        clicking it unchanged. %>
+    <span class="text-fg-dim" data-pito-use-widget-fill data-controller="pito--chat-prefill" data-action="click->pito--chat-prefill#fill" data-pito--chat-prefill-text-value="<%= command %>"><%= render(Pito::Keybinding::ShortcutComponent.new(keys: "shift+u", kbd_click: false)) %> <%= Pito::Copy.render("pito.copy.ai.suggestion_accept_hint") %></span>
   </div>
   <% if note %>
     <div class="text-fg-dim"><%= note %></div>

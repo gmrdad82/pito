@@ -22,17 +22,30 @@ module Pito
         #   score bar — see Pito::Event::SystemComponent#normalized_cell). nil (every other
         #   caller: `list games`, `search games for`, follow-up pagers) → no Match column,
         #   output identical to before this param existed.
+        # @param channels [Array<String>] distinct @handles for the FULL (un-paginated) result
+        #   set — decided once by the chat handler, never per-page. Appended to the intro body
+        #   as a reference clause via Pito::Lists::ChannelReference: one handle names itself,
+        #   several enumerate with a cap. Ignored when `intro:` is given (a caller supplying
+        #   its own pre-rendered body owns the whole thing). [] (every other caller) → no
+        #   clause, output identical to before this param existed.
+        # @param suppressed_columns [Array<Symbol>] columns withheld for THIS list only (e.g.
+        #   :channels when `channels` collapses to a single handle) — excluded from the options
+        #   footer's addable set and stamped so with/without follow-ups can reject them too.
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
-        def call(games, conversation:, columns: [], intro: nil, scores: nil)
-          cols    = ListColumns.canonical_order(columns)
+        def call(games, conversation:, columns: [], intro: nil, scores: nil, channels: [], suppressed_columns: [])
+          cols       = ListColumns.canonical_order(columns)
+          suppressed = Array(suppressed_columns).map(&:to_sym)
           # When the price column is shown, align its numbers on the decimal by
           # padding each integer part to the table-max width (figure-spaces).
           price_pad = cols.include?(:price) ? ListColumns.price_pad_int(games) : nil
           payload = {
-            "body"          => intro || Pito::Copy.render_html(
-              "pito.copy.games.list_intro",
-              { count: games.size, noun: games.size == 1 ? "game" : "games" },
-              shimmer: [ :count, :noun ]
+            "body"          => intro || Pito::Lists::ChannelReference.append(
+              Pito::Copy.render_html(
+                "pito.copy.games.list_intro",
+                { count: games.size, noun: games.size == 1 ? "game" : "games" },
+                shimmer: [ :count, :noun ]
+              ),
+              channels
             ),
             "html"          => true,
             "table_heading" => [
@@ -75,7 +88,11 @@ module Pito
             # reload the same games and rebuild with an updated column set.
             "game_ids"      => games.map(&:id),
             "list_columns"  => cols.map(&:to_s),
-            "list_footer"   => ListColumns.options_footer(cols)
+            # Stamped so with/without follow-ups (and later pages) can keep
+            # rejecting a per-list-suppressed column instead of silently
+            # re-adding it — see Pito::FollowUp::Handlers::GameList#mutate_columns.
+            "suppressed_columns" => suppressed.map(&:to_s),
+            "list_footer"   => ListColumns.options_footer(cols, suppressed:)
           }
           Pito::FollowUp.make_followupable!(payload, target: "game_list", conversation: conversation)
           payload

@@ -526,7 +526,10 @@ module Pito
           return [ nil, nil, nil ] unless event
 
           target           = event.payload["reply_target"].to_s
-          specific_actions = Pito::FollowUp::Registry.actions_for(target)
+          # presentable_actions_for drops a currently-unready `enabled_if:`-
+          # gated tool (e.g. `@ai` with no AI provider configured) — the
+          # palette offers only what it can honor right now.
+          specific_actions = Pito::FollowUp::Registry.presentable_actions_for(target)
 
           # Universal share tools for this event — none for a :confirmation message
           # (confirm/cancel only); else share always, + revoke/unshare when shared.
@@ -605,9 +608,18 @@ module Pito
           # Follow-up reply tools list alphabetically
           matches    = partial.empty? ? actions : actions.select { |a| a.to_s.start_with?(partial.downcase) }
           matches    = matches.sort_by { |a| a.to_s }
-          menu_items = matches.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
+          menu_items = matches.map { |a| { label: reply_action_label(a), insert: "#{a} ", description: "", masked: false } }
 
           { menu_items: menu_items, ghost: EMPTY_GHOST, stage: :tool }
+        end
+
+        # @ai's row on a reply-verb palette carries the ACTIVE model
+        # parenthesized on (Ai::Client.ai_label) — every other action token
+        # renders as itself. presentable_actions_for already drops @ai
+        # entirely while unready, so `action` reaching here as "@ai" implies
+        # a model IS configured; ai_label's own fallback keeps this total.
+        def reply_action_label(action)
+          action.to_s == "@ai" ? ::Ai::Client.ai_label : action.to_s
         end
 
         # ── Follow-up ARG stage ─────────────────────────────
@@ -885,20 +897,34 @@ module Pito
           return { menu_items: [], ghost: EMPTY_GHOST } if norm.empty? || !authenticated
 
           items = Pito::Grammar::Registry.specs(namespace: :chat)
+            # PRESENTATION-ONLY availability gate (Pito::Dispatch::Matrix,
+            # tools.yml `enabled_if:`): a tool whose declared readiness
+            # condition is unmet drops out of the palette entirely — @ai with
+            # no AI provider/model/key configured is absent, not a degraded
+            # row. Generic — zero tool-name conditionals; any future
+            # `enabled_if:` tool is gated the same way.
+            .select { |spec| Pito::Dispatch::Matrix.tool_enabled?(spec.name.to_s) }
             .filter_map do |spec|
               token = spec.names.map(&:to_s)
                 .select { |t| t.start_with?(norm) }
                 .min_by { |t| t == spec.name.to_s ? 0 : 1 }
               next unless token
 
-              {
-                label:       token,
+              # Additive wire field: the ACTIVE model id, @ai only, absent
+              # whenever unset (see ai_model_for). @ai's LABEL carries the
+              # model parenthesized on ("@ai(claude-sonnet-5)") — display
+              # only, `insert` stays the bare token so the parens never enter
+              # the chatbox. Every other tool's row is untouched.
+              model = ai_model_for(spec)
+              entry = {
+                label:       model ? ::Ai::Client.ai_label(model:) : token,
                 insert:      "#{token} ",
                 description: description_for(spec),
                 masked:      false
               }
+              model ? entry.merge(model:) : entry
             end
-            .sort_by { |item| item[:label] }
+            .sort_by { |item| item[:insert] }
 
           return { menu_items: [], ghost: EMPTY_GHOST } if items.empty?
 
@@ -1194,6 +1220,16 @@ module Pito
           I18n.t(spec.description_key)
         rescue StandardError
           ""
+        end
+
+        # The active AI model id — @ai only, nil for every other spec and nil
+        # when no model is configured. Drives the additive "model" wire field
+        # and the label decoration on @ai's menu item (description stays the
+        # plain grammar sentence — the label carries the model now).
+        def ai_model_for(spec)
+          return nil unless spec.name == :"@ai"
+
+          ::Ai::Client.active_model
         end
       end
     end

@@ -81,6 +81,48 @@ module Pito
           ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
         end
 
+        # Distinct channel @handles across the FULL (un-paginated) video scope —
+        # the single source of truth for BOTH the intro's channel reference and
+        # the single-channel column-suppression decision (they can never
+        # disagree, and neither is ever re-derived per page — see
+        # #video_channel_context, the only caller). A channel-scoped list
+        # already knows its one channel and skips the query entirely
+        # (`known_channel` — "single-channel by definition").
+        #
+        # @param scope         [ActiveRecord::Relation] the un-paginated video scope
+        # @param known_channel [::Channel, nil]
+        # @return [Array<String>] @handles, alphabetical, deduplicated
+        def self.channel_handles_for_videos(scope, known_channel: nil)
+          return [ known_channel.at_handle ] if known_channel
+
+          channel_ids = scope.distinct.pluck(:channel_id)
+          return [] if channel_ids.empty?
+
+          by_id = ::Channel.where(id: channel_ids).index_by(&:id)
+          channel_ids.filter_map { |id| by_id[id]&.at_handle }.sort_by(&:downcase)
+        end
+
+        # Same contract as .channel_handles_for_videos, but for games — a game
+        # carries no channel of its own (Recommendations Design B: a channel is
+        # its videos), so this reaches channels through the games' linked vids.
+        #
+        # @param game_ids      [Array<Integer>] the full result set's game ids
+        # @param known_channel [::Channel, nil]
+        # @return [Array<String>] @handles, alphabetical, deduplicated
+        def self.channel_handles_for_games(game_ids, known_channel: nil)
+          return [ known_channel.at_handle ] if known_channel
+          return [] if game_ids.empty?
+
+          channel_ids = ::Video.joins(:video_game_links)
+                                .where(video_game_links: { game_id: game_ids })
+                                .distinct
+                                .pluck(:channel_id)
+          return [] if channel_ids.empty?
+
+          by_id = ::Channel.where(id: channel_ids).index_by(&:id)
+          channel_ids.filter_map { |id| by_id[id]&.at_handle }.sort_by(&:downcase)
+        end
+
         # The videos list relation: eager-loads per the selected columns and
         # orders id DESC (biggest/newest first; sort clauses override later).
         def self.videos_relation(base, columns:)
@@ -205,11 +247,6 @@ module Pito
           return unknown_entity if unrecognized_with_filter?(message.raw, vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary)
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
-          columns  = Pito::Chat::WithColumns.parse(
-            message.raw,
-            vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
-          )
-          columns  = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns) if columns.empty?
           games    = Pito::Chat::GameListFilter.call(message.raw)
 
           # Upcoming games are unreleased → no game↔vid links, so the channel
@@ -224,6 +261,25 @@ module Pito
 
             channel_scoped = resolved_channel_handle.present?
           end
+
+          # Single-channel suppression + intro reference — decided ONCE from the
+          # FULL un-paginated set, never per-page (see #game_channel_context).
+          # Skipped for `upcoming` (unreleased games carry no channel link at
+          # all — nothing to enumerate or suppress).
+          set_channels, suppressed_columns =
+            upcoming ? [ [], [] ] : game_channel_context(games, known_channel: channel_scoped ? channel_scope_object : nil)
+
+          # Parse extra columns; excluding suppressed ones from the auto-fill
+          # candidate pool lets the width budget promote the next canonical
+          # column instead of coming up short. An explicit `with channel` is
+          # stripped just the same right after (post-hoc — no "budget" to
+          # protect there).
+          columns = Pito::Chat::WithColumns.parse(
+            message.raw,
+            vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
+          )
+          columns = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns, exclude: suppressed_columns) if columns.empty?
+          columns -= suppressed_columns
 
           games = self.class.games_relation(games, columns:)
 
@@ -263,9 +319,9 @@ module Pito
             total = games.count
             rows  = games.limit(page).to_a
           end
-          payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:)
+          payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:, channels: set_channels, suppressed_columns:)
           if total > page
-            cursor = games_cursor(page, sort, columns)
+            cursor = games_cursor(page, sort, columns, suppressed_columns)
             payload["list_cursor"] = cursor
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
@@ -320,10 +376,18 @@ module Pito
         # With no `with` clause, auto-fill the first N canonical columns, where N
         # is the width-derived budget. COLUMNS.keys is already canonical order, so
         # this respects it. Explicit `with` columns bypass this entirely.
-        def auto_filled_columns(list_columns)
+        #
+        # @param exclude [Array<Symbol>] columns dropped from the CANDIDATE pool
+        #   before the budget is applied (e.g. :channel on a single-channel
+        #   list) — excluding up front, rather than stripping the filled result
+        #   after the fact, lets the budget naturally promote the next
+        #   canonical column instead of coming up short (owner: "auto_filled_columns
+        #   naturally promotes the next canonical column into the budget —
+        #   assert that, do not fight it").
+        def auto_filled_columns(list_columns, exclude: [])
           # Skip internal columns (e.g. Video's slate-only :scheduled) — auto-fill
           # only ever surfaces user-facing columns.
-          all_cols = list_columns::COLUMNS.reject { |_, cfg| cfg[:internal] }.keys
+          all_cols = list_columns::COLUMNS.reject { |_, cfg| cfg[:internal] }.keys - exclude
           cap      = [ all_cols.size, MAX_AUTOFILL_COLS ].min
           all_cols.first(column_budget(cap))
         end
@@ -365,12 +429,26 @@ module Pito
           # must reach the NL gate, not render the full unfiltered list.
           return unknown_entity if unrecognized_with_filter?(message.raw, vocabulary: Pito::MessageBuilder::Video::ListColumns.vocabulary)
 
-          # Parse extra columns.
+          # Single-channel suppression + intro reference — decided ONCE from the
+          # FULL un-paginated scope, never per-page (see #video_channel_context).
+          # An explicit id list bypasses channel scope entirely, so it is never
+          # treated as single-channel "by definition" even when a channel
+          # context happens to be set (`ids.any?` → known_channel: nil below).
+          set_channels, suppressed_columns = video_channel_context(
+            scoped, known_channel: ids.any? ? nil : channel_scope_object
+          )
+
+          # Parse extra columns; excluding suppressed ones from the auto-fill
+          # candidate pool lets the width budget promote the next canonical
+          # column instead of coming up short. An explicit `with channel` is
+          # stripped just the same right after (post-hoc — no "budget" to
+          # protect there).
           columns = Pito::Chat::WithColumns.parse(
             message.raw,
             vocabulary: Pito::MessageBuilder::Video::ListColumns.vocabulary
           )
-          columns = auto_filled_columns(Pito::MessageBuilder::Video::ListColumns) if columns.empty?
+          columns = auto_filled_columns(Pito::MessageBuilder::Video::ListColumns, exclude: suppressed_columns) if columns.empty?
+          columns -= suppressed_columns
 
           # Order; always eager-load :channel; also load :linked_games and :stats
           # when extra columns are requested to avoid N+1 queries.
@@ -381,7 +459,7 @@ module Pito
           end
 
           # Explicit-id list: render exactly those, in the typed order, unpaginated.
-          return videos_by_ids_result(videos, ids, columns) if ids.any?
+          return videos_by_ids_result(videos, ids, columns, channels: set_channels, suppressed_columns:) if ids.any?
 
           sort = Pito::Chat::SortClause.parse(message.raw)
           if sort
@@ -409,9 +487,9 @@ module Pito
             total = videos.count
             rows  = videos.limit(page).to_a
           end
-          payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:)
+          payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:, channels: set_channels, suppressed_columns:)
           if total > page
-            cursor = video_cursor(page, sort, columns, filter_key)
+            cursor = video_cursor(page, sort, columns, filter_key, suppressed_columns)
             payload["list_cursor"] = cursor
             more_text = Pito::Copy.render(
               "pito.copy.list_more",
@@ -427,23 +505,31 @@ module Pito
 
         # `list <noun> <ids>` → the named rows in the typed order, unpaginated (an
         # explicit id set is a bounded pick, not a page to walk).
-        def videos_by_ids_result(videos, ids, columns)
+        def videos_by_ids_result(videos, ids, columns, channels:, suppressed_columns:)
           rows    = id_ordered(videos.to_a, ids)
-          payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:)
+          payload = Pito::MessageBuilder::Video::List.call(rows, conversation:, columns:, channels:, suppressed_columns:)
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
 
-        # `list games 2, #4, 7` → exactly those games in the typed order.
+        # `list games 2, #4, 7` → exactly those games in the typed order. An
+        # explicit id set bypasses channel scope entirely (same reasoning as
+        # the vids ids path), so channel context is always freshly queried —
+        # never the resolved_channel_handle shortcut.
         def games_by_ids_result(ids)
+          set_channels       = self.class.channel_handles_for_games(ids)
+          suppressed_columns = set_channels.size == 1 ? [ :channels ] : []
+
           columns = Pito::Chat::WithColumns.parse(
             message.raw, vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
           )
-          columns = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns) if columns.empty?
+          columns = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns, exclude: suppressed_columns) if columns.empty?
+          columns -= suppressed_columns
+
           games   = self.class.games_relation(::Game.where(id: ids), columns:)
           return games_empty if games.empty?
 
           rows    = id_ordered(games.to_a, ids)
-          payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:)
+          payload = Pito::MessageBuilder::Game::List.call(rows, conversation:, columns:, channels: set_channels, suppressed_columns:)
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
 
@@ -499,6 +585,39 @@ module Pito
           return nil if ch.blank? || ch.casecmp("@all").zero?
 
           ch
+        end
+
+        # The Channel object for a resolved handle scope (`list vids @handle` /
+        # `list games @handle`), or nil — @all / no channel context / an
+        # unresolvable handle (channel_scoped_videos/scope_games_to_channel
+        # already render the not-found error before this is ever consulted).
+        def channel_scope_object
+          handle = resolved_channel_handle
+          return nil if handle.nil?
+
+          self.class.find_channel_by_handle(handle)
+        end
+
+        # Distinct @handles + the single-channel suppression decision for a
+        # video list — the FULL un-paginated `scoped` relation drives both, so
+        # they can never disagree (see .channel_handles_for_videos, the query).
+        #
+        # @return [[Array<String>, Array<Symbol>]] [set_channels, suppressed_columns]
+        def video_channel_context(scoped, known_channel:)
+          handles = self.class.channel_handles_for_videos(scoped, known_channel:)
+          [ handles, handles.size == 1 ? [ :channel ] : [] ]
+        end
+
+        # Same contract as #video_channel_context, for games — reaches channels
+        # through the games' linked vids (a game carries no channel of its own).
+        # Skips plucking ids entirely when known_channel is already resolved
+        # (the shortcut never needs them).
+        #
+        # @return [[Array<String>, Array<Symbol>]] [set_channels, suppressed_columns]
+        def game_channel_context(games, known_channel:)
+          ids     = known_channel ? [] : (games.is_a?(Array) ? games.map(&:id) : games.pluck(:id))
+          handles = self.class.channel_handles_for_games(ids, known_channel:)
+          [ handles, handles.size == 1 ? [ :channels ] : [] ]
         end
 
         # Returns the Symbol scope name (:published / :unlisted / :scheduled /
@@ -727,15 +846,18 @@ module Pito
         # follow-up handler needs to re-run the same query from +offset+:
         # channel scope, visibility filter, sort clause, and column selection.
         # `nil` filter means no visibility filter (all statuses); `nil` channel
-        # means @all (no channel scope).
-        def video_cursor(offset, sort, columns, filter_key)
+        # means @all (no channel scope). `suppressed_columns` carries page 1's
+        # single-channel decision forward so later pages never re-offer or
+        # re-add the column (it is never re-derived per page).
+        def video_cursor(offset, sort, columns, filter_key, suppressed_columns = [])
           {
-            "offset"         => offset,
-            "channel"        => resolved_channel_handle,
-            "filter"         => filter_key&.to_s,
-            "sort_token"     => sort&.dig(:token),
-            "sort_direction" => sort&.dig(:direction)&.to_s,
-            "columns"        => columns.map(&:to_s)
+            "offset"             => offset,
+            "channel"            => resolved_channel_handle,
+            "filter"             => filter_key&.to_s,
+            "sort_token"         => sort&.dig(:token),
+            "sort_direction"     => sort&.dig(:direction)&.to_s,
+            "columns"            => columns.map(&:to_s),
+            "suppressed_columns" => Array(suppressed_columns).map(&:to_s)
           }
         end
 
@@ -744,14 +866,16 @@ module Pito
         # `GameListFilter.call(cursor["raw"])` with the identical genre/platform/
         # upcoming tokens — GameListFilter ignores unrecognised tokens silently,
         # so the sort clause and `with` column tokens in the raw string are safe.
-        def games_cursor(offset, sort, columns)
+        # `suppressed_columns` — see #video_cursor.
+        def games_cursor(offset, sort, columns, suppressed_columns = [])
           {
-            "offset"         => offset,
-            "raw"            => message.raw,
-            "channel"        => resolved_channel_handle,
-            "sort_token"     => sort&.dig(:token),
-            "sort_direction" => sort&.dig(:direction)&.to_s,
-            "columns"        => columns.map(&:to_s)
+            "offset"             => offset,
+            "raw"                => message.raw,
+            "channel"            => resolved_channel_handle,
+            "sort_token"         => sort&.dig(:token),
+            "sort_direction"     => sort&.dig(:direction)&.to_s,
+            "columns"            => columns.map(&:to_s),
+            "suppressed_columns" => Array(suppressed_columns).map(&:to_s)
           }
         end
 

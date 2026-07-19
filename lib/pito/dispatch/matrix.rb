@@ -15,8 +15,19 @@ module Pito
     #                                             #    + universal reply tokens
     #   Matrix.mode_for(target_id, action: nil)   # => :append | :mutate | nil
     #   Matrix.tool_for(action)                   # => String (canonical) | nil
+    #   Matrix.tool_enabled?(tool)                # => Boolean (live enabled_if: readiness)
+    #   Matrix.available?(target_id, action)      # => Boolean (per-action enabled_if: readiness)
     #   Matrix.universal_tokens                   # => Array<String>
     #   Matrix.reload!                            # clears memoization
+    #
+    # `actions_for` (and everything gating DISPATCH — ToolDelegator,
+    # Handler#declared?, #mode_for) stays UNFILTERED by a tool's `enabled_if:`
+    # readiness on purpose: a typed reply must always reach the tool's own
+    # honest error (e.g. Ai::Client::NotConfigured), never a generic
+    # invalid_action. `tool_enabled?` / `available?` are the PRESENTATION-ONLY
+    # twins — read by Pito::FollowUp::Registry#presentable_actions_for and
+    # (for the chat palette) directly — so what's OFFERED can be narrower than
+    # what's HONORED.
     module Matrix
       module_function
 
@@ -91,6 +102,27 @@ module Pito
         idx[:tool_index][action.to_s.downcase]
       end
 
+      # True when the CANONICAL tool +tool+ declares no `enabled_if:`
+      # condition, or the condition it names currently holds — resolved LIVE
+      # via Pito::Dispatch::Availability on every call (never memoized), so a
+      # mid-conversation `/config ai` is honored on the very next read.
+      # PRESENTATION-ONLY (see the class header) — an unknown tool name is
+      # treated as enabled (nothing to gate).
+      def tool_enabled?(tool)
+        condition = idx[:tool_conditions][tool.to_s]
+        condition.blank? || Pito::Dispatch::Availability.ready?(condition)
+      end
+
+      # The per-action twin of #tool_enabled? — resolves +action+ (a
+      # canonical tool name, tool-level alias, or per-target alias) to its
+      # canonical tool on +target_id+ first. PRESENTATION-ONLY (see the
+      # class header); Pito::FollowUp::Registry#presentable_actions_for is
+      # the one generic call site every presentation surface shares.
+      def available?(target_id, action)
+        canonical = resolve_tool_for(target_id.to_s, action.to_s.downcase) || action.to_s
+        tool_enabled?(canonical)
+      end
+
       # Clears memoization. Must be called after Config.reload! to keep the matrix
       # consistent with the freshly-loaded tools.yml document.
       def reload!
@@ -113,6 +145,19 @@ module Pito
         tool_modes           = {}         # target_id => { canonical_tool => :symbol }
         tool_index           = {}         # token => canonical_tool (global, tool-level)
         per_target_alias_idx = {}         # target_id => { alias_token => canonical_tool }
+        tool_conditions      = {}         # canonical_tool => enabled_if: condition name, or nil
+
+        # Step 0 — each tool's declared `enabled_if:` condition name, if any —
+        # collected regardless of which branches (chat/slash/reply) the tool
+        # declares, since a tool's readiness is the same fact everywhere it's
+        # offered. WHICH condition a tool names is static (safe to memoize);
+        # whether that condition currently holds is resolved live by
+        # #tool_enabled? / #available?, never here.
+        (data[:tools] || {}).each do |vname, vbody|
+          next unless vbody.is_a?(Hash) && vbody[:enabled_if]
+
+          tool_conditions[vname.to_s] = vbody[:enabled_if].to_s
+        end
 
         # Step 1 — global tool-level alias index (top-level tools + universal_reply).
         build_tool_alias_index(data, tool_index)
@@ -190,6 +235,7 @@ module Pito
           tool_modes:            tool_modes.transform_values(&:freeze).freeze,
           tool_index:            tool_index.freeze,
           per_target_alias_idx:  per_target_alias_idx.transform_values(&:freeze).freeze,
+          tool_conditions:       tool_conditions.freeze,
           universal_tokens:      universal_tokens,
           universal_modes:       universal_modes.freeze,
           universal_excepts:     universal_excepts.transform_values(&:freeze).freeze

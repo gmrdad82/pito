@@ -17,10 +17,19 @@ module Pito
       class AnalyzeMessage < Pito::FollowUp::Handler
         self.target "analyze_message"
 
-        def call(event:, rest:, conversation:, **)
+        def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
           # tools.yml decides availability (the matrix), not a hardcoded list.
           return undeclared_action(action) unless declared?(action)
+
+          if action == "@ai"
+            # Delegated to Chat::Handlers::Ai via ToolDelegator — the SAME
+            # target-agnostic anchored-reply path every other rostered card
+            # takes (see its class header). Must short-circuit BEFORE the
+            # with/without metrics parsing below, which owns every other
+            # declared action on this target.
+            return Pito::FollowUp::ToolDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
+          end
 
           metrics = Pito::Analytics::MetricSelection.symbolize(args.to_s.split(/[\s,]+/))
           return no_metrics if metrics.empty?

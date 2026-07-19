@@ -68,6 +68,17 @@ module Pito
           video = resolve_video(ref)
           return not_found(ref) unless video
 
+          # YouTube's own publishAt constraint: private + NEVER-published only
+          # (Video#already_published?). Check this before the time gates below
+          # — it's unconditional, so failing fast here beats parsing the rest
+          # of the flow just to hit it again at confirm time.
+          if video.already_published?
+            return Pito::Chat::Result::Ok.new(events: [
+              { kind: :system,
+                payload: Pito::MessageBuilder::Text.call("pito.copy.videos.schedule_already_public", title: video.title) }
+            ])
+          end
+
           if publish_time <= Time.current
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system,
@@ -198,30 +209,34 @@ module Pito
         # ── Mass form (WP3): `schedule <id> <when>, <id> <when>, …` ────────────────
         #
         # All-or-nothing behind ONE confirmation: every comma-separated segment must
-        # clear a 5-stage ladder before a single :confirmation event is built. The
+        # clear a 6-stage ladder before a single :confirmation event is built. The
         # FIRST stage a segment (or the batch) fails aborts the WHOLE thing — never
         # a partial confirmation — naming the offending segment/id/pair. Every
-        # failure mode folds into just three copy keys (bad_segment / duplicate /
-        # conflict): there's exactly one outcome here — abort, name the offender —
-        # regardless of WHY. The executor re-runs the real validation at confirm
-        # time (Pito::Confirmation::Executor#confirm_video_schedule_mass); this is
+        # failure mode folds into just four copy keys (bad_segment / duplicate /
+        # already_public / conflict): there's exactly one outcome here — abort,
+        # name the offender — regardless of WHY. The executor re-runs the real
+        # validation at confirm time
+        # (Pito::Confirmation::Executor#confirm_video_schedule_mass); this is
         # a stage-time dry-run, same spirit as the single path's own.
         #
-        #   1. parse    — TimeParser finds a <when>, AND the ref is a single #?\d+
-        #                 id. Mass has no title-ref resolution — same as the single
-        #                 path (resolve_video already requires a numeric ref; a
-        #                 title ref there is a not_found, never a lookup) — so a
-        #                 non-numeric ref is rejected right here.
-        #   2. dedupe   — no id may repeat across segments.
-        #   3. resolve  — every id must resolve to a real ::Video.
-        #   4. timing   — every <when> must be future AND ≥30 minutes out.
-        #   5. spacing  — sorted by publish_at ascending: a DB dry-run
-        #                 (assign_attributes + valid?(:schedule), same as the
-        #                 single path) catches a collision against already-
-        #                 scheduled rows, PLUS an in-memory pairwise check against
-        #                 EARLIER batch items on the SAME channel — nothing is
-        #                 persisted yet, so the DB dry-run alone can't see its own
-        #                 batch-mates.
+        #   1. parse       — TimeParser finds a <when>, AND the ref is a single
+        #                    #?\d+ id. Mass has no title-ref resolution — same as
+        #                    the single path (resolve_video already requires a
+        #                    numeric ref; a title ref there is a not_found, never
+        #                    a lookup) — so a non-numeric ref is rejected right here.
+        #   2. dedupe      — no id may repeat across segments.
+        #   3. resolve     — every id must resolve to a real ::Video.
+        #   4. eligibility — no vid may already be public on YouTube (YouTube's
+        #                    own status.publishAt constraint: private + never-
+        #                    published only — see Video#already_published?).
+        #   5. timing      — every <when> must be future AND ≥30 minutes out.
+        #   6. spacing     — sorted by publish_at ascending: a DB dry-run
+        #                    (assign_attributes + valid?(:schedule), same as the
+        #                    single path) catches a collision against already-
+        #                    scheduled rows, PLUS an in-memory pairwise check against
+        #                    EARLIER batch items on the SAME channel — nothing is
+        #                    persisted yet, so the DB dry-run alone can't see its own
+        #                    batch-mates.
         def mass(body)
           parsed = []
           split_on_commas(body).each do |tokens|
@@ -246,6 +261,10 @@ module Pito
           items = parsed.map { |p| { video: videos[p[:id]], publish_at: p[:time], segment: p[:segment] } }
 
           items.each do |item|
+            if item[:video].already_published?
+              return mass_abort("pito.copy.videos.mass_schedule_already_public", title: item[:video].title)
+            end
+
             if item[:publish_at] <= Time.current
               return mass_abort("pito.copy.videos.mass_schedule_bad_segment",
                                  segment: item[:segment], reason: "that time is already in the past")

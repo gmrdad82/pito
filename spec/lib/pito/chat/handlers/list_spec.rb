@@ -650,12 +650,21 @@ RSpec.describe Pito::Chat::Handlers::List do
   end
 
   # ── `list games with channels` (column, NOT the channels noun) ──────────────
+  # Two channels in play (not one) so the new single-channel suppression never
+  # fires here — this describe is about the noun-vs-with-column regression, not
+  # suppression (which has its own dedicated coverage below).
   describe "#call with `list games with channels` (regression: noun vs with-column)" do
-    let(:connection) { create(:youtube_connection) }
-    let!(:channel)   { create(:channel, handle: "@manfy", youtube_connection: connection) }
-    let!(:game)      { create(:game, title: "Pragmata") }
-    let!(:video)     { create(:video, channel: channel, title: "Pragmata gameplay") }
-    before           { create(:video_game_link, game: game, video: video) }
+    let(:connection)  { create(:youtube_connection) }
+    let(:connection2) { create(:youtube_connection) }
+    let!(:channel)    { create(:channel, handle: "@manfy", youtube_connection: connection) }
+    let!(:channel2)   { create(:channel, handle: "@other", youtube_connection: connection2) }
+    let!(:game)       { create(:game, title: "Pragmata") }
+    let!(:video)      { create(:video, channel: channel, title: "Pragmata gameplay") }
+    let!(:video2)     { create(:video, channel: channel2, title: "Pragmata co-op") }
+    before do
+      create(:video_game_link, game: game, video: video)
+      create(:video_game_link, game: game, video: video2)
+    end
 
     %w[channels channel].each do |word|
       it "routes `list games with #{word}` to the games list with a Channels column, not `list channels`" do
@@ -783,6 +792,12 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
 
       it "composes with `with channel, visibility` — scheduled video listed; heading has Channel + Visibility" do
+        # A second channel's scheduled vid keeps the FULL scheduled set
+        # multi-channel, so the new single-channel suppression doesn't strip
+        # the explicitly-requested Channel column here (that has its own
+        # dedicated coverage below).
+        create(:video, :scheduled, title: "Scheduled Future Two", channel: chan_b)
+
         result  = handler_for("list videos scheduled with channel, visibility", channel: "@all").call
         payload = result.events.first[:payload]
         titles  = video_titles(payload)
@@ -793,6 +808,9 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
 
       it "composes with `with channel, status` — status alias still resolves to visibility heading" do
+        # See the note above — keeps the scheduled set multi-channel.
+        create(:video, :scheduled, title: "Scheduled Future Two", channel: chan_b)
+
         result  = handler_for("list videos scheduled with channel, status", channel: "@all").call
         payload = result.events.first[:payload]
         heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
@@ -1429,6 +1447,252 @@ RSpec.describe Pito::Chat::Handlers::List do
         footer  = payload["list_footer"].to_s
         expect(footer).to include("2")
         expect(footer).to include("3")
+      end
+    end
+  end
+
+  # ── Single-channel suppression + intro channel reference ─────────────────────
+  # The FULL un-paginated result set's distinct channel(s) drive BOTH the
+  # intro's reference clause AND the :channel/:channels column suppression —
+  # decided once, never per-page.
+
+  describe "single-channel suppression + intro channel reference — vids" do
+    context "a single-channel library" do
+      let!(:solo)  { create(:channel, handle: "@solochan") }
+      let!(:v1)    { create(:video, :public, title: "Solo One", channel: solo) }
+      let!(:v2)    { create(:video, :public, title: "Solo Two", channel: solo) }
+
+      it "names the channel in the intro as a plain pito-token reference" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        expect(payload["body"]).to match(%r{<span class="pito-token">@solochan</span>})
+      end
+
+      it "stamps suppressed_columns with :channel" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([ "channel" ])
+      end
+
+      it "excludes channel from the auto-filled columns even on a wide viewport" do
+        payload = handler_for("list vids", viewport_width: 1300).call.events.first[:payload]
+        expect(payload["list_columns"]).not_to include("channel")
+      end
+
+      it "promotes the next canonical column into the auto-fill budget instead of coming up short" do
+        # budget = 2 at this width; suppressed :channel is excluded from the
+        # CANDIDATE pool up front, so :game (the 3rd canonical column) fills
+        # the slot :channel would have taken, keeping the column COUNT at 2.
+        payload = handler_for("list vids", viewport_width: 800).call.events.first[:payload]
+        expect(payload["list_columns"]).to eq(%w[visibility game])
+      end
+
+      it "still suppresses the column when explicitly requested (`with channel`) — no crash" do
+        payload = handler_for("list vids with channel").call.events.first[:payload]
+        expect(payload["list_columns"]).not_to include("channel")
+        heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+        expect(heading_texts).not_to include("Channel")
+      end
+
+      it "excludes channel from the options footer's addable columns" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        expect(payload["list_footer"]).not_to include("channel")
+      end
+    end
+
+    context "a multi-channel library" do
+      let!(:chan_x) { create(:channel, handle: "@xchan") }
+      let!(:chan_y) { create(:channel, handle: "@ychan") }
+      let!(:vx)     { create(:video, :public, title: "X Vid", channel: chan_x) }
+      let!(:vy)     { create(:video, :public, title: "Y Vid", channel: chan_y) }
+
+      it "enumerates both handles in the intro as ONE pito-token reference" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        expect(payload["body"]).to match(%r{<span class="pito-token">@xchan, @ychan</span>})
+      end
+
+      it "stamps an empty suppressed_columns — byte-identical to before the feature" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([])
+      end
+
+      it "keeps :channel in the auto-fill budget (unaffected)" do
+        payload = handler_for("list vids", viewport_width: 800).call.events.first[:payload]
+        expect(payload["list_columns"]).to eq(%w[channel visibility])
+      end
+
+      it "honors an explicit `with channel`" do
+        payload = handler_for("list vids with channel").call.events.first[:payload]
+        expect(payload["list_columns"]).to include("channel")
+      end
+    end
+
+    context "a channel-scoped list (`list vids @handle`) — single-channel by definition" do
+      let!(:solo) { create(:channel, handle: "@scopedchan") }
+      let!(:v1)   { create(:video, :public, title: "Scoped One", channel: solo) }
+
+      it "suppresses the channel column without needing a second channel record" do
+        payload = handler_for("list vids", channel: "@scopedchan").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([ "channel" ])
+      end
+
+      it "names the scoped channel in the intro" do
+        payload = handler_for("list vids", channel: "@scopedchan").call.events.first[:payload]
+        expect(payload["body"]).to match(%r{<span class="pito-token">@scopedchan</span>})
+      end
+    end
+
+    context "explicit id list (`list vids <ids>`) — channel scope bypassed" do
+      let!(:chan_a) { create(:channel, handle: "@ida") }
+      let!(:chan_b) { create(:channel, handle: "@idb") }
+      let!(:va)     { create(:video, :public, title: "Id Vid A", channel: chan_a) }
+      let!(:vb)     { create(:video, :public, title: "Id Vid B", channel: chan_a) }
+      let!(:vc)     { create(:video, :public, title: "Id Vid C", channel: chan_b) }
+
+      it "suppresses the column when every named id shares one channel" do
+        payload = handler_for("list vids #{va.id}, #{vb.id}").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([ "channel" ])
+      end
+
+      it "does not suppress when the named ids span channels" do
+        payload = handler_for("list vids #{va.id}, #{vc.id}").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([])
+      end
+    end
+
+    context "pagination — suppression survives into the stamped cursor" do
+      let(:pager_stub) { { page_size: 1, more_tool: "next" } }
+      let!(:solo) { create(:channel, handle: "@pagechan") }
+      let!(:p1)   { create(:video, :public, title: "Page One", channel: solo) }
+      let!(:p2)   { create(:video, :public, title: "Page Two", channel: solo) }
+
+      before do
+        allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :list).and_return(pager_stub)
+      end
+
+      it "stamps suppressed_columns into list_cursor" do
+        payload = handler_for("list vids").call.events.first[:payload]
+        expect(payload["list_cursor"]["suppressed_columns"]).to eq([ "channel" ])
+      end
+    end
+  end
+
+  describe "single-channel suppression + intro channel reference — games" do
+    context "a single-channel library (every linked vid traces to one channel)" do
+      let!(:solo)  { create(:channel, handle: "@gamesolo") }
+      let!(:game1) { create(:game, title: "Solo Game One") }
+      let!(:vid1)  { create(:video, :public, channel: solo) }
+      before { create(:video_game_link, game: game1, video: vid1) }
+
+      it "names the channel in the intro as a plain pito-token reference" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["body"]).to match(%r{<span class="pito-token">@gamesolo</span>})
+      end
+
+      it "stamps suppressed_columns with :channels" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([ "channels" ])
+      end
+
+      it "excludes channels from the auto-filled columns" do
+        payload = handler_for("list games", viewport_width: 1300).call.events.first[:payload]
+        expect(payload["list_columns"]).not_to include("channels")
+      end
+
+      it "promotes the next canonical column into the auto-fill budget instead of coming up short" do
+        # budget = 5 at this width; suppressed :channels is excluded from the
+        # CANDIDATE pool up front, so :footage fills the slot :channels would
+        # have taken, keeping the column COUNT at 5.
+        payload = handler_for("list games", viewport_width: 1400).call.events.first[:payload]
+        expect(payload["list_columns"]).to eq(%w[platform genre developer publisher footage])
+      end
+
+      it "still suppresses the column when explicitly requested (`with channel`) — no crash" do
+        payload = handler_for("list games with channel").call.events.first[:payload]
+        expect(payload["list_columns"]).not_to include("channels")
+        heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+        expect(heading_texts).not_to include("Channels")
+      end
+
+      it "excludes channel from the options footer's addable columns" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["list_footer"]).not_to include("channel")
+      end
+    end
+
+    context "a multi-channel library" do
+      let!(:chan_x) { create(:channel, handle: "@gamex") }
+      let!(:chan_y) { create(:channel, handle: "@gamey") }
+      let!(:game1)  { create(:game, title: "Multi Game") }
+      let!(:vidx)   { create(:video, :public, channel: chan_x) }
+      let!(:vidy)   { create(:video, :public, channel: chan_y) }
+      before do
+        create(:video_game_link, game: game1, video: vidx)
+        create(:video_game_link, game: game1, video: vidy)
+      end
+
+      it "enumerates both handles in the intro as ONE pito-token reference" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["body"]).to match(%r{<span class="pito-token">@gamex, @gamey</span>})
+      end
+
+      it "stamps an empty suppressed_columns — byte-identical to before the feature" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([])
+      end
+    end
+
+    context "a channel-scoped list (`list games @handle`) — single-channel by definition" do
+      let!(:solo)  { create(:channel, handle: "@gamescoped") }
+      let!(:game1) { create(:game, title: "Scoped Game") }
+      let!(:vid1)  { create(:video, :public, channel: solo) }
+      before { create(:video_game_link, game: game1, video: vid1) }
+
+      it "suppresses the column without needing a second channel record" do
+        payload = handler_for("list games", channel: "@gamescoped").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([ "channels" ])
+      end
+    end
+
+    context "explicit id list (`list games <ids>`) — channel scope bypassed" do
+      let!(:chan_a) { create(:channel, handle: "@gida") }
+      let!(:chan_b) { create(:channel, handle: "@gidb") }
+      let!(:game_a) { create(:game, title: "Game A") }
+      let!(:game_b) { create(:game, title: "Game B") }
+      let!(:vid_a)  { create(:video, :public, channel: chan_a) }
+      let!(:vid_b)  { create(:video, :public, channel: chan_a) }
+      let!(:vid_c)  { create(:video, :public, channel: chan_b) }
+      before do
+        create(:video_game_link, game: game_a, video: vid_a)
+        create(:video_game_link, game: game_b, video: vid_b)
+      end
+
+      it "suppresses the column when every named game's linked channel matches" do
+        payload = handler_for("list games #{game_a.id}, #{game_b.id}").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([ "channels" ])
+      end
+
+      it "does not suppress when the named games span channels" do
+        create(:video_game_link, game: game_b, video: vid_c)
+        payload = handler_for("list games #{game_a.id}, #{game_b.id}").call.events.first[:payload]
+        expect(payload["suppressed_columns"]).to eq([])
+      end
+    end
+
+    context "pagination — suppression survives into the stamped cursor" do
+      let(:pager_stub) { { page_size: 1, more_tool: "next" } }
+      let!(:solo)  { create(:channel, handle: "@gamepage") }
+      let!(:game1) { create(:game, title: "Page Game One") }
+      let!(:game2) { create(:game, title: "Page Game Two") }
+      let!(:vid1)  { create(:video, :public, channel: solo) }
+      let!(:vid2)  { create(:video, :public, channel: solo) }
+      before do
+        create(:video_game_link, game: game1, video: vid1)
+        create(:video_game_link, game: game2, video: vid2)
+        allow(Pito::Dispatch::Config).to receive(:pager).with(tool: :list).and_return(pager_stub)
+      end
+
+      it "stamps suppressed_columns into list_cursor" do
+        payload = handler_for("list games").call.events.first[:payload]
+        expect(payload["list_cursor"]["suppressed_columns"]).to eq([ "channels" ])
       end
     end
   end

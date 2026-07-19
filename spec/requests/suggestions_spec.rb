@@ -85,6 +85,43 @@ RSpec.describe "POST /suggestions", type: :request do
     end
   end
 
+  # The @ai item's LABEL names the ACTIVE model (AppSetting "ai_model",
+  # server-prepared "@ai(claude-sonnet-5)") and, additively, carries a
+  # "model" field — the ONE item on the wire that does; absent on every
+  # other item. When AI isn't ready (tools.yml `enabled_if: ai_configured`,
+  # Ai::Client.configured?) the @ai item is ABSENT from the palette
+  # entirely — never a degraded row.
+  describe "@ai names the answering model" do
+    before { sign_in! }
+
+    it "includes the additive model + label fields on the @ai item when AI is ready" do
+      AppSetting.set("ai_model", "claude-sonnet-5")
+      allow(Ai::Client).to receive(:configured?).and_return(true)
+      post "/suggestions", params: { input: "@ai", cursor: 3 }
+      body = response.parsed_body
+      ai_item = body["menu_items"].find { |i| i["insert"] == "@ai " }
+      expect(ai_item["model"]).to eq("claude-sonnet-5")
+      expect(ai_item["label"]).to eq("@ai(claude-sonnet-5)")
+      expect(ai_item["description"]).not_to include("claude-sonnet-5")
+    end
+
+    it "drops @ai from the palette entirely when AI is not configured" do
+      post "/suggestions", params: { input: "@ai", cursor: 3 }
+      body = response.parsed_body
+      ai_item = body["menu_items"].find { |i| i["insert"] == "@ai " }
+      expect(ai_item).to be_nil
+    end
+
+    it "never adds the model field to other items, even when AI is ready" do
+      AppSetting.set("ai_model", "claude-sonnet-5")
+      allow(Ai::Client).to receive(:configured?).and_return(true)
+      post "/suggestions", params: { input: "s", cursor: 1 }
+      body = response.parsed_body
+      expect(body["menu_items"]).not_to be_empty
+      expect(body["menu_items"].none? { |i| i.key?("model") }).to be true
+    end
+  end
+
   describe "unauthenticated user (no session)" do
     it "returns 200 — allow_anonymous is applied" do
       post "/suggestions", params: { input: "/", cursor: 1 }

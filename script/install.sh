@@ -80,6 +80,31 @@ env_set() {
   printf '%s=%s\n' "$1" "$2" >> .env
 }
 
+# Add $1 to COMPOSE_PROFILES (comma list), dropping any token in $2
+# (space-separated — the blue/green slot's mutually-exclusive sibling; ""
+# for a plain additive token like "caddy", which leaves the active deploy
+# slot's own profile untouched).
+profile_set() {
+  want="$1"; exclusive="${2:-}"
+  cur=$(env_get COMPOSE_PROFILES)
+  out=""
+  old_ifs="$IFS"; IFS=','
+  for tok in $cur; do
+    [ -z "$tok" ] && continue
+    skip=0
+    [ "$tok" = "$want" ] && skip=1
+    # Pattern match, NOT `for ex in $exclusive`: IFS is ',' inside this
+    # loop, so word-splitting the space-separated list would yield ONE
+    # token ("blue green") and never drop the retiring slot's profile —
+    # leaving BOTH slots active after a flip.
+    case " $exclusive " in *" $tok "*) skip=1 ;; esac
+    [ "$skip" = 0 ] && out="${out:+$out,}$tok"
+  done
+  IFS="$old_ifs"
+  out="${out:+$out,}$want"
+  env_set COMPOSE_PROFILES "$out"
+}
+
 # ── cloudflared tunnel (auto-configured + run as a service) ───────────────────
 # Writes the ingress config to cloudflared's OWN dir (~/.cloudflared/config.yml),
 # reuses an existing tunnel when one is configured (running a tunnel needs only its
@@ -216,16 +241,17 @@ setup_caddy() {
   else
     cat > Caddyfile <<EOF
 # pito — Caddy terminates TLS for $host (automatic Let's Encrypt) and proxies
-# to the web container over the compose network (WebSockets included).
+# to lb — the internal load balancer that fronts the web-blue/web-green
+# zero-downtime deploy slots — over the compose network (WebSockets included).
 # Managed by pito's installer; edit freely, updates never overwrite it.
 $host {
-    reverse_proxy web:80
+    reverse_proxy lb:8080
 }
 EOF
-    say "Wrote ./Caddyfile ($host → web:80)"
+    say "Wrote ./Caddyfile ($host → lb:8080)"
   fi
 
-  env_set COMPOSE_PROFILES caddy
+  profile_set caddy ""
 
   cat <<EOF
 
@@ -246,6 +272,10 @@ setup_systemd() {
   read -r choice </dev/tty || choice="n"
   workdir="$PWD"
   unit_body() {
+    # --remove-orphans on both legs: when an update changes the stack's shape
+    # (e.g. the single-`web` → web-blue/web-green split), containers for
+    # services no longer in docker-compose.yml must not linger holding ports
+    # or spamming compose with orphan warnings.
     cat <<EOF
 [Unit]
 Description=pito (Docker Compose)
@@ -255,8 +285,8 @@ Requires=docker.service
 [Service]
 Type=simple
 WorkingDirectory=$workdir
-ExecStart=/usr/bin/env docker compose up
-ExecStop=/usr/bin/env docker compose down
+ExecStart=/usr/bin/env docker compose up --remove-orphans
+ExecStop=/usr/bin/env docker compose down --remove-orphans
 Restart=always
 RestartSec=5
 
@@ -388,9 +418,10 @@ do_install() {
   mkdir -p "$DIR/config"
   cd "$DIR"
 
-  say "Fetching docker-compose.yml + the pito CLI (no git clone)"
+  say "Fetching docker-compose.yml + the pito CLI + the load balancer's config (no git clone)"
   curl -fsSL "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
   curl -fsSL "$REPO_RAW/bin/pito" -o pito && chmod +x pito
+  curl -fsSL "$REPO_RAW/Caddyfile.lb" -o Caddyfile.lb
 
   # Public host
   if [ -z "$HOST" ]; then
@@ -401,22 +432,30 @@ do_install() {
   env_set PITO_APP_BASE_URL "$HOST"
   env_set PITO_TAG "$TAG"
   env_set PITO_REF "$REF"
+  # Fresh installs start life natively in the blue/green shape — always on
+  # the blue slot (see script/deploy-flip.sh for how a later deploy flips
+  # between the two). COMPOSE_PROFILES=blue is what makes a bare
+  # `docker compose up`/`pull` (no service names) include web-blue and skip
+  # the as-yet-unused web-green.
+  env_set PITO_ACTIVE_SLOT blue
+  env_set PITO_TAG_BLUE "$TAG"
+  profile_set blue "blue green"
 
   if [ -n "$SKIP_PULL" ]; then
     warn "Skipping image pull (--skip-pull) — using the locally-present image."
   else
     say "Pulling the image (ghcr.io/gmrdad82/pito:$TAG)"
-    PITO_TAG="$TAG" docker compose pull
+    docker compose pull
   fi
 
   bootstrap_credentials
 
   say "Starting the stack"
-  PITO_TAG="$TAG" docker compose up -d
+  docker compose up -d
 
   if [ "$CREDS_FRESH" = "1" ]; then
     say "Enrolling your login (TOTP) — scan the QR/secret below into an authenticator"
-    PITO_TAG="$TAG" docker compose run --rm web bin/rails pito:totp || \
+    docker compose run --rm web-blue bin/rails pito:totp || \
       warn "TOTP enrollment failed — run './pito totp' once the stack is healthy."
   else
     warn "Existing install — keeping your data + TOTP enrollment (use './pito totp' to re-enroll)."

@@ -76,14 +76,16 @@ module Pito
         return nil if target_usage.blank?
 
         # Collect action rows from Matrix (tools.yml — sole source of availability).
-        action_rows = Pito::FollowUp::Registry.actions_for(handler.target_id).filter_map do |act|
+        # presentable_actions_for additionally drops a currently-unready
+        # `enabled_if:`-gated tool (e.g. `@ai` with no AI provider configured).
+        action_rows = Pito::FollowUp::Registry.presentable_actions_for(handler.target_id).filter_map do |act|
           data = Pito::Copy.subtree("pito.hashtag_help.#{indicator}.actions.#{act}")
           next unless data
 
           usage = (data[:usage] || data["usage"]).to_s
           next if usage.blank?
 
-          [ act, usage ]
+          [ display_action_token(act), usage ]
         end
 
         # Universal share tool rows: share always, revoke/unshare when shared.
@@ -101,6 +103,13 @@ module Pito
         { "html" => true, "body" => body }
       end
       private_class_method :render_target_page
+
+      # @ai's action-row token carries the ACTIVE model parenthesized on
+      # (Ai::Client.ai_label) — every other action renders as itself.
+      def display_action_token(act)
+        act.to_s == "@ai" ? ::Ai::Client.ai_label : act.to_s
+      end
+      private_class_method :display_action_token
 
       # Build the universal share tool rows for the help page.
       # share is always included; revoke/unshare only when the event has a Share.

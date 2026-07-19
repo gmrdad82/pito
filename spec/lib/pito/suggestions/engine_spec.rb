@@ -337,6 +337,61 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── free mode — tool stage — @ai names the answering model ───────────────
+  #
+  # @ai is the one chat tool whose LABEL is model-aware (AppSetting
+  # "ai_model") — "@ai(claude-sonnet-5)", server-prepared, orange model in
+  # the client. The additive "model" wire field rides only on @ai's own
+  # menu item — every other tool-stage row stays exactly as before. When AI
+  # isn't ready (tools.yml `enabled_if: ai_configured`, Ai::Client.configured?)
+  # @ai is ABSENT from the palette entirely, not a degraded row.
+
+  describe "free mode — tool stage — @ai model mention", :db do
+    def ai_item
+      call(input: "@ai", cursor: 3, authenticated: true)[:menu_items].find { |i| i[:insert] == "@ai " }
+    end
+
+    context "when a model is configured and AI is ready" do
+      before do
+        AppSetting.set("ai_model", "claude-sonnet-5")
+        allow(Ai::Client).to receive(:configured?).and_return(true)
+      end
+
+      it "carries the label with the live model parenthesized" do
+        expect(ai_item[:label]).to eq("@ai(claude-sonnet-5)")
+      end
+
+      it "keeps insert as the bare token — the model never enters the chatbox" do
+        expect(ai_item[:insert]).to eq("@ai ")
+      end
+
+      it "keeps the description plain — the label carries the model now" do
+        expect(ai_item[:description]).to eq(I18n.t("pito.grammar.chat.ai"))
+      end
+
+      it "carries the additive model field" do
+        expect(ai_item[:model]).to eq("claude-sonnet-5")
+      end
+
+      it "no other tool-stage item carries the additive model field" do
+        items = call(input: "s", cursor: 1, authenticated: true)[:menu_items]
+        expect(items).not_to be_empty
+        expect(items.none? { |i| i.key?(:model) }).to be true
+      end
+
+      it "other tools' descriptions stay untouched" do
+        items = call(input: "lis", cursor: 3, authenticated: true)[:menu_items]
+        expect(items.find { |i| i[:label] == "list" }[:description]).to eq(I18n.t("pito.grammar.chat.list"))
+      end
+    end
+
+    context "when AI is not configured" do
+      it "drops @ai from the palette entirely — absent, not a plain label" do
+        expect(ai_item).to be_nil
+      end
+    end
+  end
+
   # ── free mode — slot PROGRESSION (G32) ──────────────────────────────────────
   #
   # Regression: the walk only tracked introducer keywords, so a committed
@@ -896,7 +951,15 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     let(:conversation) { Conversation.create! }
     let(:turn)         { conversation.turns.create!(input_kind: :chat, input_text: "@ai question", position: 1) }
 
-    before { Pito::FollowUp::Registry.register_all! }
+    before do
+      Pito::FollowUp::Registry.register_all!
+      # @ai's own presentation gate (tools.yml enabled_if: ai_configured) is a
+      # SEPARATE concern from the suggestion-state gate under test here —
+      # force it configured so this describe block isolates ONLY the
+      # apply/use/accept viability logic (see the dedicated availability
+      # coverage in spec/lib/pito/dispatch/availability_spec.rb instead).
+      allow(Ai::Client).to receive(:configured?).and_return(true)
+    end
 
     def stamp(handle, blocks)
       Event.create_with_position!(

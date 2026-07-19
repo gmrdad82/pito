@@ -985,6 +985,16 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
   # not the full rendering path. We stub the AR chain + message builders.
 
   describe "C. Handler routing — channel / video / games branches" do
+    # The channel-context pass (intro references + single-channel column
+    # suppression) runs a distinct-channel query over the FULL un-paginated
+    # relation — out of scope for these routing proofs, and the AR doubles
+    # below don't model it. Stub the two class-method seams to "no channels":
+    # no suppression, no intro clause, legacy routing behavior.
+    before do
+      allow(Pito::Chat::Handlers::List).to receive(:channel_handles_for_videos).and_return([])
+      allow(Pito::Chat::Handlers::List).to receive(:channel_handles_for_games).and_return([])
+    end
+
     let(:game_rel) do
       rel = double("game_relation")
       allow(rel).to receive(:upcoming).and_return(rel)
@@ -996,6 +1006,7 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       allow(rel).to receive(:to_a).and_return([])
       allow(rel).to receive(:count).and_return(0)   # unsorted path: COUNT + LIMITed fetch
       allow(rel).to receive(:limit).and_return(rel)
+      allow(rel).to receive(:pluck).and_return([])  # channel-context id pass (full set)
       rel
     end
 
@@ -1011,6 +1022,7 @@ RSpec.describe "Dispatch matrix — list/ls (recognition, DB mocked)", type: :di
       allow(rel).to receive(:to_a).and_return([])
       allow(rel).to receive(:count).and_return(0)   # unsorted path: COUNT + LIMITed fetch
       allow(rel).to receive(:limit).and_return(rel)
+      allow(rel).to receive(:pluck).and_return([])  # channel-context id pass (full set)
       rel
     end
 

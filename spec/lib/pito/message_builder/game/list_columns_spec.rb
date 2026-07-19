@@ -185,6 +185,15 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(key).to be_a(Proc)
     end
 
+    # Single-channel suppression: sort_key_for takes no `suppressed:` param — the
+    # requires_with guard already dies naturally once the handler strips
+    # :channels from selected_columns, the SAME check as any other absent
+    # with-column (see the two "not in selected_columns" examples above).
+    it "returns nil for 'channels' on a suppressed list (selected_columns excludes :channels)" do
+      key = described_class.sort_key_for("channels", selected_columns: [ :genre ])
+      expect(key).to be_nil
+    end
+
     it "returns nil for 'footage' when :footage not in selected_columns" do
       key = described_class.sort_key_for("footage", selected_columns: [])
       expect(key).to be_nil
@@ -589,6 +598,30 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(footer).to include("genre")
       expect(footer).to include("id")
       expect(footer).to include("title")
+    end
+
+    # Single-channel suppression — a per-list withheld column is never offered
+    # as addable, without being permanently removed from COLUMNS/vocabulary.
+    describe "with suppressed:" do
+      it "excludes a suppressed column from the addable side" do
+        footer = described_class.options_footer([], suppressed: [ :channels ])
+        expect(footer).not_to include("channel")
+      end
+
+      it "still names other addable columns" do
+        footer = described_class.options_footer([], suppressed: [ :channels ])
+        expect(footer).to include("genre")
+      end
+
+      it "renders 'nothing' on the addable side when suppression accounts for the only remaining column" do
+        remaining = described_class::COLUMNS.keys - [ :channels ]
+        footer    = described_class.options_footer(remaining, suppressed: [ :channels ])
+        expect(footer).to include("nothing")
+      end
+
+      it "defaults to [] — identical to before the kwarg existed" do
+        expect(described_class.options_footer([ :genre ])).to eq(described_class.options_footer([ :genre ], suppressed: []))
+      end
     end
   end
 

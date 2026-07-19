@@ -185,6 +185,72 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
     end
   end
 
+  # ── single-channel suppression ────────────────────────────────────────────
+  # A per-list-suppressed column (e.g. :channel on a single-channel result
+  # set) must stay rejected across replies — "with channel" neither crashes
+  # nor re-adds the column; other columns are untouched; the suppression
+  # itself carries forward on every rebuilt payload.
+
+  describe "#call on a channel-suppressed list" do
+    let(:suppressed_event_payload) do
+      Pito::MessageBuilder::Video::List.call(
+        [ video ],
+        conversation:,
+        columns:            [ :visibility ],
+        suppressed_columns: [ :channel ]
+      )
+    end
+
+    let(:suppressed_event) do
+      instance_double(Event, payload: suppressed_event_payload, kind: "system")
+    end
+
+    it "rejects `with channel` — no error, same silent no-op as any unknown column" do
+      result = handler.call(event: suppressed_event, rest: "with channel", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+      expect(result.payload["list_columns"]).not_to include("channel")
+    end
+
+    it "`without channel` is a no-op (already absent, never a crash)" do
+      result = handler.call(event: suppressed_event, rest: "without channel", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+      expect(result.payload["list_columns"]).not_to include("channel")
+    end
+
+    it "`with duration` on the same suppressed list still works (other columns untouched)" do
+      result = handler.call(event: suppressed_event, rest: "with duration", conversation:)
+      expect(result.payload["list_columns"]).to include("visibility", "duration")
+      expect(result.payload["list_columns"]).not_to include("channel")
+    end
+
+    it "carries suppressed_columns forward on the rebuilt payload" do
+      result = handler.call(event: suppressed_event, rest: "with duration", conversation:)
+      expect(result.payload["suppressed_columns"]).to eq([ "channel" ])
+    end
+
+    it "carries suppressed_columns forward through a sort mutation too" do
+      result = handler.call(event: suppressed_event, rest: "sort by title", conversation:)
+      expect(result.payload["suppressed_columns"]).to eq([ "channel" ])
+    end
+
+    context "when the list_cursor already carries suppressed_columns" do
+      let(:cursor_event) do
+        instance_double(Event, kind: "system", payload: suppressed_event_payload.merge(
+          "list_cursor" => {
+            "offset" => 1, "channel" => nil, "filter" => nil,
+            "sort_token" => nil, "sort_direction" => nil,
+            "columns" => %w[visibility], "suppressed_columns" => %w[channel]
+          }
+        ))
+      end
+
+      it "keeps suppressed_columns in the cursor after a with mutation" do
+        result = handler.call(event: cursor_event, rest: "with duration", conversation:)
+        expect(result.payload["list_cursor"]["suppressed_columns"]).to eq([ "channel" ])
+      end
+    end
+  end
+
   # ── add/remove are now INVALID (dropped entirely, not aliased) ───────────────
 
   describe "#call with the dropped add/remove verbs" do

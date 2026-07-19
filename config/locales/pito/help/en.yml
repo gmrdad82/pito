@@ -490,6 +490,13 @@ en:
       show-game:
         target_usage: "#<show-game-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<show-game-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this game — your text plus this card's real content go to the model"
+              Options:
+                "--help": "Print this help message"
           'at-a-glance':
             usage: "#<show-game-hashtag> at-a-glance"
             sections:
@@ -572,6 +579,13 @@ en:
       list-games:
         target_usage: "#<list-games-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<list-games-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this list — your text plus its real content (the listed games) go to the model"
+              Options:
+                "--help": "Print this help message"
           'at-a-glance':
             usage: "#<list-games-hashtag> at-a-glance <id>"
             sections:
@@ -682,6 +696,13 @@ en:
       show-video:
         target_usage: "#<show-vid-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<show-vid-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this vid — your text plus this card's real content go to the model"
+              Options:
+                "--help": "Print this help message"
           'at-a-glance':
             usage: "#<show-vid-hashtag> at-a-glance"
             sections:
@@ -742,6 +763,13 @@ en:
       list-videos:
         target_usage: "#<list-vids-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<list-vids-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this list — your text plus its real content (the listed vids) go to the model"
+              Options:
+                "--help": "Print this help message"
           'at-a-glance':
             usage: "#<list-vids-hashtag> at-a-glance <id>"
             sections:
@@ -936,6 +964,13 @@ en:
       list-channels:
         target_usage: "#<list-channels-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<list-channels-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this list — your text plus its real content (the listed channels) go to the model"
+              Options:
+                "--help": "Print this help message"
           'at-a-glance':
             usage: "#<list-channels-hashtag> at-a-glance @handle"
             sections:
@@ -995,6 +1030,13 @@ en:
       show-channel:
         target_usage: "#<show-channel-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<show-channel-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this channel — your text plus this card's real content go to the model"
+              Options:
+                "--help": "Print this help message"
           shinies:
             usage: "#<show-channel-hashtag> shinies"
             sections:
@@ -1042,6 +1084,13 @@ en:
       channel-games:
         target_usage: "#<channel-games-hashtag> <action>"
         actions:
+          "@ai":
+            usage: "#<channel-games-hashtag> @ai <text>"
+            sections:
+              Description:
+                "@ai": "Ask the AI assistant about this games grid — your text plus its real content go to the model"
+              Options:
+                "--help": "Print this help message"
           show:
             usage: "#<channel-games-hashtag> show <id>"
             sections:

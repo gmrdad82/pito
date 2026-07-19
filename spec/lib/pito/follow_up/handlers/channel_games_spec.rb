@@ -29,6 +29,22 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelGames do
     expect(Pito::Dispatch::Matrix.actions_for("channel_games")).to include("show")
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:ai_event) { instance_double(Event, id: 4245, payload: event.payload) }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this grid" do
+      result = handler.call(event: ai_event, rest: "@ai which of these should I play next", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("which of these should I play next")
+      expect(pending[:payload]["anchor_event_id"]).to eq(4245)
+    end
+  end
+
   describe "#call — show <id>" do
     it "returns a Result::Append for a known game id" do
       result = handler.call(event:, rest: "show #{game.id}", conversation:)

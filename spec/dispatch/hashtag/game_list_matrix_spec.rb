@@ -84,9 +84,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "order")).to   eq(:mutate)
     end
 
-    it "Registry.actions_for('game_list') is exactly the 21 verb actions (universals excluded; segment verbs G123; vids/more aliases)" do
+    it "Registry.actions_for('game_list') is exactly the 22 verb actions (universals excluded; segment verbs G123; vids/more aliases; @ai joined the anchored-reply roster)" do
       expect(Pito::FollowUp::Registry.actions_for("game_list")).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels @ai]
       )
     end
   end
@@ -163,7 +163,7 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
     it "calls Game::List builder with the updated column set" do
       handler.call(event:, rest: "with platform", conversation:)
       expect(Pito::MessageBuilder::Game::List).to have_received(:call).with(
-        anything, conversation:, columns: [ :platform ]
+        anything, conversation:, columns: [ :platform ], suppressed_columns: []
       )
     end
   end
@@ -228,7 +228,7 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
     it "calls Game::List builder with the column removed" do
       handler.call(event: event_with_cols, rest: "without platform", conversation:)
       expect(Pito::MessageBuilder::Game::List).to have_received(:call).with(
-        anything, conversation:, columns: [ :genre ]  # platform removed from [platform, genre]
+        anything, conversation:, columns: [ :genre ], suppressed_columns: []  # platform removed from [platform, genre]
       )
     end
   end
@@ -474,10 +474,10 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       end
     end
 
-    it "actions_for returns all 21 declared actions (segment verbs joined in G123; vids/more aliases)" do
+    it "actions_for returns all 22 declared actions (segment verbs joined in G123; vids/more aliases; @ai joined the anchored-reply roster)" do
       actions = Pito::FollowUp::Registry.actions_for("game_list").map(&:to_s)
       expect(actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels @ai]
       )
     end
   end

@@ -60,6 +60,21 @@ module Pito
           matrix_actions.reject { |a| universals.include?(a) }
         end
 
+        # PRESENTATION-ONLY view of actions_for: additionally drops any token
+        # whose underlying tool declares an `enabled_if:` condition (tools.yml)
+        # that isn't currently satisfied — e.g. `@ai` disappears from a card's
+        # palette/help once no AI provider is configured. Dispatch gating
+        # (ToolDelegator, Handler#declared?) keeps reading actions_for
+        # UNFILTERED so a typed reply always reaches the tool's own honest
+        # error — only WHAT'S OFFERED is gated here, never what's honored.
+        # The one generic call site every presentation surface (the #help
+        # listing, hashtag --help pages, the reply-token autocomplete
+        # palette) shares — zero per-tool conditionals anywhere.
+        def presentable_actions_for(target_id)
+          tid = target_id.to_s
+          actions_for(tid).select { |action| Pito::Dispatch::Matrix.available?(tid, action) }
+        end
+
         # Force-load every handler under Pito::FollowUp::Handlers so the
         # `inherited` hook registers them. Handlers otherwise register lazily
         # (only when their file is first referenced), which left the registry

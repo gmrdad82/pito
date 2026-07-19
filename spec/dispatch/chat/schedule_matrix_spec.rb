@@ -81,6 +81,11 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     allow(video_double).to receive(:assign_attributes)
     allow(video_double).to receive(:valid?).with(:schedule).and_return(true)
     allow(video_double).to receive(:restore_attributes)
+    # YouTube's own status.publishAt constraint (Video#already_published?):
+    # default every stub vid to eligible so the existing recognition matrix
+    # is unaffected. The dedicated "already published on YouTube" section
+    # below overrides this to exercise the new guard.
+    allow(video_double).to receive(:already_published?).and_return(false)
   end
 
   # Build and invoke a Schedule handler from a raw chat input string.
@@ -506,6 +511,24 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     end
   end
 
+  # ── Already published on YouTube → :system event (schedule_already_public) ────
+  #
+  # YouTube's status.publishAt: settable only on a vid that's private AND has
+  # never gone public. Checked right after resolve_video, before the timing
+  # gates (root cause of the 2026-07-19 invalidPublishAt production incident).
+
+  describe "already published on YouTube → :system event" do
+    before { allow(video_double).to receive(:already_published?).and_return(true) }
+
+    it "schedule 42 tomorrow → :system event (no command key), not :confirmation" do
+      result = call("schedule 42 tomorrow")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload]["command"]).to be_nil
+      expect(result.events.first[:payload]["text"]).to include("Test Video")
+    end
+  end
+
   # ── Publish-time guards ────────────────────────────────────────────────────────
 
   describe "publish_time in the past → :system event (schedule_in_past)" do
@@ -634,11 +657,11 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       expect(Pito::FollowUp::Registry.actions_for("video_detail")).to include("schedule")
     end
 
-    it "video_detail actions are exactly the current declared verb set (incl. schedule; segment verbs G123)" do
+    it "video_detail actions are exactly the current declared verb set (incl. schedule; segment verbs G123; @ai joined the anchored-reply roster)" do
       expect(Pito::FollowUp::Registry.actions_for("video_detail"))
         .to contain_exactly("rm", "del", "delete", "reindex", "link", "unlink",
                             "shinies", "sync", "publish", "pub", "unlist", "schedule", "analyze",
-                            "game", "at-a-glance")
+                            "game", "at-a-glance", "@ai")
     end
   end
 
@@ -759,6 +782,7 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       allow(typed).to receive(:assign_attributes)
       allow(typed).to receive(:valid?).with(:schedule).and_return(true)
       allow(typed).to receive(:restore_attributes)
+      allow(typed).to receive(:already_published?).and_return(false)
       allow(::Video).to receive(:find_by).with(id: "7").and_return(typed)
       ctx = Pito::Chat::FollowUpContext.new(source_event:, rest: "7 tomorrow")
       result = call("schedule 7 tomorrow", follow_up: ctx)
@@ -834,12 +858,16 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       mass_handler(raw, follow_up:).call
     end
 
-    def mass_video(id:, title:, channel_id: 1, valid: true, collision: nil)
+    def mass_video(id:, title:, channel_id: 1, valid: true, collision: nil, published: false)
       v = double("Video##{id}", id: id, title: title, channel_id: channel_id)
       allow(v).to receive(:assign_attributes)
       allow(v).to receive(:valid?).with(:schedule).and_return(valid)
       allow(v).to receive(:publish_spacing_collision).and_return(collision)
       allow(v).to receive(:restore_attributes)
+      # YouTube's own status.publishAt constraint (Video#already_published?) —
+      # default eligible; the dedicated "eligibility" section below sets
+      # published: true to exercise the guard.
+      allow(v).to receive(:already_published?).and_return(published)
       v
     end
 
@@ -915,6 +943,17 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
         stub_mass_videos(mass_video(id: 5, title: "V5"))
         result = mass_call("schedule 5 tomorrow, 999999 in 2 hours")
         expect_mass_abort(result, includes: "999999")
+      end
+    end
+
+    describe "eligibility — no vid may already be public on YouTube" do
+      it "a batch item that's already public aborts the WHOLE batch, naming it — even though the other segment is fine" do
+        stub_mass_videos(
+          mass_video(id: 5, title: "V5", published: true),
+          mass_video(id: 6, title: "V6")
+        )
+        result = mass_call("schedule 5 tomorrow, 6 in 2 hours")
+        expect_mass_abort(result, includes: "V5")
       end
     end
 

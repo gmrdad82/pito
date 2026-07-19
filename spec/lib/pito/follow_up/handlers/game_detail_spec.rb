@@ -35,6 +35,22 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     expect(Pito::Dispatch::Matrix.mode_for("game_detail")).to eq(:append)
   end
 
+  describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
+    let(:source_event) { build_detail_event }
+
+    it "delegates to Chat::Handlers::Ai via ToolDelegator: a pending :ai event anchored on this card" do
+      result = handler.call(event: source_event, rest: "@ai is this game worth playing", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+      pending = result.events.first
+      expect(pending[:kind]).to eq(:ai)
+      expect(pending[:payload]["status"]).to eq("pending")
+      expect(pending[:payload]["prompt"]).to eq("is this game worth playing")
+      expect(pending[:payload]["anchor_event_id"]).to eq(source_event.id)
+    end
+  end
+
   # ── rm / delete ─────────────────────────────────────────────────────────────
 
   describe "#call — rm" do
