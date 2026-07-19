@@ -428,8 +428,8 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
   end
 
   # U6 — publish_at is the PUBLIC, sortable counterpart to the internal :scheduled
-  # column: a bare "DD-MM-YYYY HH:MM" go-live timestamp, split out of the
-  # visibility scope so it is a first-class with/sort column (and MCP field).
+  # column: a house-stamp go-live timestamp, split out of the visibility scope
+  # so it is a first-class with/sort column (and MCP field).
   describe "public :publish_at column (U6)" do
     let(:channel) { create(:channel, handle: "@ch") }
 
@@ -467,11 +467,11 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(key.call(future)).to eq(future.publish_at.to_i)
     end
 
-    it "renders the bare SyncStamp timestamp for a scheduled vid" do
+    it "renders the bare house-format TODAY collapse (SyncStamp) for a scheduled vid going live today" do
       travel_to(Time.zone.local(2026, 3, 1, 10, 0)) do
         v    = create(:video, :public, channel: channel, title: "Sched", publish_at: Time.zone.local(2026, 3, 1, 13, 0))
         cell = described_class.cells(v, [ :publish_at ]).first
-        expect(cell[:text]).to eq("01-03-2026 13:00")
+        expect(cell[:text]).to eq("13:00")
       end
     end
 

@@ -206,7 +206,7 @@ module Pito
         @end_date   = ref
         @prev_start = prev_bom
         @prev_end   = [ raw_prev_end, prev_bom.end_of_month ].min
-        @label      = bom.strftime("%b '%y")
+        @label      = month_label(bom, ref)
         @comparable = true
       end
 
@@ -221,8 +221,17 @@ module Pito
         @end_date   = target_bom.end_of_month
         @prev_start = prev_bom
         @prev_end   = prev_bom.end_of_month
-        @label      = target_bom.strftime("%b '%y")
+        @label      = month_label(target_bom, ref)
         @comparable = true
+      end
+
+      # House month-granularity shape (no day component — see
+      # Pito::Formatter::HouseDate's docs): `ref` stands in for "today" here
+      # (this class never calls Date.current itself — see the class doc), so
+      # a month within ref's year drops the year ("Jun"); any other year
+      # carries it ("Jun '25").
+      def month_label(month_date, ref)
+        month_date.year == ref.year ? month_date.strftime("%b") : month_date.strftime("%b '%y")
       end
 
       # y0: current (partial) year — from boy to ref.

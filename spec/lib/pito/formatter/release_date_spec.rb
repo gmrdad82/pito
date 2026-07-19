@@ -3,13 +3,26 @@
 require "rails_helper"
 
 RSpec.describe Pito::Formatter::ReleaseDate do
+  include ActiveSupport::Testing::TimeHelpers
+
   describe ".call" do
     # ── Full date (day precision) ────────────────────────────────────────────
-    # release_date must be persisted so I18n.l can render it;
-    # recompute_release_date runs in before_save, hence `create`.
-    it "renders a full date as long format: 'June 09, 2026'" do
-      game = create(:game, release_year: 2026, release_month: 6, release_day: 9)
-      expect(described_class.call(game)).to eq("June 09, 2026")
+    # release_date must be persisted so HouseDate.date can render it;
+    # recompute_release_date runs in before_save, hence `create`. Renders
+    # through the house date (Pito::Formatter::HouseDate) — current year
+    # drops the year, any other year carries the '%y suffix.
+    it "renders a full date through the house date — current year drops the year" do
+      travel_to(Time.zone.local(2026, 7, 19)) do
+        game = create(:game, release_year: 2026, release_month: 6, release_day: 9)
+        expect(described_class.call(game)).to eq("9 Jun")
+      end
+    end
+
+    it "renders a full date through the house date — another year carries the '%y suffix" do
+      travel_to(Time.zone.local(2026, 7, 19)) do
+        game = create(:game, release_year: 2025, release_month: 6, release_day: 9)
+        expect(described_class.call(game)).to eq("9 Jun '25")
+      end
     end
 
     # ── Month-year (month precision, no day) ─────────────────────────────────

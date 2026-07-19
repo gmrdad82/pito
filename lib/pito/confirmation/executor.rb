@@ -229,7 +229,7 @@ module Pito
 
           VideoRemoteStatusSync.perform_later(video.id)
           # Render the confirmed time in the app-local zone (Time.zone), matching
-          # the DD-MM-YYYY HH:MM the schedule confirmation showed. No "UTC" label —
+          # the house stamp the schedule confirmation showed. No "UTC" label —
           # a timezone is configured, so the time already reads local.
           when_label = Pito::Formatter::SyncStamp.call(publish_at)
           Pito::Copy.render("pito.copy.videos.scheduled",

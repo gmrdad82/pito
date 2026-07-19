@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Channel::DetailComponent, type: :component do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:channel) { create(:channel, handle: "gmrdad82", title: "GMR Dad", description: "Stories.\nMore.", video_count: 42) }
 
   before do
@@ -52,8 +54,10 @@ RSpec.describe Pito::Channel::DetailComponent, type: :component do
   end
 
   it "renders an absolute Last sync at stamp when synced" do
-    channel.update!(last_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
-    expect(render_card.text).to include("26-06-2026 14:30")
+    travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+      channel.update!(last_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+      expect(render_card.text).to include("26 Jun 14:30")
+    end
   end
 
   it "renders the em-dash for a never-synced channel" do

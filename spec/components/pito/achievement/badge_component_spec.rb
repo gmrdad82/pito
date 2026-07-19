@@ -4,6 +4,8 @@ require "rails_helper"
 
 # G127: badges are FILLED material chips (data-material), theme-agnostic.
 RSpec.describe Pito::Achievement::BadgeComponent, type: :component do
+  include ActiveSupport::Testing::TimeHelpers
+
   def render_badge(threshold:, metric: "views", scope: "Video", form: :extended, unlocked_on: Date.new(2026, 6, 15))
     render_inline(described_class.new(threshold:, metric:, scope:, form:, unlocked_on:))
   end
@@ -39,11 +41,19 @@ RSpec.describe Pito::Achievement::BadgeComponent, type: :component do
     expect(render_badge(threshold: 1_000).text).to include("1K Views")
   end
 
-  it "extended form appends the unlock date; compact omits it" do
-    expect(render_badge(threshold: 5).css(".pito-shiny__date").first.text).to eq("Jun '26")
-    node = render_badge(threshold: 5, form: :compact)
-    expect(node.css(".pito-shiny__date")).to be_empty
-    expect(node.css(".pito-shiny").first["class"]).to include("pito-shiny--compact")
+  it "extended form appends the unlock date (house month-granularity — current year drops the year); compact omits it" do
+    travel_to(Time.zone.local(2026, 7, 19)) do
+      expect(render_badge(threshold: 5, unlocked_on: Date.new(2026, 6, 15)).css(".pito-shiny__date").first.text).to eq("Jun")
+      node = render_badge(threshold: 5, form: :compact)
+      expect(node.css(".pito-shiny__date")).to be_empty
+      expect(node.css(".pito-shiny").first["class"]).to include("pito-shiny--compact")
+    end
+  end
+
+  it "extended form carries the '%y suffix for an unlock date from another year" do
+    travel_to(Time.zone.local(2026, 7, 19)) do
+      expect(render_badge(threshold: 5, unlocked_on: Date.new(2025, 6, 15)).css(".pito-shiny__date").first.text).to eq("Jun '25")
+    end
   end
 
   it "staggers the gleam via a 20-step shinies-specific offset class (G128)" do

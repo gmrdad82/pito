@@ -10,28 +10,45 @@ module Pito
       # Rows are [key, value] or [key, value, command] (normalized by
       # Ai::Blocks). A TYPED value ({"v" =>, "format" => price|date|number|
       # score}) renders right-aligned through the house formatters — price
-      # wears the same coin glyphs as `show game`, date wears the house
-      # DD-MM-YYYY [HH:MM] stamp (Pito::Formatter::SyncStamp). A row command
+      # wears the same coin glyphs as `show game`, a date with a time
+      # component wears the house stamp (Pito::Formatter::SyncStamp — today
+      # collapses to bare HH:MM, "%-d %b HH:MM" this year, "%-d %b 'YY HH:MM"
+      # otherwise); a date-only value wears the house date (Pito::Formatter::
+      # HouseDate — "%-d %b" this year, "%-d %b 'YY" otherwise). A row command
       # makes the key click-to-prefill via the established pito--chat-prefill
       # seam — UNLESS the command is a `show vid|game|channel #<id>` and the
       # key's own text leads with that `#<id>` token, in which case the id
       # token itself gets the list-cell shimmer-and-submit treatment (like
       # the vid/game list `#id` cells) and the whole-key binding is dropped.
       class KvTableBlockComponent < ViewComponent::Base
-        # Mobile crush fix: a long AI-authored label inside a bare
+        # Mobile crush fix, take two: a long AI-authored label inside a bare
         # `max-content` grid column has nothing capping its growth, so it
         # widens the column and squeezes the 1fr value column down to nothing
-        # (never wraps — whitespace-nowrap is terminal law). Capping the KEY
-        # SPAN itself at a fixed ch width (mirrors the .pito-cell-* /
-        # --scalars-label-w caps used by the other detail-card kv-grids) plus
-        # overflow-hidden + text-ellipsis lets it truncate instead — paired
-        # with a minmax(0, max-content) column (the same
-        # .pito-data-grid pattern) so the column can actually shrink to that
-        # cap on a tight viewport rather than always claiming its full
-        # max-content width. This OVERRIDES KeyValueRowComponent's default
-        # key_class — the shared component's defaults (used by :system detail
-        # cards, keybinding tables, …) are untouched.
-        KEY_CLASS = "text-cyan whitespace-nowrap overflow-hidden text-ellipsis min-w-0 max-w-[20ch]"
+        # (never wraps — whitespace-nowrap is terminal law). The first attempt
+        # pinned the KEY SPAN itself to an unconditional 20-character max-width
+        # cap — dead weight on every viewport, including the owner's desktop screenshot
+        # ("#38 TEKKEN 7: Bob, Negan & Lucille:") which it would have clipped
+        # even though the container had plenty of room to spare.
+        #
+        # This version caps the grid TRACK instead of the item, via the grid
+        # template in #call: `fit-content(max(20ch,55%))`. fit-content lets
+        # the key column claim its natural max-content width whenever the
+        # container affords it (desktop: the key stays whole, unclipped), and
+        # only pinches on a narrow container — capped at 55% of the
+        # container's width there, with the `max(20ch, …)` floor guaranteeing
+        # that cap itself never drops below 20ch even on a tiny viewport. The
+        # value column (minmax(0,1fr)) always keeps whatever's left, roughly
+        # >=45% of the container.
+        #
+        # The key span keeps whitespace-nowrap + overflow-hidden +
+        # text-ellipsis + min-w-0 so the ellipsis only appears once the track
+        # has actually pinched below the key's natural width — min-w-0 is
+        # what lets the item shrink past its own automatic min-content
+        # minimum instead of blocking the track's own cap. This OVERRIDES
+        # KeyValueRowComponent's default key_class — the shared component's
+        # defaults (used by :system detail cards, keybinding tables, …) are
+        # untouched.
+        KEY_CLASS = "text-cyan whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
 
         # A row's command is the only entity carrier (rows have no entity
         # field — see Ai::Blocks.runnable_command). Only THESE commands earn
@@ -51,7 +68,7 @@ module Pito
         end
 
         def call
-          tag.div(class: "grid grid-cols-[minmax(0,max-content)_1fr] gap-x-2 gap-y-1") do
+          tag.div(class: "grid grid-cols-[fit-content(max(20ch,55%))_minmax(0,1fr)] gap-x-2 gap-y-1") do
             safe_join(@rows.map { |key, value, command| render_row(key, value, command) })
           end
         end
@@ -101,8 +118,21 @@ module Pito
           }
         end
 
+        # A typed value always right-aligns (house formatters). A PLAIN
+        # string value right-aligns too when it matches a CellShapes family
+        # (numeric / id / date/time — same three shapes the table block's
+        # per-column census right-aligns on, owner decree) — the model can
+        # send a bare "#38", "7,709", or "19 Jul 12:00" untyped and it still
+        # reads as a table law, not a paragraph.
         def value_class(value)
-          typed?(value) ? "text-fg-dim text-right" : Pito::Table::KeyValueRowComponent::DEFAULT_VALUE_CLASS
+          right_align?(value) ? "text-fg-dim text-right" : Pito::Table::KeyValueRowComponent::DEFAULT_VALUE_CLASS
+        end
+
+        def right_align?(value)
+          return true if typed?(value)
+          return false unless value.is_a?(String)
+
+          Pito::Event::Ai::CellShapes.match?(value)
         end
 
         def value_text(value)
@@ -131,9 +161,11 @@ module Pito
         # strictly-shaped ISO8601 or dd-mm-yyyy[ hh:mm] string (either the
         # model sent it typed already, or Ai::Blocks.kv_value promoted a
         # plain string that parsed as one — see lib/ai/blocks.rb). Renders
-        # through the house Pito::Formatter::SyncStamp (DD-MM-YYYY HH:MM,
-        # tz-aware) when a time component is present; date-only when it
-        # isn't, rather than inventing a fake midnight.
+        # through the house Pito::Formatter::SyncStamp (tz-aware; collapses to
+        # bare HH:MM today, drops the year this year, carries it otherwise)
+        # when a time component is present; through the house
+        # Pito::Formatter::HouseDate.date ("%-d %b" this year, "%-d %b 'YY"
+        # otherwise) when it isn't, rather than inventing a fake midnight.
         ISO_DATE     = /\A\d{4}-\d{2}-\d{2}\z/
         ISO_DATETIME = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?\z/
         DMY_DATE     = /\A\d{2}-\d{2}-\d{4}\z/
@@ -143,8 +175,8 @@ module Pito
           str = raw.to_s.strip
 
           case str
-          when ISO_DATE     then Time.zone.iso8601(str).strftime("%d-%m-%Y")
-          when DMY_DATE     then Time.zone.strptime(str, "%d-%m-%Y").strftime("%d-%m-%Y")
+          when ISO_DATE     then Pito::Formatter::HouseDate.date(Time.zone.iso8601(str))
+          when DMY_DATE     then Pito::Formatter::HouseDate.date(Time.zone.strptime(str, "%d-%m-%Y"))
           when ISO_DATETIME then Pito::Formatter::SyncStamp.call(Time.zone.iso8601(str))
           when DMY_DATETIME then Pito::Formatter::SyncStamp.call(Time.zone.strptime(str, "%d-%m-%Y %H:%M"))
           else str

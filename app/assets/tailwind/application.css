@@ -2709,6 +2709,57 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   max-width: 20ch;
 }
 
+/* ── AI table blocks (Pito::Event::Ai::TableBlockComponent) ─────────
+   Smart per-column degrade for wide/many-column AI tables. The leading
+   #id-style column and any ALIGNING column (numeric, #id, or date/time —
+   both marked by the component, see TEXT_CELL_CLASS/aligning_columns) are
+   exempt and never truncate; every other (prose) column gets
+   .pito-table-cell--text and is the flexible one that degrades FIRST. Base state is today's wrapping (min-width:0 only lets
+   the item shrink with its track — no nowrap yet, so short/comfortable
+   tables are visually unchanged); truncation switches on only under real
+   pressure, gated two ways: */
+.pito-table-cell--text {
+  min-width: 0;
+}
+
+/* 1) many columns — data-cols is the same attribute the grid's own column
+   template already reads (DataGridComponent); 4+ is the owner's example.
+   Every prose cell tightens to one ellipsis-truncated line instead of
+   wrapping and inflating every row's height. */
+.pito-data-grid[data-cols="4"]  .pito-table-cell--text,
+.pito-data-grid[data-cols="5"]  .pito-table-cell--text,
+.pito-data-grid[data-cols="6"]  .pito-table-cell--text,
+.pito-data-grid[data-cols="7"]  .pito-table-cell--text,
+.pito-data-grid[data-cols="8"]  .pito-table-cell--text,
+.pito-data-grid[data-cols="9"]  .pito-table-cell--text,
+.pito-data-grid[data-cols="10"] .pito-table-cell--text,
+.pito-data-grid[data-cols="11"] .pito-table-cell--text,
+.pito-data-grid[data-cols="12"] .pito-table-cell--text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 2) a narrow container — even a 2-3 column AI table tightens once its own
+   box gets tight (mobile / a narrow detail-card column), same @container
+   pattern .pito-image-fallback uses above. :has() scopes the query-container
+   promotion to grids that actually carry a text column, so the OTHER
+   .pito-data-grid caller (SystemComponent's list-games/list-vids native
+   tables, which use the .pito-cell-* caps instead) is untouched. 640px sits
+   just under the app's one md: breakpoint (768px) — the message column runs
+   964px centered on desktop (plenty of room) but full viewport width on
+   phones, so this only ever fires on a mobile-width container. */
+.pito-data-grid:has(.pito-table-cell--text) {
+  container-type: inline-size;
+}
+@container (max-width: 640px) {
+  .pito-table-cell--text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 /* ── Pito::Analytics::ScalarsTableComponent ─────────────────────
  *
  * Flex-wrap KV grid. All label cells share one fixed width and all value

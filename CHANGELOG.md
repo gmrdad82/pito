@@ -4,7 +4,69 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.5.0] — 2026-07-19
+
+### Added
+
+- **Pushes wear a real title** — the phone notification's bold line was
+  empty because the FCM contract never carried one. Notifications grew a
+  nullable `title` column; every source with a clear identity stamps a
+  copy-driven title ("Unpublished vids", and friends), the FCM payload
+  sends it as `data.title` (omitted entirely when a notification has
+  none), and pito-android maps it with a "PITO" fallback for old servers.
+- **Answers estimate their cost when the provider won't say** — OpenCode
+  Zen bills per token but never reports a per-call cost, so its answers
+  wore a bare model badge. When the provider reports nothing, the badge
+  now shows a computed estimate — the loop's tracked tokens against the
+  per-1M pricing the provider's own `/models` metadata publishes — worn
+  with a leading `~` ("~$0.03") so an estimate never masquerades as a
+  receipt. A provider-reported cost still wins, unmarked, exactly as
+  before; models with no pricing anywhere still show nothing. Unknown is
+  still not free — it's just no longer mute when the rate card is public.
+
+### Changed
+
+- **One date shape everywhere** — the message-timestamp rule is now THE
+  house rule, extracted into `Pito::Formatter::HouseDate` and worn by
+  every stamp on every surface: today collapses to bare `12:04`, this
+  year reads `19 Jul 12:04`, any other year `5 Jun '25 12:04`; date-only
+  values never collapse (`19 Jul`). `SyncStamp` delegates to it (detail
+  cards, schedule confirmations, the `publish_at` column — the
+  `DD-MM-YYYY` era ends), the @ai kv-table typed dates follow, chart
+  prior-year ticks restyle to `Jun '25` (month-only — five day-bearing
+  ticks don't fit a 42-cell canvas), release labels drop their US order
+  ("October 15, 2026" → "15 Oct '26"), and month-granularity badges and
+  period labels drop the year when it's this year's.
+- **AI tables truncate smart, not blunt** — the kv key column's flat
+  20ch cap (born in 3.4.0, visually inert in practice) is replaced by a
+  container-driven track: full natural-width keys whenever the row has
+  room, a proportional cap with a 20ch floor only when space tightens.
+  Wide tables get per-column roles: the leading `#id` column, numeric
+  columns, and date columns are content-sized and never truncate; prose
+  columns carry the squeeze, wrapping at comfortable widths and
+  tightening only under many-column or narrow-container pressure.
+- **AI table columns align by what they hold** — pito's table law grows
+  from numbers-only to three families: a column of numbers ("7,709",
+  "2.2K", "93%"), of `#id`s, or of dates right-aligns, heading cell
+  included; prose keeps reading left.
+
+### Fixed
+
+- **Notifications reach the phone clean** — the private-reminder dedup
+  marker (`<!-- pito:private_reminder:… -->`) and raw markup leaked into
+  the FCM push body and the TUI's `/notifications.json` verbatim; both
+  seams now render through one shared plain-text pass — the same strip
+  the Slack/Discord lanes always had — while the marker keeps doing its
+  dedup job in the persisted record.
+- **Digest webhooks preview clean on the lockscreen** — the achievements
+  and upcoming-releases digests put their fenced, pipe-aligned table in
+  the previewed surface, so phone shades rendered raw backticks and a
+  mid-title cut. The previewed line is now a plain copy-driven summary
+  ("3 unlocked: First Light, Not Alone, +1 more"); the aligned table
+  rides in an embed/attachment field, which no shade renders — the rich
+  in-app block survives untouched on both Discord and Slack.
+
+## [3.4.0] — 2026-07-18
 
 ### Added
 

@@ -58,7 +58,11 @@ class ReleaseCountdownJob < ApplicationJob
         platforms:      platform_label(platform_rows.map(&:platform_token))
       )
 
-      Notification.create!(message: "#{body}#{marker(game, date)}", skip_webhook: true)
+      Notification.create!(
+        message:      "#{body}#{marker(game, date)}",
+        title:        Pito::Copy.render("pito.copy.notifications.release_countdown_title"),
+        skip_webhook: true
+      )
       digest_rows << [ countdown_label(days_remaining), game.title ]
     end
 

@@ -41,4 +41,30 @@ RSpec.describe Pito::Event::Ai::ModelBadgeComponent, type: :component do
     node = render_inline(described_class.new(model: "m-1"))
     expect(node.css("img.pito-coin")).to be_empty
   end
+
+  it "prefixes the amount with \"~\" for a computed (estimate-marked) cost — coin glyph unchanged" do
+    node = render_inline(described_class.new(
+      model: "m-1", cost_amount: 0.03, cost_currency: "USD", cost_estimated: true
+    ))
+
+    expect(node.css("img.pito-coin")).not_to be_empty
+    expect(node.text).to include("~$0.03")
+  end
+
+  it "prefixes a symbol-less currency's estimate too — \"~0.01 CHF\"" do
+    node = render_inline(described_class.new(
+      model: "m-1", cost_amount: 0.01, cost_currency: "CHF", cost_estimated: true
+    ))
+
+    expect(node.text).to include("~0.01 CHF")
+  end
+
+  it "carries NO \"~\" prefix on a reported (non-estimated) cost" do
+    node = render_inline(described_class.new(
+      model: "m-1", cost_amount: 0.03, cost_currency: "USD"
+    ))
+
+    expect(node.text).not_to include("~")
+    expect(node.text).to include("$0.03")
+  end
 end

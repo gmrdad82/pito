@@ -139,18 +139,48 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
       allow(fcm_sender).to receive(:call).and_return(fcm_outcome(ok: true))
     end
 
-    it "sends one call per device token with the notification's message and level" do
+    it "sends one call per device token with the notification's message, stripped of markup, and level" do
       first  = create_device_token(token: "token-1")
       second = create_device_token(token: "token-2")
 
       described_class.new.perform(notification.id)
 
+      # Fixture message is "<strong>Hi</strong>" — the lockscreen has no HTML
+      # renderer, so the Sender must receive the stripped plain text ("Hi"),
+      # never the raw markup. This fixture carries no title, so title: "" (the
+      # PlainMessage-stripped nil) rides along — see the title-specific
+      # examples below for the present-title case.
       expect(fcm_sender).to have_received(:call).with(
-        token: first.token, message: notification.message, level: notification.level
+        token: first.token, message: "Hi", level: notification.level, title: ""
       )
       expect(fcm_sender).to have_received(:call).with(
-        token: second.token, message: notification.message, level: notification.level
+        token: second.token, message: "Hi", level: notification.level, title: ""
       )
+    end
+
+    it "passes the notification's title through to the Sender" do
+      titled = create(:notification, message: "Body", title: "Unpublished vids")
+      create_device_token(token: "token-1")
+
+      described_class.new.perform(titled.id)
+
+      expect(fcm_sender).to have_received(:call).with(
+        token: "token-1", message: "Body", level: titled.level, title: "Unpublished vids"
+      )
+    end
+
+    it "strips the private_reminder dedup marker from the push body while leaving it on the persisted record" do
+      marked = create(:notification, message: "Finish uploading 3 vids. <!-- pito:private_reminder:2026-07-19 -->")
+      create_device_token(token: "token-1")
+
+      described_class.new.perform(marked.id)
+
+      expect(fcm_sender).to have_received(:call).with(
+        token: "token-1", message: "Finish uploading 3 vids.", level: marked.level, title: ""
+      )
+      # Dedup unharmed: the marker is still on the persisted message, so
+      # PrivateReminder's already_reported? still matches it.
+      expect(marked.reload.message).to include("<!-- pito:private_reminder:2026-07-19 -->")
     end
 
     it "prunes exactly the token whose outcome is unregistered" do

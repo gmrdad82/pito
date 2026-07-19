@@ -29,7 +29,8 @@
       <%= render(Pito::Event::MetaLineComponent.new(handle: reply_handle)) %>
       <%= render(Pito::Event::Ai::ModelBadgeComponent.new(
             model: model,
-            cost_amount: @payload[:cost_amount], cost_currency: @payload[:cost_currency]
+            cost_amount: @payload[:cost_amount], cost_currency: @payload[:cost_currency],
+            cost_estimated: @payload[:cost_estimated] == true
           )) %>
     </div>
   <% end %>

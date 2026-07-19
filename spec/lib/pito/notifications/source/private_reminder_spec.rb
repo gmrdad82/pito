@@ -25,9 +25,33 @@ RSpec.describe Pito::Notifications::Source::PrivateReminder do
         expect(Notification.last.level).to eq("warning")
       end
 
+      it "carries the copy-rendered push title" do
+        described_class.report!(3)
+        expect(Notification.last.title).to eq(Pito::Copy.render("pito.copy.private_reminder_title"))
+      end
+
       it "includes the dictionary line with the count and plural word resolved" do
         described_class.report!(3)
         expect(Notification.last.message).to include(expected_line(3))
+      end
+
+      it "embeds today's dedup marker in the persisted message" do
+        described_class.report!(3)
+        expect(Notification.last.message).to include("<!-- pito:private_reminder:#{Date.current.iso8601} -->")
+      end
+
+      it "keeps the marker out of both emission seams (FCM push body, /notifications.json) while it stays on the record" do
+        described_class.report!(3)
+        notification = Notification.last
+        marker = "<!-- pito:private_reminder:#{Date.current.iso8601} -->"
+
+        # Still on the persisted record — that's the dedup mechanism itself.
+        expect(notification.message).to include(marker)
+
+        # Gone from what either emission seam would actually send/serve.
+        plain = Pito::Notifications::PlainMessage.call(notification.message)
+        expect(plain).not_to include(marker)
+        expect(plain).not_to include("<!--")
       end
 
       context "when count is 1 (singular word choice)" do

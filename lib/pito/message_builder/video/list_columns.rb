@@ -110,8 +110,8 @@ module Pito
             cell_class: "text-fg-dim pito-cell-category",
             value:      ->(v) { v.category_name.presence || "—" }
           },
-          # Scheduled go-live as a bare absolute timestamp ("DD-MM-YYYY HH:MM"),
-          # "—" once live / never scheduled. The PUBLIC, sortable counterpart to the
+          # Scheduled go-live as the house stamp (SyncStamp), "—" once live /
+          # never scheduled. The PUBLIC, sortable counterpart to the
           # internal relative `scheduled` slate column: `list vids with publish_at`,
           # `sort by publish_at`, and the MCP `columns:["publish_at"]` all read this
           # (publish_at is its own first-class column, split out of the

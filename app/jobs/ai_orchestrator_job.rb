@@ -331,19 +331,42 @@ class AiOrchestratorJob < ApplicationJob
       Pito::Copy.render("pito.copy.ai.status.generic")
   end
 
-  # What THIS answer cost, priced from the model's catalog pricing (per-token,
-  # summed over every call in the loop) — informative payload fields the ✨
-  # chip renders. Providers whose catalog exposes no pricing stamp nothing.
+  # What THIS answer cost — informative payload fields the ✨ chip renders.
+  # REPORTED cost keeps absolute precedence (owner-locked, T16.22): when the
+  # provider billed the call (usage.cost, summed over the loop), the chip
+  # shows that receipt, exactly as before, with NO estimate flag. Only when
+  # the provider reported nothing does a COMPUTED fallback engage — priced
+  # from the active model's catalog pricing (Ai::ModelCatalog#pricing_for)
+  # over @usage_input/@usage_output — reinstated 2026-07-19 as an
+  # ESTIMATE-MARKED fallback (owner's partial reversal of T16.22's
+  # reported-cost-only design: a priced guess beats no number at all for
+  # models whose provider stays silent on cost but publishes per-token
+  # rates), stamping "cost_estimated" so the badge can flag it. When neither
+  # a reported cost nor catalog pricing exists, stamp nothing — unknown is
+  # still not free.
   def message_cost
-    # REPORTED cost only (owner-locked, T16.22): the chip shows the provider's
-    # own receipt (usage.cost summed over the loop) or nothing at all — pito
-    # never computes a price it wasn't billed. Unknown is not free.
-    return {} unless @reported_cost
+    return { "cost_amount" => @reported_cost.round(4), "cost_currency" => "USD" } if @reported_cost
 
-    { "cost_amount" => @reported_cost.round(4), "cost_currency" => "USD" }
+    estimate = computed_cost
+    return {} unless estimate
+
+    { "cost_amount" => estimate.round(4), "cost_currency" => "USD", "cost_estimated" => true }
   rescue StandardError => e
     Rails.logger.warn("[AiOrchestratorJob] cost stamp failed: #{e.class}: #{e.message}")
     {}
+  end
+
+  # The computed-fallback price: the loop's tracked token usage against the
+  # active model's catalog pricing. nil when there's nothing to price (no
+  # tokens tracked) or the catalog has no pricing for this provider/model
+  # (most providers today — pricing_for's own doc has the why).
+  def computed_cost
+    return nil if @usage_input.zero? && @usage_output.zero?
+
+    pricing = Ai::ModelCatalog.pricing_for(provider: @client.provider, model: @client.model)
+    return nil unless pricing
+
+    (@usage_input / 1_000_000.0 * pricing[:input].to_f) + (@usage_output / 1_000_000.0 * pricing[:output].to_f)
   end
 
   # ── Flow A: render a pito command's native output ────────────────────────────

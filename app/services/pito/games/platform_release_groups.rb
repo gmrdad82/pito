@@ -11,8 +11,8 @@ module Pito
     # the DB keeps one distinct row per platform.
     #
     #   Pito::Games::PlatformReleaseGroups.call(game)
-    #   # => [ { label: "July 31, 2026", tokens: ["ps", "steam"] },
-    #   #      { label: "Q3 2026",        tokens: ["switch"] } ]
+    #   # => [ { label: "31 Jul '26",  tokens: ["ps", "steam"] },
+    #   #      { label: "Q3 2026",     tokens: ["switch"] } ]
     module PlatformReleaseGroups
       module_function
 

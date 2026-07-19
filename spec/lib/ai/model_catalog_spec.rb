@@ -27,6 +27,42 @@ RSpec.describe Ai::ModelCatalog, type: :service do
       end
     end
 
+    context "row pricing (per-1M-token input/output, the computed-cost fallback's source)" do
+      it "retains a row's pricing as {input:, output:} when the listing carries one" do
+        stub_request(:get, models_url).to_return(
+          status:  200,
+          body:    { data: [
+            { id: "model-a", pricing: { input: 3.0, output: 15.0 } },
+            { id: "model-b" }
+          ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(described_class.models(provider: :opencode)).to eq([
+          { id: "model-a", pinned: false, pricing: { input: 3.0, output: 15.0 } },
+          { id: "model-b", pinned: false }
+        ])
+      end
+
+      it "keeps the plain {id:, pinned:} shape when pricing is missing, malformed, or incomplete" do
+        stub_request(:get, models_url).to_return(
+          status:  200,
+          body:    { data: [
+            { id: "model-a" },
+            { id: "model-b", pricing: "cheap" },
+            { id: "model-c", pricing: { input: 3.0 } }
+          ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(described_class.models(provider: :opencode)).to eq([
+          { id: "model-a", pinned: false },
+          { id: "model-b", pinned: false },
+          { id: "model-c", pinned: false }
+        ])
+      end
+    end
+
     context "live: false (the picker's keyless-provider path)" do
       it "issues NO request and serves the pinned fallback when nothing is cached" do
         result = described_class.models(provider: :opencode, live: false)
@@ -167,6 +203,30 @@ RSpec.describe Ai::ModelCatalog, type: :service do
       described_class.models(provider: :opencode)
 
       expect(stub).to have_been_requested.times(2)
+    end
+  end
+
+  describe ".pricing_for" do
+    before { allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new) }
+
+    it "returns the cached row's per-1M pricing, issuing NO request (cache-only)" do
+      Rails.cache.write(described_class.cache_key(:opencode), [
+        { id: "model-a", pinned: false, pricing: { input: 3.0, output: 15.0 } }
+      ])
+
+      expect(described_class.pricing_for(provider: :opencode, model: "model-a"))
+        .to eq({ input: 3.0, output: 15.0 })
+      expect(WebMock).not_to have_requested(:get, models_url)
+    end
+
+    it "returns nil when the cached row carries no pricing" do
+      Rails.cache.write(described_class.cache_key(:opencode), [ { id: "model-a", pinned: false } ])
+
+      expect(described_class.pricing_for(provider: :opencode, model: "model-a")).to be_nil
+    end
+
+    it "returns nil for a model the cache/pinned fallback doesn't know" do
+      expect(described_class.pricing_for(provider: :opencode, model: "nope")).to be_nil
     end
   end
 end

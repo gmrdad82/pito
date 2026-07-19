@@ -25,10 +25,10 @@ en:
         # picked by component nullability — see
         # `docs/architecture.md` § "Game release-date representation".
         #
-        # Date / month formatting goes through `I18n.l` and the standard
-        # `:long` / `:month_year` formats; only the precision-specific
-        # text lives here.
-        day: "%{date}"                  # e.g. "October 15, 2026"
+        # `day` gets its date string from Pito::Formatter::HouseDate.date (the
+        # house shape — "15 Oct" this year, "15 Oct '26" otherwise); only the
+        # precision-specific text lives here.
+        day: "%{date}"                  # e.g. "15 Oct '26"
         month_year: "%{month} %{year}"  # e.g. "October 2026"
         quarter_year: "Q%{quarter} %{year}"
         year: "%{year}"

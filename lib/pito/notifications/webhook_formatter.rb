@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "cgi"
-
 module Pito
   module Notifications
     # Converts a Notification#message — which is sometimes HTML (sync
@@ -12,7 +10,11 @@ module Pito
     #   * `discord(message)` → Discord markdown: bold `**…**`, `-` bullets.
     #
     # Both are best-effort and MUST NOT raise on real input: any unexpected
-    # failure falls back to the tag-stripped plain text.
+    # failure falls back to the tag-stripped plain text. The strip/decode/
+    # whitespace-cleanup engine itself lives in `Pito::Notifications::
+    # PlainMessage` — #convert below just decorates that engine's output
+    # with platform bold/bullet markers; see PlainMessage's header for the
+    # undecorated sibling used by the FCM and /notifications.json seams.
     module WebhookFormatter
       module_function
 
@@ -62,42 +64,15 @@ module Pito
         { "content" => discord(notification.message) }
       end
 
-      # Block-level tags whose open OR close marks a line boundary.
-      BLOCK_BOUNDARY = %r{</?\s*(?:div|p|ul|ol|h[1-6])\s*/?>}i
-
+      # Delegates the actual strip/decode/whitespace-cleanup work to
+      # Pito::Notifications::PlainMessage — see that module for why it's the
+      # one place this pipeline is implemented, and for its own rescue
+      # fallback (matching this file's former plain_fallback exactly, so
+      # nothing changes about the "never raise" contract above).
       def convert(message, bold:, bullet:)
-        text = message.to_s
-
-        # <strong>/<b> → bold markers (both open and close).
-        text = text.gsub(%r{</?\s*(?:strong|b)\s*>}i, bold)
-
-        # <li> → bullet prefix; </li> closes the line.
-        text = text.gsub(%r{<\s*li\s*>}i, bullet)
-        text = text.gsub(%r{<\s*/\s*li\s*>}i, "\n")
-
-        # <br> and block-element boundaries → newlines.
-        text = text.gsub(%r{<\s*br\s*/?\s*>}i, "\n")
-        text = text.gsub(BLOCK_BOUNDARY, "\n")
-
-        # Drop any remaining tags, then decode HTML entities.
-        text = text.gsub(/<[^>]+>/, "")
-        text = CGI.unescapeHTML(text)
-
-        # Trim trailing spaces and collapse runs of blank lines.
-        text = text.gsub(/[ \t]+\n/, "\n")
-        text = text.gsub(/\n{3,}/, "\n\n")
-        text.strip
-      rescue StandardError
-        plain_fallback(message)
+        Pito::Notifications::PlainMessage.call(message, bold: bold, bullet: bullet)
       end
       private_class_method :convert
-
-      def plain_fallback(message)
-        message.to_s.gsub(/<[^>]+>/, "").strip
-      rescue StandardError
-        message.to_s
-      end
-      private_class_method :plain_fallback
     end
   end
 end

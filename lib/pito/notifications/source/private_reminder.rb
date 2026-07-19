@@ -14,7 +14,9 @@ module Pito
       # The line comes from the `pito.copy.private_reminder` 50-variant
       # dictionary, interpolating `%{count}` and resolving the inline
       # `{singular|plural}` word choice (e.g. `{vid|vids}`) the dictionary uses
-      # for natural-sounding counts.
+      # for natural-sounding counts. The push notification title ("Unpublished
+      # vids") comes from the sibling 1-variant `pito.copy.private_reminder_title`
+      # key and rides in the FCM payload as `data.title` (Pito::Fcm::Sender).
       #
       # == Once-per-calendar-day dedupe
       #
@@ -37,7 +39,11 @@ module Pito
           today = Date.current
           return nil if already_reported?(today)
 
-          Notification.create!(message: build_message(count, today), level: "warning")
+          Notification.create!(
+            message: build_message(count, today),
+            level:   "warning",
+            title:   Pito::Copy.render("pito.copy.private_reminder_title")
+          )
         end
 
         def build_message(count, date)

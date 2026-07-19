@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Video::LinkedGameCardComponent do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:game) do
     create(
       :game,
@@ -82,14 +84,18 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
   end
 
   it "renders the Last sync at row (igdb_synced_at)" do
-    game.update!(igdb_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
-    node = render_inline(described_class.new(game: game))
-    expect(node.text).to include("Last sync at").and include("26-06-2026 14:30")
+    travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+      game.update!(igdb_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+      node = render_inline(described_class.new(game: game))
+      expect(node.text).to include("Last sync at").and include("26 Jun 14:30")
+    end
   end
 
   it "renders the release label" do
-    node = render_inline(described_class.new(game: game))
-    expect(node.text).to include("2023")
+    travel_to(Time.zone.local(2026, 7, 19, 9, 0)) do
+      node = render_inline(described_class.new(game: game))
+      expect(node.text).to include("19 Sep '23")
+    end
   end
 
   it "renders total footage via the FootageHours formatter" do

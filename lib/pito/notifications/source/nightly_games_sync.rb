@@ -26,7 +26,10 @@ module Pito
             releasing_30d: releasing_30d
           )
 
-          Notification.create!(message: message)
+          Notification.create!(
+            message: message,
+            title:   Pito::Copy.render("pito.copy.notifications.nightly_games_sync.push_title")
+          )
         end
 
         # Builds the HTML message string.

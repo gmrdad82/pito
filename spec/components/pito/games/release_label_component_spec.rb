@@ -16,6 +16,8 @@ require "rails_helper"
 # A separate spec (not here) would cover locale switching if pito ever
 # adds non-English locales.
 RSpec.describe "Pito::Games release label" do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:render) do
     ->(game) {
       if defined?(Pito::Games::ReleaseLabelComponent)
@@ -26,12 +28,26 @@ RSpec.describe "Pito::Games release label" do
     }
   end
 
-  it "renders the full date for day precision" do
-    game = build(:game,
-                 release_year: 2026, release_month: 10, release_day: 15,
-                 release_date: Date.new(2026, 10, 15))
+  # Day precision renders through the house date (Pito::Formatter::HouseDate)
+  # — current year drops the year, any other year carries the '%y suffix.
+  it "renders the house date for day precision — current year drops the year" do
+    travel_to(Time.zone.local(2026, 7, 19)) do
+      game = build(:game,
+                   release_year: 2026, release_month: 10, release_day: 15,
+                   release_date: Date.new(2026, 10, 15))
 
-    expect(render.call(game)).to eq("October 15, 2026")
+      expect(render.call(game)).to eq("15 Oct")
+    end
+  end
+
+  it "renders the house date for day precision — another year carries the '%y suffix" do
+    travel_to(Time.zone.local(2026, 7, 19)) do
+      game = build(:game,
+                   release_year: 2025, release_month: 10, release_day: 15,
+                   release_date: Date.new(2025, 10, 15))
+
+      expect(render.call(game)).to eq("15 Oct '25")
+    end
   end
 
   it "renders 'Month YYYY' for month precision" do

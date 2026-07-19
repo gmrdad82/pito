@@ -10,6 +10,11 @@ module Pito
     # Renders nothing without a timestamp. A single trailing space separates
     # the time from the body copy; there is no middot separator.
     #
+    # The three-tier rule itself lives in Pito::Formatter::HouseDate.stamp —
+    # this was the original implementation the house format generalized from;
+    # it now delegates so every other stamp on every other surface (SyncStamp
+    # and whatever comes next) shares this ONE rule.
+    #
     # Rendered via #call (not a template) so there is NO trailing newline — a
     # template's trailing "\n" collapses to a stray space between the prefix and
     # the message body.
@@ -31,20 +36,10 @@ module Pito
       private
 
       def formatted_timestamp
-        # Render in the request's configured zone (Time.zone) so a UTC-stored
-        # timestamp shows the user's local wall-clock time. in_time_zone is a
-        # no-op when the value is already zoned to Time.zone. Today is read
-        # per render, so a re-rendered event ages into the dated form.
-        local = @timestamp.in_time_zone
-        today = Time.zone.today
-
-        if local.to_date == today
-          local.strftime("%H:%M")
-        elsif local.year == today.year
-          local.strftime("%-d %b %H:%M")
-        else
-          local.strftime("%-d %b '%y %H:%M")
-        end
+        # HouseDate renders in the app's local zone (in_time_zone — a no-op
+        # when the value is already zoned to Time.zone) and reads "today" per
+        # call, so a re-rendered event ages into the dated form.
+        Pito::Formatter::HouseDate.stamp(@timestamp)
       end
     end
   end

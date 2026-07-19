@@ -8,10 +8,19 @@ module Pito
     # Precision branches (checked in order):
     #   release_year nil, month+day present → "%{month} %{day}" (unknown-year)
     #   release_year nil                    → "TBA"
-    #   month + day present                 → I18n.l(release_date, format: :long)
+    #   month + day present                 → the house date (Pito::Formatter::
+    #                                          HouseDate.date — "%-d %b" this
+    #                                          year, "%-d %b 'YY" otherwise)
     #   month present (no day)              → "%{month} %{year}"
     #   quarter present                     → "Q%{quarter} %{year}"
     #   else                                → "%{year}"
+    #
+    # The month/quarter/year (no-day) branches keep their full year always —
+    # PlatformReleaseGroups groups platform releases BY this very label (it IS
+    # the grouping key, not a separate identifier — see platform_release_groups.rb),
+    # so year-dropping them would entangle the user-facing label with grouping
+    # identity. Only the day-precision branch (a value PlatformReleaseGroups
+    # already keeps unique via the day itself) gets the house treatment.
     #
     # I18n keys used: pito.game.release_label.{day,month_year,quarter_year,year,
     #                                           month_day_unknown_year,tba}
@@ -36,7 +45,7 @@ module Pito
         end
 
         if release_month.present? && release_day.present?
-          I18n.t("pito.game.release_label.day", date: I18n.l(release_date, format: :long))
+          I18n.t("pito.game.release_label.day", date: Pito::Formatter::HouseDate.date(release_date))
         elsif release_month.present?
           I18n.t("pito.game.release_label.month_year",
                  month: Date::MONTHNAMES[release_month],

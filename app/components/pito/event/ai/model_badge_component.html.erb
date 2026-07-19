@@ -1,7 +1,8 @@
 <%# The house AI sparkle (Pito::Ai::BadgeComponent — shared with the sidebar
     AI-thread rows) leads the chip. The cost segment (house coin + two-decimal
     amount + currency code) renders only when the orchestrator stamped pricing
-    for this answer. %>
+    for this answer — a computed (estimate-marked) cost carries a leading "~"
+    on the amount, same coin, same everything else. %>
 <div class="pito-ai-model-badge">
   <%= render(Pito::Ai::BadgeComponent.new) %>
   <span><%= model %></span>

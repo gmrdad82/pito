@@ -2,7 +2,9 @@
 
 # Delivers a Notification's message to any configured outbound webhooks
 # (Slack, Discord) and to every registered FCM device token, formatting the
-# webhook message per platform via `Pito::Notifications::WebhookFormatter`.
+# webhook message per platform via `Pito::Notifications::WebhookFormatter`
+# and the FCM push body as plain text via `Pito::Notifications::PlainMessage`
+# (see #deliver_fcm).
 #
 # Enqueued by `Notification#after_create_commit`. Each lane is isolated: a
 # blank URL skips that webhook platform, and a delivery failure (the client
@@ -68,11 +70,24 @@ class NotificationWebhookDeliverJob < ApplicationJob
   # unexpected error here (e.g. a destroy failure) is logged, not raised, so
   # it can never fail the job.
   def deliver_fcm(notification)
+    # The lockscreen has no HTML renderer: strip markup (and the
+    # private_reminder dedup marker riding along as an HTML comment — see
+    # Pito::Notifications::PlainMessage) before it ever reaches the Sender.
+    # The persisted notification.message is untouched — the marker has to
+    # survive there for PrivateReminder's own-day dedup check.
+    plain_message = Pito::Notifications::PlainMessage.call(notification.message)
+    # notification.title is already app-authored Pito::Copy output, never
+    # marker-bearing — it doesn't NEED the strip PlainMessage gives the
+    # message body, but running it through anyway costs nothing and keeps
+    # both push fields flowing through the one sanctioned strip seam.
+    plain_title = Pito::Notifications::PlainMessage.call(notification.title)
+
     DeviceToken.order(:id).each do |device_token|
       outcome = Pito::Fcm::Sender.new.call(
         token:   device_token.token,
-        message: notification.message,
-        level:   notification.level
+        message: plain_message,
+        level:   notification.level,
+        title:   plain_title
       )
 
       if outcome.unregistered?
