@@ -81,7 +81,7 @@ All notable changes to PITO are documented here. The format follows
   comma-separated command with per-segment assertions — the QoL grammar
   can never silently regress again.
 - **Footage learns arithmetic and earns autonomy** — `update game
-  footage <id> +2` / `-1.5` adds or subtracts from the running total,
+footage <id> +2` / `-1.5` adds or subtracts from the running total,
   floored at zero (and when the floor engages, the reply says so instead
   of pretending the subtraction landed). A vague or missing amount now
   surfaces the tool's own help page rather than an error. And footage
