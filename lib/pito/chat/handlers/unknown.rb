@@ -55,7 +55,9 @@
 #      both displayed and executed everywhere below.
 #   5. Router >= `auto_run` AND the mapped tool is read-only (its tool-level
 #      `read_only:` declaration in tools.yml — falling back to `mcp.read_only`
-#      when the tool doesn't declare one; see #read_only?, 3.0.1 P13) AND the
+#      when the tool doesn't declare one; see #read_only?, 3.0.1 P13 — OR the
+#      command matches the tool's config-declared FIELD-SCOPED write exception,
+#      `nl_auto_run_fields:`; see #auto_run_field?, Q17 3.8.0) AND the
 #      mapped tool == the router's tool → execute the
 #      canonical command directly through Pito::Dispatch::Router (the real
 #      dispatch path — same one FollowUp::ToolDelegator and the AI orchestrator
@@ -106,7 +108,7 @@ module Pito
 
           command = canonicalize(mapped[:command], mapped[:tool])
 
-          if auto_run?(route: route, tool: mapped[:tool])
+          if auto_run?(route: route, tool: mapped[:tool], command: command)
             run_now(command)
           else
             did_you_mean(command)
@@ -134,14 +136,16 @@ module Pito
         end
 
         # auto_run requires ALL THREE: high confidence, a read-only tool (never
-        # auto-run a write), and router/mapper agreement on which tool this is.
-        def auto_run?(route:, tool:)
+        # auto-run a write — except the config-declared FIELD-SCOPED exception,
+        # see #auto_run_field?), and router/mapper agreement on which tool this
+        # is.
+        def auto_run?(route:, tool:, command:)
           return false unless route[:tool] == tool
 
           threshold = Pito::Dispatch::Config.nl_thresholds[:auto_run]
           return false if threshold.nil? || route[:confidence] < threshold
 
-          read_only?(tool)
+          read_only?(tool) || auto_run_field?(tool, command)
         end
 
         # Read-only in the AUTO-RUN sense: executing the tool mutates no owner
@@ -158,6 +162,34 @@ module Pito
           return config[:read_only] == true if config.key?(:read_only)
 
           config.dig(:mcp, :read_only) == true
+        rescue KeyError
+          false
+        end
+
+        # The FIELD-SCOPED auto-run exception (OWNER DIRECTIVE Q17, 3.8.0): a
+        # write tool declaring `nl_auto_run_fields:` in tools.yml may auto-run
+        # ONLY when the mapped command's own field token is one of the declared
+        # fields. Today that set is `update: [footage]` — footage is a
+        # LOCAL-ONLY, freely reversible column (games.footage_hours never
+        # pushes anything to YouTube; a wrong total is one more `update game
+        # footage` away from fixed), so a silent run can't lose owner data or
+        # touch a remote surface. Every OTHER update field, and every other
+        # write tool, stays confirm-gated exactly as before: the check is
+        # FIELD-AWARE, never tool-blanket.
+        #
+        # The field sits at token index 2 because the one grammar shape this
+        # key currently backs is `update <noun> <field> …` — the same position
+        # Handlers::Update's PATTERN reads, so any command this predicate lets
+        # through is one the handler parses as exactly that field (a malformed
+        # shape falls to the handler's usage/help reply, never a write).
+        # Failure direction is safe by construction: a non-matching or
+        # missing token yields false → the ordinary confirm-first did-you-mean.
+        # The schema-integrity suite pins the exact declared set.
+        def auto_run_field?(tool, command)
+          fields = Pito::Dispatch::Config.nl_auto_run_fields(tool: tool)
+          return false if fields.empty?
+
+          fields.include?(command.to_s.split(/\s+/)[2].to_s.downcase)
         rescue KeyError
           false
         end

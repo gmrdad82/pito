@@ -37,7 +37,9 @@ RSpec.describe "Dispatch matrix — publish (recognition, DB mocked)", type: :di
   # Shared stub id — every stubbed Video.find_by call returns this id.
   PUBLISH_VIDEO_STUB_ID = 42
 
-  let(:video_double) { double("Video", id: PUBLISH_VIDEO_STUB_ID, title: "Test Video") }
+  # publish_now_violation: nil — the stage-time spacing-law dry-run finds no
+  # violation in recognition examples (the law itself is spacing_policy_spec's).
+  let(:video_double) { double("Video", id: PUBLISH_VIDEO_STUB_ID, title: "Test Video", publish_now_violation: nil) }
   let(:conversation) { double("Conversation") }
 
   before do

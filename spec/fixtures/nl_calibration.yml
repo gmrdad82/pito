@@ -6,10 +6,15 @@
 #
 #   auto_run   — clearly one read-only tool; the router must map these with
 #                confidence >= nl.thresholds.auto_run and the gate must run
-#                them directly (attribution shown).
+#                them directly (attribution shown). ONE write-shaped
+#                exception since the 2026-07-20/21 owner interview (Q17):
+#                `update … footage …` — footage is a local-only, freely
+#                reversible column, so the gate's field-aware check
+#                (tools.yml `nl_auto_run_fields: [footage]` on update) lets
+#                footage rows auto-run; they belong in THIS tier now.
 #   suggest    — mappable, but must NEVER auto-run: write-capable tools
-#                (regardless of confidence) or honest ambiguity. The gate
-#                asks "did you mean `<run>`?".
+#                (regardless of confidence, footage excepted per Q17 above)
+#                or honest ambiguity. The gate asks "did you mean `<run>`?".
 #   reject     — must fall through to the unknown-input copy: out-of-scope
 #                chatter, pito-can't-do-that asks, fragments, and questions
 #                that belong to @ai rather than a grammar command.
@@ -55,6 +60,11 @@ auto_run:
   # validated) — it reproducibly routes to :list at 0.752, not :search,
   # confirmed stable across two consecutive live runs. A genuine mapper miss,
   # not a threshold artifact (0.752 is nowhere near either floor).
+  # Q22-A (3.8.0 repair): the owner ruled that phrase RESCUED into search
+  # vids — the search corpus grew a boss-fight-vids family (tools.yml) and
+  # the row moved back here from known_gaps: (re-measured live 2026-07-20:
+  # routes :search @0.967).
+  - { say: "find my boss fight vids",                 run: "search vids for boss fight" }
   - { say: "search for games called zelda",           run: "search games for zelda" }
   - { say: "games that feel like dark souls",         run: "search games like dark souls" }
   - { say: "where did we discuss thumbnails?",        run: "search conversations for thumbnails" }
@@ -103,6 +113,61 @@ auto_run:
   - { say: "a low-key game i can just melt into after work",     run: "search games about relaxing unwind" }
   - { say: "vids where i completely lost it laughing",           run: "search vids about funny laughing" }
   - { say: "clips full of jump scares and dread",                run: "search vids about scary dread" }
+  # 3.8.0 owner-interview batch (2026-07-20/21) — fresh held-out twins for
+  # the corpus additions landed in tools.yml alongside (Q55: same intent,
+  # different wording, never verbatim copies), one pair per read-only family.
+  - { say: "the sixty-second version of game 2",      run: "at-a-glance game 2" }
+  - { say: "vid 3 in a single screen",                run: "at-a-glance vid 3" }
+  - { say: "any links hanging off vid 8?",            run: "linked game 8" }
+  - { say: "what's attached to game 6?",              run: "linked vids 6" }
+  - { say: "what's sitting on my shelf these days?",  run: "games" }
+  - { say: "throw the cover wall up on screen",       run: "games" }
+  - { say: "did I unlock anything this month?",       run: "shinies" }
+  - { say: "how far is vid 4 from its next trophy?",  run: "shinies vid 4" }
+  - { say: "more games with game 7's energy",         run: "similar 7" }
+  - { say: "loved game 14, serve me the next one",    run: "similar 14" }
+  - { say: "what got filmed on game 8?",              run: "videos 8" }
+  - { say: "the complete list of clips for game 5",   run: "videos 5" }
+  - { say: "where does vid 6's watch time come from?", run: "breakdowns vid 6" }
+  - { say: "split game 3's views up for me",          run: "breakdowns game 3" }
+  - { say: "how are we looking this week?",           run: "analyze channel" }   # Q48b: bare how-are-we = analyze
+  - { say: "did we grow at all this month?",          run: "analyze channel" }
+  - { say: "is vid 7 still bringing in views?",       run: "analyze vid 7" }
+  - { say: "when did we last go over titles?",        run: "search conversations for titles" }
+  - { say: "what did we settle on about pricing?",    run: "search conversations for pricing" }
+  # Q17 (footage auto-runs — see the tier header): the two footage rows
+  # moved UP from suggest:, plus one fresh twin for the new footage-delta
+  # corpus batch.
+  - { say: "I recorded two more hours of game 7",     run: "update game footage 7" }
+  - { say: "log another ninety minutes against tekken", run: "update game footage 3" }
+  - { say: "two more hours went into game 6 today",   run: "update game footage 6" }
+  # Q21: previously a known_gap ("pull up the details for game 7" -> videos
+  # @0.79, 2026-07-15) — the owner pinned it as auto_run "show game 7 full";
+  # promoted out of known_gaps: accordingly.
+  - { say: "pull up the details for game 7",          run: "show game 7 full" }
+  # Q23: the owner pinned "walk me through …" as the auto_run analyze-full
+  # shape — moved HERE from nl_mapper_calibration.yml's known_gaps (a phrase
+  # lives in exactly ONE fixture file; measured 2026-07-20: routes :analyze
+  # @0.812 with no nudge needed). The run: spells the pinned full
+  # composition in the ruling's own letters, "analyze channels full" (the
+  # bare = all-your-channels shape; tool-level identical to the singular —
+  # this ROUTER tier asserts the tool). The mapper side still
+  # mis-composes it (last measured "channels trend this month" -> :channels)
+  # — see that fixture's 3.8.0 drain note.
+  - { say: "walk me through how the channel's been trending this month", run: "analyze channels full" }
+  # Q27: the owner pinned "crack open vid 30 for me" as auto_run "analyze
+  # vid 30 full". Parked in known_gaps: at first delivery (routed :show
+  # @0.762 with zero crack-open corpus coverage); rescued in the 3.8.0
+  # repair pass by growing analyze's crack-open family in tools.yml —
+  # re-measured live 2026-07-20: routes :analyze @0.882, above the 0.85
+  # auto_run floor. The run: spells the pinned full composition; this
+  # ROUTER tier asserts the tool (the analyze-full composition family got
+  # its first nl.exemplars the same pass — measured live, the mapper agrees
+  # on :analyze but composes "analyze vid without breakdowns", dropping the
+  # id: byte-exact "analyze vid 30 full" is remaining exemplar work; a
+  # second crack-open exemplar was trialed and REVERTED after it reshuffled
+  # an unrelated composition without fixing this one).
+  - { say: "crack open vid 30 for me",                run: "analyze vid 30 full" }
 
 suggest:
   - { say: "get rid of vid 3",                        run: "delete vid 3" }
@@ -112,32 +177,69 @@ suggest:
   - { say: "make vid 6 public",                       run: "publish 6" }
   - { say: "hide vid 4 from the public",              run: "unlist 4" }
   - { say: "push vid 9 out on friday",                run: "schedule 9 friday" }
-  - { say: "sync everything from youtube",            run: "sync" }
+  # Reworded 3.8.0 (Q55 disjointness law): the old say here, "sync
+  # everything from youtube", was a VERBATIM copy of a sync nl_examples row
+  # in tools.yml — the only such collision in the whole set (measured
+  # 2026-07-20) — so it proved recall, not generalization.
+  - { say: "pull everything down from youtube again", run: "sync" }
   - { say: "add hades to my library",                 run: "import game hades" }
   - { say: "set game 5's price to 30",                run: "update game price 5 30" }
-  - { say: "I recorded two more hours of game 7",     run: "update game footage 7" }
   - { say: "re-embed game 2",                         run: "reindex game 2" }
   # 3.0.1 P11 corpus-growth batch — held-out phrasings for the "thin" write
   # tools (never verbatim copies of the tools.yml nl_examples added alongside).
+  # (Its two footage rows moved UP to auto_run: — Q17.)
   - { say: "vid 9 got tangled up with the wrong game, pull it off", run: "unlink 9" }
   - { say: "switch vid 5 over to unlisted",           run: "unlist 5" }
   - { say: "vid 8 actually goes with the tekken 8 entry", run: "link 8 3" }
-  - { say: "log another ninety minutes against tekken", run: "update game footage 3" }
-  # "tekken 8 just dropped to 39.99" moved to known_gaps: (X6, 2026-07-16
-  # prefixed measurement — scored 0.7169, below the lowered 0.72 floor, so
-  # Router.route now returns nil for it).
   - { say: "game 6 just launched on switch",          run: "update game platform 6 switch" }
   - { say: "let's put vid 7 out next friday",         run: "schedule 7 friday" }
+  # 3.8.0 owner-interview batch (2026-07-20/21) — fresh held-out twins for
+  # the write-tool corpus additions landed in tools.yml alongside (Q55).
+  - { say: "bin vid 6, it's junk",                    run: "delete vid 6" }
+  - { say: "scrap game 11 entirely",                  run: "delete game 11" }
+  - { say: "vid 5 is done, send it out",              run: "publish 5" }
+  - { say: "take vid 11 public right now",            run: "publish 11" }
+  - { say: "grabbed game 10 for a tenner",            run: "update game price 10 10" }
+  - { say: "shelled out 25 for game 14",              run: "update game price 14 25" }
+  - { say: "slot vid 6 in for sunday night",          run: "schedule 6 sunday" }
+  - { say: "premiere vid 10 on wednesday at noon",    run: "schedule 10 wednesday" }
+  - { say: "pull silksong in from igdb",              run: "import game silksong" }
+  - { say: "any fresh uploads sitting on youtube?",   run: "sync vids" }
+  - { say: "regenerate game 6's embedding",           run: "reindex game 6" }
+  # Q19/20-A (3.8.0): the two hardest positives of the X6 measurement
+  # (0.7078 / 0.7169 — below the old 0.72 floor, hence known_gaps until now)
+  # are REAL suggest-tier expectations under the interview's 0.65 floor —
+  # promoted out of known_gaps:.
+  - { say: "dig up the clip where I rage quit tekken", run: "search vids for tekken" }
+  - { say: "tekken 8 just dropped to 39.99",          run: "update game price 3 39.99" }
+  # Q49 (3.8.0): "what should I play next?" LEAVES reject: — the owner wants
+  # it answered with "games that I own, good scores, 0 or low footage, <=1
+  # vid linked". No single command expresses that today: the list grammar
+  # has no score column and no linked-vid-count filter (game columns:
+  # platform/genre/developer/publisher/channels/footage/price/views/likes).
+  # Closest actually-parsing command: a list-with-columns/sort shape putting
+  # the un-covered games first — the GAP (score + link-count facets) stays
+  # open for a future ranking tool. 3.8.0 repair: at first delivery the
+  # phrase drifted to :similar live ("if I loved game 9, what's next?"
+  # @0.734); list grew a backlog-choice family (tools.yml) and it now lands
+  # :list @0.903 ("which game should I pick up next?"), matching this run:.
+  - { say: "what should I play next?",                run: "ls games with footage sort footage" }
 
 reject:
   - { say: "what's the weather like?" }
   - { say: "who won the world cup?" }
   - { say: "how do I cook pasta" }
+  # The next two are owner vetoes IN SPIRIT (2026-07-20/21 interview), kept
+  # in reject as SHAPE-DOWN TARGETS: "make me famous" measured exactly 0.65
+  # (the new suggest floor — boundary, re-measure on every corpus change)
+  # and "can you edit my thumbnail?" 0.667. Neither must ever auto-run;
+  # corpus growth should push both back under the floor when possible,
+  # never the other way.
   - { say: "make me famous" }
   - { say: "can you edit my thumbnail?" }
-  - { say: "what should I play next?" }
+  # ("what should I play next?" moved to suggest: — Q49, 3.8.0.)
+  # ("do the thing" moved to tolerated_suggest: — Q13b, 3.8.0 repair.)
   - { say: "asdfghjkl" }
-  - { say: "do the thing" }
 
 # Tolerated did-you-mean tier (X6, 2026-07-16 prefixed measurement): these 7
 # entries used to live in `reject:`, but under the prefixed embeddings they
@@ -146,7 +248,8 @@ reject:
 # confirm-first did-you-mean may legitimately fire on. That is TOLERATED,
 # not a calibration failure: the only real invariant left to assert is that
 # none of them ever clears the auto_run floor. See the calibration spec's
-# "tolerated_suggest tier" example.
+# "tolerated_suggest tier" example. (An eighth row joined from reject: in
+# the 3.8.0 repair — Q13b, see its own comment.)
 tolerated_suggest:
   - { say: "write a description for vid 3" }        # 0.8081
   - { say: "vid" }                                   # 0.7915
@@ -155,19 +258,29 @@ tolerated_suggest:
   - { say: "why are my views down this month?" }     # 0.7312
   - { say: "delete everything" }                     # 0.7251
   - { say: "show me that thing from before" }        # 0.7240
+  # Q13b (3.8.0 repair): ruled to STAND in the tolerated tier — it measures
+  # as domain-adjacent noise (0.7100 -> help), not true garbage, so its
+  # placement moved here from reject: to match the ANSWERS block (both
+  # tiers assert the same invariant since X6: never clears auto_run).
+  - { say: "do the thing" }                          # 0.7100 -> help
 
 # Known gaps (measured after two corpus-growth rounds): phrasings that
 # SHOULD ideally auto-run but genuinely don't route correctly under
 # embeddinggemma-300m — listed for visibility, asserted by nothing. All
 # degrade safely (nil -> unknown copy; wrong-tool -> did-you-mean ask).
-known_gaps:
-  - { say: "gimme the rundown on vid 11",             run: "glance vid 11" }   # 2026-07-15 -> nil
-  - { say: "pull up the details for game 7",          run: "show game 7" }     # 2026-07-15 -> videos @0.79
-  # X6 (2026-07-16, prefixed embeddings): these two were previously in
-  # auto_run:/suggest: above; both now score below the lowered 0.72 suggest
-  # floor (Router.route returns nil for both) — the hardest two of the five
-  # positives the prefix-measurement run surfaced. Corpus growth may rescue
-  # them; revisit alongside X7's exemplar work.
-  - { say: "dig up the clip where I rage quit tekken", run: "search vids for tekken" }        # 0.7078 -> nil
-  - { say: "tekken 8 just dropped to 39.99",          run: "update game price 3 39.99" }       # 0.7169 -> nil
-  - { say: "find my boss fight vids",                 run: "search vids for boss fight" }     # 0.752 -> list (wrong tool, stable)
+#
+# 3.8.0 interview drain (2026-07-20/21): "gimme the rundown on vid 11" left
+# the fixture entirely — the owner approved that exact phrase into
+# at-a-glance's nl_examples corpus, so per the Q55 disjointness law it can
+# no longer serve as held-out proof (fresh at-a-glance twins in auto_run:
+# above cover its intent). "pull up the details for game 7" promoted to
+# auto_run: (Q21); "dig up the clip …" / "tekken 8 just dropped …" promoted
+# to suggest: (Q19/20-A).
+#
+# 3.8.0 repair drain (2026-07-20): the section is EMPTY for the first time
+# since X6. "find my boss fight vids" (0.752 -> list, stable) rescued to
+# auto_run: by Q22-A ruling after the search corpus grew a boss-fight-vids
+# family; "crack open vid 30 for me" (0.762 -> show) promoted to auto_run:
+# once the crack-open-means-analyze family got real corpus coverage (Q27 —
+# see both rows' own comments above for the measured numbers).
+known_gaps: []

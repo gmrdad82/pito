@@ -132,73 +132,141 @@ RSpec.describe Video, type: :model do
     end
   end
 
-  # ── publish_spacing_within_channel (:schedule context, WP2) ───────
-  # 60-min ROLLING per-channel spacing between scheduled publishes. Only the
-  # chat `schedule` tool's stage-time dry-run and confirm-time save opt into
-  # the :schedule validation context — see Video#publish_spacing_within_channel.
-  describe "publish_spacing_within_channel (:schedule context)" do
+  # ── the spacing LAW (:schedule / :publish contexts, 4.0.0) ───────
+  # ≥4h between publish moments on a channel (scheduled AND published count)
+  # and max 2 publishes per rolling 24h. Only the pito-initiated contexts opt
+  # in — plain saves (sync, unlist, metadata) never run it. Math lives in
+  # Pito::Schedule::SpacingPolicy; these prove the model-lifecycle face.
+  describe "the spacing law (:schedule context)" do
     let!(:spacing_channel) { create(:channel) }
     let!(:other_channel)   { create(:channel) }
 
-    it "default context (plain save): a colliding publish_at is VALID — the validation never runs" do
+    it "default context (plain save): a violating publish_at is VALID — the validation never runs" do
       create(:video, channel: spacing_channel, publish_at: 10.days.from_now)
       colliding = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 10.minutes)
       expect(colliding).to be_valid
       expect { colliding.save! }.not_to raise_error
     end
 
-    it ":schedule context: invalid when within 60 minutes of another scheduled video on the SAME channel" do
+    it ":schedule context: invalid within 4 hours of another scheduled video on the SAME channel" do
       create(:video, channel: spacing_channel, title: "First Video", publish_at: 10.days.from_now)
-      colliding = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 30.minutes)
+      colliding = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 3.hours)
       expect(colliding.valid?(:schedule)).to be false
-      expect(colliding.errors[:publish_at]).to be_present
+      expect(colliding.errors[:publish_at].join).to include("4 hours")
     end
 
-    it ":schedule context: valid at exactly 60 minutes away (the boundary is allowed, not caught by the range)" do
+    it ":schedule context: valid at exactly 4 hours away (boundary passes)" do
       anchor = 10.days.from_now
       create(:video, channel: spacing_channel, publish_at: anchor)
-      exactly_60 = build(:video, channel: spacing_channel, publish_at: anchor + 60.minutes)
-      expect(exactly_60.valid?(:schedule)).to be true
+      exactly_4h = build(:video, channel: spacing_channel, publish_at: anchor + 4.hours)
+      expect(exactly_4h.valid?(:schedule)).to be true
     end
 
-    it ":schedule context: a colliding time on a DIFFERENT channel is valid (spacing is per-channel)" do
+    it ":schedule context: a PUBLISHED vid counts via published_at" do
+      create(:video, :public, channel: spacing_channel, title: "Went Live",
+             publish_at: nil, published_at: 2.hours.ago)
+      candidate = build(:video, channel: spacing_channel, publish_at: 1.hour.from_now)
+      expect(candidate.valid?(:schedule)).to be false
+    end
+
+    it ":schedule context: an UNLISTED vid never counts (owner named scheduled/published only)" do
+      create(:video, :unlisted, channel: spacing_channel, publish_at: nil, published_at: 1.hour.ago)
+      candidate = build(:video, channel: spacing_channel, publish_at: 1.hour.from_now)
+      expect(candidate.valid?(:schedule)).to be true
+    end
+
+    it ":schedule context: a third publish inside a rolling 24h window is invalid (day cap)" do
+      base = 10.days.from_now
+      create(:video, channel: spacing_channel, title: "A", publish_at: base)
+      create(:video, channel: spacing_channel, title: "B", publish_at: base + 8.hours)
+      third = build(:video, channel: spacing_channel, publish_at: base + 16.hours)
+      expect(third.valid?(:schedule)).to be false
+      expect(third.errors[:publish_at].join).to include("24h")
+    end
+
+    it ":schedule context: two-in-24h is fine when the spacing holds (the cap is 2, not 1)" do
+      base = 10.days.from_now
+      create(:video, channel: spacing_channel, publish_at: base)
+      second = build(:video, channel: spacing_channel, publish_at: base + 8.hours)
+      expect(second.valid?(:schedule)).to be true
+    end
+
+    it ":schedule context: a violating time on a DIFFERENT channel is valid (per-channel law)" do
       create(:video, channel: other_channel, publish_at: 10.days.from_now)
       cross_channel = build(:video, channel: spacing_channel, publish_at: 10.days.from_now + 10.minutes)
       expect(cross_channel.valid?(:schedule)).to be true
     end
 
-    it ":schedule context: a video with a PAST publish_at never counts as a collision, even within the window" do
-      # Video.scheduled excludes publish_at <= Time.current, so a past publish
-      # is never a candidate — even though the gap here is well under 60 min.
+    it ":schedule context: a PRIVATE vid with a past publish_at never counts (neither scheduled nor published)" do
       create(:video, channel: spacing_channel, publish_at: 5.minutes.ago)
       candidate = build(:video, channel: spacing_channel, publish_at: 10.minutes.from_now)
       expect(candidate.valid?(:schedule)).to be true
     end
 
-    it ":schedule context: self-excluded — a persisted video does not collide with its own publish_at" do
+    it ":schedule context: self-excluded — a persisted video does not collide with itself" do
       video = create(:video, channel: spacing_channel, publish_at: 10.days.from_now)
       expect(video.valid?(:schedule)).to be true
     end
   end
 
-  # ── #publish_spacing_collision ─────────────────────────────────────
-  describe "#publish_spacing_collision" do
+  describe "the spacing law (:publish context — publishing NOW)" do
+    let!(:pn_channel) { create(:channel) }
+
+    it "invalid when a schedule sits within 4 hours of Time.current" do
+      create(:video, channel: pn_channel, title: "Soon", publish_at: 2.hours.from_now)
+      candidate = create(:video, channel: pn_channel, publish_at: nil)
+      candidate.assign_attributes(privacy_status: :public)
+      expect(candidate.valid?(:publish)).to be false
+      expect(candidate.errors[:base].join).to include("4 hours")
+    end
+
+    it "invalid when now would be the third publish inside 24h" do
+      create(:video, :public, channel: pn_channel, publish_at: nil, published_at: 10.hours.ago)
+      create(:video, channel: pn_channel, publish_at: 10.hours.from_now)
+      candidate = create(:video, channel: pn_channel, publish_at: nil)
+      candidate.assign_attributes(privacy_status: :public)
+      expect(candidate.valid?(:publish)).to be false
+    end
+
+    it "valid when the channel is clear" do
+      candidate = create(:video, channel: pn_channel, publish_at: nil)
+      candidate.assign_attributes(privacy_status: :public)
+      expect(candidate.valid?(:publish)).to be true
+    end
+
+    it "default context: publishing collision-adjacent state saves freely (sync path)" do
+      create(:video, channel: pn_channel, publish_at: 2.hours.from_now)
+      mirrored = build(:video, :public, channel: pn_channel, published_at: Time.current)
+      expect(mirrored).to be_valid
+    end
+  end
+
+  # ── #schedule_violation / #publish_now_violation (verdict readers) ─────
+  describe "violation readers" do
     let!(:pc_channel) { create(:channel) }
 
-    it "returns the colliding video when one exists within the window" do
+    it "#schedule_violation returns the spacing offender with title and time" do
       other = create(:video, channel: pc_channel, title: "Anchor Video", publish_at: 10.days.from_now)
       candidate = build(:video, channel: pc_channel, publish_at: other.publish_at + 15.minutes)
-      expect(candidate.publish_spacing_collision).to eq(other)
+      v = candidate.schedule_violation
+      expect(v[:kind]).to eq(:spacing)
+      expect(v[:title]).to eq("Anchor Video")
     end
 
-    it "returns nil when there is no collision" do
+    it "#schedule_violation returns nil when the law is satisfied" do
       candidate = build(:video, channel: pc_channel, publish_at: 10.days.from_now)
-      expect(candidate.publish_spacing_collision).to be_nil
+      expect(candidate.schedule_violation).to be_nil
     end
 
-    it "returns nil when publish_at is blank" do
+    it "#schedule_violation returns nil when publish_at is blank" do
       candidate = build(:video, channel: pc_channel, publish_at: nil)
-      expect(candidate.publish_spacing_collision).to be_nil
+      expect(candidate.schedule_violation).to be_nil
+    end
+
+    it "#publish_now_violation judges Time.current" do
+      create(:video, channel: pc_channel, title: "Soon", publish_at: 90.minutes.from_now)
+      candidate = create(:video, channel: pc_channel, publish_at: nil)
+      expect(candidate.publish_now_violation[:kind]).to eq(:spacing)
     end
   end
 

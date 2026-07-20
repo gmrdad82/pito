@@ -8,10 +8,10 @@ require "rails_helper"
 # All DB mocked (zero factories). Source event via double with
 # payload: { "reply_target" => "game_detail", "game_id" => 7 }.
 #
-# Delegated actions (rm/del/delete/reindex/link/unlink/platform/shinies/sync):
+# Delegated actions (rm/del/delete/reindex/link/unlink/shinies/sync):
 #   → ToolDelegator; asserted gated-in + routes (not invalid_action).
-# Direct actions (price):
-#   → handled inline; asserted Append with correct effect; stubs ::Game.find_by.
+# Retired actions (price/platform, Q16/Q16b — `update` owns field writes now):
+#   → invalid_action Error, same as any other unknown token.
 # Unknown action:
 #   → invalid_action Error.
 RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocked)", type: :dispatch do
@@ -25,7 +25,6 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     double("Game",
       id:    7,
       title: "Hollow Knight",
-      price: BigDecimal("29.99"),
       "update!" => true)
   end
 
@@ -48,10 +47,9 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     # ToolDelegator stub — delegated actions hit this.
     allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(delegated_append)
 
-    # Builder / formatter stubs so direct handlers don't blow up.
+    # Builder stub so direct handlers don't blow up.
     allow(Pito::MessageBuilder::Text).to receive(:call)
       .and_return({ "text" => "confirmed" })
-    allow(Pito::Formatter::Price).to receive(:call).and_return("€29.99")
   end
 
   # Convenience wrapper.
@@ -64,16 +62,20 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
   describe "Registry — actions_for('game_detail')" do
     subject(:actions) { Pito::FollowUp::Registry.actions_for("game_detail") }
 
-    it "returns all 17 declared actions (G121/G123 add the segment verbs; vids alias of videos; @ai joined the anchored-reply roster)" do
+    it "returns all 15 declared actions (G121/G123 add the segment verbs; vids alias of videos; @ai joined the anchored-reply roster; price/platform retired Q16/Q16b)" do
       expect(actions).to match_array(
-        %w[rm del delete reindex link unlink platform price shinies sync analyze at-a-glance videos vids similar channels @ai]
+        %w[rm del delete reindex link unlink shinies sync analyze at-a-glance videos vids similar channels @ai]
       )
     end
 
-    %w[rm del delete reindex link unlink platform price shinies sync].each do |action|
+    %w[rm del delete reindex link unlink shinies sync].each do |action|
       it "includes #{action.inspect}" do
         expect(actions).to include(action)
       end
+    end
+
+    it "does NOT include price or platform (retired standalone tools, Q16/Q16b)" do
+      expect(actions).not_to include("price", "platform")
     end
   end
 
@@ -83,7 +85,7 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
   # (result is Append, not an invalid_action Error).
 
   describe "delegated actions" do
-    DELEGATED_ACTIONS = %w[rm del delete reindex link unlink platform shinies sync].freeze
+    DELEGATED_ACTIONS = %w[rm del delete reindex link unlink shinies sync].freeze
 
     DELEGATED_ACTIONS.each do |action|
       describe action.inspect do
@@ -111,112 +113,13 @@ RSpec.describe "Dispatch matrix — game_detail follow-up (recognition, DB mocke
     end
   end
 
-  # ── price — direct handler ──────────────────────────────────────────────────
-
-  describe "'price' — direct handler" do
-    it "is declared in actions_for (gated in)" do
-      expect(Pito::FollowUp::Registry.actions_for("game_detail")).to include("price")
-    end
-
-    describe "price set 40 — explicit set form" do
-      subject(:result) { call("price set 40") }
-
-      it "returns Result::Append" do
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-      end
-
-      it "calls game_stub.update! with a price value" do
-        expect(game_stub).to receive(:update!).with(price: BigDecimal("40.00"))
-        result
-      end
-
-      it "does NOT delegate to ToolDelegator" do
-        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
-        result
-      end
-
-      it "appends a :system kind event" do
-        expect(result.events.first[:kind]).to eq(:system)
-      end
-    end
-
-    describe "price 40 — implicit form (no 'set' keyword)" do
-      subject(:result) { call("price 40") }
-
-      it "returns Result::Append" do
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-      end
-
-      it "calls game_stub.update! with a price value" do
-        expect(game_stub).to receive(:update!).with(price: BigDecimal("40.00"))
-        result
-      end
-
-      it "does NOT delegate to ToolDelegator" do
-        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
-        result
-      end
-    end
-
-    describe "price unset — clear price to NULL" do
-      subject(:result) { call("price unset") }
-
-      it "returns Result::Append" do
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-      end
-
-      it "calls game_stub.update! with price: nil" do
-        expect(game_stub).to receive(:update!).with(price: nil)
-        result
-      end
-
-      it "does NOT delegate to ToolDelegator" do
-        expect(Pito::FollowUp::ToolDelegator).not_to receive(:call)
-        result
-      end
-    end
-
-    describe "price set (no amount) — missing argument" do
-      subject(:result) { call("price set") }
-
-      it "returns Result::Error" do
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-      end
-
-      it "uses the missing_price key" do
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_price")
-      end
-    end
-
-    describe "price (bare, no amount) — missing argument" do
-      subject(:result) { call("price") }
-
-      it "returns Result::Error" do
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-      end
-
-      it "uses the missing_price key" do
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_price")
-      end
-    end
-
-    describe "game not found during price set" do
-      before do
-        allow(::Game).to receive(:find_by).with(id: 7).and_return(nil)
-      end
-
-      it "returns Result::Error with game_not_found key" do
-        result = call("price set 9.99")
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
-      end
-    end
-  end
-
   # ── unknown action → invalid_action ────────────────────────────────────────
 
   describe "unknown action → invalid_action Error" do
-    %w[frobnicate edit show help update bogus].each do |unknown|
+    # `price`/`platform` retired as standalone tools (Q16/Q16b, 3.8.0) —
+    # `price` used to be handled directly here (bypassing ToolDelegator); now
+    # it's just another undeclared token, same as any other unknown word.
+    %w[frobnicate edit show help update bogus price platform].each do |unknown|
       it "#{unknown.inspect} → Result::Error with invalid_action key" do
         result = call(unknown)
         expect(result).to be_a(Pito::FollowUp::Result::Error)

@@ -11,7 +11,7 @@ en:
       "@ai":
         usage: "@ai <question about your games, vids, or channels>"
       update:
-        usage: "update game footage|price|platform <id> <value>  |  update vid description|tags <id> <value>  |  update <noun> <field> <id> <value>, <id> <value>, …"
+        usage: "update game footage|price|platform <id> <value>  |  update game footage <id> +<hours>|-<hours> (relative, floors at 0)  |  update vid description|tags <id> <value>  |  update <noun> <field> <id> <value>, <id> <value>, …"
       show:
         usage: "show game #id  |  show vid #id  |  show channel @handle"
         game:
@@ -233,25 +233,6 @@ en:
               "#id": "Local numeric video id — re-embeds the record"
             Options:
               "--help": "Print this help message"
-      price:
-        usage: "price set #id <amount>  |  price unset #id"
-        set:
-          usage: "price set #id <amount>"
-          sections:
-            Arguments:
-              "set": "Target noun — set a game's euro price"
-              "#id": "Local numeric game id"
-              "<amount>": "Price in euros, greater than 0 (e.g. 59.99) — shown as €59.99"
-            Options:
-              "--help": "Print this help message"
-        unset:
-          usage: "price unset #id"
-          sections:
-            Arguments:
-              "unset": "Target noun — clear a game's price (back to unpriced)"
-              "#id": "Local numeric game id"
-            Options:
-              "--help": "Print this help message"
       link:
         usage: "link game #id to|with video #id  |  link video #id to|with game #id"
         game:
@@ -383,17 +364,6 @@ en:
               "[with <items>]": "videos"
             Options:
               "--help": "Print this help message"
-      platform:
-        usage: "platform #id <name>"
-        game:
-          usage: "platform #id <name>"
-          sections:
-            Arguments:
-              "#id": "Local numeric game id — the game to add a platform to (omit when replying to a game card: `#<handle> platform <name>`)"
-              "<name>": "Platform name, normalised to a logo family (e.g. ps5, switch, steam)"
-            Options:
-              "--help": "Print this help message"
-
       shinies:
         usage: "shinies channel @handle  |  shinies vid #id  |  shinies game #id"
         channel:
@@ -544,14 +514,6 @@ en:
             sections:
               Description:
                 "rm": "Delete this game (alias: delete)"
-              Options:
-                "--help": "Print this help message"
-          price:
-            usage: "#<show-game-hashtag> price set <amount>  |  price unset"
-            sections:
-              Arguments:
-                "set <amount>": "Set this game's euro price, greater than 0 (e.g. price set 59.99)"
-                "unset": "Clear this game's price (back to unpriced)"
               Options:
                 "--help": "Print this help message"
           link:

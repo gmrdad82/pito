@@ -303,8 +303,11 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
 
     # Tools that MUTATE state — they must NEVER be exposed as an MCP tool (owner
     # rule 1: read-only). An explicit blocklist makes the security intent legible.
+    # `price`/`platform` retired as standalone tools (Q16/Q16b, 3.8.0) — `update`
+    # is the one write surface for game fields now (not added here: this
+    # pre-existing list already omitted `update`, unrelated to this retirement).
     MCP_WRITE_TOOLS = %w[
-      import publish unlist delete link unlink price platform schedule
+      import publish unlist delete link unlink schedule
       reindex sync find search rename connect disconnect login logout new resume
     ].freeze
 
@@ -423,10 +426,11 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
 
     # Write-capable tools that must NEVER auto-run from NL (P13's explicit
     # list) — a belt to the exact-match suspenders, so the security intent is
-    # legible even when the allowlist churns.
+    # legible even when the allowlist churns. `price`/`platform` retired as
+    # standalone tools (Q16/Q16b, 3.8.0) — `update` (already listed) is the
+    # one write surface for game fields now.
     NL_WRITE_TOOLS = %w[
       delete publish unlist schedule update link unlink import sync reindex
-      price platform
     ].freeze
 
     it "the effective auto-runnable set is EXACTLY the pinned allowlist" do
@@ -441,6 +445,29 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
     it "every tool-level read_only declaration in the shipped file is `true` on a pinned tool" do
       declared = TOOLS.filter_map { |tool, body| tool.to_s if body[:read_only] == true }
       expect(declared - NL_AUTO_RUN_ALLOWLIST).to eq([])
+    end
+
+    # ── The FIELD-SCOPED write exception (Q17, 3.8.0) ────────────────────────
+    # `nl_auto_run_fields:` lets a WRITE tool's mapped command auto-run for the
+    # declared field tokens only (Pito::Chat::Handlers::Unknown#auto_run_field?).
+    # Exactly one declaration is sanctioned: update's `footage` — a local-only,
+    # freely reversible column (never pushed to YouTube). Any new tool/field
+    # here widens what executes WITHOUT the owner confirming, so this pin must
+    # be deliberately, reviewably updated alongside the tools.yml comment.
+    NL_AUTO_RUN_FIELD_EXCEPTIONS = { "update" => %w[footage] }.freeze
+
+    it "the declared nl_auto_run_fields set is EXACTLY the pinned tool→fields map" do
+      declared = TOOLS.filter_map do |tool, body|
+        [ tool.to_s, body[:nl_auto_run_fields].map(&:to_s) ] if body.key?(:nl_auto_run_fields)
+      end.to_h
+      expect(declared).to eq(NL_AUTO_RUN_FIELD_EXCEPTIONS)
+    end
+
+    it "no nl_auto_run_fields declaration sits on a tool that is already read-only auto-runnable (the exception is for writes)" do
+      redundant = TOOLS.filter_map do |tool, body|
+        tool.to_s if body.key?(:nl_auto_run_fields) && NL_AUTO_RUNNABLE.include?(tool.to_s)
+      end
+      expect(redundant).to(eq([]), -> { "nl_auto_run_fields on already-auto-runnable tools: #{redundant.inspect}" })
     end
   end
 end

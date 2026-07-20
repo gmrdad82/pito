@@ -71,7 +71,11 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
 
   it "enqueues the embed index after sync" do
     described_class.new(client: client).call(game)
-    expect(GameEmbedIndexJob).to have_received(:perform_later).with(game.id)
+    # Since the Q32 vocabulary (2026-07-20) this fixture's genres derive
+    # tags, so the trait write (Game::Traits::Apply#persist!) enqueues too —
+    # on top of SyncGame's own unconditional hook. The job digest-gates, so
+    # duplicates are harmless; the contract is that a sync enqueues at all.
+    expect(GameEmbedIndexJob).to have_received(:perform_later).with(game.id).at_least(:once)
   end
 
   describe "trait derivation hook (traits-design.md section 5)" do

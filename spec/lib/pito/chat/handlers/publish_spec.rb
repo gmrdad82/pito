@@ -81,6 +81,25 @@ RSpec.describe Pito::Chat::Handlers::Publish do
     expect(result.message_key).to eq("pito.chat.publish.needs_ref")
   end
 
+  describe "the spacing law at stage time (publish-now dry-run)" do
+    it "refuses publish-now within 4 hours of another scheduled vid, naming it" do
+      create(:video, channel: channel, title: "Queued Up", publish_at: 2.hours.from_now)
+      result = handler_for("video", video.id.to_s).call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["text"]).to include("Queued Up")
+    end
+
+    it "refuses a third publish inside 24h (day cap)" do
+      create(:video, :public, channel: channel, publish_at: nil, published_at: 10.hours.ago)
+      create(:video, channel: channel, publish_at: 10.hours.from_now)
+      result = handler_for("video", video.id.to_s).call
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload]["text"]).to include("third publish")
+    end
+  end
+
   context "handler does not gate on video state or connection health" do
     it "emits :confirmation for an already-public video" do
       public_video = create(:video, channel: channel, privacy_status: :public)

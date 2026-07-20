@@ -206,7 +206,10 @@ RSpec.describe Pito::Event::SystemComponent do
 
     # ── `--help` man-page bodies show the inline first-line timestamp ────────────
     it "places the timestamp prefix INSIDE the .pito-help-block (not orphaned above it)" do
-      help_payload = Pito::MessageBuilder::CommandHelp.call(:platform)
+      # :update — the consolidated field-writer (the old :platform tool this
+      # spec used to sample retired into it; any tool with a help page works,
+      # the assertion is about timestamp placement).
+      help_payload = Pito::MessageBuilder::CommandHelp.call(:update)
       event = create(:event, conversation:, turn:, kind: "system", position: 2,
                      payload: help_payload)
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))

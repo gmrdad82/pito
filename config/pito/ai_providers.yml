@@ -11,6 +11,14 @@
 #   models_endpoint: GET path returning the OpenAI list shape for the picker.
 #   pinned_models:   fallback ids shown when the live fetch fails or no key is
 #                    configured yet.
+#   pinned_pricing:  optional model id → { input:, output: } map of verified
+#                    list prices, USD per 1M tokens — the computed-cost
+#                    fallback's last resort for providers whose /models
+#                    listing publishes no pricing (OpenCode Zen, Anthropic).
+#                    List ONLY prices verified against the provider's
+#                    published rates; a model with genuinely unknown pricing
+#                    stays absent so its badge shows no cost, never a fake
+#                    0.00.
 schema_version: 1
 providers:
   opencode:
@@ -21,6 +29,8 @@ providers:
     models_endpoint: /models
     capabilities: { streaming: true, reasoning: none }
     pinned_models: [claude-sonnet-5, deepseek-v4-flash-free, big-pickle]
+    pinned_pricing:
+      claude-sonnet-5: { input: 3.0, output: 15.0 }
   openrouter:
     label: "OpenRouter"
     wire: openai_chat
@@ -61,6 +71,12 @@ providers:
     models_endpoint: /models
     capabilities: { streaming: true, reasoning: budget }
     pinned_models: [claude-sonnet-5, claude-haiku-4-5]
+    pinned_pricing:
+      claude-sonnet-5: { input: 3.0, output: 15.0 }
+      claude-haiku-4-5: { input: 1.0, output: 5.0 }
+      # Anthropic's live listing serves haiku under its dated id — same
+      # model, same list price; without this row the pin would miss it.
+      claude-haiku-4-5-20251001: { input: 1.0, output: 5.0 }
   qwen:
     label: "Qwen"
     wire: openai_chat

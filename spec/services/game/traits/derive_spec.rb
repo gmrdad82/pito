@@ -39,6 +39,19 @@ RSpec.describe Game::Traits::Derive, type: :service do
       described_class.call(game)
       expect(game.reload.trait_tags).not_to include("platformer")
     end
+
+    # Q32 wishlist (2026-07-20): adventure / role_playing / racing map to
+    # synced IGDB genres; "racing" covers the owner's "driving" too.
+    it "derives adventure, role_playing and racing from their IGDB genres" do
+      game = create(:game)
+      game.genres << genre!("Adventure")
+      game.genres << genre!("Role-playing (RPG)")
+      game.genres << genre!("Racing")
+
+      described_class.call(game)
+      expect(game.reload.trait_tags).to include("adventure", "role_playing", "racing")
+      expect(game.trait_source("racing")).to eq("derived")
+    end
   end
 
   describe "theme-mapped tags" do
@@ -51,7 +64,15 @@ RSpec.describe Game::Traits::Derive, type: :service do
     it "does not derive a theme tag when the theme is absent" do
       game = create(:game, themes: [ "Fantasy" ])
       described_class.call(game)
-      expect(game.reload.trait_tags).not_to include("action", "horror", "survival", "war")
+      expect(game.reload.trait_tags).not_to include("action", "horror", "survival", "war", "open_world")
+    end
+
+    # Q32 wishlist (2026-07-20): open-world maps to the synced IGDB theme.
+    it "derives open_world from theme Open world" do
+      game = create(:game, themes: [ "Open world" ])
+      described_class.call(game)
+      expect(game.reload.trait_tags).to include("open_world")
+      expect(game.trait_source("open_world")).to eq("derived")
     end
   end
 

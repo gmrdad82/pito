@@ -47,7 +47,7 @@ require "rails_helper"
 # mapper's few-shot prompt on the very next call — see mapper.rb's #grammar
 # memoization comment).
 RSpec.describe "Pito::Nl::Mapper calibration (empirical composition gate)" do
-  FIXTURE_PATH = Rails.root.join("spec/fixtures/nl_mapper_calibration.yml")
+  MAPPER_FIXTURE_PATH = Rails.root.join("spec/fixtures/nl_mapper_calibration.yml")
 
   # ── Availability guard ───────────────────────────────────────────────────
   #
@@ -100,7 +100,7 @@ RSpec.describe "Pito::Nl::Mapper calibration (empirical composition gate)" do
     skip "PITO_NLMAPPER_URL/PITO_EMBEDDER_URL not reachable — start both sidecars " \
          "(docker compose -f docker-compose.dev.yml up -d embedder nlmapper) to run the NL mapper calibration gate" unless mapper_available?
 
-    fixture = YAML.safe_load_file(FIXTURE_PATH, symbolize_names: true)
+    fixture = YAML.safe_load_file(MAPPER_FIXTURE_PATH, symbolize_names: true)
     rows = fixture.fetch(:entries).map do |entry|
       { say: entry[:say], expected_tool: entry[:tool].to_sym, result: Pito::Nl::Mapper.map(entry[:say]) }
     end

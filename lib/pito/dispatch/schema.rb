@@ -31,7 +31,7 @@ module Pito
       TOP_KEYS             = %i[schema_version universal_reply vocabularies tools mcp_readers nl].freeze
       VOCAB_KEYS           = %i[members synonyms fillers resolver].freeze
       UNIVERSAL_KEYS       = %i[mode aliases kinds except].freeze
-      TOOL_KEYS            = %i[aliases description availability enabled_if auth internal universal_reply read_only chat slash reply segments concerns mcp capabilities nl_examples].freeze
+      TOOL_KEYS            = %i[aliases description availability enabled_if auth internal universal_reply read_only nl_auto_run_fields chat slash reply segments concerns mcp capabilities nl_examples].freeze
 
       # A tool-level `read_only:` boolean (3.0.1 P13) — declares whether EXECUTING
       # the tool mutates owner data. This is the NL auto-run gate's question
@@ -44,6 +44,15 @@ module Pito
       # `read_only: true` here). When the tool-level key is absent the gate falls
       # back to `mcp.read_only`. The schema-integrity suite pins the EXACT
       # effective auto-runnable set — widening it is a reviewed act.
+
+      # A per-tool `nl_auto_run_fields:` (Q17, 3.8.0) — the FIELD-SCOPED NL
+      # auto-run exception: an optional Array of field tokens for which the NL
+      # gate may auto-run this WRITE tool's mapped command even though the tool
+      # is not read-only (Pito::Chat::Handlers::Unknown#auto_run_field?). Only
+      # the SHAPE is validated here (non-blank String tokens); the
+      # schema-integrity suite pins the exact declared set — widening it is a
+      # reviewed act. See the key's comment on the `update` tool in tools.yml
+      # for the safety argument (footage is local-only and reversible).
 
       # A top-level `nl:` block — the NL mapper's ontology-owned knobs (content
       # is authored separately in tools.yml by the orchestrator; this key only
@@ -330,6 +339,7 @@ module Pito
           validate_boolean(body[:internal], join(path, "internal")) if body.key?(:internal)
           validate_boolean(body[:universal_reply], join(path, "universal_reply")) if body.key?(:universal_reply)
           validate_boolean(body[:read_only], join(path, "read_only")) if body.key?(:read_only)
+          validate_nl_auto_run_fields(body[:nl_auto_run_fields], join(path, "nl_auto_run_fields")) if body.key?(:nl_auto_run_fields)
           validate_chat(body[:chat], join(path, "chat")) if body.key?(:chat)
           validate_slash(body[:slash], join(path, "slash")) if body.key?(:slash)
           validate_reply(body[:reply], join(path, "reply")) if body.key?(:reply)
@@ -416,6 +426,26 @@ module Pito
               err(ex_path, "expected a String, got #{example.class}")
             elsif example.strip.empty?
               err(ex_path, "nl_examples entries must not be blank")
+            end
+          end
+        end
+
+        # ── NL auto-run field exception (per-tool `nl_auto_run_fields:`) ─────────
+        # A non-empty Array of non-blank field-token Strings (see the
+        # NL_AUTO_RUN-adjacent comment at the TOOL_KEYS constants for the WHY;
+        # the schema-integrity suite pins the exact declared set). An EMPTY
+        # array is rejected: a declared-but-empty exception can never match a
+        # field, so it is wholly inert — demand the key be absent instead.
+        def validate_nl_auto_run_fields(fields, path)
+          return err(path, "expected an Array, got #{fields.class}") unless fields.is_a?(Array)
+          return err(path, "must not be empty (omit the key instead)") if fields.empty?
+
+          fields.each_with_index do |field, i|
+            f_path = "#{path}[#{i}]"
+            if !field.is_a?(String)
+              err(f_path, "expected a String, got #{field.class}")
+            elsif field.strip.empty?
+              err(f_path, "nl_auto_run_fields entries must not be blank")
             end
           end
         end

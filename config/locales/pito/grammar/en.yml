@@ -21,8 +21,6 @@ en:
         import: "Add a game to your library from IGDB by title (import game hades). Vids arrive via sync, never import."
         delete: "Remove a game or vid from the library (by id or title). Library-only: never touches YouTube."
         reindex: "Re-embed a game or vid with the local embedding model (by id or title) — refreshes search and similarity for that row."
-        platform: "Add or remove a game's platform (platform set 12 ps5, platform unset 12 ps5)."
-        price: "Set or clear what a game cost you, in euros (price set 12 59.99)."
         publish: "Make a vid public on YouTube NOW (clears any schedule). To pick a future time use schedule."
         unlist: "Unlist a vid on YouTube (reachable by link, hidden from browse)."
         schedule: "Set a vid to go public on YouTube at a future time (schedule 9 slate). For right-now use publish."

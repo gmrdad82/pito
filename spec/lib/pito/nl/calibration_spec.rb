@@ -32,7 +32,11 @@ require "rails_helper"
 # by hand, so "what the fixture expects" can never drift from "what the
 # grammar actually accepts".
 RSpec.describe "Pito::Nl::Router calibration (empirical thresholds gate)" do
-  FIXTURE_PATH = Rails.root.join("spec/fixtures/nl_calibration.yml")
+  # Uniquely named: RSpec.describe blocks don't scope constants, so a bare
+  # FIXTURE_PATH here lands on Object and collides with the mapper gate's
+  # when both files load in one process (the router gate then reads the
+  # WRONG fixture and KeyErrors).
+  ROUTER_FIXTURE_PATH = Rails.root.join("spec/fixtures/nl_calibration.yml")
 
   # ── Availability guard ───────────────────────────────────────────────────
   #
@@ -89,11 +93,12 @@ RSpec.describe "Pito::Nl::Router calibration (empirical thresholds gate)" do
     Pito::Nl::Router.sync!
     # NOTE: before(:all)/before(:context) runs OUTSIDE the per-example
     # transactional-fixture rollback, so this sync! really commits rows to
-    # nl_examples — harmless: it is the same idempotent digest-keyed
-    # upsert/prune production boot performs, materializing the CURRENT
-    # tools.yml corpus, never anything fixture-specific.
+    # nl_examples — the same idempotent digest-keyed upsert/prune
+    # production boot performs, materializing the CURRENT tools.yml
+    # corpus, never anything fixture-specific. NOT harmless to leave
+    # behind, though: see the after(:all) cleanup below.
 
-    fixture = YAML.safe_load_file(FIXTURE_PATH, symbolize_names: true)
+    fixture = YAML.safe_load_file(ROUTER_FIXTURE_PATH, symbolize_names: true)
     @auto_run_rows          = fixture.fetch(:auto_run).map { |e| route_row(e) }
     @suggest_rows           = fixture.fetch(:suggest).map  { |e| route_row(e) }
     @reject_rows            = fixture.fetch(:reject).map   { |e| { say: e[:say], result: Pito::Nl::Router.route(e[:say]) } }
@@ -102,6 +107,16 @@ RSpec.describe "Pito::Nl::Router calibration (empirical thresholds gate)" do
     thresholds          = Pito::Dispatch::Config.nl_thresholds
     @auto_run_threshold = thresholds.fetch(:auto_run)
     @suggest_threshold  = thresholds.fetch(:suggest)
+  end
+
+  # The sync! above commits OUTSIDE the per-example rollback; without this
+  # the corpus rows leak into the shared pito_test DB and fail the
+  # count-asserting specs of any later run in the same DB (router_spec's
+  # empty-cache self-heal, /config embeddings' embedded/total counts).
+  # Idempotent and skip-safe: on a skipped run the table is untouched
+  # either way.
+  after(:all) do
+    Pito::Nl::Router::Example.delete_all
   end
 
   it "auto_run tier: routes every entry to its exact expected tool" do

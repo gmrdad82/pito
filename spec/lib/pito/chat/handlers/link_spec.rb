@@ -110,6 +110,63 @@ RSpec.describe Pito::Chat::Handlers::Link do
     }.not_to change(VideoGameLink, :count)
   end
 
+  describe "relink (canonical 1×1 form, vid already linked to a DIFFERENT game)" do
+    let!(:old_game) { create(:game, title: "Bloodborne") }
+
+    before { create(:video_game_link, video: video, game: old_game) }
+
+    it "replaces the old link instead of stacking a second one" do
+      expect {
+        handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+      }.not_to change(VideoGameLink, :count)
+
+      expect(VideoGameLink.find_by(video: video, game: old_game)).to be_nil
+      expect(VideoGameLink.find_by(video: video, game: game)).to be_present
+    end
+
+    it "destroys the prior link and creates the new one (video/game order)" do
+      expect {
+        handler_for("video", video.id.to_s, "to", "game", game.id.to_s).call
+      }.not_to change(VideoGameLink, :count)
+
+      expect(video.reload.linked_games).to contain_exactly(game)
+    end
+
+    it "returns Ok with honest copy naming both the old and new game" do
+      result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Bloodborne")
+      expect(text).to include("Lies of P")
+      expect(text).to include(video.title)
+    end
+
+    it "does not use the plain 'linked' copy for a relink" do
+      result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+      text = result.events.first[:payload]["text"]
+      expect(text).to eq(Pito::Copy.render("pito.copy.games.relinked",
+                                            video: video.title, old_game: old_game.title, new_game: game.title,
+                                            variant: 0))
+    end
+  end
+
+  describe "relinking to the SAME game the vid already has (still idempotent, plain copy)" do
+    before { create(:video_game_link, video: video, game: game) }
+
+    it "does not change the link count" do
+      expect {
+        handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+      }.not_to change(VideoGameLink, :count)
+    end
+
+    it "keeps the plain 'linked' ack, not the relink copy" do
+      result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include(video.title)
+    end
+  end
+
   it "returns a not-found result for an unknown game id" do
     result = handler_for("game", "99999", "to", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)

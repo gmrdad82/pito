@@ -87,6 +87,18 @@ class Channel < ApplicationRecord
     "@#{handle.to_s.sub(/\A@+/, '')}"
   end
 
+  # The sole connected channel, when EXACTLY one exists — nil for zero or many.
+  # Backs the single-channel handle-skippability law (owner Q51b, confirmed
+  # global 2026-07-20): every @handle / channel-ref argument becomes optional
+  # once there is only one channel it could possibly mean. Callers fall back
+  # to this ONLY after an explicit/scoped handle came back blank — a typed
+  # handle always resolves on its own terms via #resolve_handle, unaffected
+  # by channel count, and with >1 channel a blank handle keeps asking.
+  def self.sole
+    found = limit(2).to_a
+    found.first if found.one?
+  end
+
   # Resolve a "@handle" / bare "handle" string to a Channel. Exact,
   # @-agnostic, case-insensitive match FIRST; then a pg_trgm fuzzy fallback (best
   # match above the trigram threshold) so "fighter" finds "@fighterpro". Returns

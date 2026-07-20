@@ -83,9 +83,14 @@ RSpec.describe "Universal reply per-verb opt-out", type: :dispatch do
         expect(described_class.origin_tool(turn)).to eq("list")
       end
 
-      it "resolves a hashtag turn '#g3 price 20' to 'price'" do
+      it "resolves a hashtag turn '#g3 shinies' to 'shinies'" do
+        turn = make_turn(input_kind: :hashtag, input_text: "#g3 shinies")
+        expect(described_class.origin_tool(turn)).to eq("shinies")
+      end
+
+      it "resolves nil for a retired verb ('#g3 price 20' — price no longer a declared tool, Q16/Q16b)" do
         turn = make_turn(input_kind: :hashtag, input_text: "#g3 price 20")
-        expect(described_class.origin_tool(turn)).to eq("price")
+        expect(described_class.origin_tool(turn)).to be_nil
       end
 
       it "resolves a slash turn '/config' to 'config'" do
@@ -210,8 +215,8 @@ RSpec.describe "Universal reply per-verb opt-out", type: :dispatch do
   # ── 6. Pito::Dispatch::Matrix.mode_for precedence ──────────────────────────────
 
   describe "Pito::Dispatch::Matrix.mode_for precedence — declared tokens beat universals" do
-    it "price (declared on game_detail) resolves to its verb-declared mode (:append)" do
-      expect(Pito::Dispatch::Matrix.mode_for("game_detail", action: "price")).to eq(:append)
+    it "reindex (declared on game_detail) resolves to its verb-declared mode (:append)" do
+      expect(Pito::Dispatch::Matrix.mode_for("game_detail", action: "reindex")).to eq(:append)
     end
 
     it "share (universal, not declared on game_detail) still resolves to :append (the universal fallback)" do

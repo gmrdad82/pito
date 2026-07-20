@@ -78,9 +78,10 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     # default the dry-run to "no collision" so the existing confirmation
     # matrix is unaffected. Only the "stage-time spacing conflict" section
     # below overrides valid? to exercise the conflict branch.
-    allow(video_double).to receive(:assign_attributes)
-    allow(video_double).to receive(:valid?).with(:schedule).and_return(true)
-    allow(video_double).to receive(:restore_attributes)
+    # The stage-time dry-run consults the spacing LAW directly (no more
+    # assign/valid?(:schedule)/restore dance on the video) — recognition
+    # examples run with a law that finds no violation.
+    allow(Pito::Schedule::SpacingPolicy).to receive(:call).and_return(nil)
     # YouTube's own status.publishAt constraint (Video#already_published?):
     # default every stub vid to eligible so the existing recognition matrix
     # is unaffected. The dedicated "already published on YouTube" section
@@ -574,13 +575,10 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
   # this exercises the handler's BRANCHING on valid?/publish_spacing_collision,
   # not the model's real query (that's video_spec.rb + executor_spec.rb).
   describe "stage-time spacing conflict → :system event (schedule_conflict), not :confirmation" do
-    let(:collision_double) do
-      double("Video", title: "Collision Video", publish_at: Time.zone.local(2026, 6, 17, 9, 30))
-    end
-
     before do
-      allow(video_double).to receive(:valid?).with(:schedule).and_return(false)
-      allow(video_double).to receive(:publish_spacing_collision).and_return(collision_double)
+      allow(Pito::Schedule::SpacingPolicy).to receive(:call).and_return(
+        { kind: :spacing, title: "Collision Video", at: Time.zone.local(2026, 6, 17, 9, 30) }
+      )
     end
 
     it "emits a :system event (no command key) instead of :confirmation" do
@@ -596,9 +594,10 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       expect(result.events.first[:payload]["text"]).to include("Collision Video")
     end
 
-    it "restores the dry-run assignment (restore_attributes) before returning" do
+    it "consulted the spacing law with the staged publish time" do
       call("schedule 5 tomorrow")
-      expect(video_double).to have_received(:restore_attributes)
+      expect(Pito::Schedule::SpacingPolicy)
+        .to have_received(:call).with(video: video_double, at: kind_of(Time))
     end
   end
 
@@ -858,12 +857,8 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       mass_handler(raw, follow_up:).call
     end
 
-    def mass_video(id:, title:, channel_id: 1, valid: true, collision: nil, published: false)
+    def mass_video(id:, title:, channel_id: 1, published: false)
       v = double("Video##{id}", id: id, title: title, channel_id: channel_id)
-      allow(v).to receive(:assign_attributes)
-      allow(v).to receive(:valid?).with(:schedule).and_return(valid)
-      allow(v).to receive(:publish_spacing_collision).and_return(collision)
-      allow(v).to receive(:restore_attributes)
       # YouTube's own status.publishAt constraint (Video#already_published?) —
       # default eligible; the dedicated "eligibility" section below sets
       # published: true to exercise the guard.
@@ -974,44 +969,51 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       end
     end
 
-    describe "stage 5 — spacing: DB dry-run vs an already-scheduled row" do
-      it "a segment that collides with an existing scheduled row aborts, naming both" do
-        collision = double("Video", title: "Existing Anchor", publish_at: Time.zone.local(2026, 7, 1, 9, 30))
+    describe "stage 5 — spacing: the law's verdict aborts the batch" do
+      it "a segment the law rejects aborts, naming the offender" do
         stub_mass_videos(
-          mass_video(id: 5, title: "V5", valid: false, collision: collision),
+          mass_video(id: 5, title: "V5"),
           mass_video(id: 6, title: "V6")
+        )
+        allow(Pito::Schedule::SpacingPolicy).to receive(:call).and_return(
+          { kind: :spacing, title: "Existing Anchor", at: Time.zone.local(2026, 7, 1, 9, 30) }
         )
         result = mass_call("schedule 5 tomorrow, 6 in 2 hours")
         expect_mass_abort(result, includes: "Existing Anchor")
       end
+
+      it "a day-cap verdict aborts naming the 24h window pair" do
+        stub_mass_videos(mass_video(id: 5, title: "V5"), mass_video(id: 6, title: "V6"))
+        allow(Pito::Schedule::SpacingPolicy).to receive(:call).and_return(
+          { kind: :day_cap, titles: [ "A", "B" ], at: Time.zone.local(2026, 7, 1, 9, 30) }
+        )
+        result = mass_call("schedule 5 tomorrow, 6 in 2 hours")
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["text"]).to include("third publish")
+      end
     end
 
-    describe "stage 5 — spacing: in-memory pairwise (same channel, batch-mates never persisted)" do
-      it "two same-channel segments under 60 minutes apart abort, naming both" do
+    describe "stage 5 — spacing: batch siblings feed the law (extra:)" do
+      it "the second same-channel row is judged WITH the first as an extra sibling" do
         stub_mass_videos(
           mass_video(id: 5, title: "V5", channel_id: 1),
           mass_video(id: 6, title: "V6", channel_id: 1)
         )
-        result = mass_call("schedule 5 today at 14:00, 6 today at 14:20")
-        expect_mass_abort(result, includes: "V5")
+        mass_call("schedule 5 today at 14:00, 6 today at 18:00")
+        expect(Pito::Schedule::SpacingPolicy).to have_received(:call).with(
+          hash_including(extra: [ hash_including(title: "V5") ])
+        ).once
       end
 
-      it "exactly 60 minutes apart on the same channel is NOT a conflict (boundary)" do
-        stub_mass_videos(
-          mass_video(id: 5, title: "V5", channel_id: 1),
-          mass_video(id: 6, title: "V6", channel_id: 1)
-        )
-        result = mass_call("schedule 5 today at 14:00, 6 today at 15:00")
-        expect(result.events.first[:kind]).to eq(:confirmation)
-      end
-
-      it "the same time gap on DIFFERENT channels is not a conflict" do
+      it "a DIFFERENT-channel first row is NOT among the second row's siblings" do
         stub_mass_videos(
           mass_video(id: 5, title: "V5", channel_id: 1),
           mass_video(id: 6, title: "V6", channel_id: 2)
         )
-        result = mass_call("schedule 5 today at 14:00, 6 today at 14:20")
-        expect(result.events.first[:kind]).to eq(:confirmation)
+        mass_call("schedule 5 today at 14:00, 6 today at 14:20")
+        expect(Pito::Schedule::SpacingPolicy).not_to have_received(:call).with(
+          hash_including(extra: [ hash_including(title: "V5") ])
+        )
       end
     end
 

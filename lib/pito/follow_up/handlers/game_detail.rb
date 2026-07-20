@@ -20,6 +20,12 @@ module Pito
       #     → Delegated to Chat::Handlers::Link via ToolDelegator. The handler
       #       reads game_id from the source event and the video ref from rest.
       #
+      # OWNER DIRECTIVE Q16/Q16b (3.8.0): `price` was previously special-cased
+      # here (a direct set/unset handler, bypassing ToolDelegator); the
+      # standalone `price` tool retired along with `platform` — `update` now
+      # owns every game-field write, and neither survives as a card reply
+      # verb (`#<handle> price 20` / `#<handle> platform ps5` are gone, not
+      # redirected).
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
 
@@ -40,81 +46,15 @@ module Pito
             Pito::FollowUp::AnalyzeReply.append(
               level: :game, ids: [ event.payload["game_id"] ].compact, conversation:, period:
             )
-          when "price"
-            handle_price(event, args, conversation)
           else
             # Every OTHER reply tool this card declares in tools.yml (channels,
-            # similar, vids/videos, at-a-glance, reindex, link/unlink, platform,
+            # similar, vids/videos, at-a-glance, reindex, link/unlink,
             # shinies, sync, rm/delete, …) routes through the matrix-gated
             # ToolDelegator. tools.yml `reply.targets` is the single source of truth —
             # NEVER reintroduce a hardcoded list (it silently shadowed the segment
             # tools). Unknown actions get this target's invalid_action copy from there.
             Pito::FollowUp::ToolDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
-        end
-
-        private
-
-        # ── price [set] <amount> | price unset ────────────────────────────────────
-
-        # `#<handle> price set <amount>` / bare `#<handle> price <amount>` set the
-        # game's euro price (>= 0; an explicit 0 = free, the star); `#<handle> price
-        # unset` clears it to NULL. The game is known from the segment, mirroring
-        # the `price` chat tool.
-        def handle_price(event, args, _conversation)
-          game = resolve_game_from_event(event)
-          return game_not_found_error if game.nil?
-
-          tokens = args.to_s.strip.split(/\s+/)
-          sub    = tokens.first&.downcase
-
-          if sub == "unset"
-            game.update!(price: nil)
-            return price_append(Pito::MessageBuilder::Text.call("pito.copy.price.unset", game: game.title))
-          end
-
-          amount = parse_price_amount(sub == "set" ? tokens[1] : tokens.first)
-          if amount.nil?
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_detail.errors.missing_price",
-              message_args: {}
-            )
-          end
-
-          game.update!(price: amount)
-          price_append(Pito::MessageBuilder::Text.call(
-            "pito.copy.price.updated", game: game.title, price: Pito::Formatter::Price.call(game.price)
-          ))
-        end
-
-        # Parse a euro amount (BigDecimal, 2 decimals, non-negative — 0 = free), or
-        # nil — via the shared Pito::Games::PriceAmount parser (the same one the
-        # `:price_amount` reply resolver wraps — one canonical parse, no fork).
-        def parse_price_amount(raw)
-          Pito::Games::PriceAmount.parse(raw)
-        end
-
-        def price_append(payload)
-          Pito::FollowUp::Result::Append.new(events: [ { kind: :system, payload: payload } ])
-        end
-
-        # ── helpers ────────────────────────────────────────────────────────────
-
-        # Resolve the game from the event payload.
-        # DetailMessage stamps `game_id` into the payload.
-        def resolve_game_from_event(event)
-          payload = event.payload.with_indifferent_access
-          game_id = payload[:game_id]
-          return nil unless game_id.present?
-
-          ::Game.find_by(id: game_id)
-        end
-
-        def game_not_found_error
-          Pito::FollowUp::Result::Error.new(
-            message_key:  "pito.follow_up.game_detail.errors.game_not_found",
-            message_args: {}
-          )
         end
       end
     end

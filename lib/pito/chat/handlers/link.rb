@@ -20,6 +20,15 @@
 #
 # `VideoGameLink.find_or_create_by!` makes linking idempotent.
 # The model's `after_commit` already enqueues game-stats refresh — not duplicated.
+#
+# Relink (canonical 1×1 free-chat form only): a vid keeps exactly one game.
+# `link <vid> <game>` for a vid that already carries a DIFFERENT game's link
+# tears that link down first, then creates the new one, and says so honestly
+# (`pito.copy.games.relinked`, naming both games) rather than the plain
+# "linked" copy. Re-linking to the SAME game is still the ordinary idempotent
+# no-op. Multi-target free-chat/follow-up forms are untouched — they keep
+# stacking links exactly as before; pair-order NL phrasings are a later
+# task's mapper-layer concern.
 module Pito
   module Chat
     module Handlers
@@ -127,12 +136,46 @@ module Pito
 
         # Links every (game, video) pair (cross-product) idempotently, then a single
         # summary message — the one-pair copy for 1×1, else the multi copy.
+        #
+        # The 1×1 shape is the only one a RELINK applies to (see class doc) —
+        # it delegates to `relink_or_create`, which may replace a prior link.
+        # Multi-target shapes (either side has more than one id) keep the
+        # plain cross-product stacking behavior, unchanged.
         def create_links(games, videos)
           games  = Array(games)
           videos = Array(videos)
+
+          return relink_or_create(games.first, videos.first) if games.one? && videos.one?
+
           games.product(videos).each { |game, video| VideoGameLink.find_or_create_by!(video:, game:) }
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: link_summary(games, videos) } ])
+        end
+
+        # The canonical single-video/single-game path. When +video+ already
+        # carries a DIFFERENT game's link, that link (and any other stray
+        # links — the invariant is one game per vid, but nothing below the
+        # DB stops multiple) is destroyed first, then the new one is created,
+        # and the summary names both games (`pito.copy.games.relinked`).
+        # Re-linking to the SAME game +video+ is already linked to is still
+        # the ordinary idempotent no-op (`find_or_create_by!` — plain
+        # "linked" copy, not a relink).
+        def relink_or_create(game, video)
+          prior_games = video.linked_games.where.not(id: game.id).to_a
+
+          if prior_games.any?
+            ActiveRecord::Base.transaction do
+              VideoGameLink.where(video: video, game_id: prior_games.map(&:id)).destroy_all
+              VideoGameLink.find_or_create_by!(video:, game:)
+            end
+
+            return Pito::Chat::Result::Ok.new(events: [
+              { kind: :system, payload: relink_summary(video, prior_games, game) }
+            ])
+          end
+
+          VideoGameLink.find_or_create_by!(video:, game:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: link_summary([ game ], [ video ]) } ])
         end
 
         def link_summary(games, videos)
@@ -150,6 +193,18 @@ module Pito
         def linked_multi(source, target_titles)
           Pito::MessageBuilder::Text.call(
             "pito.copy.games.linked_multi", source:, targets: target_titles.join(", ")
+          )
+        end
+
+        # Honest relink copy — names the vid, the game it left, and the game
+        # it now points to. `old_game` joins every replaced title (plural
+        # only in the defensive multi-prior-link case; see `relink_or_create`).
+        def relink_summary(video, prior_games, new_game)
+          Pito::MessageBuilder::Text.call(
+            "pito.copy.games.relinked",
+            video:    video.title,
+            old_game: prior_games.map(&:title).join(", "),
+            new_game: new_game.title
           )
         end
 

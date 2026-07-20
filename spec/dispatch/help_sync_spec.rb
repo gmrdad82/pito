@@ -113,14 +113,11 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
     # game_detail (show-game indicator)
     "game_detail" => [
       "sync",     # sync re-syncs game metadata; pito.hashtag_help.show-game.actions.sync not yet authored
-      "platform", # platform set/unset on a game card; help entry not yet authored
       "shinies",  # thumbnail breakdown for a game; help entry not yet authored
       "del"       # per-target alias of delete (alias: rm IS documented separately)
     ],
     # game_list (list-games indicator)
     "game_list" => [
-      "price",    # price set/unset from game list; help entry not yet authored
-      "platform", # platform management from game list; help entry not yet authored
       "shinies",  # thumbnail breakdown from game list; help entry not yet authored
       "del"       # per-target alias of delete (rm IS documented)
     ],

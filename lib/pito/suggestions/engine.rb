@@ -671,7 +671,6 @@ module Pito
             when "sort_clause"       then sort_key_candidates(committed, target, event)
             when "metric_list"       then metric_candidates(tool, committed, event)
             when "visit_destination" then destination_candidates(committed)
-            when "price_amount"      then price_amount_candidates(committed)
             else []
             end
 
@@ -783,15 +782,6 @@ module Pito
             Array(marker&.dig("with")), Array(marker&.dig("without"))
           )
           Pito::Analytics::MetricSelection.apply(keys.map(&:to_sym), selection).map(&:to_s)
-        end
-
-        # Leading tokens for a `price` reply (`price [set] <amount>` /
-        # `price unset`) — the amount itself is free-form, but `set`/`unset`
-        # are its enumerable openers. First position only.
-        def price_amount_candidates(committed)
-          return [] unless committed.empty?
-
-          %w[set unset]
         end
 
         # Destination tokens for a `visit` reply — the :visit_destinations

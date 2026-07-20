@@ -315,6 +315,45 @@ RSpec.describe Pito::Dispatch::Schema, type: :dispatch do
     end
   end
 
+  # Per-tool `nl_auto_run_fields:` (Q17, 3.8.0) — the FIELD-SCOPED NL auto-run
+  # exception for write tools (Pito::Chat::Handlers::Unknown#auto_run_field?).
+  # Shape-only here; the schema-integrity suite pins the exact declared set.
+  describe ".validate — tool-level nl_auto_run_fields (field-scoped NL auto-run exception)" do
+    def nl_auto_run_fields_doc(value)
+      doc = valid_doc
+      doc[:tools][:greet][:nl_auto_run_fields] = value
+      doc
+    end
+
+    it "accepts a non-empty Array of field-token Strings" do
+      expect(described_class.validate(nl_auto_run_fields_doc([ "footage" ]))).to eq([])
+    end
+
+    it "rejects a non-Array value at its path" do
+      expect(messages(nl_auto_run_fields_doc("footage"))).to include(
+        "tools.greet.nl_auto_run_fields: expected an Array, got String"
+      )
+    end
+
+    it "rejects an empty Array (a declared-but-inert exception)" do
+      expect(messages(nl_auto_run_fields_doc([]))).to include(
+        "tools.greet.nl_auto_run_fields: must not be empty (omit the key instead)"
+      )
+    end
+
+    it "rejects a blank entry at its indexed path" do
+      expect(messages(nl_auto_run_fields_doc([ "  " ]))).to include(
+        "tools.greet.nl_auto_run_fields[0]: nl_auto_run_fields entries must not be blank"
+      )
+    end
+
+    it "rejects a non-String entry at its indexed path" do
+      expect(messages(nl_auto_run_fields_doc([ 5 ]))).to include(
+        "tools.greet.nl_auto_run_fields[0]: expected a String, got Integer"
+      )
+    end
+  end
+
   describe ".validate — universal_reply kinds: and except:" do
     def universal_doc(entry)
       doc = valid_doc

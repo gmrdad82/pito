@@ -55,6 +55,17 @@ module Pito
         tool(tool)[:nl_examples] || []
       end
 
+      # The FIELD-SCOPED NL auto-run exception declared on +tool+'s
+      # `nl_auto_run_fields:` key, or [] when the tool declares none: the field
+      # tokens for which the NL gate may auto-run this WRITE tool's mapped
+      # command even though the tool is not read-only (Pito::Chat::Handlers::
+      # Unknown#auto_run_field? is the one consumer). See the key's comment on
+      # the `update` tool in tools.yml for the safety argument; the
+      # schema-integrity suite pins the exact declared set.
+      def nl_auto_run_fields(tool:)
+        tool(tool)[:nl_auto_run_fields] || []
+      end
+
       # The top-level `nl:` block's confidence thresholds ({ auto_run:, suggest: },
       # both Floats 0..1), or {} when the document declares none. One ontology,
       # shared by the router: below `suggest` a free-text guess is dropped, at or

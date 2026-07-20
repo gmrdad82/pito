@@ -58,6 +58,21 @@ RSpec.describe Ai::Blocks do
         result = normalize(Array.new(12) { { "type" => "text", "text" => leaked } })
         expect(result.length).to eq(12)
       end
+
+      it "scrubs a parroted history marker embedded in prose" do
+        result = normalize([ { "type" => "text", "text" => "Here's the data.\n[kv_table block shown]\nMore info." } ])
+        expect(result).to eq([ { "type" => "text", "text" => "Here's the data.\n\nMore info." } ])
+      end
+
+      it "drops a text block that is only a history marker" do
+        expect(normalize([ { "type" => "text", "text" => "[kv_table block shown]" } ])).to eq([])
+        expect(normalize([ { "type" => "text", "text" => "(chart rendered)" } ])).to eq([])
+      end
+
+      it "leaves a suggested-command bracket untouched" do
+        result = normalize([ { "type" => "text", "text" => "Try [suggested command: show game #1] next." } ])
+        expect(result).to eq([ { "type" => "text", "text" => "Try [suggested command: show game #1] next." } ])
+      end
     end
 
     context "kv_table blocks" do
@@ -370,6 +385,25 @@ RSpec.describe Ai::Blocks do
     it "truncates to 12 blocks" do
       blocks = Array.new(15) { { "type" => "text", "text" => "x" } }
       expect(normalize(blocks).size).to eq(12)
+    end
+
+    it "keeps the closing suggestion when the answer overflows the block cap" do
+      blocks = Array.new(14) { { "type" => "text", "text" => "x" } } +
+               [ { "type" => "suggestion", "command" => "list games" } ]
+      result = normalize(blocks)
+
+      expect(result.size).to eq(12)
+      expect(result.last).to eq({ "type" => "suggestion", "command" => "list games" })
+    end
+
+    it ".cap swaps the suggestion in for the last kept block when the trim would drop it" do
+      blocks = Array.new(14) { { "type" => "text", "text" => "x" } } +
+               [ { "type" => "suggestion", "command" => "list games" } ]
+      capped = described_class.cap(blocks)
+
+      expect(capped.size).to eq(12)
+      expect(capped.first(11)).to all(include("type" => "text"))
+      expect(capped.last["type"]).to eq("suggestion")
     end
 
     it "drops non-Hash entries entirely" do

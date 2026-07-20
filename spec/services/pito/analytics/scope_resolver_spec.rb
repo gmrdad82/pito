@@ -221,4 +221,56 @@ RSpec.describe Pito::Analytics::ScopeResolver do
       expect(res.scopes).to eq([ channel ])
     end
   end
+
+  # Single-channel handle-skippability (owner Q51b, confirmed global
+  # 2026-07-20): every @handle / channel-ref argument is optional when
+  # exactly one channel is connected. ScopeResolver already defaults a bare,
+  # handle-less `channel`/`channels` noun to the shift+tab scope's ALL_SCOPE
+  # (blank/@all → Channel.all) — with exactly one channel connected, "all
+  # channels" IS that one channel, so no code change was needed here; these
+  # specs prove the surfaces the owner named explicitly (`analyze`,
+  # `breakdowns` — ScopeResolver reads any noun word in `raw`, independent of
+  # the leading tool word, so testing the raw string proves both).
+  describe "single connected channel (Q51b: channel-ref becomes optional)" do
+    context "with exactly one channel" do
+      let!(:only_channel) { create(:channel, handle: "soloch") }
+
+      it "owner example: 'analyze channels full' (bare, no handle) resolves that one channel" do
+        res = described_class.call(raw: "analyze channels full", channel_scope: "@all")
+        expect(res).to be_ok
+        expect(res.level).to eq(:channel)
+        expect(res.scopes).to eq([ only_channel ])
+      end
+
+      it "'breakdowns channel' (bare, no handle) resolves that one channel" do
+        res = described_class.call(raw: "breakdowns channel", channel_scope: "@all")
+        expect(res).to be_ok
+        expect(res.level).to eq(:channel)
+        expect(res.scopes).to eq([ only_channel ])
+      end
+
+      it "also resolves with a blank shift+tab scope (not just @all)" do
+        res = described_class.call(raw: "analyze channel", channel_scope: "")
+        expect(res).to be_ok
+        expect(res.scopes).to eq([ only_channel ])
+      end
+    end
+
+    context "with more than one channel (unchanged: bare still resolves to ALL of them, never an ask)" do
+      let!(:a) { create(:channel, handle: "achan") }
+      let!(:b) { create(:channel, handle: "bchan") }
+
+      it "owner example: 'analyze channels full' (bare, no handle) still resolves to every channel" do
+        res = described_class.call(raw: "analyze channels full", channel_scope: "@all")
+        expect(res).to be_ok
+        expect(res.scopes).to match_array([ a, b ])
+      end
+
+      it "'breakdowns channel' (bare, no handle) still resolves to every channel" do
+        res = described_class.call(raw: "breakdowns channel", channel_scope: "@all")
+        expect(res).to be_ok
+        expect(res.scopes).to match_array([ a, b ])
+      end
+    end
+  end
 end

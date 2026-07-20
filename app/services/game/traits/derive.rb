@@ -38,7 +38,15 @@ class Game
         "multiplayer" => ->(game) { game_mode?(game, "Multiplayer") || game_mode?(game, "Co-operative") },
         "single_player" => ->(game) { game_mode?(game, "Single player") },
         "hyped" => ->(game) { game.hypes.to_i >= HYPED_FOLLOWS_THRESHOLD },
-        "family_friendly" => ->(game) { family_friendly_rating?(game) }
+        "family_friendly" => ->(game) { family_friendly_rating?(game) },
+        # ── Q32 wishlist (2026-07-20): genre/theme facts already synced —
+        #    names verified against synced data (sync_game_spec fixtures);
+        #    "racing" deliberately collapses the owner's "racing" + "driving"
+        #    into one genre-mapped tag (traits.yml ledger). ──────────────────
+        "adventure" => ->(game) { genre_name?(game, "Adventure") },
+        "role_playing" => ->(game) { genre_name?(game, "Role-playing (RPG)") },
+        "racing" => ->(game) { genre_name?(game, "Racing") },
+        "open_world" => ->(game) { theme?(game, "Open world") }
       }.freeze
 
       # `hypes` is IGDB's pre-release follow count. Threshold picked

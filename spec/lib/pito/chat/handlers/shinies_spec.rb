@@ -55,9 +55,23 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
       expect(result.events.first[:payload]["text"]).to include("@unknown")
     end
 
-    it "returns a needs_ref error when no handle given" do
+    # Single-channel handle-skippability (owner Q51b, confirmed global
+    # 2026-07-20): with EXACTLY one channel connected — `channel`, this
+    # file's top-level `let!` — a bare `shinies channel` (no handle)
+    # resolves THAT channel instead of asking.
+    it "resolves the sole channel when no handle given and exactly one channel exists" do
       result = handler_for("channel").call
-      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
+    end
+
+    context "with more than one channel connected" do
+      let!(:other_channel) { create(:channel, handle: "@otherchan") }
+
+      it "still returns a needs_ref error when no handle given (unchanged)" do
+        result = handler_for("channel").call
+        expect(result).to be_a(Pito::Chat::Result::Error)
+      end
     end
 
     it "does NOT stamp a follow-up handle (shinies messages are not repliable)" do
@@ -183,10 +197,24 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
         expect(payload["channel_id"]).to eq(channel.id)
       end
 
-      it "returns needs_ref when rest is blank" do
+      # Single-channel handle-skippability (owner Q51b): a blank reply body
+      # resolves the sole channel — `channel`, this file's top-level `let!` —
+      # instead of asking.
+      it "resolves the sole channel when rest is blank and exactly one channel exists" do
         fu = follow_up_for({ "reply_target" => "channel_list" }, rest: "")
         result = handler_for(follow_up: fu).call
-        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
+      end
+
+      context "with more than one channel connected" do
+        let!(:other_channel) { create(:channel, handle: "@otherchan") }
+
+        it "still returns needs_ref when rest is blank (unchanged)" do
+          fu = follow_up_for({ "reply_target" => "channel_list" }, rest: "")
+          result = handler_for(follow_up: fu).call
+          expect(result).to be_a(Pito::Chat::Result::Error)
+        end
       end
     end
 

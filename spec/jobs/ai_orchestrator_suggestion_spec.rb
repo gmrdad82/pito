@@ -39,6 +39,7 @@ RSpec.describe "AI orchestrator suggestion closing" do
       when "<hours>"     then "8.5"
       when "<amount>"    then "59.99"
       when "<dd-mm-yyyy>" then 7.days.from_now.strftime("%d-%m-%Y")
+      when "<hh:mm>"      then "18:00"
       else word
       end
     end.join(" ")

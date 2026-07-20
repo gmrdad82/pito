@@ -230,42 +230,9 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "platform (single-noun: game)" do
-        subject(:result) { described_class.call(:platform) }
-
-        it "renders a non-empty html payload" do
-          expect(result).to be_a(Hash)
-          expect(result["html"]).to be(true)
-          expect(result["body"]).to be_present
-        end
-
-        it "verb-level page == noun-level page for single-entity verb" do
-          noun_result = described_class.call(:platform, noun: :game)
-          expect(result["body"]).to eq(noun_result["body"])
-        end
-
-        it "usage line is 'platform #id <name>'" do
-          expect(result["body"]).to include("platform")
-          expect(result["body"]).to include("#id")
-          expect(result["body"]).to include("&lt;name&gt;")
-        end
-
-        it "body lists the example platform names" do
-          expect(result["body"]).to include("ps5")
-          expect(result["body"]).to include("switch")
-          expect(result["body"]).to include("steam")
-        end
-
-        it "uses the standard single-noun layout (Usage / Arguments / Options)" do
-          expect(result["body"]).to include('<span class="text-purple font-bold">Usage:</span>')
-          expect(result["body"]).to include('<span class="text-purple font-bold">Arguments</span>')
-          expect(result["body"]).to include('<span class="text-purple font-bold">Options</span>')
-        end
-
-        it "does NOT render a bespoke 'Replies' section" do
-          expect(result["body"]).not_to include("Replies")
-          expect(result["body"]).not_to include("list reply")
-          expect(result["body"]).not_to include("card reply")
+      context "platform (retired standalone tool, Q16/Q16b)" do
+        it "renders nil — no more pito.chat_help.platform copy" do
+          expect(described_class.call(:platform)).to be_nil
         end
       end
 
@@ -307,7 +274,7 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
       end
 
       # Remaining verbs — smoke-test that each renders a valid page
-      %i[reindex link unlink publish unlist schedule platform import sync analyze].each do |verb|
+      %i[reindex link unlink publish unlist schedule import sync analyze].each do |verb|
         context "verb :#{verb}" do
           subject(:result) { described_class.call(verb) }
 
@@ -515,7 +482,7 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
 
     describe "consistent layout + first-line timestamp across help pages" do
       {
-        "platform" => -> { described_class.call(:platform) },
+        "similar"  => -> { described_class.call(:similar) },
         "show"     => -> { described_class.call(:show) },
         "list"     => -> { described_class.call(:list) }
       }.each do |label, build|

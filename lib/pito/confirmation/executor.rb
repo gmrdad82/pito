@@ -117,9 +117,35 @@ module Pito
           video   = ::Video.find_by(id: payload[:video_id])
           return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
 
-          video.update!(privacy_status: :public, publish_at: nil)
+          # Publish-NOW answers to the same spacing law as scheduling (the
+          # :publish validation context judges Time.current): the handler
+          # dry-ran this at stage time, but the confirm click can land later —
+          # a schedule may have appeared inside the 4h window meanwhile — so
+          # it runs again here, for real, at save time.
+          video.assign_attributes(privacy_status: :public, publish_at: nil)
+          begin
+            video.save!(context: :publish)
+          rescue ActiveRecord::RecordInvalid
+            violation = video.publish_now_violation
+            key, args = publish_violation_copy(violation, title: title)
+            return Pito::Copy.render(key, args)
+          end
+
           VideoRemoteStatusSync.perform_later(video.id)
           Pito::Copy.render("pito.copy.videos.published", { title: title })
+        end
+
+        # Publish-now flavors of the spacing-law copy (the schedule flavors
+        # live on SpacingPolicy.copy_args; publish rejections name "now").
+        def publish_violation_copy(violation, title:)
+          if violation && violation[:kind] == :spacing
+            [ "pito.copy.videos.publish_too_close",
+              { title: title, other: violation[:title].to_s,
+                when: Pito::Formatter::SyncStamp.call(violation[:at]) } ]
+          else
+            [ "pito.copy.videos.publish_day_cap",
+              { title: title, others: Array(violation&.dig(:titles)).join(" and ") } ]
+          end
         end
 
         # `update vid description/tags <id> …` — the staged value lands locally,
@@ -224,12 +250,9 @@ module Pito
               return Pito::Copy.render("pito.copy.videos.schedule_already_public", { title: title })
             end
 
-            collision = video.publish_spacing_collision
-            return Pito::Copy.render("pito.copy.videos.schedule_conflict", {
-              title: title,
-              other: collision&.title.to_s,
-              when:  Pito::Formatter::SyncStamp.call(collision&.publish_at)
-            })
+            violation = video.schedule_violation
+            key, args = Pito::Schedule::SpacingPolicy.copy_args(violation, title: title)
+            return Pito::Copy.render(key, args)
           end
 
           VideoRemoteStatusSync.perform_later(video.id)
@@ -277,12 +300,9 @@ module Pito
                   raise ActiveRecord::Rollback
                 end
 
-                collision = video.publish_spacing_collision
-                failure = { key: "pito.copy.videos.mass_schedule_conflict", args: {
-                  title: video.title,
-                  other: collision&.title.to_s,
-                  when:  Pito::Formatter::SyncStamp.call(collision&.publish_at)
-                } }
+                violation = video.schedule_violation
+                key, args = Pito::Schedule::SpacingPolicy.copy_args(violation, title: video.title, mass: true)
+                failure = { key: key, args: args }
                 raise ActiveRecord::Rollback
               end
 

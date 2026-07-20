@@ -902,11 +902,11 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to include("Anchor Episode")
     end
 
-    it "is valid at exactly 60 minutes away (boundary — no conflict)" do
+    it "is valid at exactly 4 hours away (boundary — no conflict)" do
       text = described_class.confirm("video_schedule", {
         "video_id"    => conflicting_video.id,
         "video_title" => "Too Close Episode",
-        "publish_at"  => (anchor_at + 60.minutes).iso8601
+        "publish_at"  => (anchor_at + 4.hours).iso8601
       })
       expect(conflicting_video.reload.privacy_status).to eq("private")
       expect(text).not_to include("Anchor Episode")
@@ -1129,9 +1129,9 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       end
     end
 
-    it "is valid at exactly 60 minutes away from an existing row (boundary — no conflict)" do
+    it "is valid at exactly 4 hours away from an existing row (boundary — no conflict)" do
       create(:video, channel: mass_channel, title: "Boundary Anchor",
-                     privacy_status: :private, publish_at: time1 + 60.minutes)
+                     privacy_status: :private, publish_at: time1 + 4.hours)
       items = [ { "video_id" => mass_video1.id, "video_title" => "Episode One", "publish_at" => time1.iso8601 } ]
       text = described_class.confirm("video_schedule_mass", mass_payload(items))
       expect(mass_video1.reload.privacy_status).to eq("private")

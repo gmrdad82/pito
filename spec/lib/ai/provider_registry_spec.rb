@@ -33,6 +33,14 @@ RSpec.describe Ai::ProviderRegistry do
       expect(described_class.provider("opencode")[:label]).to eq("OpenCode Zen")
     end
 
+    it "carries the anthropic descriptor's config-pinned pricing from the real config" do
+      expect(described_class.provider(:anthropic)[:pinned_pricing]).to eq(
+        "claude-sonnet-5": { input: 3.0, output: 15.0 },
+        "claude-haiku-4-5": { input: 1.0, output: 5.0 },
+        "claude-haiku-4-5-20251001": { input: 1.0, output: 5.0 }
+      )
+    end
+
     it "raises KeyError for an unknown provider" do
       expect { described_class.provider(:nope) }.to raise_error(KeyError, /unknown provider/)
     end
@@ -137,6 +145,40 @@ RSpec.describe Ai::ProviderRegistry do
       with_stubbed_yaml(valid_doc(provider_overrides: { pinned_models: [ "a", 1 ] })) do
         expect { described_class.provider_names }
           .to raise_error(described_class::InvalidConfig, /providers\.opencode\.pinned_models/)
+      end
+    end
+
+    it "accepts an optional pinned_pricing map of model id → numeric input/output" do
+      with_stubbed_yaml(
+        valid_doc(provider_overrides: { pinned_pricing: { "model-a": { input: 3.0, output: 15.0 } } })
+      ) do
+        expect(described_class.provider(:opencode)[:pinned_pricing])
+          .to eq("model-a": { input: 3.0, output: 15.0 })
+      end
+    end
+
+    it "raises naming the offending path when a pinned_pricing entry is not a Hash" do
+      with_stubbed_yaml(valid_doc(provider_overrides: { pinned_pricing: { "model-a": "cheap" } })) do
+        expect { described_class.provider_names }
+          .to raise_error(described_class::InvalidConfig, /providers\.opencode\.pinned_pricing\.model-a/)
+      end
+    end
+
+    it "raises naming the offending path when a pinned_pricing entry carries a non-numeric price" do
+      with_stubbed_yaml(
+        valid_doc(provider_overrides: { pinned_pricing: { "model-a": { input: "3.0", output: 15.0 } } })
+      ) do
+        expect { described_class.provider_names }
+          .to raise_error(described_class::InvalidConfig, /providers\.opencode\.pinned_pricing\.model-a\.input/)
+      end
+    end
+
+    it "raises naming the offending path when a pinned_pricing entry has missing or extra keys" do
+      with_stubbed_yaml(
+        valid_doc(provider_overrides: { pinned_pricing: { "model-a": { input: 3.0 } } })
+      ) do
+        expect { described_class.provider_names }
+          .to raise_error(described_class::InvalidConfig, /providers\.opencode\.pinned_pricing\.model-a/)
       end
     end
   end

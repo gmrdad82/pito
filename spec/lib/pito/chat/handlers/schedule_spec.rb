@@ -351,7 +351,7 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       create(:video, channel: channel, title: "Anchor Ep", privacy_status: :private, publish_at: anchor_at)
     end
 
-    it "emits a :system schedule_conflict event instead of :confirmation when within 60 minutes of another scheduled video" do
+    it "emits a :system schedule_conflict event instead of :confirmation when within 4 hours of another scheduled video" do
       result = schedule_real("schedule video #{video.id} #{(anchor_at + 20.minutes).strftime('%d-%m-%Y %H:%M')}")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       event = result.events.first
@@ -372,8 +372,8 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       expect(video.reload.publish_at).to be_nil
     end
 
-    it "is valid at exactly 60 minutes away (boundary — emits :confirmation, not a conflict)" do
-      result = schedule_real("schedule video #{video.id} #{(anchor_at + 60.minutes).strftime('%d-%m-%Y %H:%M')}")
+    it "is valid at exactly 4 hours away (boundary — emits :confirmation, not a conflict)" do
+      result = schedule_real("schedule video #{video.id} #{(anchor_at + 4.hours).strftime('%d-%m-%Y %H:%M')}")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:kind]).to eq(:confirmation)
     end
@@ -384,6 +384,35 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       result = schedule_real("schedule video #{other_video.id} #{(anchor_at + 10.minutes).strftime('%d-%m-%Y %H:%M')}")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+  end
+
+  # ── mass form: mixed natural-language + strict-date segments (B5-proof) ────────
+  # parse_mass_segment (lib/pito/chat/handlers/schedule.rb) shares the exact same
+  # Pito::Schedule::TimeParser as the single path — this proves the comma-
+  # separated batch grammar resolves each segment's <when> independently,
+  # mixing "N days from now", "next <weekday> HH:MM", and strict DD-MM-YYYY HH:MM
+  # in the same command.
+  context "mass form mixing natural language and strict dates" do
+    around { |example| Time.use_zone("UTC") { travel_to(Time.zone.local(2026, 6, 16, 10, 0)) { example.run } } }
+
+    let!(:video_a) { create(:video, channel: channel, title: "Segment A", privacy_status: :private, publish_at: nil) }
+    let!(:video_b) { create(:video, channel: channel, title: "Segment B", privacy_status: :private, publish_at: nil) }
+
+    it "resolves each segment's <when> per its own grammar" do
+      result = schedule_real(
+        "schedule #{video.id} 2 days from now at 11:00, " \
+        "#{video_a.id} next monday 17:00, " \
+        "#{video_b.id} 23-07-2026 20:00"
+      )
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+
+      items = result.events.first[:payload]["items"].index_by { |i| i["video_id"] }
+      expect(items[video.id]["publish_at"]).to eq(Time.zone.local(2026, 6, 18, 11, 0).utc.iso8601)
+      expect(items[video_a.id]["publish_at"]).to eq(Time.zone.local(2026, 6, 22, 17, 0).utc.iso8601)
+      expect(items[video_b.id]["publish_at"]).to eq(Time.zone.local(2026, 7, 23, 20, 0).utc.iso8601)
     end
   end
 

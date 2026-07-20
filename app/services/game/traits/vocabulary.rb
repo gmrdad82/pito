@@ -34,7 +34,10 @@ class Game
     # `values.tags` array shape) — config rot fails boot, never a silent
     # mis-classify.
     module Vocabulary
-      SUPPORTED_SCHEMA_VERSIONS = [ 1 ].freeze
+      # 2 = the Q28-Q32 vocabulary expansion (2026-07-20) — purely additive,
+      # so v1 games.traits rows stay valid; 1 remains supported until the
+      # owner-gated re-classify run (Q57) has re-stamped the library.
+      SUPPORTED_SCHEMA_VERSIONS = [ 1, 2 ].freeze
       PATH = Rails.root.join("config/pito/traits.yml")
 
       # The only legal values a `sources` entry may hold.

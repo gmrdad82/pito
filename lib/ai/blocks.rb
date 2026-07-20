@@ -52,7 +52,7 @@ module Ai
     def normalize(raw, conversation:)
       suggestions = 0
 
-      Array(raw).first(max_blocks).flat_map do |block|
+      out = precap(Array(raw)).flat_map do |block|
         next [] unless block.is_a?(Hash)
 
         b = deep_stringify(block)
@@ -73,7 +73,29 @@ module Ai
           else degrade(b)
           end
         out.is_a?(Array) ? out : [ out ].compact
-      end.first(max_blocks)
+      end
+      cap(out)
+    end
+
+    # The mandate parks an answer's ONE suggestion block last — exactly where
+    # a tail cap cuts. Both caps keep it: precap bounds the work done on the
+    # raw list without pre-cutting an overflow suggestion; cap trims the
+    # final list to max_blocks, swapping the suggestion in for the last kept
+    # block when the trim would drop it.
+    def precap(raw)
+      capped = raw.first(max_blocks)
+      overflow = raw.drop(max_blocks).find do |b|
+        b.is_a?(Hash) && (b["type"] || b[:type]).to_s == "suggestion"
+      end
+      overflow ? capped + [ overflow ] : capped
+    end
+
+    def cap(blocks)
+      capped = blocks.first(max_blocks)
+      suggestion = blocks.find { |b| b["type"] == "suggestion" }
+      return capped if suggestion.nil? || capped.include?(suggestion)
+
+      capped[0...-1] + [ suggestion ]
     end
 
     def text_block(text)
@@ -106,6 +128,14 @@ module Ai
 
     PIPE_ROW       = /\A\s*\|.*\|\s*\z/
     PIPE_SEPARATOR = /\A\s*\|[\s\-:|]+\|\s*\z/
+
+    # The runtime's own history-projection markers — legacy "[<type> block
+    # shown]" and the current "(<type> rendered)" — that the model echoes
+    # back verbatim when it parrots prior turns into new text.
+    HISTORY_MARKERS = (
+      %w[kv_table table media sparkline chart score ttb suggestion].map { |t| "[#{t} block shown]" } +
+      %w[media sparkline chart score ttb].map { |t| "(#{t} rendered)" }
+    ).freeze
 
     def extract_pipe_tables(value)
       blocks = []
@@ -153,9 +183,15 @@ module Ai
     end
 
     def flush_text(blocks, buffer)
-      joined = buffer.join("\n").strip
+      joined = scrub_history_markers(buffer.join("\n").strip)
       blocks << text_block(joined) if joined.present?
       buffer.clear
+    end
+
+    # Models parrot history markers into fresh text — strip them here.
+    def scrub_history_markers(text)
+      scrubbed = HISTORY_MARKERS.reduce(text) { |acc, marker| acc.gsub(marker, "") }
+      scrubbed.gsub(/\n{3,}/, "\n\n").strip
     end
 
     KV_VALUE_FORMATS = %w[price date number score].freeze

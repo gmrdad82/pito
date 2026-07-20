@@ -66,25 +66,33 @@ RSpec.describe Game::Traits::Vocabulary do
       expect(described_class.tag_names).to eq(%w[
         space skill_based parry_windows frame_tight_jumps immersive realistic flight
         poor_performance worth_it awful game_of_the_year
+        soulslike cozy roguelike metroidvania grindy base_building city_builder
+        replayable couch_co_op scary_but_fun choices_matter
         platformer simulation guns action horror survival war time_consuming acclaimed
         multiplayer single_player hyped family_friendly
+        adventure role_playing open_world racing
       ])
     end
 
+    # Q28/Q29/Q32 additions (2026-07-20 interview): soulslike…choices_matter.
     it ".classified_tag_names returns only source: classified tags" do
       expect(described_class.classified_tag_names).to eq(%w[
         space skill_based parry_windows frame_tight_jumps immersive realistic flight
         poor_performance worth_it awful game_of_the_year
+        soulslike cozy roguelike metroidvania grindy base_building city_builder
+        replayable couch_co_op scary_but_fun choices_matter
       ])
     end
 
     # L6 flip (2026-07-17): multiplayer/single_player/hyped/family_friendly
     # moved from classified to derived once game_modes/hypes/age_ratings
-    # started syncing (Game::Igdb::Client::GAME_FIELDS).
+    # started syncing (Game::Igdb::Client::GAME_FIELDS). Q32 (2026-07-20):
+    # adventure/role_playing/open_world/racing derive from synced genres/themes.
     it ".derived_tag_names returns only source: derived tags" do
       expect(described_class.derived_tag_names).to eq(%w[
         platformer simulation guns action horror survival war time_consuming acclaimed
         multiplayer single_player hyped family_friendly
+        adventure role_playing open_world racing
       ])
     end
 
@@ -143,9 +151,11 @@ RSpec.describe Game::Traits::Vocabulary do
       expect(errors).to include(a_string_matching(/unsupported schema_version nil/))
     end
 
+    # 2 became supported with the Q28-Q32 expansion (2026-07-20) — 99 is the
+    # forever-invalid probe, matching spec/models/game_traits_spec.rb.
     it "rejects an unsupported schema_version" do
-      errors = described_class.errors_for("schema_version" => 2, "values" => {})
-      expect(errors).to include(a_string_matching(/unsupported schema_version 2/))
+      errors = described_class.errors_for("schema_version" => 99, "values" => {})
+      expect(errors).to include(a_string_matching(/unsupported schema_version 99/))
     end
 
     it "rejects an unknown top-level key" do

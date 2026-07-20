@@ -366,7 +366,7 @@ RSpec.describe Pito::Grammar::ConfigSource do
         :nouns, :slash_tools, :config_providers, :config_keys, :genres, :platforms,
         :release_status, :metrics, :on_off, :hashtag_tools, :fillers, :connectives,
         :games_subcommands, :jobs_subcommands, :import_nouns, :sync_targets,
-        :schedule_whens, :price_subcommands, :platform_subcommands,
+        :schedule_whens,
         :visit_destinations, :full_flag, :show_segments
       )
     end
@@ -524,9 +524,14 @@ RSpec.describe Pito::Grammar::ConfigSource do
       names = specs.map(&:name)
       expect(names).to include(
         :list, :show, :analyze, :import, :sync,
-        :price, :delete, :reindex, :platform, :publish, :unlist,
+        :delete, :reindex, :publish, :unlist,
         :schedule, :link, :unlink, :help, :shinies, :greet, :farewell
       )
+    end
+
+    it "does NOT include price/platform (retired standalone tools, Q16/Q16b)" do
+      names = specs.map(&:name)
+      expect(names).not_to include(:price, :platform)
     end
 
     it "does not include reply-only tools (next, visit, sort, with, without, confirm, cancel)" do
@@ -609,9 +614,10 @@ RSpec.describe Pito::Grammar::ConfigSource do
         expect(spec.aliases).to match_array([ :analytics, :stats ])
       end
 
-      it "has :noun (nouns) + :without (analyze_segments) slots (W5/D17)" do
-        expect(spec.slots.map(&:name)).to eq([ :noun, :without ])
+      it "has :noun (nouns) + :full (full_flag) + :without (analyze_segments) slots (W5/D17)" do
+        expect(spec.slots.map(&:name)).to eq([ :noun, :full, :without ])
         expect(spec.slot(:noun).source).to eq(:nouns)
+        expect(spec.slot(:full).source).to eq(:full_flag)
         expect(spec.slot(:without).source).to eq(:analyze_segments)
       end
     end
