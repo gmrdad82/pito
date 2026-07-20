@@ -715,16 +715,41 @@ RSpec.describe Pito::Chat::Handlers::Show do
         (pl["text"] || pl["body"]).to_s
       end
 
-      it "with NO channel scope → asks which CHANNEL (not 'Which game?')" do
-        result = show_scoped("show channel", nil)
-        expect(body_text(result)).to include("Which channel")
-        expect(body_text(result)).not_to include("Which game")
+      # Single-channel handle-skippability (owner Q51b, confirmed global
+      # 2026-07-20): with EXACTLY one channel connected — `show_channel`,
+      # the outer describe's sole `let!` — a bare `show channel` resolves
+      # THAT channel directly instead of asking.
+      context "with exactly one channel connected" do
+        it "with NO channel scope → resolves the sole channel (never asks, never the game picker)" do
+          result = show_scoped("show channel", nil)
+          event = result.events.first
+          expect(event[:kind]).to eq(:system)
+          expect(event[:payload]["body"]).to include("GMR Dad")
+        end
+
+        it "with the @all scope → also resolves the sole channel" do
+          result = show_scoped("show channel", "@all")
+          event = result.events.first
+          expect(event[:kind]).to eq(:system)
+          expect(event[:payload]["body"]).to include("GMR Dad")
+        end
       end
 
-      it "with the @all scope → still asks which channel, not which game" do
-        result = show_scoped("show channel", "@all")
-        expect(body_text(result)).to include("Which channel")
-        expect(body_text(result)).not_to include("Which game")
+      # >1 channel: current ask/require behavior is UNCHANGED (owner Q51b item 2).
+      context "with more than one channel connected" do
+        let!(:other_channel) { create(:channel, handle: "manfyhard", title: "Manfy Hard") }
+
+        it "with NO channel scope → still asks which CHANNEL (not 'Which game?')" do
+          result = show_scoped("show channel", nil)
+          expect(body_text(result)).to include("Which channel")
+          expect(body_text(result)).not_to include("Which game")
+        end
+
+        it "with the @all scope → still asks which channel, not which game" do
+          result = show_scoped("show channel", "@all")
+          expect(body_text(result)).to include("Which channel")
+          expect(body_text(result)).not_to include("Which game")
+        end
       end
 
       it "with a specific shift+tab channel scope → resolves THAT channel's detail card" do
@@ -758,6 +783,38 @@ RSpec.describe Pito::Chat::Handlers::Show do
 
         glance = events.last[:payload]
         expect(glance.dig("analytics", "scope_type")).to eq("Channel")
+      end
+    end
+  end
+
+  # Games-grid segment tool (`games channel`) shares the exact resolve_channel
+  # path exercised above (SegmentTool#call → Show#drive_segment("games") →
+  # #handle_channel) — proven end to end through the real Router (owner Q51b
+  # examples: "what's on the shelf" / "what's on my shelf" → the cover grid,
+  # handle omitted). A sibling of "show channel @handle" (not nested inside
+  # it) so it starts with NO channels beyond the ones each context creates.
+  describe "games channel (segment tool) — single-channel default (Q51b)" do
+    context "with exactly one channel connected" do
+      let!(:sole_games_channel) { create(:channel, handle: "onlyone", title: "Only One") }
+      let!(:sole_video)         { create(:video, channel: sole_games_channel) }
+      let!(:sole_link)          { create(:video_game_link, video: sole_video, game: game) }
+
+      it "bare `games channel` (no handle) resolves the sole channel's games grid" do
+        result = Pito::Dispatch::Router.call(input: "games channel", conversation: Conversation.singleton)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["channel_id"]).to eq(sole_games_channel.id)
+      end
+    end
+
+    context "with more than one channel connected (unchanged: still asks)" do
+      let!(:games_chan_a) { create(:channel, handle: "achan") }
+      let!(:games_chan_b) { create(:channel, handle: "bchan") }
+
+      it "bare `games channel` (no handle) still asks which channel" do
+        result = Pito::Dispatch::Router.call(input: "games channel", conversation: Conversation.singleton)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.consume).to eq(false)
+        expect(result.events.first[:payload]["text"].to_s).to include("Which channel")
       end
     end
   end

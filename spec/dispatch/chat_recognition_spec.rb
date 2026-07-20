@@ -14,7 +14,7 @@ RSpec.describe "Dispatch — chat verb recognition", type: :dispatch do
   # it never appears in CHAT_SPECS below — none of the three land here.
   # Asserted separately (find: spec/dispatch/chat/find_matrix_spec.rb).
   HANDLER_BACKED = %i[
-    list show analyze sync link unlink delete reindex platform price
+    list show analyze sync link unlink delete reindex
     publish unlist schedule shinies import help
   ].freeze
 

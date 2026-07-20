@@ -34,4 +34,47 @@ RSpec.describe Pito::Games::FootageAmount do
       expect(described_class.parse(nil)).to be_nil
     end
   end
+
+  # ── Delta form (OWNER DIRECTIVE Q17, 3.8.0) — see the module comment ─────
+  describe ".delta?" do
+    it "is true only for an explicitly signed token" do
+      expect(described_class.delta?("+2")).to be(true)
+      expect(described_class.delta?("-1.5")).to be(true)
+      expect(described_class.delta?(" +2 ")).to be(true)
+    end
+
+    it "is false for a bare number (absolute set), non-numeric text, and nil" do
+      expect(described_class.delta?("2")).to be(false)
+      expect(described_class.delta?("abc")).to be(false)
+      expect(described_class.delta?(nil)).to be(false)
+    end
+  end
+
+  describe ".parse_delta" do
+    it "parses a signed amount to an exact signed half-step Rational" do
+      expect(described_class.parse_delta("+2")).to eq(2r)
+      expect(described_class.parse_delta("-1.5")).to eq(-3r / 2)
+    end
+
+    it "ceils the MAGNITUDE to the next 0.5 step, keeping the sign" do
+      expect(described_class.parse_delta("+2.1")).to eq(5r / 2)
+      expect(described_class.parse_delta("-2.1")).to eq(-5r / 2)
+    end
+
+    it "returns nil for a bare (unsigned) number — that is the absolute form" do
+      expect(described_class.parse_delta("2")).to be_nil
+    end
+
+    it "returns nil for a vague signed token (no clean magnitude)" do
+      expect(described_class.parse_delta("+x")).to be_nil
+      expect(described_class.parse_delta("-y")).to be_nil
+      expect(described_class.parse_delta("+")).to be_nil
+      expect(described_class.parse_delta("+-2")).to be_nil
+    end
+
+    it "returns nil for blank input" do
+      expect(described_class.parse_delta("")).to be_nil
+      expect(described_class.parse_delta(nil)).to be_nil
+    end
+  end
 end

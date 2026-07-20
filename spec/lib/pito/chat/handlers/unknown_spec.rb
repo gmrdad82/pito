@@ -204,6 +204,60 @@ RSpec.describe Pito::Chat::Handlers::Unknown do
       end
     end
 
+    # ── The field-scoped write exception (OWNER DIRECTIVE Q17, 3.8.0) ─────────
+    # `update` is a write tool (never read-only auto-runnable), but tools.yml
+    # declares `nl_auto_run_fields: [footage]` on it: a mapped update command
+    # whose FIELD token is footage auto-runs (footage is local-only and
+    # reversible); every other update field keeps the confirm-first
+    # did-you-mean. See Unknown#auto_run_field? + the tools.yml key comment.
+    context "update+footage at auto_run confidence (the nl_auto_run_fields exception)" do
+      it "auto-runs the mapped footage command through the real dispatch path, attributed" do
+        allow(Pito::Nl::Router).to receive(:route).and_return(route(tool: :update, confidence: auto_run_threshold))
+        allow(Pito::Nl::Mapper).to receive(:map).with("log two more hours on game 8")
+                                                 .and_return(command: "update game footage 8 +2", tool: :update)
+        dispatched = Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { "text" => "done" } } ])
+        allow(Pito::Dispatch::Router).to receive(:call).and_return(dispatched)
+
+        result = build_handler(raw: "log two more hours on game 8").call
+
+        expect(Pito::Dispatch::Router).to have_received(:call)
+          .with(hash_including(input: "update game footage 8 +2", nl_retry: true))
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first).to eq(
+          kind: :system,
+          payload: { text: Pito::Copy.render("pito.copy.nl.ran", command: "update game footage 8 +2") }
+        )
+      end
+    end
+
+    context "update+description at the SAME auto_run confidence (the exception is field-aware)" do
+      it "still confirm-gates — a description update never auto-runs" do
+        allow(Pito::Nl::Router).to receive(:route).and_return(route(tool: :update, confidence: auto_run_threshold))
+        allow(Pito::Nl::Mapper).to receive(:map).with("rewrite vid 7's description")
+                                                 .and_return(command: "update vid description 7 fresh words", tool: :update)
+        allow(Pito::Dispatch::Router).to receive(:call)
+
+        result = build_handler(raw: "rewrite vid 7's description").call
+
+        expect(Pito::Dispatch::Router).not_to have_received(:call)
+        event = result.events.first
+        expect(event[:kind]).to eq(:confirmation)
+        expect(event[:payload]["nl_command"]).to eq("update vid description 7 fresh words")
+      end
+
+      it "is not fooled by the word 'footage' inside the VALUE — only the field token counts" do
+        allow(Pito::Nl::Router).to receive(:route).and_return(route(tool: :update, confidence: auto_run_threshold))
+        allow(Pito::Nl::Mapper).to receive(:map).with("describe vid 7 as a footage recap")
+                                                 .and_return(command: "update vid description 7 footage recap", tool: :update)
+        allow(Pito::Dispatch::Router).to receive(:call)
+
+        result = build_handler(raw: "describe vid 7 as a footage recap").call
+
+        expect(Pito::Dispatch::Router).not_to have_received(:call)
+        expect(result.events.first[:kind]).to eq(:confirmation)
+      end
+    end
+
     context "mismatch re-try (router and mapper disagree on the tool)" do
       context "when the constrained retry resolves to the router's own tool" do
         it "replaces the mismatched mapping, so the retried command runs the normal branches" do

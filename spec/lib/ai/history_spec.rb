@@ -56,7 +56,7 @@ RSpec.describe Ai::History do
       ])
     end
 
-    it "projects an :ai event's text blocks verbatim and brackets structured blocks" do
+    it "projects an :ai event's text blocks verbatim and kv_table blocks as real key: value lines" do
       turn = make_turn(text: "ai what should I play?")
       make_event(turn:, kind: :echo, payload: { "text" => "ai what should I play?" })
       make_event(turn:, kind: :ai, payload: {
@@ -69,7 +69,73 @@ RSpec.describe Ai::History do
 
       expect(described_class.messages(conversation:)).to eq([
         { role: "user", content: "ai what should I play?" },
-        { role: "assistant", content: "Try Tekken 7.\n[kv_table block shown]" }
+        { role: "assistant", content: "Try Tekken 7.\nscore: 84" }
+      ])
+    end
+
+    it "projects a kv_table's title line and a typed {v:, format:} value's underlying v" do
+      turn = make_turn(text: "ai show it")
+      make_event(turn:, kind: :echo, payload: { "text" => "ai show it" })
+      make_event(turn:, kind: :ai, payload: {
+        "status" => "done",
+        "blocks" => [
+          { "type" => "kv_table", "title" => "Elden Ring", "rows" => [
+            [ "released", { "v" => "2022-02-25", "format" => "date" } ]
+          ] }
+        ]
+      })
+
+      expect(described_class.messages(conversation:)).to eq([
+        { role: "user", content: "ai show it" },
+        { role: "assistant", content: "Elden Ring\nreleased: 2022-02-25" }
+      ])
+    end
+
+    it "projects a table block as a header line and pipe-joined rows" do
+      turn = make_turn(text: "ai list them")
+      make_event(turn:, kind: :echo, payload: { "text" => "ai list them" })
+      make_event(turn:, kind: :ai, payload: {
+        "status" => "done",
+        "blocks" => [
+          { "type" => "table", "header" => [ "vid", "views" ], "rows" => [
+            [ "#1 Intro", "120" ],
+            [ "#2 Boss fight", "84" ]
+          ] }
+        ]
+      })
+
+      expect(described_class.messages(conversation:)).to eq([
+        { role: "user", content: "ai list them" },
+        { role: "assistant", content: "vid | views\n#1 Intro | 120\n#2 Boss fight | 84" }
+      ])
+    end
+
+    it "caps a table projection at 20 rows and appends a (+N more rows) marker" do
+      turn = make_turn(text: "ai list them all")
+      make_event(turn:, kind: :echo, payload: { "text" => "ai list them all" })
+      rows = Array.new(25) { |i| [ "#{i}", "v#{i}" ] }
+      make_event(turn:, kind: :ai, payload: {
+        "status" => "done",
+        "blocks" => [ { "type" => "table", "header" => [ "id", "val" ], "rows" => rows } ]
+      })
+
+      content = described_class.messages(conversation:).last[:content]
+
+      expect(content.lines.count).to eq(1 + 20 + 1) # header + capped rows + marker
+      expect(content).to end_with("(+5 more rows)")
+    end
+
+    it "projects media/sparkline/chart/score/ttb blocks as a parenthesized rendered aside" do
+      turn = make_turn(text: "ai show a chart")
+      make_event(turn:, kind: :echo, payload: { "text" => "ai show a chart" })
+      make_event(turn:, kind: :ai, payload: {
+        "status" => "done",
+        "blocks" => [ { "type" => "chart", "viz" => "bar", "bars" => [] } ]
+      })
+
+      expect(described_class.messages(conversation:)).to eq([
+        { role: "user", content: "ai show a chart" },
+        { role: "assistant", content: "(chart rendered)" }
       ])
     end
 

@@ -80,6 +80,19 @@ module Pito
       #   exact expected command, byte-identical across both rounds, no
       #   runaway repetition. See CompletionClient#chat's doc comment for the
       #   repeat_penalty passthrough.
+      #
+      #   2026-07-20 (Q56-A re-sweep, 1.1 holds) — re-measured after the
+      #   mapper-hardening pass grew nl.exemplars to 44 pairs and the Q27c
+      #   write-guard landed (WRITE_ACTION_LEXICON below). Live sweep over
+      #   the fixture's 10 `entries:` rows, TWO rounds per value, scores
+      #   identical across both rounds at every value:
+      #     1.0 -> 9/10, 1.1 -> 10/10, 1.15 -> 10/10, 1.3 -> 8/10.
+      #   (1.0's one miss: the breakdowns row composed "show game 8 full";
+      #   1.3's two: the sync row degraded to nil and the similar-in-style
+      #   row dodged to a `search …` composition — the exact search-like
+      #   drift Q51 pins against.) 1.1 and 1.15 tie at the ceiling; kept 1.1
+      #   as the smaller step off the un-penalized 1.0 default, same
+      #   tiebreak as the v2 retune above.
       REPEAT_PENALTY = 1.1
 
       # Few-shot retrieval width (v2, 2026-07-16 — see #chat_messages for the
@@ -95,10 +108,72 @@ module Pito
       # completion budget, with room for the pool to keep growing for free.
       FEW_SHOT_TOP_K = 8
 
+      # ── Write-tool guard (Q27c, 2026-07-20/21 owner interview) ───────────
+      # The mapper must NEVER hand back a WRITE-tool command unless the
+      # owner's own words name that tool's action — live traffic showed the
+      # composer confabulating writes for read-shaped asks ("crack open vid
+      # 30" is an analyze ask; a link/delete composition for it is a
+      # hallucination, not a mapping). The keys of this Hash ARE the write
+      # set; a composed tool found here must match its action lexicon
+      # against the NORMALIZED utterance (post nl.synonyms fold — "remove"/
+      # "erase" already read "delete" by then, but the raw forms stay listed
+      # so the guard never depends on #normalize's exact steps) or #map
+      # returns nil and the ask falls through to the router's did-you-mean /
+      # unknown copy. Tools absent here (every read tool) are unguarded.
+      #
+      # Lexicon derivation rule: the interview's verb families + their
+      # nl.synonyms + the action verbs already attested in each tool's own
+      # nl_examples corpus AND its nl.exemplars say-phrases (tools.yml — the
+      # two places that define owner-voice action wording), with
+      # hand-authored inflections. The exemplar half is a coherence
+      # invariant — the few-shot pool must never teach a composition this
+      # guard then refuses (mapper_spec pins it pool-wide). Update's
+      # add/put/pick-up/pay/cost/come-out/runs-on families were re-derived
+      # 2026-07-20 after a verify pass caught them attested-but-omitted:
+      # "add ps5 to game 12" (an nl_examples row) composed :update, the
+      # guard nil'd it, and the ask degraded to the huh copy.
+      #
+      # Deliberately NOT included — the boundary is an OWNER-ACTION VERB,
+      # so a phrasing survives on one ("game 6 also plays on ps5", "picked
+      # up game 5 for 12 bucks") and never on a copula or price-drift
+      # alone:
+      #   * link's no-verb relink family ("vid 3 is actually hollow
+      #     knight" — Q47);
+      #   * update's copula facts ("tekken 8 is 49.99 now", "game 42 is
+      #     also on switch") and price-drift statements ("game 6 dropped
+      #     to 9.99", "game 3 goes for 15 euros") — the only verb is the
+      #     price/platform's own movement, and "dropped" is delete/
+      #     schedule's verb: accepting it here would bless
+      #     mis-compositions of destructive-intent phrasing as updates.
+      # Verb-less writes are exactly what Q27c rules the mapper may never
+      # compose on its own. Cost of the exclusion: those rows stay attested
+      # in nl_examples (they still teach the router's cosine neighbors),
+      # but their asks end at the huh copy — Handlers::Unknown#gated_result
+      # needs a surviving composition even for the did-you-mean.
+      #
+      # EXCEPTION (interview-ruled): update-footage auto-run phrasings count
+      # as action-named — logged/recorded/played/add-hours wordings sit in
+      # update's lexicon (the Q17 field that may auto-run needs its owner-
+      # voice deltas to survive the guard).
+      WRITE_ACTION_LEXICON = {
+        delete: /\b(?:delet(?:e[sd]?|ing)|remov(?:e[sd]?|ing)|eras(?:e[sd]?|ing)|kill(?:s|ed|ing)?|trash(?:es|ed|ing)?|drop(?:s|ped|ping)?|wip(?:e[sd]?|ing)|scrap(?:s|ped|ping)?|bin(?:s|ned|ning)?|get(?:s|ting)? rid of|thr(?:ow(?:s|ing)?|ew) (?:\S+ ){0,3}?away)\b/,
+        link: /\b(?:link(?:s|ed|ing)?|attach(?:es|ed|ing)?|hook(?:s|ed|ing)?|connect(?:s|ed|ing)?|tie(?:s)?|tying|pair(?:s|ing)?|belong(?:s|ed|ing)?|go(?:es|ing)? (?:with|together))\b/,
+        unlink: /\b(?:unlink(?:s|ed|ing)?|unhook(?:s|ed|ing)?|detach(?:es|ed|ing)?|divorc(?:e[sd]?|ing))\b/,
+        publish: /\b(?:publish(?:es|ed|ing)?|ship(?:s|ped|ping)?|releas(?:e[sd]?|ing)|go(?:es|ing)? live|went live|(?:put(?:s|ting)?|push(?:es|ed|ing)?|send(?:s|ing)?|flip(?:s|ped|ping)?|make(?:s)?|making|take(?:s)?|taking|took) (?:\S+ ){0,4}?(?:out|live|public))\b/,
+        unlist: /\b(?:unlist(?:s|ed|ing)?|hid(?:es?|den|ing)?|delist(?:s|ed|ing)?|(?:take(?:s)?|taking|took|pull(?:s|ed|ing)?|get(?:s|ting)?) (?:\S+ ){0,4}?off)\b|\boff (?:\S+ ){0,3}?listing\b/,
+        schedule: /\b(?:schedul(?:e[sd]?|ing)|queu(?:e[sd]?|ing)|queueing|lin(?:e[sd]?|ing) up|line-?up|slot(?:s|ted|ting)?|pencil(?:s|led|ling)?|premier(?:e[sd]?|ing)|calendar|slate|drop(?:s|ped|ping)?|go(?:es|ing)? (?:out|live)|went (?:out|live)|(?:put(?:s|ting)?|push(?:es|ed|ing)?) (?:\S+ ){0,4}?out)\b/,
+        sync: /\b(?:sync(?:s|ed|ing)?|refresh(?:es|ed|ing)?|fetch(?:es|ed|ing)?|pull(?:s|ed|ing)?|grab(?:s|bed|bing)?|fresh(?:est)?|new uploads?|from youtube|check(?:s|ed|ing)? youtube)\b/,
+        import: /\b(?:import(?:s|ed|ing)?|add(?:s|ed|ing)?|grab(?:s|bed|bing)?|fetch(?:es|ed|ing)?|bring(?:s|ing)?|brought|pull(?:s|ed|ing)? (?:\S+ ){0,4}?in)\b/,
+        reindex: /\b(?:re-?index(?:es|ed|ing)?|re-?embed(?:s|ded|ding)?|embeddings?|rebuil[dt](?:s|ing)?|redo(?:es|ing)?|redid|regenerat(?:e[sd]?|ing))\b/,
+        update: /\b(?:updat(?:e[sd]?|ing)|set(?:s|ting)?|chang(?:e[sd]?|ing)|log(?:s|ged|ging)?|record(?:s|ed|ing)?|play(?:s|ed|ing)|add(?:s|ed|ing)?|put(?:s|ting)?|pick(?:s|ed|ing)? up|pa(?:y(?:s|ing)?|id)|cost(?:s|ing)?|(?:came|come(?:s)?|coming) out|run(?:s|ning)? on|footage|hours?|minutes?|sessions?)\b/
+      }.freeze
+
       # Maps a free-text +utterance+ to { command:, tool: } — a validated,
       # parser-approved PITO command line and the chat tool it canonicalizes
       # to — or nil when the utterance is blank, the sidecar is unreachable,
-      # or the completion doesn't parse to a known chat tool.
+      # the completion doesn't parse to a known chat tool, or the composed
+      # tool is a write the utterance never asked for (WRITE_ACTION_LEXICON
+      # above).
       #
       # `tool:` (3.0.0 mismatch re-try) constrains the completion to a
       # SINGLE-TOOL grammar (Pito::Nl::GbnfBuilder's `only:`) — the model
@@ -119,8 +194,9 @@ module Pito
       def map(utterance, tool: nil)
         return nil if utterance.blank?
 
+        normalized = normalize(utterance)
         completion = Pito::Nl::CompletionClient.new.chat(
-          messages: chat_messages(normalize(utterance)),
+          messages: chat_messages(normalized),
           grammar: grammar(tool: tool),
           max_tokens: MAX_TOKENS,
           repeat_penalty: REPEAT_PENALTY
@@ -134,6 +210,7 @@ module Pito
         parsed_tool_name = parsed_tool(command)
         return nil if parsed_tool_name.nil?
         return nil if tool && parsed_tool_name != tool.to_sym
+        return nil unless action_named?(tool: parsed_tool_name, utterance: normalized)
 
         { command: command, tool: parsed_tool_name }
       end
@@ -274,8 +351,19 @@ module Pito
         @exemplar_vectors = vectors
       end
 
+      # The write-tool guard's predicate (Q27c — see WRITE_ACTION_LEXICON's
+      # own comment for the policy and the lexicon derivation rule). Applied
+      # to EVERY composition, the `tool:`-constrained mismatch re-try
+      # included: a blanket "never compose an unasked write", not a path-
+      # specific patch. +utterance+ is the already-normalized form #map
+      # built the prompt from — guard and prompt always judge the same text.
+      def action_named?(tool:, utterance:)
+        lexicon = WRITE_ACTION_LEXICON[tool]
+        lexicon.nil? || utterance.match?(lexicon)
+      end
+
       # Cosine similarity over plain Float arrays, hand-rolled on purpose:
-      # the pool is ~28 vectors of 768 dims — a linear scan is microseconds,
+      # the pool is ~44 vectors of 768 dims — a linear scan is microseconds,
       # and these vectors never touch the DB, so pgvector/`neighbor` would be
       # infrastructure for nothing. Zero-norm input scores 0.0 rather than
       # dividing by zero.

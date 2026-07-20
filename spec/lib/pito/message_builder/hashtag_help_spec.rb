@@ -50,10 +50,6 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("delete")
         end
 
-        it "body lists the price action" do
-          expect(result["body"]).to include("price")
-        end
-
         it "body lists the link action" do
           expect(result["body"]).to include("link")
         end
@@ -77,35 +73,21 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
       end
 
-      context "action-level page (action: 'price')" do
-        subject(:result) { described_class.call(target: "game_detail", action: "price") }
-
-        it "returns an html payload" do
-          expect(result).to be_a(Hash)
-          expect(result["html"]).to be(true)
-        end
-
-        it "body includes 'Usage:'" do
-          expect(result["body"]).to include("Usage:")
-        end
-
-        it "body includes the price usage shape" do
-          expect(result["body"]).to include("price")
-          expect(result["body"]).to include("amount")
-        end
-
-        it "body includes the --help option" do
-          expect(result["body"]).to include("--help")
-        end
-
-        it "body is wrapped in .pito-help-block" do
-          expect(result["body"]).to include('class="pito-help-block"')
-        end
-      end
-
       context "action-level page (action: 'footage', retired WP1)" do
         it "returns nil (footage is no longer a declared game_detail action)" do
           expect(described_class.call(target: "game_detail", action: "footage")).to be_nil
+        end
+      end
+
+      context "action-level page (action: 'price', retired Q16/Q16b)" do
+        it "returns nil (price is no longer a declared game_detail action)" do
+          expect(described_class.call(target: "game_detail", action: "price")).to be_nil
+        end
+      end
+
+      context "action-level page (action: 'platform', retired Q16/Q16b)" do
+        it "returns nil (platform is no longer a declared game_detail action)" do
+          expect(described_class.call(target: "game_detail", action: "platform")).to be_nil
         end
       end
 
@@ -647,7 +629,7 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
       end
 
       context "action-level page — universal rows are not added to action pages" do
-        subject(:result) { described_class.call(target: "game_detail", action: "price", event:) }
+        subject(:result) { described_class.call(target: "game_detail", action: "delete", event:) }
 
         it "returns an html payload (action page unaffected)" do
           expect(result).to be_a(Hash)

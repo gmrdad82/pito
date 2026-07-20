@@ -118,24 +118,12 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     end
   end
 
-  # ── price (delegated to Chat::Handlers::Price via ToolDelegator) ───────────────
+  # ── price (retired standalone tool, Q16/Q16b — `update` owns field writes) ──
 
-  describe "#call — price" do
-    it "sets the referenced game's price from a list reply (#<handle> price set <id> <amount>)" do
-      result = handler.call(event:, rest: "price set #{game.id} 59.99", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(game.reload.price).to eq(BigDecimal("59.99"))
-    end
-
-    it "sets an explicit 0 (free) from a list reply" do
-      handler.call(event:, rest: "price set #{game.id} 0", conversation:)
-      expect(game.reload.price).to eq(0)
-    end
-
-    it "does NOT return an invalid_action error (price is now a declared action)" do
-      result = handler.call(event:, rest: "price set #{game.id} 9.99", conversation:)
-      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
-    end
+  it "rejects `price` as an invalid_action (retired, no longer a declared action)" do
+    result = handler.call(event:, rest: "price set #{game.id} 59.99", conversation:)
+    expect(result).to be_a(Pito::FollowUp::Result::Error)
+    expect(result.message_key).to eq("pito.follow_up.game_list.errors.invalid_action")
   end
 
   # ── link / unlink (source: game, target: video) ─────────────────────────────

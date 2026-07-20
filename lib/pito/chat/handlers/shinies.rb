@@ -6,14 +6,17 @@ module Pito
       # Handler for the `shinies` chat tool.
       #
       # Forms:
-      #   shinies channel @handle  — channel by @handle
-      #   shinies vid <id|#id>     — video by numeric id or #id ref
-      #   shinies game <id|#id>    — game by numeric id or #id ref
+      #   shinies channel [@handle] — channel by @handle, or (owner Q51b) the
+      #                               sole connected channel when the handle
+      #                               is omitted and exactly one exists
+      #   shinies vid <id|#id>      — video by numeric id or #id ref
+      #   shinies game <id|#id>     — game by numeric id or #id ref
       #
       # Context-aware reply: when invoked as a follow-up (reply to list/detail events
       # for games, videos, or channels), the target entity is inferred from the
       # source event payload (game_id / video_id) or, for channels, from the
-      # explicit @handle carried in follow_up.rest.
+      # explicit @handle carried in follow_up.rest — falling back to the sole
+      # channel (Q51b) when follow_up.rest carries none and exactly one exists.
       class Shinies < Pito::Chat::Handler
         self.tool = :shinies
         self.description_key = "pito.chat.shinies.descriptions.shinies"
@@ -81,9 +84,12 @@ module Pito
 
         # Resolve the channel entity — in follow-up context uses follow_up.rest;
         # in free-chat uses the raw input after stripping tool + channel noun.
+        # Blank handle: the single-channel handle-skippability law (owner
+        # Q51b) — with EXACTLY one channel connected, that's the answer, no
+        # ask; with zero or several, still ambiguous → :needs_ref.
         def resolve_channel
           handle = channel_ref
-          return :needs_ref if handle.blank?
+          return ::Channel.sole || :needs_ref if handle.blank?
 
           norm = handle.to_s.sub(/\A@+/, "").downcase
           ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)

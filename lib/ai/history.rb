@@ -65,8 +65,12 @@ module Ai
     end
 
     # An :ai event's payload carries typed blocks; text blocks speak verbatim,
-    # structured blocks appear as bracketed markers so the model knows they were
-    # shown without re-serializing chart data into the prompt.
+    # kv_table/table project their REAL content (compactly) so the model has
+    # actual data to reason about instead of a bracketed marker to parrot —
+    # the old placeholder used to leak verbatim into fresh prose once the
+    # model saw it in its own prior turn. The remaining visual-only types
+    # (media, sparkline, chart, score, ttb) have no text form worth feeding
+    # back, so they get a natural aside instead.
     def ai_message(event)
       parts = Array(event.payload["blocks"]).map do |block|
         block = block.transform_keys(&:to_s) if block.respond_to?(:transform_keys)
@@ -75,11 +79,45 @@ module Ai
         # Carry the command so the model never imitates a bare "[suggestion]"
         # marker as if it were prose (owner saw exactly that).
         when "suggestion" then "[suggested command: #{block['command']}]"
-        else "[#{block['type']} block shown]"
+        when "kv_table" then kv_table_projection(block)
+        when "table" then table_projection(block)
+        else "(#{block['type']} rendered)"
         end
       end
       content = parts.join("\n").strip
       { role: "assistant", content: content } if content.present?
+    end
+
+    # Rows are [key, value] or [key, value, command] (Ai::Blocks#kv_row); a
+    # value may be a plain string or a typed {"v" =>, "format" =>} hash
+    # (KvTableBlockComponent#typed?) — either way the underlying value is
+    # what the model should see, not the display formatting. "title" isn't
+    # part of today's normalized shape but is honored if a payload carries
+    # one, on its own line ahead of the rows.
+    def kv_table_projection(block)
+      lines = []
+      lines << block["title"].to_s if block["title"].present?
+      Array(block["rows"]).each do |row|
+        key, value = row
+        lines << "#{key}: #{kv_table_value(value)}"
+      end
+      lines.join("\n")
+    end
+
+    def kv_table_value(value)
+      value.is_a?(Hash) ? value["v"].to_s : value.to_s
+    end
+
+    TABLE_ROW_CAP = 20
+
+    # header + rows, pipe-joined (Ai::Blocks#table / TableBlockComponent) —
+    # capped so one wide grid can't blow the char budget on its own.
+    def table_projection(block)
+      header = Array(block["header"]).join(" | ")
+      rows   = Array(block["rows"])
+      lines  = [ header ] + rows.first(TABLE_ROW_CAP).map { |row| Array(row).join(" | ") }
+      lines << "(+#{rows.size - TABLE_ROW_CAP} more rows)" if rows.size > TABLE_ROW_CAP
+      lines.join("\n")
     end
 
     def assistant_message(event)

@@ -25,7 +25,9 @@ module Ai
     SCHEMA_VERSION    = 1
     TOP_LEVEL_KEYS    = %i[schema_version providers].freeze
     PROVIDER_KEYS     = %i[label wire base_url auth models_endpoint capabilities pinned_models].freeze
+    OPTIONAL_KEYS     = %i[pinned_pricing].freeze
     CAPABILITY_KEYS   = %i[streaming reasoning].freeze
+    PRICING_KEYS      = %i[input output].freeze
     ALLOWED_WIRE      = %w[openai_chat anthropic_messages].freeze
     ALLOWED_AUTH      = %w[bearer x_api_key].freeze
     ALLOWED_REASONING = %w[none effort budget passthrough].freeze
@@ -87,7 +89,7 @@ module Ai
       path = "providers.#{name}"
       invalid!(path, "must be a Hash, got #{descriptor.class}") unless descriptor.is_a?(Hash)
 
-      check_keys!(descriptor, PROVIDER_KEYS, path: path)
+      check_keys!(descriptor, PROVIDER_KEYS, path: path, optional: OPTIONAL_KEYS)
 
       unless descriptor[:label].is_a?(String)
         invalid!("#{path}.label", "must be a String, got #{descriptor[:label].inspect}")
@@ -113,6 +115,7 @@ module Ai
 
       validate_capabilities!(descriptor[:capabilities], path: path)
       validate_pinned_models!(descriptor[:pinned_models], path: path)
+      validate_pinned_pricing!(descriptor[:pinned_pricing], path: path)
     end
 
     def validate_capabilities!(capabilities, path:)
@@ -136,6 +139,31 @@ module Ai
       return if pinned_models.is_a?(Array) && pinned_models.all? { |m| m.is_a?(String) }
 
       invalid!(full_path, "must be an Array of Strings, got #{pinned_models.inspect}")
+    end
+
+    # Optional model id → { input:, output: } price pins (USD per 1M tokens) —
+    # the computed-cost fallback's last resort for providers whose /models
+    # listing publishes no pricing. Absent is fine; when present, every entry
+    # must carry exactly numeric input/output so a typo fails at boot/spec
+    # time, never silently at cost-stamp time.
+    def validate_pinned_pricing!(pinned_pricing, path:)
+      return if pinned_pricing.nil?
+
+      full_path = "#{path}.pinned_pricing"
+      invalid!(full_path, "must be a Hash, got #{pinned_pricing.class}") unless pinned_pricing.is_a?(Hash)
+
+      pinned_pricing.each do |model_id, prices|
+        entry_path = "#{full_path}.#{model_id}"
+        invalid!(entry_path, "must be a Hash, got #{prices.inspect}") unless prices.is_a?(Hash)
+
+        check_keys!(prices, PRICING_KEYS, path: entry_path)
+
+        PRICING_KEYS.each do |key|
+          next if prices[key].is_a?(Numeric)
+
+          invalid!("#{entry_path}.#{key}", "must be a Numeric, got #{prices[key].inspect}")
+        end
+      end
     end
 
     # Raises unless +hash+'s keys are exactly +allowed+ (no unknown, none

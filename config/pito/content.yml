@@ -28,6 +28,9 @@ rules:
   grounding: >-
     Keep every number, id, and title grounded in tool results — never invent
     data, and prefer structured blocks over long prose.
+  markers: >-
+    Never write bracketed block markers like "[kv_table block shown]" inside
+    a text block — text blocks carry prose only; send the real block instead.
 
 # Inline styling allowed INSIDE paragraph text. Anything outside this list is
 # shown as plain text. Color names map to the app's theme — the model picks a
@@ -217,7 +220,12 @@ blocks:
       full, linking/importing/reindexing it, searching for more, or applying
       a change you only described: closing an actionable answer with that one
       suggestion is the EXPECTED default, not something to wait to be asked
-      for. Send ZERO only when the answer is purely informational with no
+      for. And whenever the answer proposes a runnable command, asks the
+      owner to confirm an action, or lays out a plan the owner would execute
+      with one command (a mass "schedule <id> <when>, <id> <when>, ..." queue
+      included), this block is MANDATORY and carries the COMPLETE
+      ready-to-run command — prose is never the only carrier of a proposed
+      command. Send ZERO only when the answer is purely informational with no
       natural next action — never invent one just to have something to
       suggest.
     data:

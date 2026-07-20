@@ -3,35 +3,28 @@
 module Pito
   module MessageBuilder
     module Game
-      # Builds the payload for the `platform <game> <name>` confirmation (and the
-      # equivalent `#<handle> platform <name>` follow-up).
+      # Builds the payload for the `update game platform <id> <name>`
+      # confirmation (and the equivalent `#<handle> platform <name>` follow-up).
       #
       # Emits a :system message whose HTML body confirms the platform that was
       # appended, with the game's platform logo(s) rendered inline via
       # Pito::Games::PlatformTokens.icons_html. When the newly-set platform has no
       # logo family (e.g. "Xbox"), the unknown-platform note is used instead and
-      # no logo is shown for it.
+      # no logo is shown for it. (The removed/unset branch retired with the
+      # standalone platform tool — update only ever appends.)
       module PlatformSet
         extend Pito::MessageBuilder::Helpers
         module_function
 
         # @param game     [::Game]  the game whose platforms were updated.
-        # @param platform [String]  the normalized platform string that was set/removed.
-        # @param removed  [Boolean] true when the platform was REMOVED (unset).
+        # @param platform [String]  the normalized platform string that was set.
         # @return [Hash] system event payload (body html + html: true + game_id).
-        def call(game, platform:, removed: false)
+        def call(game, platform:)
           title = ERB::Util.html_escape(game.title)
           plat  = ERB::Util.html_escape(platform)
           known = Pito::Games::PlatformTokens.tokens([ platform ]).any?
 
-          key =
-            if removed
-              "pito.copy.games.platform_unset"
-            elsif known
-              "pito.copy.games.platform_set"
-            else
-              "pito.copy.games.platform_unknown"
-            end
+          key   = known ? "pito.copy.games.platform_set" : "pito.copy.games.platform_unknown"
           text  = Pito::Copy.render(key, { title: title, platform: plat })
           icons = Pito::Games::PlatformTokens.icons_html(game.platforms)
 

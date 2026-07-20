@@ -71,7 +71,13 @@ class AiOrchestratorJob < ApplicationJob
        could take — view something in full, link it, import it, reindex it, search
        for more, apply a change you only described, and so on: end with EXACTLY ONE
        suggestion block for that step (a mass command counts as one; never more
-       than one suggestion). This is the EXPECTED close for an
+       than one suggestion). A PROPOSED COMMAND IS NEVER PROSE-ONLY: whenever your
+       answer proposes a runnable command, asks the owner to confirm an action, or
+       lays out a plan the owner would execute with one command (mass/batch forms
+       included — a full "schedule <id> <when>, <id> <when>, ..." queue is ONE
+       command), you MUST close with that one suggestion block carrying the
+       COMPLETE ready-to-run command; describing it in text is not enough.
+       This is the EXPECTED close for an
        actionable answer, not an optional extra — skip it only when the answer is
        purely informational with no natural next action (never invent one just to
        have something to suggest). Every suggestion's `command` MUST be a complete,
@@ -124,8 +130,8 @@ class AiOrchestratorJob < ApplicationJob
     "update vid tags <id> <tag1, tag2, ...>",
     "publish vid <id>",
     "unlist vid <id>",
-    "schedule vid <id> <dd-mm-yyyy>",
-    "schedule <id> in 2 hours, <id> tomorrow at 18:00, <id> <dd-mm-yyyy> <hh:mm>",
+    "schedule vid <id> tomorrow at 18:00 | schedule vid <id> <dd-mm-yyyy> <hh:mm>",
+    "schedule <id> 2 days from now at 11:00, <id> next monday 17:00, <id> <dd-mm-yyyy> 11:00",
     "delete game <id> | delete vid <id>",
     "reindex game <id> | reindex vid <id>"
   ].freeze
@@ -155,11 +161,17 @@ class AiOrchestratorJob < ApplicationJob
       "CHEAT-SHEET (valid pito command shapes — swap <placeholders> for real " \
       "ids/@handles/text from what you already gathered; every other word is " \
       "literal):\n#{COMMAND_SHAPES.map { |line| "  #{line}" }.join("\n")}\n" \
+      "WHEN GRAMMAR: schedule's trailing <when> speaks human — tomorrow at " \
+      "18:00 | next monday 17:00 | in 2 hours | 2 days from now at 11:00 | " \
+      "today at noon | at 3pm — or absolute DD-MM-YYYY [HH:MM]; prefer the " \
+      "human forms, and any row of a mass schedule may use any of them.\n" \
       "MASS RULES: mass forms are comma-separated '<id> <value>' rows; mass " \
-      "schedule is all-or-nothing behind ONE confirmation and enforces " \
-      "60-minute spacing per channel (check list vids private first); mass " \
-      "update applies row by row. Suggest AT MOST ONE command per answer — " \
-      "a mass command counts as one."
+      "schedule is all-or-nothing behind ONE confirmation and obeys the " \
+      "SPACING LAW — at least 4 hours between any two publishes on a " \
+      "channel (scheduled AND published vids count) and at most 2 publishes " \
+      "in any rolling 24h; publish-now obeys the same law (check list vids " \
+      "private first); mass update applies row by row. Suggest AT MOST ONE " \
+      "command per answer — a mass command counts as one."
   end
   private_class_method :command_cheat_sheet
 
@@ -509,7 +521,7 @@ class AiOrchestratorJob < ApplicationJob
     blocks = Ai::Blocks.normalize(terminal.arguments["blocks"], conversation: @conversation)
     blocks = Ai::Blocks.text_blocks(response.text) + blocks if response.text.to_s.strip.present?
     blocks = [ text_block(Pito::Copy.render("pito.copy.ai.errors.failed")) ] if blocks.empty?
-    blocks.first(Ai::Blocks::MAX_BLOCKS)
+    Ai::Blocks.cap(blocks)
   end
 
   def text_block(text)

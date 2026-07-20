@@ -4,6 +4,133 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [4.0.0] — 2026-07-21
+
+### Removed
+
+- **Two verbs retire into one** — the standalone `price` and `platform`
+  tools are gone; `update game price|platform <id> <value>` is the one
+  way to write a game's fields (hence the major bump). Their best
+  phrasings moved into update's NL corpus, and every advertisement,
+  help line and reply surface follows. The price/platform FIELDS —
+  columns, filters, glyphs — are untouched; only the verbs died.
+
+### Fixed
+
+- **The badge pays its tab** — AI answers were meant to wear a cost since
+  3.5.0, but the estimate had nothing to compute with: neither OpenCode
+  Zen's nor Anthropic's `/models` listing publishes pricing metadata
+  (verified against the live endpoints), so the computed-cost fallback
+  could never fire and the model badge stayed bare. Providers can now
+  carry a `pinned_pricing` map in `ai_providers.yml` — verified list
+  prices, USD per 1M tokens, validated loudly by the provider registry at
+  boot — and `ModelCatalog.pricing_for` falls back to it when the catalog
+  has none (catalog wins when both exist). claude-sonnet-5 and
+  claude-haiku-4-5 are pinned (the haiku pin covers Anthropic's dated id
+  too); a model with genuinely unknown pricing still shows nothing, never
+  a fake 0.00 — and the badge itself now honors that law for real costs:
+  a nonzero amount that two-decimal-rounds away renders as "<0.01"
+  instead of masquerading as the free-model "0.00".
+- **History stops teaching the parrot** — prior AI replies were fed back
+  to the model with structured blocks collapsed to bracket markers like
+  `[kv_table block shown]`, which the model then parroted verbatim into
+  fresh prose on the scrollback. History now projects kv_tables as real
+  `key: value` lines (typed values unwrapped) and tables as pipe-joined
+  header + rows (capped at 20, `(+N more rows)`), while the visual-only
+  types (media, sparkline, chart, score, ttb) read as a plain
+  `(chart rendered)` aside. Belt and suspenders: normalize-time scrubbing
+  strips any parroted marker out of incoming text blocks — exact-match
+  only, `[suggested command: …]` untouched, a marker-only block drops.
+- **The calibration gate cleans up after itself** — the two live NL
+  gates now use uniquely named fixture constants (running them together
+  no longer cross-loads the wrong fixture) and purge their committed
+  corpus rows in an after-hook, so exercising the gates can never again
+  poison the shared test database into failing unrelated suites.
+
+### Changed
+
+- **The NL thresholds got re-pinned by interview** — auto-run 0.90→0.85
+  and suggest 0.72→0.65, owner-set and then measured live: 62/62
+  auto-run phrasings route to their exact tool, 30/30 suggest phrasings
+  surface their ask, tolerated rejects stay safely under the auto-run
+  floor. Junk below 0.65 (keyboard mash included) is silent again.
+- **A proposed command is never prose-only** — the orchestrator's system
+  prompt and the content rules now make the suggestion block mandatory
+  whenever the AI proposes a runnable command, asks for confirmation, or
+  lays out a plan executable with one command (a full mass-schedule queue
+  counts as ONE command): the answer must close with the complete
+  ready-to-run command as its one suggestion. That block is what carries
+  the copy widget and the shift+u accept chip, so proposals become
+  graspable instead of parked in prose. And the block cap can no longer
+  eat it: an answer running over the 12-block limit used to truncate from
+  the tail — exactly where the suggestion sits — so both cap paths now
+  keep the answer's one suggestion, swapping it in for the last kept
+  block instead of dropping it. The command cheat-sheet also
+  drops its machine-first `<dd-mm-yyyy>` habit: schedule shapes now teach
+  the human grammar ("tomorrow at 18:00", "2 days from now at 11:00",
+  "next monday 17:00") with a WHEN GRAMMAR line listing every accepted
+  form — the parser understood them all along; the AI just never spoke
+  them.
+
+### Added
+
+- **The schedule grammar is spec-locked** — the owner's everyday phrasings
+  ("2 days from now", "next monday 3pm", "at 3pm", "tomorrow 11am", strict
+  `DD-MM-YYYY HH:MM`) are pinned verbatim in the time-parser spec, and a
+  mass-form proof mixes natural language and strict dates in one
+  comma-separated command with per-segment assertions — the QoL grammar
+  can never silently regress again.
+- **Footage learns arithmetic and earns autonomy** — `update game
+  footage <id> +2` / `-1.5` adds or subtracts from the running total,
+  floored at zero (and when the floor engages, the reply says so instead
+  of pretending the subtraction landed). A vague or missing amount now
+  surfaces the tool's own help page rather than an error. And footage
+  became the first config-declared, field-scoped NL auto-run exception:
+  "logged three more hours on elden ring" just runs — footage is
+  local-only and reversible; every other write still confirms first, and
+  the schema-integrity suite pins the exception set so widening it is a
+  reviewed act.
+- **The scheduling spacing law** — no publish moment may land within 4
+  hours of another scheduled or published vid on the channel, and no
+  rolling 24h window may hold more than 2 publishes ("day" is
+  deliberately a sliding 24h — no timezone seams). Enforced as model
+  validations behind dedicated contexts: the `schedule` tool (single AND
+  mass, stage-time dry-run plus confirm-time save) and publish-NOW (the
+  moment judged is the click). Sync and Studio-side state always mirror
+  in freely, and pre-existing violations are grandfathered — the law
+  gates new acts, it never litigates history. Every rejection names the
+  offender and the rule; supersedes the old 60-minute mass spacing.
+- **`full` becomes a real modifier** — `analyze vid 30 full` and
+  `analyze channels full` now parse; depth wording works the same way
+  across show and analyze.
+- **One channel, no ceremony** — with exactly one channel connected,
+  every @handle argument is optional on every surface; "what's on my
+  shelf" just answers.
+- **Relink means relink** — linking a vid that already has a game
+  replaces the old link in one transaction, and the reply names what
+  moved from where to where.
+- **Traits vocabulary v2** — soulslike, cozy, grindy, roguelike,
+  metroidvania, replayable, couch co-op, scary-but-fun, base building,
+  city builder and choices-matter join as classified tags; adventure,
+  role-playing, open-world and racing derive straight from IGDB sync.
+  The schema bump gates a one-off re-classify pass over the library.
+- **The corpus speaks its owner** — fresh nl_examples batches across
+  delete, publish, schedule, glance, linked, the cover grid, shinies,
+  similar, videos, breakdowns, analyze, conversations and import, plus
+  a trait-search family ("do I own anything soulslike?" routes to
+  semantic search now) — every batch shipped with held-out fixture
+  twins and a live-gate run, which is the law from here on. New synonym
+  snaps: punishing→brutal, kid friendly→family friendly,
+  shelf/covers/wall→games, peek/rundown/snapshot→glance, gimme→show.
+- **The mapper grows a conscience** — a write-guard forbids composing
+  any write command from a phrase that doesn't name the action ("crack
+  open vid 30" can never become `link 30` again), with the footage
+  auto-run family correctly counted as action-named.
+- **CI grows the sidecars** — the embedder and nlmapper run as pinned
+  service containers in Actions and the two live NL calibration gates
+  are BLOCKING in the main test job. The gate that silently rotted for
+  seven releases can never rot again.
+
 ## [3.7.0] — 2026-07-20
 
 ### Added

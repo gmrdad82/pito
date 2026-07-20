@@ -24,18 +24,18 @@ module Pito
       # Each tool appears in exactly one group; the `help` tool itself is not
       # listed (it IS the page the user is reading).
       TOOL_GROUPS = {
-        # platform (platform set/unset) and price (price set/unset) manage game
-        # metadata and belong alongside the other game commands.  shinies shows
-        # the thumbnail breakdown and is applicable to game, vid, and channel.
-        # All three were dispatched with chat_help copy but missing from this
-        # listing (found during a help-sync guard audit).
+        # shinies shows the thumbnail breakdown and is applicable to game, vid,
+        # and channel — dispatched with chat_help copy but was missing from
+        # this listing (found during a help-sync guard audit). The standalone
+        # `price`/`platform` tools retired (OWNER DIRECTIVE Q16/Q16b, 3.8.0):
+        # `update` is now the one surface for every game-field write.
         # Segment tools are grouped by the entity their card is ABOUT:
         # similar/game → games, videos → videos, games/channels → channels,
         # at-a-glance/breakdowns → analytics. `linked` is the
         # relationship tool — grouped with link/unlink beside the game
         # commands. (linked-game → game, linked-videos folded into
         # videos, games = the channel games grid.)
-        "pito.copy.help.games_group_title"     => %w[list search show import update delete reindex link unlink linked price platform shinies similar game],
+        "pito.copy.help.games_group_title"     => %w[list search show import update delete reindex link unlink linked shinies similar game],
         "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos],
         "pito.copy.help.channels_group_title"  => %w[sync channels games],
         # analyze spans channel/vid/game — its own group (was missing from the

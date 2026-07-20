@@ -16,10 +16,9 @@ en:
       update:
         descriptions:
           update: "Update game footage/price/platform or vid description/tags (update game price <id> <amount>)"
-        usage: "Usage: `update game footage|price|platform <id> <value>` or `update vid description|tags <id> <value>` — e.g. `update game price 12 59.99`, `update vid tags 3 minecraft, ep 4`. Add more rows with a comma — `update <noun> <field> <id> <value>, <id> <value>, …` — a comma opens a new row only when it's followed by another id; game fields apply row by row, vid fields stage ONE confirmation."
+        usage: "Usage: `update game footage|price|platform <id> <value>` or `update vid description|tags <id> <value>` — e.g. `update game price 12 59.99`, `update vid tags 3 minecraft, ep 4`. Footage also takes a relative amount — `update game footage 8 +2` / `-1.5` adds or subtracts, floored at 0. Add more rows with a comma — `update <noun> <field> <id> <value>, <id> <value>, …` — a comma opens a new row only when it's followed by another id; game fields apply row by row, vid fields stage ONE confirmation."
         not_found: "No %{ref} in your library. `list games` / `list vids` to see ids."
         bad_value: "Couldn't read %{value} as a %{field} value."
-        moved: "That form moved — use `%{example}`. Replies on cards (`#g3 price 20`) still work as before."
         mass_no_valid_rows: "None of those rows resolved to a real vid — nothing staged. `list vids` to see ids."
       greet:
         descriptions:
@@ -36,10 +35,6 @@ en:
         descriptions:
           import: "Import a game from IGDB (`import vids` is an alias of `sync vids`)"
         usage_hint: "To import a game from IGDB, type `import game [title]`. To sync vids, use `sync vids` (`import vids` is an alias)."
-      price:
-        descriptions:
-          price: "Set or clear a game's euro price (by id)"
-        needs_ref: "Usage: `price <id> <amount>` (or `price set <id> <amount>`, e.g. `price 12 59.99`) or `price unset <id>` to clear it. Use `list games` to see ids."
       delete:
         descriptions:
           delete: "Delete a game or vid (by id or title)"
@@ -48,11 +43,6 @@ en:
         descriptions:
           reindex: "Re-embed a game or vid (by id or title)"
         needs_ref: "Which game or vid? Use `list games` to see ids, then `reindex game <id>` or `reindex vid <id>`."
-      platform:
-        descriptions:
-          platform: "Add or remove a game's platform from free text (e.g. platform set 12 ps5, platform unset 12 ps5)"
-        needs_ref: "Which game? Use `list games` to see ids, then `platform set <id> <name>` to add (e.g. `platform set 12 ps5`) or `platform unset <id> <name>` to remove."
-        missing_name: "Which platform? Add a name, e.g. `platform set 12 ps5` to add or `platform unset 12 ps5` to remove."
       publish:
         descriptions:
           publish: "Publish a vid on YouTube (set public, clear schedule)"

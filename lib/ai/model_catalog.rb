@@ -21,6 +21,10 @@
 # shape — #pricing_for is the lookup AiOrchestratorJob's computed-cost
 # fallback prices an unreported answer from (reinstated 2026-07-19,
 # ESTIMATE-MARKED, partially reversing T16.22's reported-cost-only design).
+# When neither the cached listing nor the row carries pricing, the
+# provider's config-pinned `pinned_pricing` (ai_providers.yml) is the last
+# resort — some listings (OpenCode Zen, Anthropic) publish no pricing at
+# all, so without the pin those models could never show an estimate.
 #
 # Provider wiring (base_url, auth, models_endpoint, pinned_models) comes
 # from `Ai::ProviderRegistry.provider(name)`, which raises `KeyError` for
@@ -54,13 +58,14 @@ module Ai
 
     # @param provider [String, Symbol] provider key from ai_providers.yml.
     # @param model [String] the model id to price.
-    # @return [Hash, nil] `{input:, output:}` dollars-per-1M-token prices from
-    #   the catalog, or nil when the model is unknown to the catalog or its
-    #   row carries no pricing. CACHE-ONLY (never a live fetch): this backs a
-    #   cost stamp at answer-finalize time inside the orchestrator's own
-    #   background job, which must never block on outbound HTTP — a cold
-    #   cache (or the pinned fallback, which never carries pricing) simply
-    #   yields no computed estimate until the nightly refresh warms it.
+    # @return [Hash, nil] `{input:, output:}` dollars-per-1M-token prices —
+    #   the cached catalog row's pricing when it carries one, else the
+    #   provider's config-pinned `pinned_pricing` entry for the model
+    #   (ai_providers.yml), else nil. CACHE-ONLY (never a live fetch): this
+    #   backs a cost stamp at answer-finalize time inside the orchestrator's
+    #   own background job, which must never block on outbound HTTP — a cold
+    #   cache simply falls through to the pinned prices (when the model has
+    #   any) until the nightly refresh warms it.
     def self.pricing_for(provider:, model:)
       new(provider: provider).pricing_for(model)
     end
@@ -91,7 +96,9 @@ module Ai
 
     def pricing_for(model)
       row = models(live: false).find { |r| r[:id] == model }
-      row && row[:pricing]
+      return row[:pricing] if row && row[:pricing]
+
+      pinned_pricing_for(model)
     end
 
     private
@@ -173,6 +180,18 @@ module Ai
 
     def pinned_fallback
       Array(@config[:pinned_models]).map { |id| { id: id, pinned: true } }
+    end
+
+    # The provider's config-pinned prices for +model+, normalized to the
+    # exact shape parse_pricing produces (`{input:, output:}` Floats, USD per
+    # 1M tokens) so the orchestrator's computed-cost caller never sees a
+    # difference. Ai::ProviderRegistry validates every entry on load, so a
+    # present entry always carries numeric input/output.
+    def pinned_pricing_for(model)
+      raw = @config.dig(:pinned_pricing, model.to_sym)
+      return nil unless raw
+
+      { input: raw[:input].to_f, output: raw[:output].to_f }
     end
   end
 end

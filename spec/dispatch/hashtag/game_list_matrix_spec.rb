@@ -9,7 +9,10 @@ require "rails_helper"
 #
 # Declared actions (from GameList.actions):
 #   show, delete, del, rm, with, without, sort, order,
-#   link, unlink, platform, price, shinies
+#   link, unlink, shinies
+# (price/platform retired as standalone tools, Q16/Q16b — `update` owns
+# every game-field write now; `with`/`without`/`sort` still take `platform`/
+# `price` as COLUMN tokens — unrelated, untouched.)
 #
 # Routing in GameList#call:
 #   with / without  → mutate_columns → Result::Mutation
@@ -84,10 +87,14 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(Pito::Dispatch::Matrix.mode_for("game_list", action: "order")).to   eq(:mutate)
     end
 
-    it "Registry.actions_for('game_list') is exactly the 22 verb actions (universals excluded; segment verbs G123; vids/more aliases; @ai joined the anchored-reply roster)" do
+    it "Registry.actions_for('game_list') is exactly the 20 verb actions (universals excluded; segment verbs G123; vids/more aliases; @ai joined the anchored-reply roster; price/platform retired Q16/Q16b)" do
       expect(Pito::FollowUp::Registry.actions_for("game_list")).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels @ai]
+        %w[show delete del rm with without sort order link unlink shinies analyze next more at-a-glance videos vids similar channels @ai]
       )
+    end
+
+    it "does NOT include price or platform (retired standalone tools, Q16/Q16b)" do
+      expect(Pito::FollowUp::Registry.actions_for("game_list")).not_to include("price", "platform")
     end
   end
 
@@ -349,15 +356,15 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
 
   # ── Delegated actions → ToolDelegator ────────────────────────────────────────
   #
-  # show, delete, del, rm, link, unlink, platform, price, shinies all fall
-  # through to ToolDelegator (stubbed). We assert the call and result type.
+  # show, delete, del, rm, link, unlink, shinies all fall through to
+  # ToolDelegator (stubbed). We assert the call and result type.
 
   describe "delegated actions → ToolDelegator" do
     before do
       allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(fake_append)
     end
 
-    %w[show delete del rm link unlink platform price shinies].each do |action|
+    %w[show delete del rm link unlink shinies].each do |action|
       context action do
         it "#{action} → delegates to ToolDelegator with source_event + conversation" do
           handler.call(event:, rest: "#{action} 10", conversation:)
@@ -416,7 +423,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
 
   describe "unknown action → invalid_action Error (via ToolDelegator gate)" do
     # These verbs exist elsewhere in the system but are not in game_list's matrix.
-    %w[destroy publish reindex sync visit import schedule rename].each do |bad_action|
+    # price/platform retired as standalone tools (Q16/Q16b) join this list —
+    # `update` owns every game-field write now.
+    %w[destroy publish reindex sync visit import schedule rename price platform].each do |bad_action|
       it "#{bad_action.inspect} → Result::Error" do
         result = handler.call(event:, rest: "#{bad_action} 10", conversation:)
         expect(result).to be_a(Pito::FollowUp::Result::Error)
@@ -468,16 +477,16 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
     end
 
     it "mode_for delegated actions: :append" do
-      %w[show delete del rm link unlink platform price shinies].each do |action|
+      %w[show delete del rm link unlink shinies].each do |action|
         expect(Pito::FollowUp::Registry.mode_for("game_list", action: action)).to eq(:append),
           "expected mode_for(#{action}) to be :append"
       end
     end
 
-    it "actions_for returns all 22 declared actions (segment verbs joined in G123; vids/more aliases; @ai joined the anchored-reply roster)" do
+    it "actions_for returns all 20 declared actions (segment verbs joined in G123; vids/more aliases; @ai joined the anchored-reply roster; price/platform retired Q16/Q16b)" do
       actions = Pito::FollowUp::Registry.actions_for("game_list").map(&:to_s)
       expect(actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies analyze next more at-a-glance videos vids similar channels @ai]
+        %w[show delete del rm with without sort order link unlink shinies analyze next more at-a-glance videos vids similar channels @ai]
       )
     end
   end

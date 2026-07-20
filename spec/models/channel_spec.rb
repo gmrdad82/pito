@@ -3,6 +3,23 @@
 require "rails_helper"
 
 RSpec.describe Channel, type: :model do
+  describe ".sole (owner Q51b — single-channel handle-skippability)" do
+    it "returns nil when no channel exists" do
+      expect(described_class.sole).to be_nil
+    end
+
+    it "returns the one channel when exactly one exists" do
+      channel = create(:channel, handle: "@only")
+      expect(described_class.sole).to eq(channel)
+    end
+
+    it "returns nil when more than one channel exists" do
+      create(:channel, handle: "@a")
+      create(:channel, handle: "@b")
+      expect(described_class.sole).to be_nil
+    end
+  end
+
   describe "#at_handle" do
     it "returns the handle unchanged when it already has a leading @" do
       channel = build(:channel, handle: "@foo")

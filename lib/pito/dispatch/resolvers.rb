@@ -271,50 +271,6 @@ module Pito
         entity_class.find_by(id:) || Invalid.new(reason: "#{entity_class} not found: #{id}")
       })
 
-      # :price_amount
-      # Parses the `price [set] <amount>` / `price unset` reply into either a
-      # non-negative BigDecimal euro amount (2dp; 0 = free) or the `:unset`
-      # sentinel. Wraps the shared Pito::Games::PriceAmount parser — the SAME one
-      # the `price` chat tool and its GameDetail follow-up reply use (no fork).
-      # An optional leading `set` is peeled; a leading `unset` short-circuits to
-      # `:unset`. On a list target the leading row id is sliced off by ReplyBinding
-      # before this runs (see LEADING_TOKEN_REFS), so the input is `<amount>` in
-      # both the detail and list flows.
-      #
-      # Required context: none. Input: the reply args (after any sliced row id).
-      register(:price_amount, lambda { |input, context:|
-        tokens = input.to_s.strip.split(/\s+/)
-        sub    = tokens.first&.downcase
-        case sub
-        when "unset"
-          :unset
-        when "set"
-          Pito::Games::PriceAmount.parse(tokens[1]) ||
-            Invalid.new(reason: "not a price amount: #{tokens[1].inspect}")
-        else
-          Pito::Games::PriceAmount.parse(tokens.first) ||
-            Invalid.new(reason: "not a price amount: #{tokens.first.inspect}")
-        end
-      })
-
-      # :platform_value
-      # Normalises the `platform [set|unset] <value>` reply into a canonical stored
-      # platform string (the logo family). Wraps Pito::Games::PlatformInput.normalize
-      # — the SAME normaliser the `platform` chat tool uses (no fork) — after peeling
-      # an optional leading set/unset subcommand and an optional `game(s)` noun filler.
-      # The set-vs-unset OP stays handler-routed (this resolver yields the VALUE, the
-      # bespoke parsing the TODO flagged). On a list target the leading row id is
-      # sliced off by ReplyBinding first, so the input is `<value>` either way.
-      #
-      # Required context: none. Input: the reply args (after any sliced row id).
-      register(:platform_value, lambda { |input, context:|
-        text = input.to_s.strip
-          .sub(/\A(?:set|unset)\b\s*/i, "") # peel optional subcommand
-          .sub(/\A(?:game|games)\b\s*/i, "") # peel optional noun filler
-        Pito::Games::PlatformInput.normalize(text).presence ||
-          Invalid.new(reason: "no platform value in: #{input.inspect}")
-      })
-
       # ── link / unlink dual-ref (source + target) ────────────────────────────────
       #
       # `link 5 to 12` / `unlink 5 from 12` (list) and `link to 12` / `unlink 12`

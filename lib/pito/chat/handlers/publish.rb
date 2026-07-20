@@ -30,6 +30,19 @@ module Pito
             return needs_ref
           end
 
+          # Stage-time dry-run against the spacing LAW: publishing NOW is a
+          # publish moment like any schedule — too close (<4h) to another
+          # scheduled/published vid, or a third publish inside a rolling 24h,
+          # gets refused here before the confirmation even renders (and again
+          # for real at the executor's :publish-context save).
+          violation = video.publish_now_violation
+          if violation
+            key, args = publish_violation_copy(violation, title: video.title)
+            return Pito::Chat::Result::Ok.new(events: [
+              { kind: :system, payload: Pito::MessageBuilder::Text.call(key, **args) }
+            ])
+          end
+
           Pito::Chat::Result::Ok.new(events: [
             { kind: :confirmation,
               payload: Pito::MessageBuilder::Video::PublishConfirmation.call(video, conversation: conversation) }
@@ -37,6 +50,20 @@ module Pito
         end
 
         private
+
+        # Publish-now flavors of the spacing-law copy (mirrors
+        # Pito::Confirmation::Executor#publish_violation_copy so stage-time
+        # and confirm-time rejections read the same).
+        def publish_violation_copy(violation, title:)
+          if violation[:kind] == :spacing
+            [ "pito.copy.videos.publish_too_close",
+              { title: title, other: violation[:title].to_s,
+                when: Pito::Formatter::SyncStamp.call(violation[:at]) } ]
+          else
+            [ "pito.copy.videos.publish_day_cap",
+              { title: title, others: Array(violation[:titles]).join(" and ") } ]
+          end
+        end
 
         def extract_ref
           message.body_tokens

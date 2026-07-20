@@ -49,6 +49,13 @@ module Pito
           amount = format("%.2f", @cost_amount.to_f)
           prefix = @cost_estimated ? "~" : ""
           symbol = CURRENCY_SYMBOLS[currency_code]
+          # A nonzero cost that two-decimal-rounds away must say so — "<0.01"
+          # — never masquerade as the honest 0.00 a genuinely free answer
+          # wears (the no-fake-zero law).
+          if amount == "0.00" && @cost_amount.to_f.positive?
+            return symbol ? "#{prefix}<#{symbol}0.01" : "#{prefix}<0.01 #{currency_code}"
+          end
+
           symbol ? "#{prefix}#{symbol}#{amount}" : "#{prefix}#{amount} #{currency_code}"
         end
 

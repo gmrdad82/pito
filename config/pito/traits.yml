@@ -52,7 +52,28 @@
 #   "single player experience"             → single_player
 #   everything else maps 1:1 by snake_case name ("game of the year" →
 #     game_of_the_year, "family friendly" → family_friendly, …)
-schema_version: 1
+#
+# Q28-Q32 additions (2026-07-20 recalibration interview — owner's verbatim
+# wishlist, sorted by the design pass):
+#   "soulslike" (Q28: A)                   → soulslike (classified tag)
+#   "cozy" (Q29: B)                        → cozy (classified TAG, not a pace value)
+#   "simulator" / "real life" / "flying"   → simulation / realistic / flight (already exist — no duplicates)
+#   "platformer"                           → platformer (already exists)
+#   "chill"                                → pace scale value `relaxing` (already exists — no new trait)
+#   "racing" + "driving"                   → racing (collapsed to ONE derived tag, IGDB genre "Racing")
+#   "adventure" / "role playing"           → adventure / role_playing (derived, IGDB genres)
+#   "open-world"                           → open_world (derived, IGDB theme "Open world")
+#   "city sim"                             → city_builder (naming rule above bans abbreviations — no "sim")
+#   "couch co-op"                          → couch_co_op
+#   "scary-but-fun"                        → scary_but_fun
+#   "dialog choices impacting story"       → choices_matter (owner had no wording — design-pass name)
+#   everything else on the Q32 list        → 1:1 snake_case (roguelike, metroidvania, grindy,
+#     base_building, replayable)
+#
+# schema_version 2 (2026-07-20): the Q28-Q32 vocabulary expansion above.
+# Purely additive — every v1 games.traits row remains valid, so the loader
+# supports both versions until the owner-gated re-classify run (Q57) lands.
+schema_version: 2
 
 scales:
   # Raw: "difficulty easy, brutal, hard" — "fair" added as the neutral
@@ -131,6 +152,69 @@ tags:
     # Awards data exists nowhere in pito's IGDB sync — judgment call.
     # Named in full (never "goty") per the embed-text naming rule above.
     description: "Won or seriously contended for Game of the Year awards"
+
+  # ── Q28/Q29/Q32 judgment additions (2026-07-20 interview) ────────────────
+
+  soulslike:
+    source: classified # Q28: A
+    # The difficulty scale already name-checks "souls-like challenge" at
+    # brutal — this tag is the FORMULA (bonfires, corpse runs, stamina
+    # combat), not the difficulty verdict: a game can be soulslike without
+    # being brutal, and brutal without being soulslike.
+    description: "The souls formula — stamina combat, punishing bosses, bonfire checkpoints and corpse-run stakes"
+
+  cozy:
+    source: classified # Q29: B — a TAG, deliberately NOT a pace value:
+    # cozy is a warm, low-stakes vibe, not just slow tempo (pace relaxing
+    # stays the tempo call; a game can be cozy AND steady).
+    description: "A warm blanket of a game — low stakes, gentle loops, comfort over challenge"
+
+  roguelike:
+    source: classified
+    # IGDB carries "roguelike" only as a keyword — keywords aren't synced
+    # (Game::Igdb::Client::GAME_FIELDS), so this stays a judgment call.
+    description: "Run-based — procedural runs, permadeath, and dying as progress"
+
+  metroidvania:
+    source: classified
+    # Like roguelike: an IGDB keyword, not a genre or theme — judgment call.
+    description: "One interconnected map that opens up as new abilities unlock the backtracking"
+
+  grindy:
+    source: classified
+    description: "Progress through repetition — grinding levels, drops or materials to move forward"
+
+  base_building:
+    source: classified # raw: "base building"
+    description: "Building and defending a base is a core loop — walls up, resources in, raids weathered"
+
+  city_builder:
+    source: classified # raw: "city sim" — renamed per the naming rule (no
+    # abbreviations, "sim" included); genre "Simulator" is far broader, so
+    # no collapse into the derived simulation tag.
+    description: "City building — zoning, budgets, traffic and the slow sprawl of a town you run"
+
+  replayable:
+    source: classified
+    description: "Keeps giving after the credits — runs, builds or branches that pull you back for another go"
+
+  couch_co_op:
+    source: classified # raw: "couch co-op"
+    # IGDB game modes "Co-operative" / "Split screen" are only HINTS —
+    # co-op can be online-only and split screen can be versus — so the
+    # same-couch call stays a judgment call.
+    description: "Couch co-op — two controllers, one screen, playing together in the same room"
+
+  scary_but_fun:
+    source: classified # raw: "scary-but-fun"
+    # Distinct from derived `horror` (the IGDB theme): this is the owner's
+    # verdict that the scares ENTERTAIN — a horror game can be pure dread.
+    description: "Scary but fun — jumpscare thrills that entertain instead of pure dread"
+
+  choices_matter:
+    source: classified # raw: "dialog choices impacting story" (owner had
+    # no wording — design-pass name, Q32)
+    description: "Dialog choices that matter — branching conversations steering the story to different outcomes"
 
   # ── Derived tags (Game::Traits::Derive computes; never in the classify
   #    export; owner pins via overrides: only) ──────────────────────────────
@@ -215,3 +299,30 @@ tags:
     # Derive::FAMILY_FRIENDLY_PEGI_RATINGS ("3", "7") — both tunable
     # constants on Game::Traits::Derive.
     description: "Safe to play with the kids — no gore, swearing or adult themes"
+
+  # ── Q32 wishlist derivations (2026-07-20): IGDB already syncs these
+  #    facts, so no judgment call needed. Genre/theme names verified
+  #    against synced data (spec/services/game/igdb/sync_game_spec.rb,
+  #    spec/fixtures/recommendation_games.yml). ─────────────────────────────
+
+  adventure:
+    source: derived # raw: "adventure"
+    # Mapping: game.genres includes IGDB genre "Adventure".
+    description: "Adventure — exploration and journey-driven play"
+
+  role_playing:
+    source: derived # raw: "role playing"
+    # Mapping: game.genres includes IGDB genre "Role-playing (RPG)".
+    description: "Role playing — character builds, stats and progression carrying the journey"
+
+  open_world:
+    source: derived # raw: "open-world"
+    # Mapping: games.themes includes IGDB theme "Open world".
+    description: "Open world — a free-roam map that opens up instead of corridors"
+
+  racing:
+    source: derived # raw: "racing" + "driving" (collapsed — one wheel-time
+    # tag; a pure driving sim without the Racing genre still lands via
+    # simulation).
+    # Mapping: game.genres includes IGDB genre "Racing".
+    description: "Racing and driving — cars, karts and bikes at speed"

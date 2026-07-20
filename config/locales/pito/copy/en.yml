@@ -346,6 +346,9 @@ en:
 
       footage:
         updated: "%{game} now logs %{hours} of footage."
+        # Q17: a subtraction that would land below zero floors at 0 — and the
+        # reply SAYS so, never pretending the full subtraction applied.
+        floored: "That subtraction went below zero — %{game}'s footage floored at 0h."
 
       schedule:
         slate:
@@ -506,57 +509,6 @@ en:
           - "%{game} priced at %{price}. Onwards, spender."
           - "%{game} — %{price}. Noted, and judged."
           - "%{game} is %{price}. May it bring you joy. Or at least screenshots."
-        unset:
-          - "Price wiped from %{game}. Pretending it's priceless now?"
-          - "%{game}'s price: gone. Free as the wind."
-          - "Cleared the price on %{game}. Money is a construct anyway."
-          - "%{game} is now unpriced. Mysterious."
-          - "Price removed from %{game}. We never speak of it."
-          - "%{game}: priceless again. How romantic."
-          - "Scrubbed %{game}'s price. Clean slate."
-          - "%{game} has no price now. Shrug."
-          - "Price gone for %{game}. Poof."
-          - "%{game} un-priced. Back to the void."
-          - "Wiped the tag off %{game}. Off the books."
-          - "%{game}: price cleared. Nothing to see here."
-          - "No more price on %{game}. Liberated."
-          - "%{game}'s price erased. The ledger forgets."
-          - "Dropped the price from %{game}. Just like that."
-          - "%{game} is priceless. Or worthless. You decide."
-          - "Price unset for %{game}. Decisions, decisions."
-          - "%{game} — price removed. Tidy."
-          - "Cleared %{game}'s price. Marie Kondo'd."
-          - "%{game} now has no price. Spooky."
-          - "Price on %{game}? Gone. Vanished."
-          - "%{game} un-tagged. Floating free."
-          - "Removed the price from %{game}. As you wish."
-          - "%{game}: no price. The accountant sighs."
-          - "Price wiped on %{game}. History."
-          - "%{game} is back to unpriced. Full circle."
-          - "Cleared it. %{game} costs nothing on paper."
-          - "%{game}'s price: deleted. Bold."
-          - "No price for %{game} anymore. Refreshing."
-          - "%{game} un-priced. The wallet exhales."
-          - "Price off %{game}. Done."
-          - "%{game}: price gone. Clean."
-          - "Stripped the price from %{game}. Minimalist."
-          - "%{game} now priceless. Treat it well."
-          - "Removed %{game}'s price. No regrets."
-          - "%{game} — price cleared. Moving on."
-          - "Price unset on %{game}. Easy come, easy go."
-          - "%{game} has shed its price. Lighter now."
-          - "Wiped it. %{game} is a free spirit."
-          - "%{game}'s price: nullified. Poetic."
-          - "No tag on %{game}. Off-grid."
-          - "%{game} un-priced. The void welcomes it."
-          - "Cleared the price for %{game}. Snap."
-          - "%{game}: priceless once more. Sentimental."
-          - "Price removed — %{game} owes nothing."
-          - "%{game} now without a price. Brave."
-          - "Erased %{game}'s price. Gone like tears in rain."
-          - "%{game} un-tagged. The shelf looks cleaner."
-          - "Price dropped from %{game}. Literally."
-          - "%{game}: no price, no problem."
 
       conversations:
         # 50-variant witty confirmation for `/rename <title>`.
@@ -4592,13 +4544,13 @@ en:
         - "Hey! `visit @handle` jumps to a channel; `/disconnect` removes one when you're done."
         - "Hola, welcome. `show vid <id>` shows views, likes, comments, length, visibility, and its linked game."
         - "Hello there. Recommendations run on local embeddings — a channel is its videos, no guesswork."
-        - "Hi. `price set <id> 59.99` tags a game's cost so you can budget your next capture."
+        - "Hi. `update game price <id> 59.99` tags a game's cost so you can budget your next capture."
         - "Hey! Everything's one chatbox and one font — terminal vibes, no hover, no clutter."
         - "Hola! Type a `command`, or `<command> --help` for a man page on anything. Start with `help`."
         - "Hello! `unlink` breaks a video↔game tie; `link` makes one. Both directions, always explicit."
         - "Hi there! Per-conversation scope and period persist — set them once with `shift+tab`."
         - "Hey. Lost? `help` lists every follow-up target and the actions each accepts."
-        - "Hola! `platform <id> ps5` sets a game's platform from free text — ps5, switch, steam, your call."
+        - "Hola! `update game platform <id> ps5` sets a game's platform from free text — ps5, switch, steam, your call."
         - "Hello. Your data lives on your machine. Self-hosted, no SaaS, no monthly ransom."
         - "Hi! Want fresh stats? PITO refreshes views/likes/comments on sync — three passes a day in production."
         - "Hey there! Ask to find a video by title, genre, or platform — I'll dig it up."
@@ -4655,7 +4607,7 @@ en:
         - "Later! The slate's clear when you want to plan the next batch."
         - "Ciao! `show vid <id>` whenever you want the full breakdown."
         - "Goodbye for now — the channels can manage a few hours without you."
-        - "Take care! `price set` your next game so the budget stays honest."
+        - "Take care! `update game price <id> <amount>` keeps your next game's budget honest."
         - "Bye! I'll be here, terminal cursor blinking, whenever you are."
         - "See you later. The embedder will have fresh similar-games picks ready."
         - "Peace out. Reauth reminders will find you on Slack or Discord."
@@ -5877,9 +5829,59 @@ en:
           - "%{game} and %{video} are as unlinked as they've ever been."
         linked_multi: "Linked %{source} to %{targets}."
         unlinked_multi: "Unlinked %{source} from %{targets}."
+        relinked:
+          - "Relinked %{video}: %{old_game} → %{new_game}."
+          - "%{video} moved from %{old_game} to %{new_game}."
+          - "Swapped %{video}'s game: %{old_game} → %{new_game}."
+          - "%{video} is no longer under %{old_game} — now it's %{new_game}."
+          - "Re-pointed %{video} from %{old_game} to %{new_game}."
+          - "%{video}: %{old_game} out, %{new_game} in."
+          - "Done — %{video} moved off %{old_game} and onto %{new_game}."
+          - "%{old_game} → %{new_game}: %{video}'s link now points there."
+          - "Unlinked %{video} from %{old_game}, linked it to %{new_game}."
+          - "%{video} switched games: %{old_game} to %{new_game}."
+          - "The link on %{video} now reads %{new_game} (was %{old_game})."
+          - "Relink complete: %{video} left %{old_game} for %{new_game}."
+          - "%{video} traded %{old_game} for %{new_game}."
+          - "Game reassigned: %{video} is now under %{new_game}, not %{old_game}."
+          - "%{video}'s game changed from %{old_game} to %{new_game}."
+          - "Replaced the link: %{video} was %{old_game}, now %{new_game}."
+          - "%{video} re-filed: out of %{old_game}, into %{new_game}."
+          - "Moved %{video} off %{old_game}'s shelf and onto %{new_game}'s."
+          - "%{new_game} takes over: %{video} used to be linked to %{old_game}."
+          - "%{video} now belongs to %{new_game} — %{old_game} let go."
+          - "Correction filed: %{video} is %{new_game}, not %{old_game}."
+          - "%{video} handed off from %{old_game} to %{new_game}."
+          - "Old link to %{old_game} dropped; %{video} now points to %{new_game}."
+          - "%{video} — %{old_game} is out, %{new_game} is in."
+          - "Retagged %{video}: %{new_game} replaces %{old_game}."
+          - "%{video}'s record now says %{new_game}, previously %{old_game}."
+          - "Bridged %{video} to %{new_game} and cut it loose from %{old_game}."
+          - "%{video} reassigned from %{old_game} to %{new_game}. Game stats will update shortly."
+          - "One link, new home: %{video} left %{old_game} for %{new_game}."
+          - "%{video} — no longer %{old_game}'s. It's %{new_game}'s now."
+          - "Swap made: %{old_game} for %{new_game}, on %{video}."
+          - "%{video} corrected: %{new_game}, was %{old_game}."
+          - "%{video} re-tied from %{old_game} to %{new_game}."
+          - "The %{old_game} link on %{video} is gone — %{new_game} took its place."
+          - "%{video} changed teams: %{old_game} to %{new_game}."
+          - "%{video} is filed under %{new_game} now, not %{old_game}."
+          - "Cut %{video} from %{old_game}, tied it to %{new_game} instead."
+          - "%{video}: relinked from %{old_game} to %{new_game}."
+          - "New game for %{video}: %{new_game} (replacing %{old_game})."
+          - "%{video}'s single link now points to %{new_game}, not %{old_game}."
+          - "%{old_game} released %{video}; %{new_game} claimed it."
+          - "%{video} moved shelves: from %{old_game} to %{new_game}."
+          - "Relink done — %{video} is %{new_game} now, was %{old_game}."
+          - "%{video} re-associated: %{old_game} → %{new_game}."
+          - "%{video} left %{old_game}'s roster and joined %{new_game}'s."
+          - "The old %{old_game} link on %{video} is replaced by %{new_game}."
+          - "%{video}: %{old_game} link swapped for %{new_game}."
+          - "%{new_game} now claims %{video} — %{old_game} no longer does."
+          - "%{video} reassigned. %{old_game} → %{new_game}. Done."
+          - "%{video}'s game link was %{old_game}; it's %{new_game} now."
         platform_set: "Set %{platform} as a platform for %{title}."
         platform_unknown: "Noted %{platform} for %{title} — no logo for that one yet, but it's stored."
-        platform_unset: "Removed %{platform} from %{title}."
         picker_empty:
           - "No games in the library yet. Import one to begin."
           - "Nothing to pick from. /games import to add a game."
@@ -7018,7 +7020,16 @@ en:
         # the chat handler's stage-time dry-run and the executor's confirm-time
         # save. args: title (the vid being scheduled), other (the colliding
         # vid's title), when (the colliding vid's publish time, DD-MM-YYYY HH:MM).
-        schedule_conflict: "%{title} is too close to %{other}, already set for %{when} — give it 60 minutes of breathing room."
+        schedule_conflict: "%{title} is too close to %{other} (%{when}) — the law wants 4 hours of air between publishes."
+        # The rolling-24h cap (SpacingPolicy DAY_CAP): scheduling this would put
+        # a third publish inside one 24h window.
+        schedule_day_cap: "%{title} would be the third publish inside 24 hours (alongside %{others}) — two a day is the law."
+        # Publish-NOW flavors of the spacing law (stage-time dry-run in
+        # Chat::Handlers::Publish + confirm-time :publish-context save in the
+        # executor). "now" phrasing on purpose — the moment judged is the
+        # click, not a publish_at.
+        publish_too_close: "Publishing %{title} now lands within 4 hours of %{other} (%{when}) — the law wants 4 hours of air."
+        publish_day_cap: "Publishing %{title} now would make it the third publish inside 24 hours (alongside %{others}) — two a day is the law."
         # YouTube's own status.publishAt constraint (developers.google.com/
         # youtube/v3/docs/videos): publishAt can be set only on a vid whose
         # privacy status is private AND that has never gone public — pairing
@@ -7198,7 +7209,10 @@ en:
         # args: title (the vid that tripped it), other (the colliding vid's
         # title — a DB row or an earlier batch-mate), when (the colliding
         # publish time, DD-MM-YYYY HH:MM).
-        mass_schedule_conflict: "%{title} lands within 60 minutes of %{other} (%{when}) — nothing in the batch got scheduled."
+        mass_schedule_conflict: "%{title} lands within 4 hours of %{other} (%{when}) — nothing in the batch got scheduled."
+        # MASS flavor of schedule_day_cap — all-or-nothing, same as every other
+        # mass abort.
+        mass_schedule_day_cap: "%{title} would be the third publish inside 24 hours (alongside %{others}) — nothing in the batch got scheduled."
         # MASS variant of schedule_already_public — YouTube's status.publishAt
         # constraint (private + never-published only) tripped by one item in
         # the batch. All-or-nothing like every other mass_schedule_* failure:

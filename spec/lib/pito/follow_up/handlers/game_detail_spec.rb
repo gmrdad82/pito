@@ -141,10 +141,14 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "Matrix advertises rm, del, delete, reindex, link, unlink, platform, price, shinies, sync, analyze for game_detail" do
+  it "Matrix advertises rm, del, delete, reindex, link, unlink, shinies, sync, analyze for game_detail" do
     expect(Pito::Dispatch::Matrix.actions_for("game_detail")).to include(
-      "rm", "del", "delete", "reindex", "link", "unlink", "platform", "price", "shinies", "sync", "analyze"
+      "rm", "del", "delete", "reindex", "link", "unlink", "shinies", "sync", "analyze"
     )
+  end
+
+  it "Matrix does NOT advertise price/platform (retired standalone tools, Q16/Q16b)" do
+    expect(Pito::Dispatch::Matrix.actions_for("game_detail")).not_to include("platform", "price")
   end
 
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
@@ -307,56 +311,33 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
-  # ── unknown action ───────────────────────────────────────────────────────────
+  # ── price / platform (retired standalone tools, Q16/Q16b) ────────────────────
+  #
+  # `price` used to be handled directly here (a segment-local set/unset path,
+  # bypassing ToolDelegator); both `price` and `platform` retired as standalone
+  # tools — `update` is now the one surface for every game-field write, and
+  # neither survives as a card reply verb. Both fall to the plain
+  # invalid_action path, same as any other unknown token.
 
-  describe "#call — price [set] <amount> | price unset" do
+  describe "#call — price / platform" do
     let(:source_event) { build_detail_event }
 
-    it "sets the segment game's price from the `price set <amount>` form" do
+    it "'price set 59.99' → invalid_action, no write" do
       result = handler.call(event: source_event, rest: "price set 59.99", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(result.events.first[:kind]).to eq(:system)
-      expect(game.reload.price).to eq(BigDecimal("59.99"))
-    end
-
-    it "sets the price from the bare `price <amount>` form" do
-      handler.call(event: source_event, rest: "price 20", conversation:)
-      expect(game.reload.price).to eq(BigDecimal("20.00"))
-    end
-
-    it "clears the price on `price unset`" do
-      game.update!(price: BigDecimal("40.00"))
-      result = handler.call(event: source_event, rest: "price unset", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.invalid_action")
       expect(game.reload.price).to be_nil
     end
 
-    it "emits the price confirmation with the formatted euro amount" do
-      result = handler.call(event: source_event, rest: "price set 59.99", conversation:)
-      expect(result.events.first[:payload]["text"]).to include("Lies of P").and include("€59.99")
-    end
-
-    it "sets an explicit 0 as free and confirms it as €0.00" do
-      result = handler.call(event: source_event, rest: "price set 0", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(game.reload.price).to eq(0)
-      expect(result.events.first[:payload]["text"]).to include("Lies of P").and include("€0.00")
-    end
-
-    it "errors with missing_price when no amount is given" do
-      result = handler.call(event: source_event, rest: "price set", conversation:)
+    it "'platform set ps5' → invalid_action, no write" do
+      result = handler.call(event: source_event, rest: "platform set ps5", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_price")
-    end
-
-    it "errors when the segment's game no longer exists" do
-      event = build_detail_event("game_id" => game.id)
-      game.destroy
-      result = handler.call(event: event, rest: "price set 9.99", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.invalid_action")
+      expect(game.reload.platforms).to eq([])
     end
   end
+
+  # ── unknown action ───────────────────────────────────────────────────────────
 
   # ── shinies (delegated to Chat::Handlers::Shinies via ToolDelegator) ───────────
 
@@ -399,7 +380,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     let(:sentinel)     { Pito::FollowUp::Result::Append.new(events: []) }
     before { allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel) }
 
-    specials  = %w[analyze price] # follow-up-only, handled in-card
+    specials  = %w[analyze] # follow-up-only, handled in-card
     delegated = Pito::FollowUp::Registry.actions_for("game_detail") - specials
 
     delegated.each do |verb|

@@ -2,9 +2,10 @@
 
 require "rails_helper"
 
-# Unit spec for Pito::Games::PriceAmount — the single canonical parser the
-# `price` chat verb, its GameDetail follow-up reply, and the `:price_amount`
-# dispatch resolver all share (plan-0.9.5 T8.15).
+# Unit spec for Pito::Games::PriceAmount — the single canonical amount parser,
+# now consumed solely by Chat::Handlers::Update's price field (the standalone
+# `price` verb, its follow-up reply, and the `:price_amount` resolver retired
+# with the tool consolidation; born plan-0.9.5 T8.15).
 RSpec.describe Pito::Games::PriceAmount do
   describe ".parse" do
     it "parses a euro amount to a 2dp BigDecimal" do

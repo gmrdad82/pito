@@ -181,6 +181,43 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
       end
     end
 
+    # ── Owner auto-run shapes: `full` as a consistent modifier on analyze ──────
+    # The three literal forms the owner repeatedly types — mirrors show's `full`
+    # flag (config/pito/tools.yml's analyze `full` slot documents the same
+    # meaning: every segment, numbers + breakdowns). No `@handle`/`#id` prefix
+    # on any of these — they lean on the bare/shift+tab and bare-digit paths.
+    context "owner auto-run shapes" do
+      let!(:video) { create(:video, channel: channel) }
+
+      it "`analyze channels full` (plural, shift+tab scope) → both cards" do
+        result = analyze("analyze channels full", channel: "@gmrdad82")
+
+        expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])
+        expect(result.events).to all(satisfy { |e| e[:payload].dig("analyze", "level") == "channel" })
+      end
+
+      it "`analyze channel full` (singular, shift+tab scope) → both cards" do
+        result = analyze("analyze channel full", channel: "@gmrdad82")
+
+        expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])
+        expect(result.events).to all(satisfy { |e| e[:payload].dig("analyze", "level") == "channel" })
+      end
+
+      it "`analyze vid <id> full` (bare digit id, no #) → both cards" do
+        result = analyze("analyze vid #{video.id} full")
+
+        expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])
+        expect(result.events).to all(satisfy { |e| e[:payload].dig("analyze", "entity_ids") == [ video.id ] })
+        expect(result.events).to all(satisfy { |e| e[:payload].dig("analyze", "level") == "vid" })
+      end
+
+      it "the SAME shapes without `full` stay bare (numbers only) — unchanged by the new flag" do
+        expect(analyze("analyze channels", channel: "@gmrdad82").events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system])
+        expect(analyze("analyze channel", channel: "@gmrdad82").events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system])
+        expect(analyze("analyze vid #{video.id}").events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system])
+      end
+    end
+
     # `only breakdowns` → the breakdowns (:enhanced) card only.
     context "only breakdowns (enhanced only)" do
       subject(:result) { analyze("analyze channel @gmrdad82 only breakdowns") }

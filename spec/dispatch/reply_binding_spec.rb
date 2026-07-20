@@ -208,59 +208,20 @@ RSpec.describe Pito::Dispatch::ReplyBinding, type: :dispatch do
   def game_row(game) = source({ "reply_target" => "game_list", "table_rows" => [ { "cells" => [ { "text" => "##{game.id}" } ] } ] })
   def video_row(video) = source({ "reply_target" => "video_list", "table_rows" => [ { "cells" => [ { "text" => "##{video.id}" } ] } ] })
 
-  describe "price — `price [set] <amount>` / `price unset`" do
-    let(:game) { create(:game) }
-    let(:card) { source({ "reply_target" => "game_detail", "game_id" => game.id }) }
+  # price/platform retired as standalone tools (Q16/Q16b, 3.8.0) — neither
+  # declares a reply.targets branch in tools.yml any more, so binding against
+  # them is now indistinguishable from binding against any unknown tool (§1
+  # above covers that generically); the :price_amount/:platform_value resolver
+  # ADAPTERS they used to bind through are gone too (they wrapped the same
+  # parsers `update` now calls directly — no reply-binding seam left to wrap).
+  it "price/platform: an unknown-tool empty, ok Result (retired — no reply branch left to bind)" do
+    game = create(:game)
+    card = source({ "reply_target" => "game_detail", "game_id" => game.id })
 
-    it "detail: resolves the source game and a 2dp BigDecimal amount" do
-      result = bind(tool: "price", target: "game_detail", rest: "set 9.99", source_event: card)
-      expect(result).to be_ok
-      expect(result.kwargs[:ref]).to eq(game)
-      expect(result.kwargs[:amount]).to eq(BigDecimal("9.99"))
-    end
-
-    it "detail: `unset` binds the :unset sentinel" do
-      result = bind(tool: "price", target: "game_detail", rest: "unset", source_event: card)
-      expect(result.kwargs[:amount]).to eq(:unset)
-    end
-
-    it "list: the leading row id is sliced to the ref, the amount to the arg" do
-      result = bind(tool: "price", target: "game_list", rest: "#{game.id} 9.99", source_event: game_row(game))
-      expect(result).to be_ok
-      expect(result.kwargs[:ref]).to eq(game)
-      expect(result.kwargs[:amount]).to eq(BigDecimal("9.99"))
-    end
-
-    it "malformed: a non-numeric amount short-circuits with slot :amount" do
-      result = bind(tool: "price", target: "game_detail", rest: "free", source_event: card)
-      expect(result).not_to be_ok
-      expect(result.invalid.slot).to eq(:amount)
-    end
-  end
-
-  describe "platform — `platform [set|unset] <value>`" do
-    let(:game) { create(:game) }
-    let(:card) { source({ "reply_target" => "game_detail", "game_id" => game.id }) }
-
-    it "detail: resolves the source game and the canonical platform value" do
-      result = bind(tool: "platform", target: "game_detail", rest: "set ps5", source_event: card)
-      expect(result).to be_ok
-      expect(result.kwargs[:ref]).to eq(game)
-      expect(result.kwargs[:value]).to eq("PlayStation 5")
-    end
-
-    it "list: the leading row id is sliced to the ref, the value to the arg" do
-      result = bind(tool: "platform", target: "game_list", rest: "#{game.id} switch", source_event: game_row(game))
-      expect(result).to be_ok
-      expect(result.kwargs[:ref]).to eq(game)
-      expect(result.kwargs[:value]).to eq("Nintendo Switch")
-    end
-
-    it "malformed: a blank value short-circuits with slot :value" do
-      result = bind(tool: "platform", target: "game_detail", rest: "set", source_event: card)
-      expect(result).not_to be_ok
-      expect(result.invalid.slot).to eq(:value)
-    end
+    expect(bind(tool: "price", target: "game_detail", rest: "set 9.99", source_event: card)).to be_ok
+    expect(bind(tool: "price", target: "game_detail", rest: "set 9.99", source_event: card).kwargs).to eq({})
+    expect(bind(tool: "platform", target: "game_detail", rest: "set ps5", source_event: card)).to be_ok
+    expect(bind(tool: "platform", target: "game_detail", rest: "set ps5", source_event: card).kwargs).to eq({})
   end
 
   describe "schedule / video_list — `<id> <when>` interleave (D10 seam)" do

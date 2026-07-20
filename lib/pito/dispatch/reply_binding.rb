@@ -68,8 +68,6 @@ module Pito
         "game_by_id"          => :args,
         "visit_destination"   => :args,
         "schedule_expression" => :args,
-        "price_amount"        => :args,
-        "platform_value"      => :args,
         "link_source"         => :args, # reads the full args; splits on the connector itself
         "link_targets"        => :args, # reads the full args; splits on the connector itself
         "source_entity"       => :source,

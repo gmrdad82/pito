@@ -37,6 +37,17 @@ RSpec.describe Pito::Event::Ai::ModelBadgeComponent, type: :component do
     expect(free.text).to include("$0.00")
   end
 
+  it "renders a nonzero sub-cent cost as \"<0.01\", never a fake \"0.00\" (no-fake-zero law)" do
+    est = render_inline(described_class.new(
+      model: "m", cost_amount: 0.004, cost_currency: "USD", cost_estimated: true
+    ))
+    expect(est.text).to include("~<$0.01")
+    expect(est.text).not_to include("0.00")
+
+    reported = render_inline(described_class.new(model: "m", cost_amount: 0.002, cost_currency: "CHF"))
+    expect(reported.text).to include("<0.01 CHF")
+  end
+
   it "renders no cost segment when the answer carries no pricing stamp" do
     node = render_inline(described_class.new(model: "m-1"))
     expect(node.css("img.pito-coin")).to be_empty

@@ -219,7 +219,7 @@ RSpec.describe Ai::ModelCatalog, type: :service do
       expect(WebMock).not_to have_requested(:get, models_url)
     end
 
-    it "returns nil when the cached row carries no pricing" do
+    it "returns nil when the cached row carries no pricing and no pin exists" do
       Rails.cache.write(described_class.cache_key(:opencode), [ { id: "model-a", pinned: false } ])
 
       expect(described_class.pricing_for(provider: :opencode, model: "model-a")).to be_nil
@@ -227,6 +227,38 @@ RSpec.describe Ai::ModelCatalog, type: :service do
 
     it "returns nil for a model the cache/pinned fallback doesn't know" do
       expect(described_class.pricing_for(provider: :opencode, model: "nope")).to be_nil
+    end
+
+    context "config-pinned pricing fallback (ai_providers.yml pinned_pricing)" do
+      it "prefers the cached catalog row's pricing over the config pin when both exist" do
+        Rails.cache.write(described_class.cache_key(:opencode), [
+          { id: "claude-sonnet-5", pinned: false, pricing: { input: 2.0, output: 10.0 } }
+        ])
+
+        expect(described_class.pricing_for(provider: :opencode, model: "claude-sonnet-5"))
+          .to eq({ input: 2.0, output: 10.0 })
+      end
+
+      it "serves the pin when the cached row carries none (OpenCode Zen's pricing-less listing)" do
+        Rails.cache.write(described_class.cache_key(:opencode), [
+          { id: "claude-sonnet-5", pinned: false }
+        ])
+
+        expect(described_class.pricing_for(provider: :opencode, model: "claude-sonnet-5"))
+          .to eq({ input: 3.0, output: 15.0 })
+      end
+
+      it "serves the pin on a cold cache too, still issuing NO request (the anthropic case)" do
+        expect(described_class.pricing_for(provider: :anthropic, model: "claude-haiku-4-5"))
+          .to eq({ input: 1.0, output: 5.0 })
+        expect(WebMock).not_to have_requested(:get, /api\.anthropic\.com/)
+      end
+
+      it "returns nil for a model with neither catalog pricing nor a pin (unknown stays costless)" do
+        Rails.cache.write(described_class.cache_key(:opencode), [ { id: "big-pickle", pinned: false } ])
+
+        expect(described_class.pricing_for(provider: :opencode, model: "big-pickle")).to be_nil
+      end
     end
   end
 end

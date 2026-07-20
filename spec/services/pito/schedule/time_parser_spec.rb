@@ -244,6 +244,37 @@ RSpec.describe Pito::Schedule::TimeParser do
     end
   end
 
+  describe "owner QoL grammar lock" do
+    # Pins the owner's everyday phrasing verbatim so the mass/batch path
+    # (lib/pito/chat/handlers/schedule.rb parse_mass_segment), which shares
+    # THIS SAME parser, can never silently regress on these forms.
+    it "parses `2 days from now` as 2026-06-18 09:00" do
+      expect(parse("5 2 days from now").time).to eq(Time.zone.local(2026, 6, 18, 9, 0))
+    end
+
+    # `next monday` is already asserted verbatim above (this same input/result)
+    # in "next-calendar-week forms" — skipped here to avoid duplicating it.
+
+    it "parses `next monday 3pm` as 2026-06-22 15:00" do
+      expect(parse("5 next monday 3pm").time).to eq(Time.zone.local(2026, 6, 22, 15, 0))
+    end
+
+    it "parses `at 3pm` as today 15:00" do
+      expect(parse("5 at 3pm").time).to eq(Time.zone.local(2026, 6, 16, 15, 0))
+    end
+
+    it "parses `tomorrow 11am` as tomorrow 11:00" do
+      expect(parse("5 tomorrow 11am").time).to eq(Time.zone.local(2026, 6, 17, 11, 0))
+    end
+
+    # `in 2 hours` is already asserted verbatim above (this same input/result)
+    # in "relative `in …` durations" — skipped here to avoid duplicating it.
+
+    it "parses `20-07-2026 20:00`" do
+      expect(parse("5 20-07-2026 20:00").time).to eq(Time.zone.local(2026, 7, 20, 20, 0))
+    end
+  end
+
   describe "unparseable phrases" do
     it "returns nil for free text" do
       expect(parse("5 next-tuesday")).to be_nil

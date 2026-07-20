@@ -64,8 +64,6 @@ RSpec.describe "CommandHelp — --help completeness", type: :dispatch do
     import:        %i[game videos],
     link:          %i[game video],
     linked:        %i[game vids],
-    platform:      %i[game],
-    price:         %i[set unset],
     publish:       %i[video],
     reindex:       %i[game video],
     schedule:      %i[video],

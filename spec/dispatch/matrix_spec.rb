@@ -98,8 +98,12 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
     it "game_detail includes all expected tool tokens" do
       expect(described_class.actions_for("game_detail")).to include(
         "delete", "del", "rm", "reindex", "link", "unlink",
-        "platform", "price", "shinies", "sync", "analyze"
+        "shinies", "sync", "analyze"
       )
+    end
+
+    it "game_detail does NOT include price/platform (retired standalone tools, Q16/Q16b)" do
+      expect(described_class.actions_for("game_detail")).not_to include("price", "platform")
     end
 
     it "channel_list includes sort/order/next/shinies/analyze" do

@@ -193,7 +193,7 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
   # ── Chat slot emission ─────────────────────────────────────────────────────
   #
   # Catalog#slots_for emits only :enum slots with a Symbol source.
-  # Free slots and the leading free slot in schedule/price are NOT emitted.
+  # Free slots and the leading free slot in schedule are NOT emitted.
 
   describe ".to_h chat slot emission" do
     def chat_entry(name)
@@ -221,8 +221,9 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
       expect(chat_entry("import")[:slots]).to eq([ { name: "noun", source: "import_nouns" } ])
     end
 
-    it "price emits one slot: subcommand/price_subcommands (free trailing slot is not emitted)" do
-      expect(chat_entry("price")[:slots]).to eq([ { name: "subcommand", source: "price_subcommands" } ])
+    it "price/platform no longer resolve to a chat entry (retired standalone tools, Q16/Q16b)" do
+      expect(chat_entry("price")).to be_nil
+      expect(chat_entry("platform")).to be_nil
     end
 
     it "delete emits one slot: title/game_titles" do

@@ -30,7 +30,7 @@ RSpec.describe "Dispatch — hashtag recognition + action gating", type: :dispat
     # registry exposes them (this is what gates ToolDelegator + drives suggestions).
     {
       "video_detail"     => %w[rm delete reindex link unlink shinies sync],
-      "game_detail"      => %w[rm delete reindex link unlink platform price shinies sync],
+      "game_detail"      => %w[rm delete reindex link unlink shinies sync],
       "channel_detail"   => %w[visit sync],
       "video_list"       => %w[show delete rm with without sort order],
       "game_list"        => %w[with without sort order],
@@ -62,6 +62,11 @@ RSpec.describe "Dispatch — hashtag recognition + action gating", type: :dispat
     it "an action not in a target's matrix is not gated in" do
       expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("sync")
       expect(Pito::FollowUp::Registry.actions_for("analyze_message")).not_to include("analyze")
+    end
+
+    it "price/platform are gated OUT of game_detail/game_list (retired standalone tools, Q16/Q16b)" do
+      expect(Pito::FollowUp::Registry.actions_for("game_detail")).not_to include("price", "platform")
+      expect(Pito::FollowUp::Registry.actions_for("game_list")).not_to include("price", "platform")
     end
   end
 end

@@ -229,6 +229,95 @@ RSpec.describe Pito::Nl::Mapper do
       end
     end
 
+    # The Q27c write-tool guard (WRITE_ACTION_LEXICON — see mapper.rb): a
+    # composition landing on a WRITE tool survives only when the owner's own
+    # words name that tool's action. The completion is stubbed to the exact
+    # wrong/right command, so these prove the GUARD's verdict, not the
+    # model's — "crack open vid 30" can never come back as a link no matter
+    # what the sidecar emits.
+    context "write-tool guard" do
+      it "refuses a link composition for a phrase that never names a link action" do
+        allow(client).to receive(:chat).and_return("link 30 3")
+
+        expect(described_class.map("crack open vid 30")).to be_nil
+      end
+
+      it "refuses the same unasked write on the tool:-constrained re-try path" do
+        allow(client).to receive(:chat).and_return("link 30 3")
+
+        expect(described_class.map("crack open vid 30", tool: :link)).to be_nil
+      end
+
+      it "composes delete when the phrase names the action" do
+        allow(client).to receive(:chat).and_return("delete vid 4")
+
+        expect(described_class.map("kill vid 4")).to eq(command: "delete vid 4", tool: :delete)
+      end
+
+      it "counts a folded nl.synonym as naming the action (remove -> delete)" do
+        allow(client).to receive(:chat).and_return("delete vid 4")
+
+        expect(described_class.map("please remove vid 4")).to eq(command: "delete vid 4", tool: :delete)
+      end
+
+      it "counts an update-footage auto-run phrasing as action-named (the Q17 exception)" do
+        allow(client).to receive(:chat).and_return("update game footage 7 9")
+
+        expect(described_class.map("logged another two hours on game 7"))
+          .to eq(command: "update game footage 7 9", tool: :update)
+      end
+
+      it "leaves read-tool compositions unguarded" do
+        allow(client).to receive(:chat).and_return("analyze vid 30 full")
+
+        expect(described_class.map("crack open vid 30")).to eq(command: "analyze vid 30 full", tool: :analyze)
+      end
+
+      # 2026-07-20 verify-pass re-derivation (see WRITE_ACTION_LEXICON's
+      # derivation-rule comment): update's attested acquisition/platform
+      # verbs (add/put/pick-up/pay/cost/come-out/runs-on) survive the
+      # guard; copula-only facts still block — the boundary is an
+      # owner-action verb. The say-phrases here are the exact nl_examples
+      # rows the omission degraded to the huh copy.
+      it "composes update when an attested acquisition verb names the action" do
+        allow(client).to receive(:chat).and_return("update game price 5 12")
+
+        expect(described_class.map("picked up game 5 for 12 bucks"))
+          .to eq(command: "update game price 5 12", tool: :update)
+      end
+
+      it "composes update for a verbed platform imperative" do
+        allow(client).to receive(:chat).and_return("update game platform 12 ps5")
+
+        expect(described_class.map("add ps5 to game 12"))
+          .to eq(command: "update game platform 12 ps5", tool: :update)
+      end
+
+      it "still refuses an update composition for a copula-only fact statement" do
+        allow(client).to receive(:chat).and_return("update game platform 42 switch")
+
+        expect(described_class.map("game 42 is also on switch")).to be_nil
+      end
+
+      # The pool-wide coherence invariant (same verify pass): every
+      # nl.exemplars pair whose run-command parses to a guarded write tool
+      # must carry a say-phrase that names that tool's action — the
+      # few-shot pool must never teach a composition the guard then
+      # refuses. (Module_function makes Mapper's helpers public module
+      # methods, so the guard's own predicate chain is exercised directly.)
+      it "accepts the say-phrase of every write-tool exemplar in the pool" do
+        Pito::Dispatch::Config.nl_exemplars.each do |exemplar|
+          tool = described_class.parsed_tool(exemplar[:run])
+          next unless described_class::WRITE_ACTION_LEXICON.key?(tool)
+
+          normalized = described_class.normalize(exemplar[:say])
+          expect(described_class.action_named?(tool: tool, utterance: normalized)).to be(true),
+            "nl.exemplars pair #{exemplar[:say].inspect} -> #{exemplar[:run].inspect} " \
+            "teaches a #{tool} composition its own say-phrase cannot survive"
+        end
+      end
+    end
+
     context "when the sidecar is unreachable (client returns nil)" do
       it "returns nil" do
         allow(client).to receive(:chat).and_return(nil)

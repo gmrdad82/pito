@@ -66,6 +66,12 @@ RSpec.describe "Dispatch matrix — link (recognition, DB mocked)", type: :dispa
     allow(::Video).to       receive(:find_by).and_return(video_double)
     allow(::Game).to        receive(:find_by).and_return(game_double)
     allow(VideoGameLink).to receive(:find_or_create_by!).and_return(double("VGL"))
+    # The 1×1 free-chat path checks for a prior (different) game link before
+    # creating one (relink semantics — see Chat::Handlers::Link#relink_or_create).
+    # `Game.none` is a real empty AR relation — no DB hit, no double stubbing
+    # needed beyond this — so every "fresh link" example here still exercises
+    # find_or_create_by! only, unchanged.
+    allow(video_double).to  receive(:linked_games).and_return(Game.none)
   end
 
   # ── Free-chat: game LEFT + vid RIGHT ───────────────────────────────────────────

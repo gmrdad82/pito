@@ -3,9 +3,11 @@
 require "bigdecimal"
 
 # Pure function. Parses the `price [set] <amount>` euro value for the nullable
-# `games.price` column — the single canonical parser the `price` chat tool, its
-# game-detail follow-up reply, and the `:price_amount` dispatch resolver all
-# share — "wrap, don't fork".
+# `games.price` column — the single canonical parser Chat::Handlers::Update
+# uses for the game `price` field ("wrap, don't fork"). The standalone
+# `price` chat tool, its game-detail follow-up reply, and the `:price_amount`
+# dispatch resolver that used to share this parser are all retired
+# (Q16/Q16b, 3.8.0) — `update` is the sole remaining caller.
 #
 # Contract:
 #   * BigDecimal keeps the value exact, rounded to 2 decimals.

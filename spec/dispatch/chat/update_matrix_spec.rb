@@ -59,6 +59,88 @@ RSpec.describe "Dispatch matrix — update (game/vid metadata writes)", type: :d
     end
   end
 
+  # ── game footage deltas — OWNER DIRECTIVE Q17: an explicit sign is RELATIVE,
+  #    floored at 0 (with honest floored copy); a bare number stays absolute ──
+
+  describe "update game footage <id> +N / -N (relative deltas, Q17)" do
+    let!(:game) { create(:game, footage_hours: 5) }
+
+    it "'+2' ADDS to the current total (5 → 7)" do
+      result = dispatch("update game footage #{game.id} +2")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(game.reload.footage_hours).to eq(7)
+    end
+
+    it "'-1.5' SUBTRACTS from the current total (5 → 3.5)" do
+      result = dispatch("update game footage #{game.id} -1.5")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(game.reload.footage_hours).to eq(7/2r)
+    end
+
+    it "a below-zero subtraction FLOORS at 0 and the copy says it floored" do
+      game.update!(footage_hours: 1)
+
+      result = dispatch("update game footage #{game.id} -5")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["text"]).to include("floored at 0h")
+      expect(game.reload.footage_hours).to eq(0)
+    end
+
+    it "the result is NEVER negative even from an already-zero total" do
+      game.update!(footage_hours: 0)
+
+      dispatch("update game footage #{game.id} -0.5")
+
+      expect(game.reload.footage_hours).to eq(0)
+    end
+
+    it "a bare number stays the ABSOLUTE set from a nonzero total (5 → 3, never 8)" do
+      result = dispatch("update game footage #{game.id} 3")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(game.reload.footage_hours).to eq(3)
+    end
+  end
+
+  # ── game footage — vague/missing amount → the tool's help page (Q40 rider:
+  #    "there is no default" — help on ambiguity, never an error) ─────────────
+
+  describe "update game footage — vague/missing amount → the update help page" do
+    let!(:game) { create(:game, footage_hours: 5) }
+
+    def expect_help_page(result)
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["html"]).to be(true)
+      expect(event[:payload]["body"]).to include("update game footage")
+    end
+
+    it "'update game footage <id>' (no amount) → help, no write, no error" do
+      result = dispatch("update game footage #{game.id}")
+
+      expect_help_page(result)
+      expect(game.reload.footage_hours).to eq(5)
+    end
+
+    it "'update game footage' (no id, no amount) → the same help page" do
+      expect_help_page(dispatch("update game footage"))
+    end
+
+    it "'update game footage <id> +x' (vague delta) → help, no write" do
+      result = dispatch("update game footage #{game.id} +x")
+
+      expect_help_page(result)
+      expect(game.reload.footage_hours).to eq(5)
+    end
+  end
+
   # ── game price — local write, exact BigDecimal, html :system payload ───────
 
   describe "update game price <id> <amount>" do
@@ -207,10 +289,24 @@ RSpec.describe "Dispatch matrix — update (game/vid metadata writes)", type: :d
   # as the ACTUAL behavior; see final report for the full discrepancy note.
 
   describe "bad values → pito.chat.update.bad_value" do
-    it "'update game footage <id> abc' → Error bad_value (non-numeric hours)" do
+    # Q40 rider (Q17, 3.8.0): a footage amount pito can't read is VAGUE, and a
+    # vague/missing footage amount surfaces the tool's help page, never
+    # bad_value — the pre-Q17 Error expectation moved to the help-page
+    # describe above. Price keeps the bad_value contract (below).
+    it "'update game footage <id> abc' → the update help page (NOT bad_value since Q17/Q40)" do
       game = create(:game)
 
       result = dispatch("update game footage #{game.id} abc")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload]["body"]).to include("update game footage")
+    end
+
+    it "'update game price <id> abc' → Error bad_value (non-numeric amount)" do
+      game = create(:game)
+
+      result = dispatch("update game price #{game.id} abc")
 
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.update.bad_value")
@@ -336,6 +432,18 @@ RSpec.describe "Dispatch matrix — update (game/vid metadata writes)", type: :d
       expect(detail[0]).to include("##{g1.id}").and include("→")
       expect(detail[1]).to include("##{missing_id}").and include("not found")
       expect(detail[2]).to include("##{g2.id}")
+    end
+
+    it "applies Q17 deltas per row with the same floor-at-0 math as the single form" do
+      g1 = create(:game, footage_hours: 5)
+      g2 = create(:game, footage_hours: 1)
+
+      result = dispatch("update game footage #{g1.id} +2, #{g2.id} -5")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["body"]).to include("2 applied")
+      expect(g1.reload.footage_hours).to eq(7)
+      expect(g2.reload.footage_hours).to eq(0) # floored, shown as "→ 0h" in the row detail
     end
 
     it "enqueues GameEmbedIndexJob once per applied platform row" do

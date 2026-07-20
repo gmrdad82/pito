@@ -122,42 +122,59 @@ class Video < ApplicationRecord
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true
 
-  # 60-min ROLLING spacing between scheduled publishes on the SAME channel
-  # (exactly 60 minutes apart is allowed). Only pending schedules count — a
-  # past publish never blocks a new one (Video.scheduled already excludes
-  # `publish_at <= Time.current` / nil).
+  # The scheduling-proximity LAW (owner, 4.0.0 — supersedes the 60-min rule):
+  # ≥ 4h between any two publish moments on the channel (scheduled AND
+  # published vids count, via publish_at / published_at), and no rolling 24h
+  # window may hold more than 2 once the new moment lands. The math lives in
+  # Pito::Schedule::SpacingPolicy; these validations are its model-lifecycle
+  # face.
   #
-  # Context-scoped (`on: :schedule`) so the ordinary save path — publish
-  # (publish_at: nil), unlist, sync, import, plain metadata saves — NEVER
-  # runs this: a Studio-side violating schedule still mirrors in freely. Only
-  # the chat `schedule` tool's own stage-time dry-run
-  # (Pito::Chat::Handlers::Schedule) and confirm-time save
-  # (Pito::Confirmation::Executor#confirm_video_schedule) opt into the
-  # :schedule context.
-  SCHEDULE_SPACING = 60.minutes
+  # Context-scoped so the ordinary save path — unlist, sync, import, plain
+  # metadata saves — NEVER runs them: Studio-side state mirrors in freely and
+  # pre-existing violations are grandfathered. `on: :schedule` guards the
+  # chat schedule tool (stage-time dry-run + confirm-time save, single and
+  # mass); `on: :publish` guards publish-NOW (the moment judged is
+  # Time.current, not publish_at — publishing clears publish_at).
+  SCHEDULE_SPACING = Pito::Schedule::SpacingPolicy::SPACING
 
   validate :publish_spacing_within_channel, on: :schedule
+  validate :publish_now_within_law, on: :publish
 
-  # The other scheduled video on this channel whose publish_at falls within
-  # SCHEDULE_SPACING of this video's (possibly just-assigned, not yet saved)
-  # publish_at, or nil when there is no collision. Exposed as its own reader
-  # — not folded silently into the validation — so callers building the
-  # `schedule_conflict` copy's `other`/`when` args (the stage-time dry-run in
-  # the chat handler, the confirm-time rescue in the executor) read the SAME
-  # collision the validation itself found, instead of re-deriving it from an
-  # error string.
-  def publish_spacing_collision
-    return nil if publish_at.blank? || channel_id.blank?
+  # The SpacingPolicy verdict for this vid's (possibly just-assigned, not yet
+  # saved) publish_at — nil, or { kind: :spacing, title:, at: } /
+  # { kind: :day_cap, titles:, at: }. Exposed as its own reader — not folded
+  # silently into the validation — so callers building the conflict copy
+  # (the stage-time dry-runs, the confirm-time rescues) read the SAME
+  # verdict the validation found instead of re-deriving it from an error
+  # string.
+  def schedule_violation
+    return nil if publish_at.blank?
 
-    channel.videos.where.not(id: id).scheduled
-      .where("publish_at > ? AND publish_at < ?",
-             publish_at - SCHEDULE_SPACING, publish_at + SCHEDULE_SPACING)
-      .order(:publish_at).first
+    Pito::Schedule::SpacingPolicy.call(video: self, at: publish_at)
+  end
+
+  # Same verdict for publishing RIGHT NOW (used by the :publish context and
+  # the publish handler's stage-time dry-run).
+  def publish_now_violation
+    Pito::Schedule::SpacingPolicy.call(video: self, at: Time.current)
   end
 
   def publish_spacing_within_channel
-    collision = publish_spacing_collision
-    errors.add(:publish_at, "within 60 minutes of ##{collision.id} (#{collision.title})") if collision
+    v = schedule_violation
+    return if v.nil?
+
+    errors.add(:publish_at, v[:kind] == :spacing ?
+      "within 4 hours of #{v[:title]}" :
+      "a third publish inside 24h (#{Array(v[:titles]).join(', ')})")
+  end
+
+  def publish_now_within_law
+    v = publish_now_violation
+    return if v.nil?
+
+    errors.add(:base, v[:kind] == :spacing ?
+      "publishing now lands within 4 hours of #{v[:title]}" :
+      "publishing now makes a third publish inside 24h (#{Array(v[:titles]).join(', ')})")
   end
 
   # YouTube's own `status.publishAt` constraint (developers.google.com/youtube/

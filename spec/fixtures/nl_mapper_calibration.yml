@@ -48,11 +48,27 @@ entries:
   - { say: "go fetch resident evil 4 for my library",                    tool: import,        expect_parse: true }
   - { say: "show me how game 8's lifetime numbers break down",           tool: breakdowns,    expect_parse: true }
   # Promoted from known_gaps 2026-07-16 (REPEAT_PENALTY 1.3 -> 1.1 retune —
-  # see lib/pito/nl/mapper.rb's REPEAT_PENALTY comment): all three composed
-  # the correct tool, byte-identical, across 2 live rounds at 1.1.
-  - { say: "games similar in style to game 20",                          tool: similar,       expect_parse: true }
+  # see lib/pito/nl/mapper.rb's REPEAT_PENALTY comment): composed the
+  # correct tool, byte-identical, across 2 live rounds at 1.1.
   - { say: "grab whatever's fresh off youtube right now",                tool: sync,          expect_parse: true }
   - { say: "help me figure out what game vid 14 is filed under",         tool: game,          expect_parse: true }
+  # The third promotee of that retune, "games similar in style to game 20",
+  # briefly demoted to known_gaps: 2026-07-20 when the 3.8.0 ontology chain
+  # reshaped the mapper's inputs (the `platform unset` exemplar left
+  # nl.exemplars, the GBNF grammar lost price/platform + gained analyze
+  # `full`) and the composition flipped to a `search … like` seed-similarity
+  # command. Q27b-B (2026-07-20/21 interview) HOLDS the `similar`
+  # expectation AND orders exemplar growth for the family — the 3.8.0
+  # repair pass added the style/vein exemplars to nl.exemplars (tools.yml)
+  # and this row is asserted again: a live regression here must fail the
+  # gate, never sit unasserted.
+  - { say: "games similar in style to game 20",                          tool: similar,       expect_parse: true }
+  # 3.8.0 owner-interview ruling (2026-07-20/21), promoted out of
+  # known_gaps: below:
+  #   Q25 — "show me every vid tied to game 9" is RE-PINNED to show: the
+  #         mapper's measured composition (2026-07-20 live: "show games 9",
+  #         :show) was ruled correct, the old `videos` expectation wrong.
+  - { say: "show me every vid tied to game 9",                           tool: show,          expect_parse: true }
 
 # Known gaps (re-measured live 2026-07-16 against the qwen0.6B nlmapper
 # sidecar at the FINAL REPEAT_PENALTY (1.1 — see below), two rounds each,
@@ -90,18 +106,29 @@ entries:
 # for the full probe list) before this fixture's 15-row live re-measurement
 # promoted the 3 rows above out of known_gaps.
 #
-# Of the 6 gaps below: 2 are ORIGINAL (pre-retrieval, X2) known_gaps —
-# "crack open vid 30 for me" (show) and "point me at games in the same vein
-# as game 11" (similar) — still missing at 1.1. The X2 fixture's THIRD
-# original gap, "help me figure out what game vid 14 is filed under" (game),
-# now passes at 1.1 and is promoted above. The other 4 below (analyze,
-# channels, videos, at-a-glance) are V2-retrieval-demoted gaps that remain
-# demoted at 1.1 (the fixture's other 2 V2-demoted gaps — similar, sync —
-# also promoted above).
+# 3.8.0 interview drain (2026-07-20/21) of the 6 gaps this section carried:
+# "which other creators have put out game 15" RETIRED outright (Q24 —
+# single-channel world; the ask itself left the product). "show me every
+# vid tied to game 9" (Q25) promoted into entries: above. "walk me through
+# …" (Q23) and "crack open vid 30 for me" (Q27) were re-pinned by the owner
+# to the auto_run analyze-full SHAPES ("analyze channel full" / "analyze
+# vid 30 full") — a ROUTER-tier ruling, so both phrases MOVED to
+# spec/fixtures/nl_calibration.yml (one fixture file per phrase — see the
+# DISJOINT note in this file's header): walk-me-through to its auto_run:
+# (routes :analyze @0.812), crack-open to its known_gaps: (routes :show
+# @0.762; rescued to auto_run: in the 3.8.0 repair — see that file). Their
+# mapper compositions stayed wrong when last measured live (2026-07-20:
+# "channels trend this month" -> :channels; "show vid 30" -> :show) — the
+# analyze-full composition family got its FIRST nl.exemplars in the 3.8.0
+# repair pass (tools.yml: "analyze channels full" / "analyze vid 12 full"
+# worked examples); neither phrase is a row HERE (one fixture per phrase).
+# Of the 2 left: "give me a lightning-fast peek at vid 9" HOLDS its at-a-glance
+# expectation by owner ruling (Q26) — the new `peek -> glance` nl.synonyms
+# snap (tools.yml, same interview) is expected to help; prune it into
+# entries: once a live round proves it. "point me at games in the same vein
+# as game 11" (similar) is an original (pre-retrieval, X2) gap, unchanged.
 known_gaps:
-  - { say: "walk me through how the channel's been trending this month", tool: analyze,       expect_parse: true }  # NON-DETERMINISTIC at 1.1: round1 -> "channels trend this month" (:channels), round2 -> "show trends for your channel this month." (:show)
-  - { say: "which other creators have put out game 15",                  tool: channels,      expect_parse: true }  # -> "game 15 creators" (:game)
-  - { say: "show me every vid tied to game 9",                           tool: videos,        expect_parse: true }  # -> "show vids game 9" (:show)
-  - { say: "give me a lightning-fast peek at vid 9",                     tool: "at-a-glance", expect_parse: true }  # -> "show vid 9" (:show)
-  - { say: "crack open vid 30 for me",                                  tool: show,          expect_parse: true }  # -> "link 30" (:link) — original (pre-retrieval) gap, still misses at 1.1
+  - { say: "give me a lightning-fast peek at vid 9",                     tool: "at-a-glance", expect_parse: true }  # -> "show vid 9" (:show); Q26 holds the expectation
   - { say: "point me at games in the same vein as game 11",              tool: similar,       expect_parse: true }  # -> "search games similar to game 11" (:search) — original (pre-retrieval) gap, still misses at 1.1
+  # ("games similar in style to game 20" restored to entries: in the 3.8.0
+  # repair pass — Q27b-B exemplar growth; see its comment there.)

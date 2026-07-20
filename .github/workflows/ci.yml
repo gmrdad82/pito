@@ -148,6 +148,74 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
+      # AI sidecars (OWNER Q58, 3.7.1) — same pinned llama.cpp digest and
+      # -hf model choices as docker-compose.dev.yml's `embedder` / `nlmapper`
+      # services, so spec/lib/pito/nl/calibration_spec.rb and
+      # spec/lib/pito/nl/mapper_calibration_spec.rb stop skipping (their
+      # `calibration_available?` / `mapper_available?` guards) and actually
+      # run here, in this same blocking job.
+      #
+      # No `command:`: the workflow `services:` schema exposes only
+      # image/env/ports/volumes/options — there is no field to append CLI
+      # args after the image the way docker-compose's `command:` does. The
+      # docker-compose CLI flags are re-expressed as llama-server's own
+      # `LLAMA_ARG_*` env-var equivalents instead (confirmed locally against
+      # this exact digest: `-hf user/repo[:quant]` -> LLAMA_ARG_HF_REPO
+      # including the colon-quant suffix, `--embeddings` ->
+      # LLAMA_ARG_EMBEDDINGS, `--host`/`--port` -> LLAMA_ARG_HOST /
+      # LLAMA_ARG_PORT, `--ctx-size` -> LLAMA_ARG_CTX_SIZE — booting
+      # identically to the CLI-arg form used in dev, not the router/lazy-load
+      # mode the image falls into with zero model args). The image ships its
+      # own HEALTHCHECK baked in, but it always polls port 8080 (llama.cpp's
+      # own default) regardless of our --port override, so `options:` below
+      # replaces it with the same `/health` probe docker-compose.dev.yml
+      # polls, pointed at the real port.
+      #
+      # No cache: GitHub starts service containers before the job's first
+      # step runs (including any `actions/cache` restore step), so there is
+      # no point on the job timeline where a cache could be warmed before the
+      # sidecar's own boot-time Hugging Face download begins — caching a
+      # `services:` container this way is not cleanly possible without
+      # replacing the service with hand-rolled `docker run` steps, which
+      # trades this file's simplicity for that. Documenting the cost instead:
+      # a cold pull + load of embeddinggemma-300m-qat-q8_0 (~300MB) measured
+      # at ~30s end-to-end against a warm connection on this exact pinned
+      # digest (Qwen3-0.6B-GGUF:Q8_0 measured ~31s the same way); a runner's
+      # link to Hugging Face may be slower, so `--health-start-period` below
+      # mirrors docker-compose.dev.yml's own existing `start_period: 10m` for
+      # the same image/model rather than the measured figure. Both sidecars
+      # download in parallel, so the wall-clock cost added to the job is one
+      # download's worth, not the sum of both.
+      embedder:
+        image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
+        env:
+          LLAMA_ARG_HF_REPO: ggml-org/embeddinggemma-300m-qat-q8_0-GGUF
+          LLAMA_ARG_EMBEDDINGS: "1"
+          LLAMA_ARG_HOST: 0.0.0.0
+          LLAMA_ARG_PORT: "8081"
+        ports:
+          - 8081:8081
+        options: >-
+          --health-cmd="curl -sf http://localhost:8081/health"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+          --health-start-period=10m
+      nlmapper:
+        image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
+        env:
+          LLAMA_ARG_HF_REPO: "Qwen/Qwen3-0.6B-GGUF:Q8_0"
+          LLAMA_ARG_HOST: 0.0.0.0
+          LLAMA_ARG_PORT: "8082"
+          LLAMA_ARG_CTX_SIZE: "2048"
+        ports:
+          - 8082:8082
+        options: >-
+          --health-cmd="curl -sf http://localhost:8082/health"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+          --health-start-period=10m
 
     env:
       RAILS_ENV: test
@@ -156,6 +224,33 @@ jobs:
       REDIS_URL: redis://127.0.0.1:6379/0
       RUBOCOP_CACHE_ROOT: tmp/rubocop
       PARALLEL_TEST_PROCESSORS: "8"
+      # PITO_EMBEDDER_URL / PITO_NLMAPPER_URL are deliberately NOT exported
+      # here at job level (REPAIR, 3.7.1). A prior version of this job did
+      # export them job-wide with a comment claiming only the calibration
+      # specs' ENV-stubbing specs were affected; a verifier proved that false
+      # by replication: WebMock's `allow_localhost: true` (spec/rails_helper.rb)
+      # lets ANY unstubbed guard path in the suite reach the live sidecars on
+      # 127.0.0.1 once the vars are set process-wide, not just the two
+      # calibration files — e.g. spec/requests/chat_spec.rb's no-verb-context
+      # example live-routed through Pito::Nl::Router inside ChatDispatchJob,
+      # and EventEmbedJob live-embedded every request spec's events. Worse,
+      # Pito::Nl::Router#sync!'s self-heal (`sync! unless embedded.exists?`,
+      # lib/pito/nl/router.rb) then re-embedded the FULL tools.yml
+      # nl_examples corpus (303 entries) on every example that reached the
+      # unknown-gate, because transactional fixtures roll `nl_examples` back
+      # after each example — multiplicatively expensive across parallel_rspec's
+      # 8 processes below. The two vars are exported ONLY on the dedicated
+      # "Run NL calibration specs" step further down, scoped to just those two
+      # spec files — see that step's comment. Every other spec in the suite
+      # (including the "Run RSpec" step's full parallel_rspec fan-out) keeps
+      # seeing them blank, which is how the rest of the suite already detects
+      # "sidecar not configured" and skips or no-ops (Game::EmbeddingIndexer,
+      # Video::EmbeddingIndexer, Pito::Embedding::EventIndexer,
+      # Pito::Nl::CompletionClient, EventEmbedJob) — those specs stub ENV
+      # directly so this does not change their behavior either way, and
+      # spec/lib/pito/nl/mapper_spec.rb's header comment already documents
+      # staying deterministic "even when a real PITO_EMBEDDER_URL is exported
+      # in the shell".
 
     steps:
       - name: Checkout code
@@ -226,6 +321,36 @@ jobs:
         # bare `--` separator, which would leave parallel_tests trying to
         # `File.stat("--options")` as if it were a spec path.
         run: bundle exec parallel_rspec spec/ --test-options "--options /dev/null --require spec_helper"
+
+      - name: Run NL calibration specs (live sidecars)
+        # Split out of the "Run RSpec" step above on purpose (REPAIR, 3.7.1;
+        # see the job-level `env:` comment for the full incident). Two
+        # deliberate differences from that step:
+        #
+        # 1. PITO_EMBEDDER_URL / PITO_NLMAPPER_URL are set in THIS step's own
+        #    `env:` only, not job-wide, so the parallel_rspec run above never
+        #    sees them and every other spec's sidecar-blank guard stays on
+        #    its deterministic no-op branch.
+        # 2. Plain `bundle exec rspec`, not `parallel_rspec`: both files
+        #    self-isolate via before(:all)/after(:all) — Pito::Nl::Router.sync!
+        #    once per file (outside the per-example transactional rollback)
+        #    and an after(:all) `Example.delete_all` cleanup, see
+        #    spec/lib/pito/nl/calibration_spec.rb's own header comment —
+        #    rather than per-example fixtures, so parallelizing them buys
+        #    nothing and would only multiply live HTTP calls across workers.
+        #    Running after "Run RSpec" (steps in a job are sequential, never
+        #    concurrent) also means these two live-model files never compete
+        #    with parallel_rspec's 8-way fan-out for CPU against
+        #    Pito::Nl::CompletionClient's READ_TIMEOUT_SECONDS = 30
+        #    (app/services/pito/nl/completion_client.rb).
+        #
+        # Mirrors the exact local invocation documented in both files'
+        # header comments, just with both sidecars' vars set together since
+        # the mapper gate needs both.
+        env:
+          PITO_EMBEDDER_URL: http://127.0.0.1:8081
+          PITO_NLMAPPER_URL: http://127.0.0.1:8082
+        run: bundle exec rspec spec/lib/pito/nl/calibration_spec.rb spec/lib/pito/nl/mapper_calibration_spec.rb
 
       - name: Enforce the coverage floor
         # SimpleCov recorded per-process slices during parallel_rspec (the CI

@@ -46,7 +46,7 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
         :channel_by_handle, :video_by_id, :game_by_id, :id_among_rows,
         :schedule_expression, :column_list, :sort_clause, :metric_list,
         :game_titles, :visit_destination, :source_entity,
-        :price_amount, :platform_value, :link_source, :link_targets
+        :link_source, :link_targets
       )
     end
   end
@@ -306,54 +306,6 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       result = described_class.resolve(:source_entity, nil, context: {})
       expect(result).to be_a(invalid_class)
       expect(result.reason).to match(/entity_class/)
-    end
-  end
-
-  # ── :price_amount (T8.15 — wraps Pito::Games::PriceAmount) ────────────────────
-
-  describe ":price_amount" do
-    it "happy: parses a bare `9.99` to a 2dp BigDecimal" do
-      expect(described_class.resolve(:price_amount, "9.99")).to eq(BigDecimal("9.99"))
-    end
-
-    it "happy: peels a leading `set` (`set 9.99`)" do
-      expect(described_class.resolve(:price_amount, "set 9.99")).to eq(BigDecimal("9.99"))
-    end
-
-    it "happy: `unset` short-circuits to the :unset sentinel" do
-      expect(described_class.resolve(:price_amount, "unset")).to eq(:unset)
-    end
-
-    it "happy: an explicit `0` is a valid (free) price" do
-      expect(described_class.resolve(:price_amount, "0")).to eq(BigDecimal("0"))
-    end
-
-    it "invalid: non-numeric input resolves Invalid" do
-      result = described_class.resolve(:price_amount, "free")
-      expect(result).to be_a(invalid_class)
-      expect(result.reason).to match(/not a price amount/)
-    end
-  end
-
-  # ── :platform_value (T8.15 — wraps Pito::Games::PlatformInput.normalize) ──────
-
-  describe ":platform_value" do
-    it "happy: normalises `ps5` to the canonical PlayStation family string" do
-      expect(described_class.resolve(:platform_value, "ps5")).to eq("PlayStation 5")
-    end
-
-    it "happy: peels a leading `set` subcommand (`set switch`)" do
-      expect(described_class.resolve(:platform_value, "set switch")).to eq("Nintendo Switch")
-    end
-
-    it "happy: peels a leading `unset` subcommand (the name to remove)" do
-      expect(described_class.resolve(:platform_value, "unset ps5")).to eq("PlayStation 5")
-    end
-
-    it "invalid: a blank value resolves Invalid" do
-      result = described_class.resolve(:platform_value, "set")
-      expect(result).to be_a(invalid_class)
-      expect(result.reason).to match(/no platform value/)
     end
   end
 

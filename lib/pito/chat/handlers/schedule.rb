@@ -90,27 +90,17 @@ module Pito
             return Pito::Chat::Result::Error.new(message_key: "pito.chat.schedule.too_soon", message_args: {})
           end
 
-          # Stage-time dry-run: does this <when> collide with another scheduled
-          # video on the same channel within the 60-min spacing window
-          # (Video#publish_spacing_within_channel, on: :schedule)? Surfacing the
-          # conflict here — before the confirmation prompt even renders — beats
-          # making the user confirm only to hit the same rejection at the
-          # executor. assign_attributes is a plain in-memory mutation (no save);
-          # restore_attributes undoes it either way so the video handed to
-          # ScheduleConfirmation.call below (and any caller reusing `video`) is
-          # never left carrying the dry-run's staged attributes.
-          video.assign_attributes(privacy_status: :private, publish_at: publish_time)
-          conflict = !video.valid?(:schedule)
-          collision = video.publish_spacing_collision if conflict
-          video.restore_attributes
-
-          if conflict
+          # Stage-time dry-run against the spacing LAW (4h air + max 2 per
+          # rolling 24h; Pito::Schedule::SpacingPolicy — same verdict the
+          # :schedule-context save re-checks for real at confirm time).
+          # Surfacing the conflict here — before the confirmation prompt even
+          # renders — beats making the user confirm only to hit the same
+          # rejection at the executor.
+          violation = Pito::Schedule::SpacingPolicy.call(video: video, at: publish_time)
+          if violation
+            key, args = Pito::Schedule::SpacingPolicy.copy_args(violation, title: video.title)
             return Pito::Chat::Result::Ok.new(events: [
-              { kind: :system,
-                payload: Pito::MessageBuilder::Text.call("pito.copy.videos.schedule_conflict",
-                  title: video.title,
-                  other: collision&.title.to_s,
-                  when: Pito::Formatter::SyncStamp.call(collision&.publish_at)) }
+              { kind: :system, payload: Pito::MessageBuilder::Text.call(key, **args) }
             ])
           end
 
@@ -276,29 +266,24 @@ module Pito
             end
           end
 
+          # Each row is judged by the spacing LAW against the DB *and* the
+          # batch rows before it (`extra:` — the policy's in-memory siblings),
+          # so an intra-batch violation aborts at stage time with the same
+          # verdict the executor's sequential :schedule-context saves would
+          # reach for real inside the confirm transaction.
           sorted = items.sort_by { |item| item[:publish_at] }
           sorted.each_with_index do |item, idx|
-            video = item[:video]
-            video.assign_attributes(privacy_status: :private, publish_at: item[:publish_at])
-            conflict  = !video.valid?(:schedule)
-            collision = video.publish_spacing_collision if conflict
-            video.restore_attributes
+            video    = item[:video]
+            siblings = sorted[0...idx]
+                       .select { |e| e[:video].channel_id == video.channel_id }
+                       .map    { |e| { time: e[:publish_at], title: e[:video].title } }
+            violation = Pito::Schedule::SpacingPolicy.call(
+              video: video, at: item[:publish_at], extra: siblings
+            )
+            next unless violation
 
-            if conflict
-              return mass_abort("pito.copy.videos.mass_schedule_conflict",
-                                 title: video.title, other: collision&.title.to_s,
-                                 when: Pito::Formatter::SyncStamp.call(collision&.publish_at))
-            end
-
-            earlier = sorted[0...idx].find do |e|
-              e[:video].channel_id == video.channel_id &&
-                (item[:publish_at] - e[:publish_at]).abs < ::Video::SCHEDULE_SPACING
-            end
-            next unless earlier
-
-            return mass_abort("pito.copy.videos.mass_schedule_conflict",
-                               title: video.title, other: earlier[:video].title,
-                               when: Pito::Formatter::SyncStamp.call(earlier[:publish_at]))
+            key, args = Pito::Schedule::SpacingPolicy.copy_args(violation, title: video.title, mass: true)
+            return mass_abort(key, **args)
           end
 
           Pito::Chat::Result::Ok.new(events: [

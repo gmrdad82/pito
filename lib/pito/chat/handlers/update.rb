@@ -8,6 +8,11 @@ module Pito
       # them):
       #
       #   update game footage <id> <hours>      — local write (0.5-step ceil)
+      #   update game footage <id> +2 / -1.5    — RELATIVE delta (Q17): adds/
+      #                                           subtracts from the current
+      #                                           total, floored at 0 (a floor
+      #                                           says so honestly); a bare
+      #                                           number stays the absolute set
       #   update game price <id> <amount>       — local write (euro, 2dp)
       #   update game platform <id> <name>      — local write (adds the family)
       #   update vid description <id> <text>    — confirmation → YouTube push
@@ -67,9 +72,14 @@ module Pito
         NOT_FOUND_REASON = "not found"
         NO_VALUE_REASON = "no value given"
 
+        # `update <noun> <field>` with NO tail at all — only consulted when
+        # PATTERN fails, to tell "update game footage" (amount missing →
+        # help, Q40) apart from genuinely malformed input (→ usage error).
+        BARE_PATTERN = /\Aupdate\s+(\S+)\s+(\S+)\z/im
+
         def call
           m = message.raw.to_s.strip.match(PATTERN)
-          return usage unless m
+          return no_tail_reply unless m
 
           noun  = NOUNS[m[1].downcase]
           field = m[2].downcase
@@ -79,7 +89,7 @@ module Pito
           return mass_update(noun, field, groups) if groups.size > 1
 
           row = groups.first.match(ROW_PATTERN)
-          return usage unless row
+          return missing_value_reply(noun, field) unless row
 
           id, value = row[1], row[2].strip
           noun == "game" ? update_game(field, id, value) : update_vid(field, id, value)
@@ -106,11 +116,36 @@ module Pito
           end
         end
 
+        # An explicitly signed token ("+2" / "-1.5") is a RELATIVE delta (OWNER
+        # DIRECTIVE Q17); a bare number stays the absolute set, byte-identical
+        # to the pre-Q17 behavior. A vague or missing amount (OWNER Q40 rider:
+        # "there is no default") surfaces the tool's own help page, never a
+        # bad-value error — see #footage_help.
         def update_footage(game, value)
-          hours = Pito::Games::FootageAmount.parse(value.split(/\s+/).first)
-          return bad_value("footage", value) if hours.nil?
+          token = value.split(/\s+/).first
+          return footage_delta(game, token) if Pito::Games::FootageAmount.delta?(token)
+
+          hours = Pito::Games::FootageAmount.parse(token)
+          return footage_help if hours.nil?
 
           game.update!(footage_hours: hours)
+          ok_text("pito.copy.footage.updated", game: game.title, hours: format("%gh", hours.to_f))
+        end
+
+        # Applies a signed delta to the current total, FLOORED at 0 (Q17: "It
+        # can't go below 0") — and when the floor actually engaged, says so
+        # honestly (pito.copy.footage.floored) instead of pretending the
+        # subtraction landed cleanly.
+        def footage_delta(game, token)
+          delta = Pito::Games::FootageAmount.parse_delta(token)
+          return footage_help if delta.nil?
+
+          target  = game.footage_hours + delta
+          floored = target.negative?
+          hours   = floored ? 0 : target
+          game.update!(footage_hours: hours)
+          return ok_text("pito.copy.footage.floored", game: game.title) if floored
+
           ok_text("pito.copy.footage.updated", game: game.title, hours: format("%gh", hours.to_f))
         end
 
@@ -141,7 +176,7 @@ module Pito
           end
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system,
-              payload: Pito::MessageBuilder::Game::PlatformSet.call(game, platform: normalized, removed: false) }
+              payload: Pito::MessageBuilder::Game::PlatformSet.call(game, platform: normalized) }
           ])
         end
 
@@ -209,9 +244,21 @@ module Pito
           end
         end
 
+        # Same Q17 delta/floor math as the single-row path (an explicit sign is
+        # relative, floored at 0); the mass report's display string shows the
+        # RESULTING total either way — "→ 0h" is the honest floored outcome in
+        # row form.
         def apply_footage_field(game, value)
-          hours = Pito::Games::FootageAmount.parse(value.split(/\s+/).first)
-          return nil if hours.nil?
+          token = value.split(/\s+/).first
+          if Pito::Games::FootageAmount.delta?(token)
+            delta = Pito::Games::FootageAmount.parse_delta(token)
+            return nil if delta.nil?
+
+            hours = [ game.footage_hours + delta, 0 ].max
+          else
+            hours = Pito::Games::FootageAmount.parse(token)
+            return nil if hours.nil?
+          end
 
           game.update!(footage_hours: hours)
           format("%gh", hours.to_f)
@@ -324,6 +371,35 @@ module Pito
 
         def usage
           Pito::Chat::Result::Error.new(message_key: "pito.chat.update.usage", message_args: {})
+        end
+
+        # PATTERN found no tail: a bare `update game footage` is the
+        # missing-amount case (→ help, Q40); anything else malformed keeps the
+        # plain usage error.
+        def no_tail_reply
+          m = message.raw.to_s.strip.match(BARE_PATTERN)
+          return footage_help if m && NOUNS[m[1].downcase] == "game" && m[2].downcase == "footage"
+
+          usage
+        end
+
+        # ROW_PATTERN found no `<id> <value>` pair. For footage that means the
+        # amount (or the id) is missing/vague → help (Q40); other fields keep
+        # the plain usage error.
+        def missing_value_reply(noun, field)
+          noun == "game" && field == "footage" ? footage_help : usage
+        end
+
+        # OWNER Q40 rider (Q17 interview): a footage update with a vague or
+        # missing amount has NO default — reply with the tool's own help page
+        # (the exact page `update --help` renders, so the delta/absolute forms
+        # are all named) as a normal :system message, never an error. Degrades
+        # to the plain usage error only if the help copy ever goes missing.
+        def footage_help
+          payload = Pito::MessageBuilder::CommandHelp.call(:update)
+          return usage if payload.nil?
+
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
 
         def not_found(ref)

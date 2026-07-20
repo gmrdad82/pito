@@ -413,8 +413,8 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels("ls games ")).to eq([ "sorted by", "upcoming", "with" ])
     end
 
-    it "fills a slot through an alias (`analyze vid ` → vids) and advances to the remaining introducer" do
-      expect(labels("analyze vid ")).to eq(%w[without])
+    it "fills a slot through an alias (`analyze vid ` → vids) and advances to the remaining full flag + introducer" do
+      expect(labels("analyze vid ")).to eq(%w[full without])
     end
 
     it "drops an introducer whose pool is exhausted — app-wide gate, no per-tool code" do
@@ -462,12 +462,8 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels("show game #12 ")).to eq(%w[full only with without])
     end
 
-    it "does not gate tools whose free slot comes after their enums (price)" do
-      expect(labels("price ")).to eq(%w[set unset])
-    end
-
     it "does not gate tools without a free slot (analyze)" do
-      expect(labels("analyze vid ")).to eq(%w[without])
+      expect(labels("analyze vid ")).to eq(%w[full without])
     end
   end
 
@@ -764,15 +760,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       end
     end
 
-    context "price openers — price on a game detail card (G31)" do
-      it "suggests set/unset at the first argument position" do
+    context "price openers — retired standalone tool (Q16/Q16b, no reply branch left)" do
+      it "offers nothing after 'price ' on a game detail card" do
         stamp("gd-price", "game_detail")
-        expect(labels("#gd-price price ", 16)).to eq(%w[set unset])
-      end
-
-      it "offers nothing once a token is committed (the amount is free-form)" do
-        stamp("gd-price2", "game_detail")
-        expect(labels("#gd-price2 price set ", 21)).to be_empty
+        expect(labels("#gd-price price ", 16)).to be_empty
       end
     end
 
@@ -890,12 +881,8 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(labels("#gl-3r show 3 ", 14)).to be_empty
       end
 
-      it "suggests the row id first for tools that interleave id + value (price)" do
-        expect(labels("#gl-3r price ", 13)).to eq(%w[#1 #3 #12])
-        # After the row id, the enumerable openers follow (G31); the amount
-        # itself stays free-form.
-        expect(labels("#gl-3r price 3 ", 15)).to eq(%w[set unset])
-        expect(labels("#gl-3r price 3 set ", 19)).to be_empty
+      it "no longer offers set/unset for 'price' after a row id (retired standalone tool, Q16/Q16b)" do
+        expect(labels("#gl-3r price 3 ", 15)).to be_empty
       end
     end
 
@@ -1519,21 +1506,6 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  describe "free mode — price subcommand slot" do
-    it "suggests set and unset after 'price '" do
-      result = call(input: "price ", cursor: 6, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("set", "unset")
-    end
-
-    it "filters subcommands by prefix ('price s' → set)" do
-      result = call(input: "price s", cursor: 7, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("set")
-      expect(labels).not_to include("unset")
-    end
-  end
-
   describe "free mode — delete/rm/del game_titles dynamic slot", :db do
     let!(:game) { create(:game, title: "Dark Souls") }
 
@@ -1566,11 +1538,15 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  describe "free mode — platform subcommand slot" do
-    it "suggests set and unset after 'platform '" do
+  describe "free mode — price/platform retired (no chat: block, Q16/Q16b)" do
+    it "returns empty menu_items for 'price ' (no grammar spec exists for :price)" do
+      result = call(input: "price ", cursor: 6, authenticated: true)
+      expect(result[:menu_items]).to be_empty
+    end
+
+    it "returns empty menu_items for 'platform ' (no grammar spec exists for :platform)" do
       result = call(input: "platform ", cursor: 9, authenticated: true)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("set", "unset")
+      expect(result[:menu_items]).to be_empty
     end
   end
 

@@ -261,18 +261,20 @@ module Pito
 
         # Resolve the channel by @handle (case-insensitive, @-agnostic). A bare
         # `show channel` (no @handle in the body) falls back to the shift+tab
-        # channel SCOPE — so it's treated as a channel, never the game picker. Only
-        # truly ambiguous (no handle + @all/blank scope) → :needs_ref.
+        # channel SCOPE — so it's treated as a channel, never the game picker.
         # In a channel-sourced follow-up with no typed handle (a bare `games` /
         # `videos` / `at-a-glance` reply), the source card's channel_id IS the
-        # channel (same source-entity contract as the game/vid replies).
+        # channel (same source-entity contract as the game/vid replies). Still
+        # blank after that: the single-channel handle-skippability law (owner
+        # Q51b) — with EXACTLY one channel connected, that's the answer, no
+        # ask; with zero or several, still truly ambiguous → :needs_ref.
         def resolve_channel
           handle = channel_ref.presence || scoped_channel_handle
           if handle.blank? && channel_follow_up?
             source_id = follow_up.source_event.payload.to_h.with_indifferent_access[:channel_id]
             return ::Channel.find_by(id: source_id) if source_id.present?
           end
-          return :needs_ref if handle.blank?
+          return ::Channel.sole || :needs_ref if handle.blank?
 
           # Exact @-agnostic match, then a pg_trgm fuzzy fallback.
           ::Channel.resolve_handle(handle)
