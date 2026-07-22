@@ -109,7 +109,7 @@ module Pito
               "text"      => "#{title}\n#{summary_line(rows)}",
               "fields"    => [
                 {
-                  "title" => Pito::Copy.render("pito.copy.notifications.webhook_digest_details_label"),
+                  "title" => Pito::Copy.render("pito.copy.notifications.webhook_details_label"),
                   "value" => table(rows),
                   "short" => false
                 }
@@ -137,7 +137,7 @@ module Pito
               "color"       => accent[:discord],
               "fields"      => [
                 {
-                  "name"  => Pito::Copy.render("pito.copy.notifications.webhook_digest_details_label"),
+                  "name"  => Pito::Copy.render("pito.copy.notifications.webhook_details_label"),
                   "value" => table(rows, max_chars: DISCORD_FIELD_VALUE_LIMIT)
                 }
               ]
