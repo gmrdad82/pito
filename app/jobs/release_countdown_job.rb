@@ -52,10 +52,11 @@ class ReleaseCountdownJob < ApplicationJob
       next if game.nil? || already_reminded?(game, date)
 
       days_remaining = (date - Date.current).to_i
+      label = platform_label(platform_rows.map(&:platform_token))
       body = Pito::Notifications::Source::ReleaseCountdown.message(
         game:           game,
         days_remaining: days_remaining,
-        platforms:      platform_label(platform_rows.map(&:platform_token))
+        platforms:      label
       )
 
       Notification.create!(
@@ -63,7 +64,7 @@ class ReleaseCountdownJob < ApplicationJob
         title:        Pito::Copy.render("pito.copy.notifications.release_countdown_title"),
         skip_webhook: true
       )
-      digest_rows << [ countdown_label(days_remaining), game.title ]
+      digest_rows << [ countdown_label(days_remaining), "#{game.title} (#{label})" ]
     end
 
     Pito::Notifications::WebhookDigest.call(

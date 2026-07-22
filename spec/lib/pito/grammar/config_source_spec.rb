@@ -534,9 +534,14 @@ RSpec.describe Pito::Grammar::ConfigSource do
       expect(names).not_to include(:price, :platform)
     end
 
-    it "does not include reply-only tools (next, visit, sort, with, without, confirm, cancel)" do
+    it "does not include reply-only tools (next, sort, with, without, confirm, cancel)" do
       names = specs.map(&:name)
-      expect(names).not_to include(:next, :visit, :sort, :with, :without, :confirm, :cancel)
+      expect(names).not_to include(:next, :sort, :with, :without, :confirm, :cancel)
+    end
+
+    it "includes visit (chat-declared since 4.1.0 — no longer reply-only)" do
+      names = specs.map(&:name)
+      expect(names).to include(:visit)
     end
 
     # `find` declares no chat: branch (3.0.1 P6) — it exists only to feed

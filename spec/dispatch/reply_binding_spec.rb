@@ -161,6 +161,80 @@ RSpec.describe Pito::Dispatch::ReplyBinding, type: :dispatch do
     end
   end
 
+  # ══ T9 — visit's new reply targets ════════════════════════════════════════════
+  #
+  # visit/channel_detail (source_entity + destination) was already covered above.
+  # These are the T9 additions: detail (source_entity), list/search/linked-videos
+  # (id_among_rows, already a LEADING_TOKEN_REF), and channel_list/game_channels —
+  # the FIRST targets to pair channel_by_handle with args:, exercising the NEW
+  # LEADING_TOKEN_REFS entry (the ref must take just the leading @handle token,
+  # leaving the destination word for the arg).
+
+  describe "visit — new reply targets (T9)" do
+    it "visit/video_detail resolves BOTH the source video (ref) and the destination (arg)" do
+      video  = create(:video)
+      result = bind(tool: "visit", target: "video_detail", rest: "studio",
+                    source_event: source({ "video_id" => video.id }))
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(video)
+      expect(result.kwargs[:destination]).to eq("studio")
+    end
+
+    it "visit/video_list slices the row id to id_among_rows and the tail to destination" do
+      video = create(:video)
+      rows  = source({ "reply_target" => "video_list",
+                        "table_rows"   => [ { "cells" => [ { "text" => "##{video.id}" } ] } ] })
+      result = bind(tool: "visit", target: "video_list", rest: "#{video.id} studio", source_event: rows)
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(video)
+      expect(result.kwargs[:destination]).to eq("studio")
+    end
+
+    it "visit/video_search slices the row id to id_among_rows and the tail to destination" do
+      video = create(:video)
+      rows  = source({ "reply_target" => "video_search",
+                        "table_rows"   => [ { "cells" => [ { "text" => "##{video.id}" } ] } ] })
+      result = bind(tool: "visit", target: "video_search", rest: "#{video.id} youtube", source_event: rows)
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(video)
+      expect(result.kwargs[:destination]).to eq("youtube")
+    end
+
+    it "visit/game_linked_videos resolves a bare row id (subject elided) plus the destination" do
+      video = create(:video)
+      rows  = source({ "reply_target" => "game_linked_videos",
+                        "table_rows"   => [ { "cells" => [ { "text" => "##{video.id}" } ] } ] })
+      result = bind(tool: "visit", target: "game_linked_videos", rest: "#{video.id} studio", source_event: rows)
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(video)
+      expect(result.kwargs[:destination]).to eq("studio")
+    end
+
+    it "visit/channel_list slices the leading @handle to channel_by_handle (NEW LEADING_TOKEN_REFS entry) and the tail to destination" do
+      channel = create(:channel, handle: "gmrdad82")
+      result  = bind(tool: "visit", target: "channel_list", rest: "@gmrdad82 youtube", source_event: source({}))
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(channel)
+      expect(result.kwargs[:destination]).to eq("youtube")
+    end
+
+    it "visit/game_channels slices the leading @handle to channel_by_handle and the tail to destination" do
+      channel = create(:channel, handle: "gmrdad82")
+      result  = bind(tool: "visit", target: "game_channels", rest: "@gmrdad82 studio", source_event: source({}))
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(channel)
+      expect(result.kwargs[:destination]).to eq("studio")
+    end
+
+    it "LEADING_TOKEN_REFS gained channel_by_handle (shinies/show's channel_list ref, ref-only, is unaffected)" do
+      expect(Pito::Dispatch::ReplyBinding::LEADING_TOKEN_REFS).to include("channel_by_handle", "id_among_rows")
+      channel = create(:channel, handle: "gmrdad82")
+      result  = bind(tool: "shinies", target: "channel_list", rest: "@gmrdad82", source_event: source({}))
+      expect(result).to be_ok
+      expect(result.kwargs[:ref]).to eq(channel)
+    end
+  end
+
   # ══ 4. INVALID PROPAGATION (first failing slot short-circuits) ═════════════════
 
   describe "Invalid propagation" do

@@ -656,11 +656,11 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
       expect(Pito::FollowUp::Registry.actions_for("video_detail")).to include("schedule")
     end
 
-    it "video_detail actions are exactly the current declared verb set (incl. schedule; segment verbs G123; @ai joined the anchored-reply roster)" do
+    it "video_detail actions are exactly the current declared verb set (incl. schedule; segment verbs G123; @ai joined the anchored-reply roster; T9 adds visit)" do
       expect(Pito::FollowUp::Registry.actions_for("video_detail"))
         .to contain_exactly("rm", "del", "delete", "reindex", "link", "unlink",
                             "shinies", "sync", "publish", "pub", "unlist", "schedule", "analyze",
-                            "game", "at-a-glance", "@ai")
+                            "game", "at-a-glance", "@ai", "visit")
     end
   end
 

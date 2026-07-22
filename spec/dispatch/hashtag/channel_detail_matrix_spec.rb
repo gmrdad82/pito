@@ -11,24 +11,17 @@ require "rails_helper"
 # Target: "channel_detail", mode: :append
 # Declared actions: "visit", "sync"
 #
-# DESTINATION_MAP (channel_detail):
-#   "channel" / "youtube" / "yt" → :channel destination
-#   "studio"                     → :studio  destination
-#   anything else / bare         → needs_destination Error
-#
 # Routing in ChannelDetail#call:
-#   "sync"               → ToolDelegator (re-sync source channel)
-#   "visit channel"      → DIRECT: resolves channel → Result::Append (:channel)
-#   "visit youtube"      → DIRECT: synonym for channel → Result::Append (:channel)
-#   "visit yt"           → DIRECT: synonym for channel → Result::Append (:channel)
-#   "visit studio"       → DIRECT: resolves channel → Result::Append (:studio)
-#   "visit"              → needs_destination Error (no dest word)
-#   "visit <unknown>"    → needs_destination Error (unrecognised dest)
-#   channel missing      → channel_not_found Error
-#   unknown action       → invalid_action Error (returned directly, no ToolDelegator)
-#
-# DB stubs:  ::Channel.find_by(id: 9) → channel_stub.
-# Builder stub: Pito::MessageBuilder::Channel::Visit.call → visit_payload.
+#   "sync"    → ToolDelegator (re-sync source channel)
+#   "visit …" → ToolDelegator too (T9: the old DESTINATION_MAP special case
+#               retired — visit is now config-declared (tools.yml
+#               visit.reply.targets.channel_detail) and reaches
+#               Pito::Chat::Handlers::Visit via ToolDelegator → Router, exactly
+#               like every other reply tool this card accepts). The destination
+#               vocabulary + legacy :channel mapping now live entirely in that
+#               handler — see spec/lib/pito/chat/handlers/visit_spec.rb and
+#               spec/dispatch/reply_binding_spec.rb for that coverage.
+#   unknown action → invalid_action Error (returned directly, no ToolDelegator)
 #
 # Bug contract: a declared action that returns invalid_action is a BUG.
 RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB mocked)", type: :dispatch do
@@ -45,21 +38,10 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
 
   let(:conversation) { instance_double(Conversation) }
 
-  let(:channel_stub) do
-    double("Channel", id: 9, handle: "@alpha", youtube_channel_id: "UCabc")
-  end
-
-  # Canned payload returned by the stubbed Visit builder.
-  let(:visit_payload) do
-    { "body" => "<visit/>", "channel_id" => 9, "visit_state" => "visiting", "visit_destination" => "channel" }
-  end
-
-  # Sentinel returned by ToolDelegator for sync.
+  # Sentinel returned by ToolDelegator for every delegated action.
   let(:sentinel) { Pito::FollowUp::Result::Append.new(events: [], consume: false) }
 
   before do
-    allow(::Channel).to receive(:find_by).with(id: 9).and_return(channel_stub)
-    allow(Pito::MessageBuilder::Channel::Visit).to receive(:call).and_return(visit_payload)
     allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel)
   end
 
@@ -100,115 +82,35 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     end
   end
 
-  # ── visit <destination> — DIRECT handler (not ToolDelegator) ──────────────────
+  # ── visit — delegates to ToolDelegator (T9: config-declared dispatch) ────────
   #
-  # DESTINATION_MAP maps "channel" / "youtube" / "yt" → :channel; "studio" → :studio.
+  # Destination parsing/resolution now lives entirely in Chat::Handlers::Visit,
+  # reached via the SAME ToolDelegator → Router path every other declared reply
+  # tool on this card takes — see that handler's class header for the
+  # destination vocabulary + legacy :channel mapping this replaces, and
+  # spec/lib/pito/chat/handlers/visit_spec.rb / spec/dispatch/reply_binding_spec.rb
+  # for the behavioral coverage that used to live here.
 
-  describe "'visit' — direct handler, DESTINATION_MAP resolution" do
-    {
-      "channel" => :channel,
-      "youtube" => :channel,
-      "yt"      => :channel,
-      "studio"  => :studio
-    }.each do |dest_word, expected_destination|
-      context "visit #{dest_word.inspect} → #{expected_destination}" do
-        subject(:result) { call("visit #{dest_word}") }
+  describe "'visit' — delegates to ToolDelegator" do
+    subject(:result) { call("visit channel") }
 
-        it "returns a Result::Append (not an Error)" do
-          expect(result).to be_a(Pito::FollowUp::Result::Append)
-        end
-
-        it "does NOT return an invalid_action Error" do
-          expect(result).not_to be_a(Pito::FollowUp::Result::Error)
-        end
-
-        it "does NOT delegate to ToolDelegator" do
-          result
-          expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
-        end
-
-        it "resolves channel via ::Channel.find_by(id: 9)" do
-          result
-          expect(::Channel).to have_received(:find_by).with(id: 9)
-        end
-
-        it "calls Visit builder with #{expected_destination} destination" do
-          result
-          expect(Pito::MessageBuilder::Channel::Visit).to have_received(:call)
-            .with(channel_stub, conversation:, destination: expected_destination)
-        end
-
-        it "appends one event with kind 'system'" do
-          expect(result.events.size).to eq(1)
-          expect(result.events.first[:kind]).to eq(:system)
-        end
-
-        it "event payload is the stubbed visit_payload" do
-          expect(result.events.first[:payload]).to eq(visit_payload)
-        end
-      end
-    end
-  end
-
-  # ── bare visit (no destination) → needs_destination Error ─────────────────────
-
-  describe "bare 'visit' (no destination word) → needs_destination Error" do
-    subject(:result) { call("visit") }
-
-    it "returns a Result::Error" do
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
+    it "is declared in actions_for('channel_detail')" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_detail")).to include("visit")
     end
 
-    it "uses the needs_destination message key" do
-      expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.needs_destination")
+    it "does NOT return a Result::Error (not invalid_action)" do
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
     end
 
-    it "does NOT call ToolDelegator" do
+    it "delegates to ToolDelegator.call with source_event, rest, conversation" do
       result
-      expect(Pito::FollowUp::ToolDelegator).not_to have_received(:call)
+      expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
+        hash_including(source_event:, rest: "visit channel", conversation:)
+      )
     end
 
-    it "does NOT call Visit builder (error returned before resolution)" do
-      result
-      expect(Pito::MessageBuilder::Channel::Visit).not_to have_received(:call)
-    end
-  end
-
-  # ── unknown destination word → needs_destination Error ────────────────────────
-
-  describe "visit <unknown_dest> → needs_destination Error" do
-    %w[tiktok twitch twitter home dashboard foo].each do |bad_dest|
-      it "visit #{bad_dest.inspect} → needs_destination Error" do
-        result = call("visit #{bad_dest}")
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.needs_destination")
-      end
-
-      it "visit #{bad_dest.inspect} does NOT call Visit builder" do
-        call("visit #{bad_dest}")
-        expect(Pito::MessageBuilder::Channel::Visit).not_to have_received(:call)
-      end
-    end
-  end
-
-  # ── channel not found during visit ────────────────────────────────────────────
-
-  describe "channel not found via ::Channel.find_by → channel_not_found Error" do
-    before { allow(::Channel).to receive(:find_by).with(id: 9).and_return(nil) }
-
-    it "returns a Result::Error" do
-      result = call("visit channel")
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-    end
-
-    it "uses the channel_not_found message key" do
-      result = call("visit channel")
-      expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.channel_not_found")
-    end
-
-    it "does NOT call Visit builder when channel is missing" do
-      call("visit channel")
-      expect(Pito::MessageBuilder::Channel::Visit).not_to have_received(:call)
+    it "returns the sentinel Append from ToolDelegator" do
+      expect(result).to eq(sentinel)
     end
   end
 
@@ -234,11 +136,6 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
 
     it "returns the sentinel Append from ToolDelegator" do
       expect(result).to eq(sentinel)
-    end
-
-    it "does NOT call Visit builder (sync is not a visit)" do
-      result
-      expect(Pito::MessageBuilder::Channel::Visit).not_to have_received(:call)
     end
   end
 

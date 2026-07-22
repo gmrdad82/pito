@@ -74,6 +74,12 @@ module Pito
         @video.description.presence
       end
 
+      # True when the vid has no description on file — the template swaps the
+      # body for the missing_description copy dictionary in that case.
+      def description_missing?
+        description.blank?
+      end
+
       # Absolute last-sync stamp via the shared SyncStamp; "—" when never synced.
       def last_sync_label
         Pito::Formatter::SyncStamp.call(@video.last_synced_at)

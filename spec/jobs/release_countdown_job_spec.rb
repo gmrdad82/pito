@@ -112,7 +112,33 @@ RSpec.describe ReleaseCountdownJob, type: :job do
       expect(Pito::Notifications::WebhookDigest).to have_received(:call).once.with(
         title:  "🎮 Upcoming releases",
         accent: Pito::Notifications::WebhookDigest::RELEASES,
-        rows:   [ [ "in 5 days", "Game Soon" ], [ "in 12 days", "Game Later" ] ]
+        rows:   [ [ "in 5 days", "Game Soon (PlayStation)" ], [ "in 12 days", "Game Later (PlayStation)" ] ]
+      )
+    end
+
+    it "appends the platform parenthetical to the digest row's title, single-platform group" do
+      release_in(5, token: "steam", game: create(:game, title: "Game Soon"))
+
+      allow(Pito::Notifications::WebhookDigest).to receive(:call)
+
+      run!
+
+      expect(Pito::Notifications::WebhookDigest).to have_received(:call).once.with(
+        hash_including(rows: [ [ "in 5 days", "Game Soon (Steam)" ] ])
+      )
+    end
+
+    it "appends the joined platform parenthetical to the digest row's title, multi-platform group" do
+      g = create(:game, title: "Hollow Knight: Silksong")
+      release_in(7, token: "ps", game: g)
+      release_in(7, token: "steam", game: g)
+
+      allow(Pito::Notifications::WebhookDigest).to receive(:call)
+
+      run!
+
+      expect(Pito::Notifications::WebhookDigest).to have_received(:call).once.with(
+        hash_including(rows: [ [ "in 7 days", "Hollow Knight: Silksong (PlayStation + Steam)" ] ])
       )
     end
   end

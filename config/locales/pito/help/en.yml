@@ -328,6 +328,8 @@ en:
                 `DD-MM-YYYY HH:MM`
             Options:
               "--help": "Print this help message"
+      visit:
+        usage: "visit vid #id youtube|studio  |  visit channel #id|@handle youtube|studio  |  visit youtube|studio"
       import:
         usage: "import game [title]  |  import vids [for @handle]"
         game:
@@ -721,6 +723,14 @@ en:
                 "from game <id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
               Options:
                 "--help": "Print this help message"
+          visit:
+            usage: "#<show-vid-hashtag> visit youtube|studio"
+            sections:
+              Arguments:
+                "youtube": "Open this vid's YouTube watch page"
+                "studio": "Open this vid's YouTube Studio edit page"
+              Options:
+                "--help": "Print this help message"
 
       list-videos:
         target_usage: "#<list-vids-hashtag> <action>"
@@ -829,6 +839,15 @@ en:
                 "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
               Options:
                 "--help": "Print this help message"
+          visit:
+            usage: "#<list-vids-hashtag> visit <id> youtube|studio"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+                "youtube": "Open the listed vid's YouTube watch page"
+                "studio": "Open the listed vid's YouTube Studio edit page"
+              Options:
+                "--help": "Print this help message"
           next:
             usage: "#<list-vids-hashtag> next"
             sections:
@@ -915,6 +934,15 @@ en:
                 "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
               Options:
                 "--help": "Print this help message"
+          visit:
+            usage: "#<search-vids-hashtag> visit <id> youtube|studio"
+            sections:
+              Arguments:
+                "<id>": "Row number from the list"
+                "youtube": "Open the listed vid's YouTube watch page"
+                "studio": "Open the listed vid's YouTube Studio edit page"
+              Options:
+                "--help": "Print this help message"
           next:
             usage: "#<search-vids-hashtag> next"
             sections:
@@ -982,6 +1010,15 @@ en:
                 "@handle": "Channel @handle — show its shinies"
               Options:
                 "--help": "Print this help message"
+          visit:
+            usage: "#<list-channels-hashtag> visit @handle youtube|studio"
+            sections:
+              Arguments:
+                "@handle": "Channel @handle — the channel to open"
+                "youtube": "Open the channel's YouTube page (aliases: channel, yt)"
+                "studio": "Open the channel's YouTube Studio"
+              Options:
+                "--help": "Print this help message"
           next:
             usage: "#<list-channels-hashtag> next"
             sections:
@@ -1035,10 +1072,10 @@ en:
               Options:
                 "--help": "Print this help message"
           visit:
-            usage: "#<show-channel-hashtag> visit channel|studio"
+            usage: "#<show-channel-hashtag> visit youtube|studio"
             sections:
               Arguments:
-                "channel": "Open the channel's YouTube page (aliases: youtube, yt)"
+                "youtube": "Open the channel's YouTube page (aliases: channel, yt)"
                 "studio": "Open the channel's YouTube Studio"
               Options:
                 "--help": "Print this help message"

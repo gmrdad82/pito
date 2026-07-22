@@ -4,6 +4,45 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [4.1.0] — 2026-07-22
+
+### Added
+
+- **The card admits what's missing** — a vid with no description used to
+  drop the whole Description section silently; the label now stays put
+  and a red line from a fresh 50-variant dictionary
+  (`pito.copy.videos.missing_description`) says the quiet part out loud.
+  The terminal shows the same red (pito-tui 4.2.0).
+- **The vid card opens doors** — two new rows on `show vid`: YouTube
+  Video (the watch page) and YouTube Studio (the edit page), mirroring
+  the channel card's pair. On a phone the OS hands both to the native
+  apps; nothing to configure.
+- **`visit` grows up** — once a reply-only special case buried in the
+  channel card's handler, `visit` is now a real config-declared tool:
+  typed chat (`visit vid 5 youtube`, `visit channel @gmrdad82 studio`,
+  bare `visit studio` opens the sole channel), NL phrasings, and replies
+  on seven targets — the subject elides on show cards (`visit youtube`),
+  lists take the bare row id (`visit 5 studio`). Vids get the same
+  one-time auto-open + consume flow channels have had; `youtube` is the
+  canonical destination word (`channel` and `yt` stay as synonyms), and
+  a reply with a missing or unknown destination answers in visit's own
+  error voice on every target instead of per-card copy.
+
+### Changed
+
+- **The release digest names platforms** — `in 3 days │ Marvel Tokon:
+Fighting Souls (PlayStation + Steam)`: the webhook Details lines now
+  carry the same canonical-order platform label the in-app reminder
+  always had. The countdown column and summary line are untouched.
+- **Game suggestions stop guessing** — the link suggester reads the
+  description as well as the title now, but only speaks when a library
+  game's COMPLETE name is actually written there. A single-word title is
+  the false-positive trap, so it must appear in the description as a
+  whole word spelled exactly like the library entry — a game named
+  "Dispatch" matches "Playing Dispatch today", never "i dispatch my
+  enemies". No game named, no suggestion: gameless vids are allowed to
+  be gameless.
+
 ## [4.0.0] — 2026-07-21
 
 ### Removed

@@ -90,6 +90,12 @@ en:
         # The keyed `linked` tool needs a noun to name which linked view (the noun
         # picks the segment; the id is the OTHER entity's).
         needs_noun: "Which linked view? `linked game <vid-id>` shows a vid's linked game; `linked vids <game-id>` lists a game's linked vids."
+      visit:
+        descriptions:
+          visit: "Open a vid's YouTube page, or a channel's YouTube page/Studio (visit vid <id> youtube, visit channel <id|@handle> studio, or just visit youtube/studio for your one channel)"
+        errors:
+          needs_destination: "Visit where? Try `visit vid <id> youtube`, `visit channel <id|@handle> studio`, or just `visit youtube` / `visit studio` for your one channel."
+          not_found: "Couldn't find %{ref}. `list vids` / `list channels` to see what you have."
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         tool_not_implemented: "The chat command %{tool} isn't wired yet."

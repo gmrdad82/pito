@@ -83,6 +83,16 @@ class Video < ApplicationRecord
     Pito::ImagePath.call(thumbnail, variant: :display)
   end
 
+  # YouTube watch-page URL for this video.
+  def youtube_video_url
+    "https://www.youtube.com/watch?v=#{youtube_video_id}"
+  end
+
+  # YouTube Studio edit URL for this video.
+  def youtube_studio_url
+    "https://studio.youtube.com/video/#{youtube_video_id}/edit"
+  end
+
   # Stat readers — sourced from the polymorphic `stats` table via the
   # `Pito::Stats` facade. Each returns nil when no stat row exists.
   def view_count

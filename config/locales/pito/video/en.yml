@@ -12,6 +12,8 @@ en:
         description: "Description"
         last_sync_at: "Last sync at"
         publish_at: "Publish at"
+        youtube_video: "YouTube Video"
+        youtube_studio: "YouTube Studio"
         privacy_status:
           private: "Private"
           public: "Public"

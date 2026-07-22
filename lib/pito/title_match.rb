@@ -45,6 +45,20 @@ module Pito
       [ anchored ? 1 : 0, run ]
     end
 
+    # Strict containment, not scoring: does `name`'s FULL token sequence
+    # appear somewhere in `zone_tokens` as one contiguous, order-preserving
+    # run? A partial or reordered overlap does not count — unlike
+    # `score_name`, there's no partial-credit run length here, just yes/no.
+    # `zone_tokens` is pre-tokenized (the caller tokenizes once per zone and
+    # reuses it across every name it checks); `name` is a raw string,
+    # tokenized here. An empty name never "contains".
+    def contains_name?(zone_tokens, name)
+      name_tokens = tokenize(name)
+      return false if name_tokens.empty?
+
+      zone_tokens.each_cons(name_tokens.size).any? { |window| window == name_tokens }
+    end
+
     # Longest contiguous (order-preserving) token run shared by both token
     # lists — classic longest-common-substring DP over the token arrays
     # instead of characters.

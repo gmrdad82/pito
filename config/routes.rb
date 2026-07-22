@@ -50,6 +50,10 @@ Rails.application.routes.draw do
   # here after its one-time click so the event flips to its :visited (follow-up)
   # state and never auto-clicks again on refresh.
   post "/channels/visit_consume", to: "channels/visits#consume", as: :channel_visit_consume
+  # Marks a video-visit event consumed: the pito--auto-visit controller POSTs
+  # here after its one-time click so the event flips to its :visited (follow-up)
+  # state and never auto-clicks again on refresh.
+  post "/videos/visit_consume", to: "videos/visits#consume", as: :video_visit_consume
   get "/resume", to: "conversations#resume", as: :resume
   get    "/chat/:uuid", to: "conversations#show",    as: :conversation
   patch  "/chat/:uuid", to: "conversations#update"

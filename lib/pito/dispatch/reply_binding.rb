@@ -76,13 +76,15 @@ module Pito
         "metric_list"         => :full_rest
       }.freeze
 
-      # Ref resolvers that consume a SINGLE leading token (a list row id). When a
-      # target pairs one of these with `args:`, the reply text interleaves the row
-      # id with the arg value (`schedule 5 in 30m`, `price 5 9.99`) — so the ref
-      # sees just the leading token and the args see the tail. Detail refs
-      # (source_entity, or any non-leading ref) leave the args on the full rest.
-      # No-arg targets are never sliced (a multi-word title ref stays intact).
-      LEADING_TOKEN_REFS = %w[id_among_rows].freeze
+      # Ref resolvers that consume a SINGLE leading token (a list row id or an
+      # @handle). When a target pairs one of these with `args:`, the reply text
+      # interleaves the leading token with the arg value (`schedule 5 in 30m`,
+      # `visit @handle studio`) — so the ref sees just the leading token and the
+      # args see the tail. Detail refs (source_entity, or any non-leading ref)
+      # leave the args on the full rest. No-arg targets are never sliced (a
+      # multi-word title ref stays intact) — channel_by_handle's OTHER pairings
+      # (show/shinies on channel_list, both ref-only) are unaffected by this.
+      LEADING_TOKEN_REFS = %w[id_among_rows channel_by_handle].freeze
 
       # Per reply_target: the AR model class name + the payload id-key that
       # identifies the entity the source card is about (for id_among_rows scope
@@ -99,6 +101,7 @@ module Pito
         "game_channels"      => { entity: "::Channel", id_key: :channel_id },
         "game_linked_videos" => { entity: "::Video",   id_key: :video_id },
         "video_detail"       => { entity: "::Video",   id_key: :video_id },
+        "video_visit"        => { entity: "::Video",   id_key: :video_id },
         "video_list"         => { entity: "::Video",   id_key: :video_id },
         "video_search"       => { entity: "::Video",   id_key: :video_id }
       }.freeze

@@ -95,6 +95,7 @@ RSpec.describe "help/usage derivation-sync", type: :dispatch do
     "analytics_glance",   # at-a-glance panel; reply-only, no hashtag_help page yet
     "analyze_message",    # analyze result card; reply-only, no hashtag_help page yet
     "channel_visit",      # visit card; only the internal `consume` verb applies here
+    "video_visit",        # visit card; only the internal `consume` verb applies here
     "game_channels",      # channels-for-game segment; no hashtag_help page yet
     "game_imported",      # freshly-imported game card; no hashtag_help page yet
     "game_linked_videos", # game linked-videos segment; no hashtag_help page yet

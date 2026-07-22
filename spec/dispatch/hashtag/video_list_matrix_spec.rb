@@ -13,7 +13,7 @@ require "rails_helper"
 #   sort / order             → mutate_sort     → Result::Mutation (in-place re-sort)
 #   show / delete / del / rm /
 #   schedule / publish / pub /
-#   unlist / link / unlink / shinies → ToolDelegator → Result::Append (sentinel)
+#   unlist / link / unlink / shinies / visit → ToolDelegator → Result::Append (sentinel)
 #   unknown verb             → ToolDelegator gates → Result::Error
 #
 # ToolDelegator is stubbed to a sentinel for delegated-action paths.
@@ -98,9 +98,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(Pito::FollowUp::Registry.mode_for("video_list", action: "order")).to eq(:mutate)
     end
 
-    it "actions_for('video_list') lists all 21 declared actions (G122/G123 add game + at-a-glance; more alias of next; @ai joined the anchored-reply roster)" do
+    it "actions_for('video_list') lists all 22 declared actions (G122/G123 add game + at-a-glance; more alias of next; @ai joined the anchored-reply roster; T9 adds visit)" do
       expect(Pito::FollowUp::Registry.actions_for("video_list")).to match_array(
-        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze next more game at-a-glance @ai]
+        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze next more game at-a-glance @ai visit]
       )
     end
 
@@ -345,7 +345,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       "link"     => "link 10 to 5",
       "unlink"   => "unlink 10 from 5",
       # shinies
-      "shinies"  => "shinies 10"
+      "shinies"  => "shinies 10",
+      # visit (T9: config-declared dispatch, delegates like every other tool)
+      "visit"    => "visit 10 youtube"
     }.each do |action, rest_input|
       context "#{action.inspect} (rest: #{rest_input.inspect})" do
         subject(:result) { call(rest_input) }
@@ -381,7 +383,7 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_call_original
     end
 
-    %w[channel sync visit studio foo bar baz].each do |action|
+    %w[channel sync studio foo bar baz].each do |action|
       context "#{action.inspect}" do
         subject(:result) { call("#{action} whatever") }
 

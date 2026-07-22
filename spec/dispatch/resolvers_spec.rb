@@ -242,9 +242,19 @@ RSpec.describe Pito::Dispatch::Resolvers, type: :dispatch do
       expect(result).to eq("studio")
     end
 
-    it "happy: resolves the 'yt' synonym to 'channel'" do
+    it "happy: resolves 'youtube' to the canonical destination string" do
+      result = described_class.resolve(:visit_destination, "youtube")
+      expect(result).to eq("youtube")
+    end
+
+    it "happy: resolves the 'yt' synonym to 'youtube'" do
       result = described_class.resolve(:visit_destination, "yt")
-      expect(result).to eq("channel")
+      expect(result).to eq("youtube")
+    end
+
+    it "happy: resolves the 'channel' synonym to 'youtube'" do
+      result = described_class.resolve(:visit_destination, "channel")
+      expect(result).to eq("youtube")
     end
 
     it "invalid: returns Invalid for an unknown destination" do

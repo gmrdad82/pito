@@ -29,8 +29,7 @@ en:
           video_not_found: "Couldn't find the vid for this message."
       channel_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: games, vids, shinies, analyze, sync, or visit channel / visit studio."
-          needs_destination: "Visit what? Try: #<handle> visit channel (or youtube / yt) or #<handle> visit studio."
+          invalid_action: "Unknown action '%{action}'. Try: games, vids, shinies, analyze, sync, or visit youtube / visit studio."
           channel_not_found: "Couldn't find the channel for this message."
       channel_list:
         errors:
@@ -40,6 +39,10 @@ en:
         errors:
           invalid_action: "Unknown action %{action}."
           channel_not_found: "Could not find the channel for this visit."
+      video_visit:
+        errors:
+          invalid_action: "Unknown action %{action}."
+          video_not_found: "Could not find the vid for this visit."
       analyze_message:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: with <metrics> or without <metrics>."
