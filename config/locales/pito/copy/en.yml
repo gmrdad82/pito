@@ -8794,8 +8794,11 @@ en:
         # WebhookDigest::SUMMARY_LIST_LIMIT) — no pluralization needed here.
         webhook_digest_summary: "%{count}: %{list}"
         # Label for the Discord embed / Slack attachment field that carries
-        # the full aligned table — the rich detail the shade never previews.
-        webhook_digest_details_label: "Details"
+        # the rich detail the shade never previews — shared by WebhookDigest
+        # (the aligned table) and WebhookFormatter (the per-notification
+        # bold/bulleted message), so it's named after the mechanism, not
+        # either caller.
+        webhook_details_label: "Details"
 
       stats:
         heading: "Stats"

@@ -4,6 +4,21 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Discord/Slack notifications preview clean, not asterisked** — a per-notification
+  push (vid sync summaries, game-link suggestions, nightly games sync, and
+  the rest) used to put its bold-and-bulleted message straight into the
+  Discord embed description / Slack attachment text, so a phone's
+  notification shade rendered the markdown VERBATIM — `**@gmrdad82: 1
+updated**` instead of bold. The previewed surface now carries only the
+  notification's plain title ("Vids synced", "Update rejected", …); the
+  rich message rides in a details field instead, which no shade previews.
+  Same fix `WebhookDigest` already applied to the batched achievement/release
+  digests, now extended to the individual per-notification webhook path.
+
 ## [4.1.0] — 2026-07-22
 
 ### Added

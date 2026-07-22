@@ -50,9 +50,12 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
 
       expect(Pito::Notifications::Webhooks::SlackClient)
         .to have_received(:new).with("https://hooks.slack.test/abc")
+      # This fixture carries no title (see the FCM examples below), so the
+      # preview falls back to the plain, tag-stripped message with no
+      # details field — see Pito::Notifications::WebhookFormatter.
       expect(slack_client).to have_received(:deliver).with({
         "attachments" => [
-          { "color" => "#5170ff", "text" => "ℹ️ *Hi*", "mrkdwn_in" => [ "text" ] }
+          { "color" => "#5170ff", "text" => "ℹ️ Hi", "fields" => [], "mrkdwn_in" => [ "text", "fields" ] }
         ]
       })
     end
@@ -91,8 +94,11 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
 
       expect(Pito::Notifications::Webhooks::DiscordClient)
         .to have_received(:new).with("https://discord.test/webhook")
+      # This fixture carries no title (see the FCM examples below), so the
+      # preview falls back to the plain, tag-stripped message with no
+      # details field — see Pito::Notifications::WebhookFormatter.
       expect(discord_client).to have_received(:deliver).with({
-        "embeds" => [ { "description" => "ℹ️ **Hi**", "color" => 5337343 } ]
+        "embeds" => [ { "description" => "ℹ️ Hi", "color" => 5337343, "fields" => [] } ]
       })
     end
 
@@ -124,7 +130,7 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
       described_class.new.perform(notification.id)
 
       expect(discord_client).to have_received(:deliver).with({
-        "embeds" => [ { "description" => "ℹ️ **Hi**", "color" => 5337343 } ]
+        "embeds" => [ { "description" => "ℹ️ Hi", "color" => 5337343, "fields" => [] } ]
       })
     end
   end

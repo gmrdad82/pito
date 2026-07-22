@@ -15,6 +15,22 @@ module Pito
     # PlainMessage` — #convert below just decorates that engine's output
     # with platform bold/bullet markers; see PlainMessage's header for the
     # undecorated sibling used by the FCM and /notifications.json seams.
+    #
+    # == Preview surface vs. details field
+    #
+    # The same lesson `WebhookDigest` already learned (see that module's
+    # header): both platforms' phone notification shades render the embed
+    # description (Discord) / attachment text (Slack) VERBATIM — a
+    # `<strong>` summary used to land there as literal `**…**`, asterisks and
+    # all, instead of bold. The previewed surface now carries only
+    # `notification.title` (a plain, Pito::Copy-rendered string every
+    # webhook-reaching `Notification.create!` sets), while the
+    # platform-flavored `message` rides in a details FIELD instead (Discord
+    # embed `fields[0].value`, Slack attachment `fields[0].value`), which
+    # neither shade surfaces on the lockscreen. The handful of rows that
+    # predate the `title` column (nullable, no backfill) have none — those
+    # fall back to previewing the formatted message directly, same as before
+    # this fix, since there's nothing plainer to show instead.
     module WebhookFormatter
       module_function
 
@@ -35,13 +51,13 @@ module Pito
       # every message — Slack drops that bar when blocks are nested in an attachment.
       def slack_payload(notification)
         style = LevelStyle.style_for(notification.level)
-        text  = "#{style[:emoji]} #{slack(notification.message)}".strip
         {
           "attachments" => [
             {
               "color"     => style[:slack],
-              "text"      => text,
-              "mrkdwn_in" => [ "text" ]
+              "text"      => preview_text(notification, style[:emoji]),
+              "fields"    => slack_details_fields(notification),
+              "mrkdwn_in" => [ "text", "fields" ]
             }
           ]
         }
@@ -55,8 +71,9 @@ module Pito
         {
           "embeds" => [
             {
-              "description" => "#{style[:emoji]} #{discord(notification.message)}".strip,
-              "color"       => style[:discord]
+              "description" => preview_text(notification, style[:emoji]),
+              "color"       => style[:discord],
+              "fields"      => discord_details_fields(notification)
             }
           ]
         }
@@ -73,6 +90,43 @@ module Pito
         Pito::Notifications::PlainMessage.call(message, bold: bold, bullet: bullet)
       end
       private_class_method :convert
+
+      # See the class doc's "Preview surface vs. details field" — plain,
+      # emoji-prefixed `title` when present; the tag-stripped (no bold/bullet
+      # markers) message for the pre-title fallback case.
+      def preview_text(notification, emoji)
+        base = notification.title.presence || convert(notification.message, bold: "", bullet: "")
+        "#{emoji} #{base}".strip
+      end
+      private_class_method :preview_text
+
+      # Empty when there's no `title` to preview instead — in that fallback
+      # case `preview_text` already carries the full formatted message, so a
+      # details field would just repeat it.
+      def slack_details_fields(notification)
+        return [] if notification.title.blank?
+
+        [
+          {
+            "title" => Pito::Copy.render("pito.copy.notifications.webhook_details_label"),
+            "value" => slack(notification.message),
+            "short" => false
+          }
+        ]
+      end
+      private_class_method :slack_details_fields
+
+      def discord_details_fields(notification)
+        return [] if notification.title.blank?
+
+        [
+          {
+            "name"  => Pito::Copy.render("pito.copy.notifications.webhook_details_label"),
+            "value" => discord(notification.message)
+          }
+        ]
+      end
+      private_class_method :discord_details_fields
     end
   end
 end
