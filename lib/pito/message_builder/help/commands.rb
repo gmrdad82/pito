@@ -36,7 +36,9 @@ module Pito
         # commands. (linked-game → game, linked-videos folded into
         # videos, games = the channel games grid.)
         "pito.copy.help.games_group_title"     => %w[list search show import update delete reindex link unlink linked shinies similar game],
-        "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos],
+        # visit spans vids + channels (open a vid's YouTube page, or a channel's
+        # YouTube page/Studio) — grouped with videos as the primary surface.
+        "pito.copy.help.videos_group_title"    => %w[publish unlist schedule videos visit],
         "pito.copy.help.channels_group_title"  => %w[sync channels games],
         # analyze spans channel/vid/game — its own group (was missing from the
         # main help entirely; found during a help audit).

@@ -461,9 +461,9 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "body includes the shinies action (visit moved to show channel)" do
+        it "body includes the shinies and visit actions (visit config-declared since T9)" do
           expect(result["body"]).to include("shinies")
-          expect(result["body"]).not_to include("visit")
+          expect(result["body"]).to include("visit")
         end
 
         it "body does NOT include the reindex action" do

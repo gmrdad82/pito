@@ -120,6 +120,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
       expect(described_class.actions_for("channel_visit")).to include("consume")
     end
 
+    it "video_visit includes consume (T9)" do
+      expect(described_class.actions_for("video_visit")).to include("consume")
+    end
+
     it "ai_message includes @ai plus apply/use/accept (per-target aliases, unlike confirm/cancel's tool-level ones)" do
       expect(described_class.actions_for("ai_message")).to include("@ai", "apply", "use", "accept")
     end
@@ -176,6 +180,10 @@ RSpec.describe Pito::Dispatch::Matrix, type: :dispatch do
 
       it "returns :mutate for channel_visit (only tool is consume → mutate)" do
         expect(described_class.mode_for("channel_visit", action: nil)).to eq(:mutate)
+      end
+
+      it "returns :mutate for video_visit (only tool is consume → mutate; T9)" do
+        expect(described_class.mode_for("video_visit", action: nil)).to eq(:mutate)
       end
     end
 

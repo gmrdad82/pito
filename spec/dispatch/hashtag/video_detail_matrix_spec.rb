@@ -12,8 +12,8 @@ require "rails_helper"
 #
 # Subject: Pito::FollowUp::Handlers::VideoDetail
 # Source event: instance_double(Event, payload: {"reply_target"=>"video_detail","video_id"=>42})
-# Declared actions (12): rm · del · delete · reindex · link · unlink ·
-#                        shinies · sync · publish · pub · unlist · schedule
+# Declared actions (13): rm · del · delete · reindex · link · unlink ·
+#                        shinies · sync · publish · pub · unlist · schedule · visit
 #
 # Bug contract: a declared action that hits invalid_action is a BUG — this spec
 # will fail on that action and the failure is reported verbatim.
@@ -58,9 +58,9 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
       expect(Pito::FollowUp::Registry.mode_for("video_detail")).to eq(:append)
     end
 
-    it "actions_for('video_detail') contains the full declared set (all 16 — G122/G123 add game + at-a-glance; @ai joined the anchored-reply roster)" do
+    it "actions_for('video_detail') contains the full declared set (all 17 — G122/G123 add game + at-a-glance; @ai joined the anchored-reply roster; T9 adds visit)" do
       expect(Pito::FollowUp::Registry.actions_for("video_detail")).to match_array(
-        %w[rm del delete reindex link unlink shinies sync publish pub unlist schedule analyze game at-a-glance @ai]
+        %w[rm del delete reindex link unlink shinies sync publish pub unlist schedule analyze game at-a-glance @ai visit]
       )
     end
 
@@ -98,7 +98,9 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
       "pub"      => "pub",
       "unlist"   => "unlist",
       # schedule (with representative args)
-      "schedule" => "schedule tomorrow at 3pm"
+      "schedule" => "schedule tomorrow at 3pm",
+      # visit (T9: config-declared dispatch, delegates like every other tool)
+      "visit"    => "visit youtube"
     }.each do |action, rest_input|
       context "#{action.inspect} (rest: #{rest_input.inspect})" do
         subject(:result) { call(rest_input) }

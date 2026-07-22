@@ -309,6 +309,7 @@ RSpec.describe "tools.yml schema integrity", type: :dispatch do
     MCP_WRITE_TOOLS = %w[
       import publish unlist delete link unlink schedule
       reindex sync find search rename connect disconnect login logout new resume
+      visit
     ].freeze
 
     # All declared MCP tool names (dispatch-tool-backed + readers).

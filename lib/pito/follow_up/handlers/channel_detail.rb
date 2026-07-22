@@ -7,36 +7,29 @@ module Pito
       #
       # The detail card (`show channel @handle`) is stamped follow-up-able by
       # `Pito::MessageBuilder::Channel::Detail.call`. The channel is resolved from
-      # the card's own `channel_id` payload — no ref parsing needed. The user
-      # replies with a destination keyword:
+      # the card's own `channel_id` payload — no ref parsing needed.
       #
-      #   #<handle> visit channel   — open the channel's YouTube page (also:
-      #   #<handle> visit youtube       `youtube` or `yt` are accepted synonyms).
-      #   #<handle> visit yt
+      #   #<handle> visit <destination> — opens the channel's YouTube page or
+      #     Studio. Config-declared (tools.yml `visit.reply.targets.channel_detail`,
+      #     ref: source_entity, args: destination) — routes through the SAME
+      #     matrix-gated ToolDelegator every other reply tool this card accepts
+      #     takes (T9: the DESTINATION_MAP special case retired in favor of
+      #     Pito::Chat::Handlers::Visit, reached via Router). See that handler's
+      #     class header for the destination vocabulary + legacy :channel mapping.
       #
-      #   #<handle> visit studio    — open YouTube Studio for the channel.
-      #
-      # A bare `#<handle> visit` (no destination) returns a needs_destination
-      # error; an unrecognised action returns an invalid_action error.
+      # An unrecognised action returns an invalid_action error.
       #
       # Mode :append — the visit card is added below; the detail card stays
       # follow-up-able so the user can visit channel AND studio in sequence.
       class ChannelDetail < Pito::FollowUp::Handler
         self.target "channel_detail"
 
-        DESTINATION_MAP = {
-          "channel" => :channel,
-          "youtube" => :channel,
-          "yt"      => :channel,
-          "studio"  => :studio
-        }.freeze
-
         # @param event        [Event]        the channel-detail source event.
         # @param rest         [String]       text after `#<handle> `.
         # @param conversation [Conversation] the owning conversation.
         # @return [Result::Append | Result::Error]
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
-          action, dest_word = parse_rest(rest)
+          action, _args = parse_rest(rest)
           # tools.yml decides availability (NOT a hardcoded list — that shadowed the
           # games/vids/shinies segment tools).
           return undeclared_action(action) unless declared?(action)
@@ -52,27 +45,8 @@ module Pito
             )
           end
 
-          # `#<handle> visit <channel|studio>` → open the YouTube page / Studio. A
-          # follow-up-only tool (no chat equivalent), so it stays special-cased.
-          if action == "visit"
-            destination = DESTINATION_MAP[dest_word.to_s.downcase]
-            if destination.nil?
-              return Pito::FollowUp::Result::Error.new(
-                message_key:  "pito.follow_up.channel_detail.errors.needs_destination",
-                message_args: {}
-              )
-            end
-
-            ch = resolve_channel_from_event(event)
-            return channel_not_found_error if ch.nil?
-
-            return Pito::FollowUp::Result::Append.new(events: [
-              { kind: :system, payload: Pito::MessageBuilder::Channel::Visit.call(ch, conversation:, destination:) }
-            ])
-          end
-
-          # Every OTHER reply tool this card declares in tools.yml (games, vids/videos,
-          # shinies, at-a-glance, sync, …) routes through the matrix-gated
+          # Every OTHER reply tool this card declares in tools.yml (visit, games,
+          # vids/videos, shinies, at-a-glance, sync, …) routes through the matrix-gated
           # ToolDelegator. tools.yml `reply.targets` is the single source of truth —
           # NEVER reintroduce a hardcoded list (it silently shadowed the segment tools).
           # Unknown actions get this target's invalid_action copy from there.

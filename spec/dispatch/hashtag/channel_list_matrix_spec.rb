@@ -8,10 +8,12 @@ require "rails_helper"
 # All DB mocked (zero factories). Source event via instance_double(Event).
 #
 # Target: "channel_list", mode: :append
-# Declared actions: "shinies", "@ai"
+# Declared actions: "shinies", "visit", "@ai"
 #
 # Routing in ChannelList#call:
 #   "shinies"       → ToolDelegator (delegates to Chat::Handlers::Shinies)
+#   "visit"         → ToolDelegator (delegates to Chat::Handlers::Visit; T9 —
+#                      config-declared dispatch, ref: channel_by_handle)
 #   any OTHER token → ToolDelegator too (mirrors GameList/VideoList — no
 #                      hardcoded per-target allowlist); its OWN Matrix-backed
 #                      gate (Registry.actions_for) rejects anything channel_list
@@ -65,9 +67,9 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
         .to include("shinies", "analyze", "sort", "order", "next")
     end
 
-    it "actions_for('channel_list') matches the declared set (with/without joined — G26.2; segment verbs G123; vids/more aliases; @ai joined the anchored-reply roster)" do
+    it "actions_for('channel_list') matches the declared set (with/without joined — G26.2; segment verbs G123; vids/more aliases; @ai joined the anchored-reply roster; T9 adds visit)" do
       expect(Pito::FollowUp::Registry.actions_for("channel_list"))
-        .to match_array(%w[shinies analyze sort order next more with without at-a-glance videos vids games @ai])
+        .to match_array(%w[shinies analyze sort order next more with without at-a-glance videos vids games @ai visit])
     end
 
     it "sort and order are :mutate actions (re-render in place, no consume)" do
@@ -80,12 +82,41 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
       expect(Pito::FollowUp::Registry.mode_for("channel_list", action: "without")).to eq(:mutate)
     end
 
-    it "does NOT include 'visit' (visit moved to channel_detail)" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("visit")
+    it "includes 'visit' (T9: config-declared dispatch, ref: channel_by_handle)" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to include("visit")
     end
 
     it "is not internal (appears in suggestions)" do
       expect(Pito::FollowUp::Handlers::ChannelList.internal?).to be false
+    end
+  end
+
+  # ── visit — declared action, delegates to ToolDelegator ───────────────────────
+  #
+  # T9: `visit @handle <destination>` on a channel_list card — ref: channel_by_handle
+  # (LEADING_TOKEN_REFS, sliced from the leading token), args: destination. The
+  # actual destination parsing/resolution lives in Chat::Handlers::Visit, reached
+  # via ToolDelegator → Router (config-declared dispatch) — this handler only
+  # routes, so ToolDelegator stays stubbed here.
+
+  describe "'visit' — declared action → delegates to ToolDelegator" do
+    context "visit @handle youtube" do
+      subject(:result) { call("visit @mychannel youtube") }
+
+      it "does NOT return a Result::Error (not invalid_action)" do
+        expect(result).not_to be_a(Pito::FollowUp::Result::Error)
+      end
+
+      it "delegates to ToolDelegator.call with source_event, full rest, conversation" do
+        result
+        expect(Pito::FollowUp::ToolDelegator).to have_received(:call).with(
+          hash_including(source_event:, rest: "visit @mychannel youtube", conversation:)
+        )
+      end
+
+      it "returns the sentinel Append from ToolDelegator" do
+        expect(result).to eq(sentinel)
+      end
     end
   end
 
@@ -133,8 +164,8 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
 
   # ── Unknown action → invalid_action Error ─────────────────────────────────────
   #
-  # channel_list declares "shinies" and "@ai". Every OTHER verb ROUTES through
-  # ToolDelegator same as those two (channel_list's `else` branch mirrors
+  # channel_list declares "shinies", "visit", and "@ai". Every OTHER verb ROUTES
+  # through ToolDelegator same as those (channel_list's `else` branch mirrors
   # GameList/VideoList — no hardcoded per-target allowlist), but its own
   # Matrix-backed gate (Registry.actions_for) rejects anything not declared,
   # with the SAME invalid_action Error — so the real ToolDelegator must run
@@ -143,7 +174,7 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
   describe "unknown action → invalid_action Error" do
     before { allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_call_original }
 
-    %w[visit open sync show help delete rm reindex bogus].each do |unknown|
+    %w[open sync show help delete rm reindex bogus].each do |unknown|
       context unknown.inspect do
         subject(:result) { call(unknown) }
 

@@ -44,6 +44,7 @@ en:
         breakdowns: "Lifetime distribution breakdowns — how views and watch time spread across a channel, vid, or game's life (breakdowns channel)."
         # The `linked` two-word forms — the noun names what you get; the id is the OTHER entity's.
         linked: "Show what's linked — `linked game #vid` (a vid's game) or `linked vids #game` (a game's vids)"
+        visit: "Open a vid's YouTube page, or a channel's YouTube page/Studio (visit vid 12 youtube). Bare `visit studio`/`visit youtube` targets your one connected channel."
         greet: "Say hi — PITO greets you with what it can do"
         farewell: "Say bye — PITO waves you off"
       hashtag:

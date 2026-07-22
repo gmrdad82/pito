@@ -100,8 +100,8 @@ vocabularies:
   schedule_whens:
     members: [slate]
   visit_destinations:
-    members: [channel, studio]
-    synonyms: {youtube: channel, yt: channel}
+    members: [youtube, studio]
+    synonyms: {channel: youtube, yt: youtube}
   update_nouns:
     members: [game, vid]
     synonyms: {games: game, video: vid, videos: vid, vids: vid}
@@ -1843,8 +1843,29 @@ tools:
           aliases: [more]
 
   visit:
-    # Reply-only tool on channel_detail — opens YouTube channel page or Studio in browser.
+    # Opens a vid's YouTube page, or a channel's YouTube page / Studio, in
+    # browser (lib/pito/chat/handlers/visit.rb — typed AND reply, one handler).
     # Bare `visit` (no destination) returns needs_destination error.
+    description: pito.grammar.chat.visit
+    nl_examples:
+      - "open vid 5 on youtube"
+      - "take me to vid 7 in studio"
+      - "open my channel on youtube"
+      - "jump to the studio page for vid 3"
+      - "visit vid 12 on yt"
+      - "take me to the studio page for vid 8"
+      - "open channel @gmrdad82 on youtube"
+      - "pull up my channel's studio page"
+      - "go to vid 9's youtube page"
+      - "open the youtube page for @gmrdad82"
+    auth: session
+    chat:
+      dispatch: Chat::Handlers::Visit
+      slots:
+        - name: target
+          kind: free
+          optional: true
+      # Handler parses the subject (vid/channel/bare) + destination from message.raw.
     reply:
       targets:
         channel_detail:
@@ -1852,6 +1873,36 @@ tools:
           ref: { resolver: source_entity }              # channel from payload channel_id
           args:
             destination: { resolver: visit_destination } # reply args = the destination word
+        video_detail:
+          mode: append
+          ref: { resolver: source_entity }              # video from payload video_id
+          args:
+            destination: { resolver: visit_destination }
+        video_list:
+          mode: append
+          ref: { resolver: id_among_rows }               # row id sliced from the leading token
+          args:
+            destination: { resolver: visit_destination } # destination after the sliced row id
+        video_search:
+          mode: append
+          ref: { resolver: id_among_rows }               # row id sliced from the leading token
+          args:
+            destination: { resolver: visit_destination }
+        game_linked_videos:
+          mode: append
+          ref: { resolver: id_among_rows }               # bare row id scoped to the linked vids
+          args:
+            destination: { resolver: visit_destination }
+        channel_list:
+          mode: append
+          ref: { resolver: channel_by_handle }           # `visit @handle <destination>`
+          args:
+            destination: { resolver: visit_destination }
+        game_channels:
+          mode: append
+          ref: { resolver: channel_by_handle }           # `visit @handle <destination>`
+          args:
+            destination: { resolver: visit_destination }
 
   sort:
     aliases: [order]
@@ -1990,14 +2041,17 @@ tools:
           mode: append
 
   consume:
-    # Internal reply tool on channel_visit events.
+    # Internal reply tool on channel_visit / video_visit events.
     # Triggered programmatically by pito--auto-visit Stimulus controller via
-    # Channels::VisitsController#consume; NOT shown in user-facing palettes.
+    # Channels::VisitsController#consume / Videos::VisitsController#consume;
+    # NOT shown in user-facing palettes.
     # Flips the visit card from :visiting → :visited state (mutate in place).
     internal: true
     reply:
       targets:
         channel_visit:
+          mode: mutate
+        video_visit:
           mode: mutate
 
   # ─── Slash tools ─────────────────────────────────────────────────────────────

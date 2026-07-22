@@ -94,14 +94,29 @@
             key_class:   "text-fg-dim whitespace-nowrap",
             value_class: "text-fg"
           )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:        t("pito.video.detail.youtube_video"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Table::LinkValueComponent.new(url: @video.youtube_video_url)
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:        t("pito.video.detail.youtube_studio"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Table::LinkValueComponent.new(url: @video.youtube_studio_url)
+          )) %>
     </div>
 
     <%# Hairline between the KV table and the description %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
 
-    <%# Description — label on its own row, body beneath %>
-    <% if description.present? %>
-      <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
+    <%# Description — label row always renders; body swaps to the
+        missing_description copy dictionary (text-red) when blank. %>
+    <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
+    <% if description_missing? %>
+      <div class="pito-video-detail__description pito-video-detail__description--missing text-red whitespace-pre-wrap"><%= Pito::Copy.render("pito.copy.videos.missing_description") %></div>
+    <% else %>
       <div class="pito-video-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
     <% end %>
 

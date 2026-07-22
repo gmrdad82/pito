@@ -657,11 +657,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to include("rm", "delete", "reindex", "link", "unlink", "shinies")
     end
 
-    it "returns channel_list's tool set (shinies; visit moved to channel_detail)" do
+    it "returns channel_list's tool set (shinies + visit, config-declared since T9)" do
       stamp("cl-3", "channel_list")
       labels = call(input: "#cl-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("shinies")
-      expect(labels).not_to include("visit")
+      expect(labels).to include("shinies", "visit")
     end
 
     it "returns channel_detail's tool set (visit)" do
@@ -889,7 +888,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     context "declared args enums — visit destination" do
       it "suggests the visit_destinations vocabulary on channel_detail" do
         stamp("cd-9", "channel_detail", "channel_id" => 1)
-        expect(labels("#cd-9 visit ", 12)).to eq(%w[channel studio])
+        expect(labels("#cd-9 visit ", 12)).to eq(%w[studio youtube])
       end
     end
 

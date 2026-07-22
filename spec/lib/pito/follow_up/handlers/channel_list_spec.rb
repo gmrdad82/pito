@@ -21,10 +21,9 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     expect(Pito::Dispatch::Matrix.mode_for("channel_list")).to eq(:append)
   end
 
-  it "Matrix advertises shinies, analyze, sort/order, and next for channel_list (not visit)" do
+  it "Matrix advertises shinies, visit, analyze, sort/order, and next for channel_list (T9: visit config-declared)" do
     actions = Pito::Dispatch::Matrix.actions_for("channel_list")
-    expect(actions).to include("shinies", "analyze", "sort", "order", "next")
-    expect(actions).not_to include("visit")
+    expect(actions).to include("shinies", "visit", "analyze", "sort", "order", "next")
   end
 
   describe "`@ai <text>` — anchored reply (owner-scoped roster)" do
@@ -110,8 +109,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     end
   end
 
-  it "visit is NOT in Registry.actions_for('channel_list')" do
-    expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("visit")
+  it "visit IS in Registry.actions_for('channel_list') (T9: config-declared, ref: channel_by_handle)" do
+    expect(Pito::FollowUp::Registry.actions_for("channel_list")).to include("visit")
   end
 
   # ── `next` pagination ────────────────────────────────────────────────────────
@@ -228,11 +227,45 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
       expect(result.message_key).to eq("pito.follow_up.channel_list.errors.invalid_action")
     end
 
-    it "returns Result::Error for 'visit' (visit moved to channel_detail)" do
+    # T9: 'visit' is now a config-declared action for channel_list (ref:
+    # channel_by_handle, args: destination) — it delegates to Chat::Handlers::
+    # Visit via ToolDelegator instead of hitting THIS target's invalid_action
+    # gate. A destination-less reply still errors, but from Chat::Handlers::
+    # Visit's own not_found copy (ReplyBinding empties kwargs — including the
+    # already-resolved ref — on the failed destination slot; see
+    # spec/dispatch/reply_binding_spec.rb), not channel_list's invalid_action.
+    it "'visit @alpha' with no destination returns Chat::Handlers::Visit's not_found error (not channel_list's invalid_action)" do
       source_event = instance_double(Event, payload: { "reply_target" => "channel_list" })
       result = handler.call(event: source_event, rest: "visit @alpha", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.channel_list.errors.invalid_action")
+      expect(result.message_key).to eq("pito.chat.visit.errors.not_found")
+    end
+  end
+
+  # ── visit (T9: delegated to Chat::Handlers::Visit via ToolDelegator) ─────────
+
+  describe "#call — visit @handle <destination>" do
+    let(:source_event) do
+      instance_double(Event, payload: { "reply_target" => "channel_list" })
+    end
+
+    it "returns a Result::Append with the visit message for @handle" do
+      result = handler.call(event: source_event, rest: "visit @alpha youtube", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("www.youtube.com/@alpha")
+      expect(payload["channel_id"]).to eq(channel.id)
+    end
+
+    it "does NOT return an invalid_action error (visit is now a declared action)" do
+      result = handler.call(event: source_event, rest: "visit @alpha youtube", conversation:)
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
+    end
+
+    it "resolves 'studio' to the Studio destination" do
+      result = handler.call(event: source_event, rest: "visit @alpha studio", conversation:)
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("studio.youtube.com/channel/UCabc")
     end
   end
 

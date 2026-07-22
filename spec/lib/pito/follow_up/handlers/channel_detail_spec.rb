@@ -63,7 +63,17 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     end
   end
 
-  # ── visit channel ─────────────────────────────────────────────────────────────
+  # ── visit — delegated to ToolDelegator → Chat::Handlers::Visit (T9) ───────────
+  #
+  # The old DESTINATION_MAP special case is gone: `visit` is now config-declared
+  # (tools.yml visit.reply.targets.channel_detail — ref: source_entity, args:
+  # destination) and reaches Pito::Chat::Handlers::Visit through the SAME
+  # ToolDelegator → Router path every other reply tool on this card takes.
+  # These specs run the REAL pipeline end-to-end (nothing stubbed) to prove the
+  # observable payload is unchanged: Chat::Handlers::Visit maps a resolved
+  # "youtube" destination back to the LEGACY :channel symbol for a channel
+  # subject (see that handler's class header), so "visit channel" / "visit
+  # youtube" / "visit yt" all still stamp visit_destination "channel".
 
   describe "#call — visit channel (canonical destination)" do
     let(:source_event) { build_detail_event }
@@ -145,7 +155,17 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     end
   end
 
-  # ── bare visit (no destination) ──────────────────────────────────────────────
+  # ── bare visit / unknown destination word → not_found (T9 architecture note) ──
+  #
+  # ToolDelegator threads ReplyBinding's output uncritically (Pito::Dispatch::
+  # ReplyBinding's documented Invalid-propagation: ANY failed slot empties the
+  # WHOLE kwargs Hash, ref included — spec/dispatch/reply_binding_spec.rb pins
+  # this). So once a destination word fails to resolve, kwargs[:ref] is ALSO
+  # gone by the time Chat::Handlers::Visit runs, and its follow_up_visit sees a
+  # nil ref before it ever reaches destination resolution — "Couldn't find
+  # that" (pito.chat.visit.errors.not_found), not the old
+  # channel_detail-specific needs_destination copy. The control flow (an Error
+  # is returned, no visit card renders) is unchanged; only the copy/key is.
 
   describe "#call — bare visit (missing destination)" do
     let(:source_event) { build_detail_event }
@@ -156,8 +176,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
       expect(result).to be_a(Pito::FollowUp::Result::Error)
     end
 
-    it "uses the needs_destination error key" do
-      expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.needs_destination")
+    it "uses Chat::Handlers::Visit's not_found error key (ReplyBinding emptied kwargs on the failed destination slot)" do
+      expect(result.message_key).to eq("pito.chat.visit.errors.not_found")
     end
   end
 
@@ -166,10 +186,10 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
   describe "#call — visit with unknown destination" do
     let(:source_event) { build_detail_event }
 
-    it "returns a needs_destination error for an unrecognised word" do
+    it "returns a not_found error for an unrecognised word (see the architecture note above)" do
       result = handler.call(event: source_event, rest: "visit tiktok", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.needs_destination")
+      expect(result.message_key).to eq("pito.chat.visit.errors.not_found")
     end
   end
 
@@ -190,13 +210,17 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
   # games / vids / shinies / at-a-glance were declared in tools.yml for
   # channel_detail but shadowed by the `unless action == "visit"` reject. Every
   # config-declared reply verb (bar the follow-up-only specials) must reach the
-  # matrix-gated ToolDelegator.
+  # matrix-gated ToolDelegator. `visit` (T9) is no longer a special — it is fully
+  # delegated like every other declared reply tool, so it is no longer excluded
+  # from this table (ToolDelegator is stubbed here, so its own destination
+  # resolution never runs — this only proves the ROUTING, per the describe
+  # blocks above for the real end-to-end behavior).
   describe "every config-declared reply verb reaches ToolDelegator" do
     let(:source_event) { build_detail_event }
     let(:sentinel)     { Pito::FollowUp::Result::Append.new(events: []) }
     before { allow(Pito::FollowUp::ToolDelegator).to receive(:call).and_return(sentinel) }
 
-    specials  = %w[analyze visit] # follow-up-only, handled in-card
+    specials  = %w[analyze] # follow-up-only, handled in-card
     delegated = Pito::FollowUp::Registry.actions_for("channel_detail") - specials
 
     delegated.each do |verb|
@@ -209,11 +233,11 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
   # ── channel not found ───────────────────────────────────────────────────────
 
   describe "#call — channel missing from DB" do
-    it "returns a channel_not_found error" do
+    it "returns Chat::Handlers::Visit's not_found error (T9: source_entity Invalid empties kwargs — see the architecture note above)" do
       event = build_detail_event("channel_id" => 0)
       result = handler.call(event: event, rest: "visit channel", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.channel_detail.errors.channel_not_found")
+      expect(result.message_key).to eq("pito.chat.visit.errors.not_found")
     end
   end
 

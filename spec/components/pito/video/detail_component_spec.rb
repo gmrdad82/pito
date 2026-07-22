@@ -154,10 +154,31 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(node.text).to include("A test description.")
     end
 
-    it "omits the description row when description is blank" do
-      v = create(:video, channel: channel, description: nil)
-      node = render_inline(described_class.new(video: v))
-      expect(node.text).not_to include(I18n.t("pito.video.detail.description"))
+    it "renders the label and a plain (non-missing) body when present" do
+      node = render_inline(described_class.new(video: video))
+      body = node.css(".pito-video-detail__description").first
+      expect(node.text).to include(I18n.t("pito.video.detail.description"))
+      expect(body["class"]).not_to include("pito-video-detail__description--missing")
+      expect(body["class"]).not_to include("text-red")
+    end
+
+    context "when description is blank" do
+      let(:missing_variants) { I18n.t("pito.copy.videos.missing_description") }
+
+      it "still renders the Description label" do
+        v = create(:video, channel: channel, description: nil)
+        node = render_inline(described_class.new(video: v))
+        expect(node.text).to include(I18n.t("pito.video.detail.description"))
+      end
+
+      it "renders the missing-description body with the --missing modifier and text-red" do
+        v = create(:video, channel: channel, description: nil)
+        node = render_inline(described_class.new(video: v))
+        body = node.css(".pito-video-detail__description").first
+        expect(body["class"]).to include("pito-video-detail__description--missing")
+        expect(body["class"]).to include("text-red")
+        expect(missing_variants).to include(body.text)
+      end
     end
   end
 
@@ -343,6 +364,46 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
       expect(span["data-pito--chat-prefill-text-value"]).to eq("show video ##{video.id}")
       expect(span["data-pito--chat-prefill-submit-value"]).to eq("true")
+    end
+  end
+
+  describe "YouTube Video link row" do
+    it "renders the 'YouTube Video' key" do
+      expect(render_inline(described_class.new(video: video)).text).to include("YouTube Video")
+    end
+
+    it "renders a link to the youtube.com/watch?v=<id> URL" do
+      node = render_inline(described_class.new(video: video))
+      link = node.css("a[href*='youtube.com/watch']").first
+      expect(link).to be_present
+      expect(link["href"]).to eq(video.youtube_video_url)
+    end
+
+    it "opens the YouTube Video link in a new tab" do
+      node = render_inline(described_class.new(video: video))
+      link = node.css("a[href*='youtube.com/watch']").first
+      expect(link["target"]).to eq("_blank")
+      expect(link["rel"]).to include("noopener")
+    end
+  end
+
+  describe "YouTube Studio link row" do
+    it "renders the 'YouTube Studio' key" do
+      expect(render_inline(described_class.new(video: video)).text).to include("YouTube Studio")
+    end
+
+    it "renders a link to the studio.youtube.com/video/<id>/edit URL" do
+      node = render_inline(described_class.new(video: video))
+      link = node.css("a[href*='studio.youtube.com']").first
+      expect(link).to be_present
+      expect(link["href"]).to eq(video.youtube_studio_url)
+    end
+
+    it "opens the YouTube Studio link in a new tab" do
+      node = render_inline(described_class.new(video: video))
+      link = node.css("a[href*='studio.youtube.com']").first
+      expect(link["target"]).to eq("_blank")
+      expect(link["rel"]).to include("noopener")
     end
   end
 

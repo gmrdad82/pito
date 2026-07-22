@@ -346,6 +346,31 @@ RSpec.describe Video, type: :model do
     end
   end
 
+  # ── #youtube_video_url / #youtube_studio_url ─────────────────────
+  describe "#youtube_video_url" do
+    it "returns the watch-page URL using youtube_video_id" do
+      video = build(:video, youtube_video_id: "abc123")
+      expect(video.youtube_video_url).to eq("https://www.youtube.com/watch?v=abc123")
+    end
+
+    it "matches the channel methods' no-guard idiom when youtube_video_id is nil" do
+      video = build(:video, youtube_video_id: nil)
+      expect(video.youtube_video_url).to eq("https://www.youtube.com/watch?v=")
+    end
+  end
+
+  describe "#youtube_studio_url" do
+    it "returns the Studio edit URL using youtube_video_id" do
+      video = build(:video, youtube_video_id: "abc123")
+      expect(video.youtube_studio_url).to eq("https://studio.youtube.com/video/abc123/edit")
+    end
+
+    it "matches the channel methods' no-guard idiom when youtube_video_id is nil" do
+      video = build(:video, youtube_video_id: nil)
+      expect(video.youtube_studio_url).to eq("https://studio.youtube.com/video//edit")
+    end
+  end
+
   # ── #category_name ───────────────────────────────────────────────
   describe "#category_name" do
     it "maps a known YouTube category id to its name" do
