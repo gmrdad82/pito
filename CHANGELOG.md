@@ -10,7 +10,7 @@ All notable changes to Pito are documented here. The format follows
 > repos are aligned at 5.0.0 so a given release of one names the release
 > of the others it was built against.
 
-## [4.2.0] — 2026-07-27
+## [5.0.0] — 2026-07-27
 
 ### Changed
 
@@ -21,8 +21,8 @@ All notable changes to Pito are documented here. The format follows
   matches on — the `pito` and `pito-cli` commands, `bin/pito`, the `Pito::`
   Ruby namespace, `pito.copy.*` keys, `ghcr.io/gmrdad82/pito`, `pito.service`,
   the `pito` database user, the `pito:*` rake tasks, `~/.config/pito/`, and the
-  domains. The rule in one line: *Pito reads the meaning, not the words*, but
-  *run `pito-cli update`*. The assistant's own naming law was rewritten to
+  domains. The rule in one line: _Pito reads the meaning, not the words_, but
+  _run `pito-cli update`_. The assistant's own naming law was rewritten to
   match, so replies no longer shout.
 
 - **The installer asks for a port, not a public URL.** Pito chat installs on
@@ -45,7 +45,7 @@ All notable changes to Pito are documented here. The format follows
   `embedder` sidecar has always served `embeddinggemma-300m-qat-q8_0`; the
   choice is now written beside the line someone would change, in both
   compose files and in `Pito::Embedding::Client`. It is not a placeholder
-  waiting for a better quantisation: `-qat-` means the model was *trained*
+  waiting for a better quantisation: `-qat-` means the model was _trained_
   to ship at 8 bits, the sidecar is CPU-only with a 1 GB cap, and on a CPU
   q8_0 is faster than fp16 rather than slower. Above all, precision
   defines the vector space — switching it would make every embedding
@@ -71,7 +71,7 @@ All notable changes to Pito are documented here. The format follows
   that same-day, so the glyph form never actually shipped — `Glyph` still
   folds any leftover `⌃`/`⇧`/`␣`/`⇥` input to its word form, for
   idempotency against a caller holding the old output. `⌘` is gone
-  app-wide either way — the Mac cmd-swap *display* is retired (Mac Cmd
+  app-wide either way — the Mac cmd-swap _display_ is retired (Mac Cmd
   input still works where it did) — which also settles the old `+`/`-`
   separator and `Esc`/`esc` inconsistencies. Applies to pito-tui too, via
   the sibling `render.KeyGlyph` formatter — one convention, two apps.
@@ -173,13 +173,13 @@ updated**` instead of bold. The previewed surface now carries only the
   your behalf, and the answers it used to write (a `~/.cloudflared/config.yml`,
   a system-wide `cloudflared.service`, a `Caddyfile` plus a compose profile)
   were all outside the install dir it otherwise owns. Pito now installs on
-  localhost, and the README's *Reaching Pito from somewhere else* says plainly
+  localhost, and the README's _Reaching Pito from somewhere else_ says plainly
   what to point at `127.0.0.1:PORT` if you want more than that.
 
   Nothing you already run stops working: an existing tunnel, `Caddyfile` or
   `cloudflared.service` keeps doing its job untouched, and the dormant `caddy`
   compose profile is still in `docker-compose.yml` for installs that enabled
-  it. Only the *installer's* opinions about them are gone.
+  it. Only the _installer's_ opinions about them are gone.
 
 ## [4.1.0] — 2026-07-22
 
@@ -3236,8 +3236,8 @@ fixes for the ways it used to quietly eat your message or refuse to install.
 
 ### Changed
 
-- **pito → PITO.** *(Historical record — reversed in 5.0.0, which settled the
-  name as `Pito`.)* The product name became PITO in all prose and user-facing
+- **pito → PITO.** _(Historical record — reversed in 5.0.0, which settled the
+  name as `Pito`.)_ The product name became PITO in all prose and user-facing
   copy. Code identifiers stayed lowercase — the `Pito::` namespace, the `pito`
   CLI, `bin/pito`, `pito.copy.*` i18n keys, URLs, and paths were unchanged.
 - **Leaner image.** `.dockerignore` now excludes `node_modules`, `docs/` (incl. the

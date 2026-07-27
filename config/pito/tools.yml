@@ -277,6 +277,20 @@ nl:
     - { say: "glance over game 6 for me", run: "at-a-glance game 6" }
     - { say: "something in a similar style to game 33", run: "similar 33" }
     - { say: "attach game 5 to vid 22", run: "link 22 5" }
+    # "vids tied to / of a game" reads as a link phrase on the surface but
+    # asks for the game's page (Q25 ruling: show, not link) — the freeze's
+    # tools.yml reshape moved the few-shot neighborhood for this family
+    # onto the link/at-a-glance exemplars and the composition flipped (the
+    # write-guard rightly killed the link form → nil). Same repair as the
+    # 3.8.0 style/vein pass: one family exemplar steers it home. Placed
+    # LATE in the pool on purpose — the prompt restores pool order, so a
+    # late exemplar sits nearest the live utterance where a small model's
+    # recency weighting actually reads it. Deliberately WITHOUT a leading
+    # "show me": that surface overlaps the breakdowns family ("show me how
+    # game 8's lifetime numbers break down") and a first draft of this
+    # exemplar stole that phrase's composition; "vids tied to" alone is
+    # the cue this family actually needs.
+    - { say: "the vids tied to game 4", run: "show game 4" }
     - { say: "which title should I fire up next", run: "ls games with footage sort footage" }
 
 tools:
