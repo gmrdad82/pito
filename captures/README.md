@@ -47,7 +47,7 @@ the real network, or the real system:
   health probe as instantly healthy, and silently no-ops every other URL.
 - **`fakebin/sudo`** and **`fakebin/readlink`** are no-op successes: `sudo`
   exits 0 without ever exec'ing its arguments (so `sudo ln -sf .../pito-cli
-  /usr/local/bin/pito-cli` "succeeds" from the installer's point of view —
+/usr/local/bin/pito-cli` "succeeds" from the installer's point of view —
   no real symlink is ever created); `readlink` answers the two
   `/usr/local/bin` probes as if that symlink already exists (pointing back
   at the sandbox), so `pito-cli update`'s re-link check is silently
