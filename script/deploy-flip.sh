@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # script/deploy-flip.sh — zero-downtime blue/green flip for the `web` deploy
 # slots. Called by script/update.sh in place of a blunt `systemctl restart
-# pito`; also runnable by hand (`pito deploy-flip <tag>`) for manual/debug use.
+# pito`; also runnable by hand (`pito-cli deploy-flip <tag>`) for manual/debug use.
 #
 #   deploy-flip.sh <image-tag>     e.g. deploy-flip.sh 3.6.0  /  latest
 #
@@ -9,7 +9,7 @@
 #   1. Reads PITO_ACTIVE_SLOT from .env (default: blue) → the OTHER slot is
 #      idle.
 #   2. Sets that idle slot's own image-tag var (PITO_TAG_BLUE / _GREEN) AND
-#      the stack-wide PITO_TAG (reporting via `pito version`, but also part
+#      the stack-wide PITO_TAG (reporting via `pito-cli version`, but also part
 #      of every slot's container environment) to the requested tag, then
 #      pulls it. PITO_TAG moves BEFORE the idle slot starts on purpose: the
 #      new container must boot carrying the env it will keep, so that
@@ -46,8 +46,8 @@ set -eu
 [ -f docker-compose.yml ] || { echo "deploy-flip: run this from your pito install dir (no docker-compose.yml here)." >&2; exit 1; }
 
 # ── Single-updater lock (shared with script/update.sh) ────────────────────────
-# Same lockfile as update.sh, so a hand-run `pito deploy-flip` can never race
-# a concurrent `pito update` / the autoupdate timer. When update.sh IS the
+# Same lockfile as update.sh, so a hand-run `pito-cli deploy-flip` can never race
+# a concurrent `pito-cli update` / the autoupdate timer. When update.sh IS the
 # caller it already holds the lock (we run as its child) and exports
 # PITO_UPDATE_LOCK_HELD=1 — taking it again here on a fresh fd would deadlock
 # against our own parent, so we skip. The fd stays open for the script's

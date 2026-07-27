@@ -28,8 +28,9 @@
 //
 // Tab-to-accept / Enter-to-submit is the inverse of the old
 // Enter-accepts behavior: the palette is discovery, Tab commits a suggestion, and
-// Enter always sends whatever is typed. Shift+Tab is untouched (channel cycling in
-// chat-form). Outside the palette, Tab behaves natively.
+// Enter always sends whatever is typed. Shift+Tab is untouched (native reverse-tab
+// focus movement; it no longer cycles anything in chat-form — that unified onto
+// ctrl+space, owner 2026-07-24). Outside the palette, Tab behaves natively.
 //
 // FREE-FORM / ARG STAGE (non-palette)
 //   Free input (no / or #) and non-palette arg stages produce no suggestions.
@@ -137,7 +138,8 @@ export default class extends Controller {
       if (event.key === "Tab" && !event.shiftKey) {
         // Tab ACCEPTS the highlighted suggestion. preventDefault
         // so focus never moves; stopImmediatePropagation so no other handler sees
-        // it. Shift+Tab is left ALONE — it is channel cycling in chat-form.
+        // it. Shift+Tab is left ALONE — native reverse-tab focus movement; it no
+        // longer means anything in chat-form (channel cycling unified onto ctrl+space).
         event.preventDefault()
         event.stopImmediatePropagation()
         this._acceptPaletteSelection()
@@ -169,8 +171,8 @@ export default class extends Controller {
 
     // Tab is NOT handled anywhere here: the inline
     // suggestion/completion feature was removed, so the chatbox no longer
-    // intercepts Tab at all — it behaves natively. (Shift+Tab channel cycling
-    // lives in chat-form#handleKeydown and is untouched.)
+    // intercepts Tab at all — it behaves natively. (Shift+Tab is untouched too —
+    // it no longer cycles anything; channel/period cycling unified onto ctrl+space.)
     //
     // All keys pass through to chat-form#handleKeydown and
     // home-transition#interceptEnter without suppression.

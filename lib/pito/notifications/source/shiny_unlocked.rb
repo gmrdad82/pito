@@ -24,9 +24,21 @@ module Pito
       # per-shiny webhook flood. It passes `skip_webhook: true` to `report!` —
       # the in-app Notification and mini-status broadcast still happen, only
       # the individual `NotificationWebhookDeliverJob` is suppressed — and uses
-      # `digest_row` to collect the `[witty, entity]` pair for each shiny into
-      # the digest `rows`. The `skip_webhook:` default (false) leaves every
-      # real-time caller's per-shiny webhook untouched.
+      # `digest_row` to collect the `[headline, entity]` pair for each shiny
+      # into the digest `rows`. The `skip_webhook:` default (false) leaves
+      # every real-time caller's per-shiny webhook untouched.
+      #
+      # == Headline carries the metric + threshold (T31)
+      #
+      # The witty step name alone ("Score!") is GENERIC per threshold — every
+      # metric hits its own "Score!" at 20 — so the name can't identify what
+      # was actually achieved. `headline` is the one place that composes
+      # "<witty name> (<compact threshold> <metric label>)", e.g.
+      # "Score! (20 Likes)"; both `build_message` (the in-app /notifications
+      # message, and the source `notification.message` a real-time single
+      # webhook delivery formats via `WebhookFormatter`) and `digest_row`
+      # (the batch digest's `col1`, formatted into the Slack/Discord table by
+      # `WebhookDigest`) call it, so all three surfaces stay in lockstep.
       module ShinyUnlocked
         module_function
 
@@ -45,23 +57,34 @@ module Pito
           )
         end
 
-        # The `[witty achievement name, entity display name]` pair for one
-        # unlocked Achievement — the 2-column row shape `WebhookDigest` wants
-        # (col1 = the achievement, col2 = who earned it). Used by batch
-        # callers building digest `rows`; see the class doc above.
+        # The `[headline, entity display name]` pair for one unlocked
+        # Achievement — the 2-column row shape `WebhookDigest` wants (col1 =
+        # the achievement + what it measured, col2 = who earned it). Used by
+        # batch callers building digest `rows`; see the class doc above.
         # @param achievement [Achievement]
         # @return [Array(String, String)]
         def digest_row(achievement)
-          [ witty_name(achievement), display_name(achievement.achievable) ]
+          [ headline(achievement), display_name(achievement.achievable) ]
         end
 
-        def build_message(achievement)
-          entity  = display_name(achievement.achievable)
+        # "<witty name> (<compact threshold> <metric label>)", e.g.
+        # "Score! (20 Likes)" — see the class doc's "Headline carries the
+        # metric + threshold" section. The single formatter both the
+        # in-app/webhook message and the digest row build on.
+        # @param achievement [Achievement]
+        # @return [String]
+        def headline(achievement)
           witty   = witty_name(achievement)
           compact = Pito::Formatter::CompactCount.call(achievement.threshold)
           label   = Pito::Achievements::Label.for(achievement.metric, count: achievement.threshold)
 
-          "#{entity} earned a shiny — #{witty} (#{compact} #{label})"
+          "#{witty} (#{compact} #{label})"
+        end
+
+        def build_message(achievement)
+          entity = display_name(achievement.achievable)
+
+          "#{entity} earned a shiny — #{headline(achievement)}"
         end
         private_class_method :build_message
 

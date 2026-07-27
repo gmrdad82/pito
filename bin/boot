@@ -1,15 +1,15 @@
 #!/usr/bin/env sh
-# bin/boot — compatibility shim. Superseded by bin/pito (the operator CLI).
-# Forwards the old flags to the equivalent `pito` subcommand so existing muscle
+# bin/boot — compatibility shim. Superseded by bin/pito-cli (the operator CLI).
+# Forwards the old flags to the equivalent `pito-cli` subcommand so existing muscle
 # memory (and any docs that still say `bin/boot`) keeps working:
-#   bin/boot            → pito up
-#   bin/boot --totp     → pito totp
-#   bin/boot -d         → pito up -d
+#   bin/boot            → pito-cli up
+#   bin/boot --totp     → pito-cli totp
+#   bin/boot -d         → pito-cli up -d
 set -eu
 CDPATH=''  # neutralize CDPATH so `cd` never prints or jumps unexpectedly
 dir=$(cd -- "$(dirname -- "$0")" && pwd)
 case "${1:-}" in
-  --totp)     shift; exec "$dir/pito" totp "$@" ;;
-  --help|-h)  exec "$dir/pito" --help ;;
-  *)          exec "$dir/pito" up "$@" ;;
+  --totp)     shift; exec "$dir/pito-cli" totp "$@" ;;
+  --help|-h)  exec "$dir/pito-cli" --help ;;
+  *)          exec "$dir/pito-cli" up "$@" ;;
 esac

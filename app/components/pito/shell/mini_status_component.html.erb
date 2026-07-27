@@ -13,13 +13,12 @@
       not_found); hidden only for unauthenticated users. %>
   <% if @state %>
     <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+    <%# owner 2026-07-24: the Mac cmd-swap DISPLAY is retired — every visitor
+        sees the same ctrl+k glyph regardless of platform (functional Mac
+        Cmd input elsewhere is unaffected; this was display only). %>
     <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
-          hint:      t("pito.shell.mini_status.commands_hint"),
-          label:     t("pito.shell.mini_status.commands_label"),
-          hint_data: {
-            "controller"                   => "pito--platform-key",
-            "pito--platform-key-mac-value" => t("pito.shell.mini_status.commands_hint_mac")
-          }
+          hint:  t("pito.shell.mini_status.commands_hint"),
+          label: t("pito.shell.mini_status.commands_label")
         )) %>
   <% end %>
 </span>

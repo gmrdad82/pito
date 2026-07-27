@@ -5,7 +5,7 @@
 # Runs every registered Pito::Bench step under a network kill switch (any
 # outbound socket raises) and a read-only DB session (any app-data write
 # raises), prints an aligned table, and writes a diffable JSON snapshot to
-# tmp/bench/. Safe to run in production (`bin/pito rake pito:bench`).
+# tmp/bench/. Safe to run in production (`bin/pito-cli rake pito:bench`).
 #
 #   UUID=<conversation uuid>  scope the replay step (default: most events)
 #   N=<iterations>            microbench loop count (default: 50)

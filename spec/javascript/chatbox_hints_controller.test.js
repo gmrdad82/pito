@@ -5,9 +5,13 @@
 //
 // Matrix:
 //   unfocused                                    → chatHint (m)
-//   focused + `list` + vids/games noun           → shiftTabHint
-//   focused + `analyze`                          → shiftSpaceHint
+//   focused + `list` + vids/games noun           → channelHint (ctrl+space)
+//   focused + `analyze`                          → periodHint (ctrl+space)
 //   focused + empty / other verb                 → nothing
+//
+// Both cyclers share ONE physical binding (owner 2026-07-24: shift+tab/
+// shift+space retired, unified on ctrl+space) — chat_form_controller tells
+// them apart by which of channelHint/periodHint is visible.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -19,14 +23,14 @@ function buildChatbox() {
   box.setAttribute("data-controller", "pito--chatbox-hints")
 
   const chatHint = mkSpan(box, "chatHint")
-  const shiftTabHint = mkSpan(box, "shiftTabHint")
-  const shiftSpaceHint = mkSpan(box, "shiftSpaceHint")
+  const channelHint = mkSpan(box, "channelHint")
+  const periodHint = mkSpan(box, "periodHint")
 
   const field = document.createElement("textarea")
   box.appendChild(field)
 
   document.body.appendChild(box)
-  return { box, chatHint, shiftTabHint, shiftSpaceHint, field }
+  return { box, chatHint, channelHint, periodHint, field }
 }
 
 function mkSpan(box, target) {
@@ -68,94 +72,94 @@ describe("pito--chatbox-hints controller", () => {
   })
 
   it("shows the m hint when not focused", async () => {
-    const { chatHint, shiftTabHint, shiftSpaceHint } = buildChatbox()
+    const { chatHint, channelHint, periodHint } = buildChatbox()
     await tick()
     expect(visible(chatHint)).toBe(true)
-    expect(visible(shiftTabHint)).toBe(false)
-    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(channelHint)).toBe(false)
+    expect(visible(periodHint)).toBe(false)
   })
 
   it("focused + empty → nothing", async () => {
-    const { chatHint, shiftTabHint, shiftSpaceHint } = buildChatbox()
+    const { chatHint, channelHint, periodHint } = buildChatbox()
     await tick()
     focus("")
     expect(visible(chatHint)).toBe(false)
-    expect(visible(shiftTabHint)).toBe(false)
-    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(channelHint)).toBe(false)
+    expect(visible(periodHint)).toBe(false)
   })
 
-  it("focused + `list vids` → shift+tab", async () => {
-    const { shiftTabHint, shiftSpaceHint, chatHint } = buildChatbox()
+  it("focused + `list vids` → channel hint", async () => {
+    const { channelHint, periodHint, chatHint } = buildChatbox()
     await tick()
     focus("list vids")
-    expect(visible(shiftTabHint)).toBe(true)
-    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(channelHint)).toBe(true)
+    expect(visible(periodHint)).toBe(false)
     expect(visible(chatHint)).toBe(false)
   })
 
-  it("focused + `list games rpg` → shift+tab (noun anywhere after verb)", async () => {
-    const { shiftTabHint } = buildChatbox()
+  it("focused + `list games rpg` → channel hint (noun anywhere after verb)", async () => {
+    const { channelHint } = buildChatbox()
     await tick()
     focus("list games rpg")
-    expect(visible(shiftTabHint)).toBe(true)
+    expect(visible(channelHint)).toBe(true)
   })
 
-  it("focused + `ls videos` (aliases) → shift+tab", async () => {
-    const { shiftTabHint } = buildChatbox()
+  it("focused + `ls videos` (aliases) → channel hint", async () => {
+    const { channelHint } = buildChatbox()
     await tick()
     focus("ls videos")
-    expect(visible(shiftTabHint)).toBe(true)
+    expect(visible(channelHint)).toBe(true)
   })
 
   it("focused + `list channels` → nothing (channels noun isn't vids/games)", async () => {
-    const { shiftTabHint, shiftSpaceHint, chatHint } = buildChatbox()
+    const { channelHint, periodHint, chatHint } = buildChatbox()
     await tick()
     focus("list channels")
-    expect(visible(shiftTabHint)).toBe(false)
-    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(channelHint)).toBe(false)
+    expect(visible(periodHint)).toBe(false)
     expect(visible(chatHint)).toBe(false)
   })
 
-  it("focused + `analyze` → shift+space", async () => {
-    const { shiftSpaceHint, shiftTabHint } = buildChatbox()
+  it("focused + `analyze` → period hint", async () => {
+    const { periodHint, channelHint } = buildChatbox()
     await tick()
     focus("analyze channel")
-    expect(visible(shiftSpaceHint)).toBe(true)
-    expect(visible(shiftTabHint)).toBe(false)
+    expect(visible(periodHint)).toBe(true)
+    expect(visible(channelHint)).toBe(false)
   })
 
-  it("focused + `stats` (alias) → shift+space", async () => {
-    const { shiftSpaceHint } = buildChatbox()
+  it("focused + `stats` (alias) → period hint", async () => {
+    const { periodHint } = buildChatbox()
     await tick()
     focus("stats vids")
-    expect(visible(shiftSpaceHint)).toBe(true)
+    expect(visible(periodHint)).toBe(true)
   })
 
   it("focused + other verb (`show game`) → nothing", async () => {
-    const { shiftTabHint, shiftSpaceHint, chatHint } = buildChatbox()
+    const { channelHint, periodHint, chatHint } = buildChatbox()
     await tick()
     focus("show game 5")
-    expect(visible(shiftTabHint)).toBe(false)
-    expect(visible(shiftSpaceHint)).toBe(false)
+    expect(visible(channelHint)).toBe(false)
+    expect(visible(periodHint)).toBe(false)
     expect(visible(chatHint)).toBe(false)
   })
 
   it("losing focus from `list vids` falls back to the m hint", async () => {
-    const { chatHint, shiftTabHint } = buildChatbox()
+    const { chatHint, channelHint } = buildChatbox()
     await tick()
     focus("list vids")
-    expect(visible(shiftTabHint)).toBe(true)
+    expect(visible(channelHint)).toBe(true)
     blur()
     expect(visible(chatHint)).toBe(true)
-    expect(visible(shiftTabHint)).toBe(false)
+    expect(visible(channelHint)).toBe(false)
   })
 
   it("never leaves both inline-flex and hidden on the same element", async () => {
-    const { chatHint, shiftTabHint, shiftSpaceHint } = buildChatbox()
+    const { chatHint, channelHint, periodHint } = buildChatbox()
     await tick()
     for (const v of ["", "list vids", "analyze", "show game"]) {
       focus(v)
-      for (const el of [chatHint, shiftTabHint, shiftSpaceHint]) {
+      for (const el of [chatHint, channelHint, periodHint]) {
         expect(el.classList.contains("inline-flex") && el.classList.contains("hidden")).toBe(false)
       }
     }

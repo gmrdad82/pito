@@ -22,7 +22,7 @@ require "rails_helper"
 #
 #   2. raw matches /\b(?:vid|video)s?\b/i → handle_import_videos(raw)
 #        Alias for `sync videos`. Resolves channel scope, emits a sync confirmation.
-#        Scope priority: `for @handle` clause in raw > shift+tab `channel:` kwarg >
+#        Scope priority: `for @handle` clause in raw > ctrl+space `channel:` kwarg >
 #                        @all / blank → "all channels"
 #        → Result::Ok, events: [{ kind: :confirmation, payload: {
 #             "command" => "sync_videos", "channel_ids" => <resolved ids> } }]
@@ -35,7 +35,7 @@ require "rails_helper"
 # Title extraction (game branch):
 #   parse_import_game_title: strip raw, then sub /\Aimport\s+games?\s*/i → strip.
 #
-# FOR_HANDLE_RE: /\bfor\s+(@\S+)/i — `for @handle` clause overrides shift+tab.
+# FOR_HANDLE_RE: /\bfor\s+(@\S+)/i — `for @handle` clause overrides the ctrl+space channel scope.
 #
 # normalized_handle: strips leading `@+` before Channel.find_by call.
 RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dispatch do
@@ -52,7 +52,7 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
   end
 
   # Build and invoke the Import handler from a raw input string.
-  # `channel:` simulates the shift+tab channel scope (@handle, @all, nil, "").
+  # `channel:` simulates the ctrl+space channel scope (@handle, @all, nil, "").
   def call(raw, channel: nil)
     Pito::Chat::Handlers::Import.new(
       message:      instance_double(Pito::Chat::Message, raw: raw),
@@ -255,11 +255,11 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
     end
   end
 
-  # ── shift+tab scope @all / nil / blank → all channels ────────────────────────
+  # ── channel scope (ctrl+space) @all / nil / blank → all channels ────────────────────────
   #
   # resolved_channel_handle returns nil when channel: is nil, "", or "@all"
   # (case-insensitive). Nil handle → scope "all channels", channel_ids: [].
-  describe "shift+tab scope @all / nil / blank → all channels (channel_ids: [])" do
+  describe "channel scope @all / nil / blank → all channels (channel_ids: [])" do
     [ nil, "", "@all", "@ALL", "@All", "@aLL" ].each do |ch_scope|
       it "import videos, channel: #{ch_scope.inspect} → channel_ids: []" do
         result = call("import videos", channel: ch_scope)
@@ -278,11 +278,11 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
     end
   end
 
-  # ── shift+tab @handle → specific channel ──────────────────────────────────────
+  # ── channel scope @handle → specific channel ──────────────────────────────────────
   #
   # resolved_channel_handle returns the handle string when channel: is a non-@all value.
   # Channel.find_by is called with the normalized handle (no leading @).
-  describe "shift+tab @handle → specific channel (channel_ids: [IMPORT_CH_ID])" do
+  describe "channel scope @handle → specific channel (channel_ids: [IMPORT_CH_ID])" do
     it "import videos, channel: '@pito' → channel_ids: [IMPORT_CH_ID]" do
       result = call("import videos", channel: "@pito")
       expect(result).to be_a(Pito::Chat::Result::Ok)
@@ -291,7 +291,7 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
       expect(event[:payload]["channel_ids"]).to eq([ IMPORT_CH_ID ])
     end
 
-    it "all four noun forms obey the shift+tab @handle" do
+    it "all four noun forms obey the channel scope @handle" do
       %w[vid vids video videos].each do |noun|
         result = call("import #{noun}", channel: "@pito")
         expect(result.events.first[:payload]["channel_ids"]).to eq([ IMPORT_CH_ID ])
@@ -299,11 +299,11 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
     end
   end
 
-  # ── `for @handle` clause in raw overrides shift+tab scope ─────────────────────
+  # ── `for @handle` clause in raw overrides the channel scope ─────────────────────
   #
   # FOR_HANDLE_RE = /\bfor\s+(@\S+)/i extracts the handle from raw text.
-  # It takes priority over the shift+tab channel: kwarg via the `||` in resolve_scope.
-  describe "'for @handle' clause in raw overrides the shift+tab channel scope" do
+  # It takes priority over the ctrl+space channel: kwarg via the `||` in resolve_scope.
+  describe "'for @handle' clause in raw overrides the ctrl+space channel scope" do
     it "import videos for @pito, channel: nil → resolves @pito, channel_ids: [IMPORT_CH_ID]" do
       result = call("import videos for @pito", channel: nil)
       expect(result).to be_a(Pito::Chat::Result::Ok)
@@ -317,7 +317,7 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
       expect(result.events.first[:payload]["channel_ids"]).to eq([ IMPORT_CH_ID ])
     end
 
-    it "import videos for @pito, channel: '@other' → for clause wins over shift+tab" do
+    it "import videos for @pito, channel: '@other' → for clause wins over the channel scope" do
       result = call("import videos for @pito", channel: "@other")
       expect(result.events.first[:payload]["channel_ids"]).to eq([ IMPORT_CH_ID ])
     end
@@ -344,9 +344,9 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
   # ── Channel.find_by: handle normalization (leading @ stripped) ───────────────
   #
   # normalized_handle strips /\A@+/ before the find_by call. This is verified for
-  # both the shift+tab path and the for-clause path.
+  # both the channel-scope path and the for-clause path.
   describe "Channel.find_by is called with the normalized handle (leading @ stripped)" do
-    it "shift+tab '@pito' → find_by called with 'pito', not '@pito'" do
+    it "channel scope '@pito' → find_by called with 'pito', not '@pito'" do
       expect(::Channel).to receive(:find_by)
         .with("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", "pito")
         .and_return(channel_double)
@@ -378,7 +378,7 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
   describe "unknown channel handle → Result::Ok :system event (not :confirmation)" do
     before { allow(::Channel).to receive(:find_by).and_return(nil) }
 
-    it "shift+tab @unknown → :system event, not :confirmation" do
+    it "channel scope @unknown → :system event, not :confirmation" do
       result = call("import videos", channel: "@unknown")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       event = result.events.first
@@ -392,7 +392,7 @@ RSpec.describe "Dispatch matrix — import (recognition, DB mocked)", type: :dis
       expect(result.events.first[:kind]).to eq(:system)
     end
 
-    it "all four noun forms emit :system on not-found shift+tab handle" do
+    it "all four noun forms emit :system on not-found channel-scope handle" do
       %w[vid vids video videos].each do |noun|
         result = call("import #{noun}", channel: "@nope")
         expect(result).to be_a(Pito::Chat::Result::Ok)

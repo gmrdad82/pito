@@ -65,8 +65,8 @@ describe("KbdClickController", () => {
     expect(handler.mock.calls[0][0].key).toBe("Escape")
   })
 
-  it("shift+tab dispatches a Shift+Tab keydown on the chatbox textarea WITHOUT focusing it", async () => {
-    const hint = buildHint("shift+tab")
+  it("ctrl+space dispatches a Ctrl+Space keydown on the chatbox textarea WITHOUT focusing it", async () => {
+    const hint = buildHint("ctrl+space")
     await Promise.resolve()
 
     const field = document.querySelector('[data-pito--chat-form-target="inputField"]')
@@ -79,8 +79,8 @@ describe("KbdClickController", () => {
 
     expect(onField).toHaveBeenCalledTimes(1)
     const e = onField.mock.calls[0][0]
-    expect(e.key).toBe("Tab")
-    expect(e.shiftKey).toBe(true)
+    expect(e.code).toBe("Space")
+    expect(e.ctrlKey).toBe(true)
     expect(e.target).toBe(field)
     // bubbles to document too
     expect(onDoc).toHaveBeenCalledTimes(1)
@@ -88,28 +88,30 @@ describe("KbdClickController", () => {
     expect(document.activeElement).not.toBe(field)
   })
 
-  it("shift+space dispatches a Shift+Space keydown on the chatbox textarea WITHOUT focusing it", async () => {
+  it("shift+tab (retired scope-cycling binding) is now an unknown key-value — no-op", async () => {
+    const hint = buildHint("shift+tab")
+    await Promise.resolve()
+
+    const field = document.querySelector('[data-pito--chat-form-target="inputField"]')
+    const onField = vi.fn()
+    field.addEventListener("keydown", onField)
+
+    hint.click()
+
+    expect(onField).not.toHaveBeenCalled()
+  })
+
+  it("shift+space (retired scope-cycling binding) is now an unknown key-value — no-op", async () => {
     const hint = buildHint("shift+space")
     await Promise.resolve()
 
     const field = document.querySelector('[data-pito--chat-form-target="inputField"]')
     const onField = vi.fn()
-    const onDoc = vi.fn()
     field.addEventListener("keydown", onField)
-    document.addEventListener("keydown", onDoc)
 
     hint.click()
 
-    expect(onField).toHaveBeenCalledTimes(1)
-    const e = onField.mock.calls[0][0]
-    expect(e.key).toBe(" ")
-    expect(e.code).toBe("Space")
-    expect(e.shiftKey).toBe(true)
-    expect(e.target).toBe(field)
-    // bubbles to document too
-    expect(onDoc).toHaveBeenCalledTimes(1)
-    // focus must NOT have moved into the chatbox
-    expect(document.activeElement).not.toBe(field)
+    expect(onField).not.toHaveBeenCalled()
   })
 
   it("shift+r dispatches a Shift+R keydown on the chatbox textarea AND focuses it", async () => {
@@ -174,7 +176,7 @@ describe("KbdClickController", () => {
   })
 
   it("mousedown#hold preventDefaults so the tap does not blur/steal focus from the chatbox", async () => {
-    const hint = buildHint("shift+tab")
+    const hint = buildHint("ctrl+space")
     await Promise.resolve()
 
     const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true })

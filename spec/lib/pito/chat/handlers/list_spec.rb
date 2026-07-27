@@ -141,7 +141,7 @@ RSpec.describe Pito::Chat::Handlers::List do
         .map { |r| r[:cells][1][:text] }
     end
 
-    it "shows upcoming games under a specific shift+tab channel (no link required)" do
+    it "shows upcoming games under a specific channel-scope channel (no link required)" do
       expect(titles("list games upcoming", channel: "@solo")).to include("Upcoming Quest")
     end
 
@@ -1115,7 +1115,7 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
 
-    # The shift+tab channel scope composes with the `with` columns and `sorted by`
+    # The ctrl+space channel scope composes with the `with` columns and `sorted by`
     # in one pipeline (scope → columns → sort).
     context "combined with `with <cols>` and `sorted by`" do
       let!(:action) { create(:genre, name: "Action") }

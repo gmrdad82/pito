@@ -7,8 +7,8 @@ module Pito
       #
       # ONE combined :system list of SCHEDULED videos (privacy_status :private + a
       # FUTURE publish_at), excluding the reference vid, filtered by the
-      # conversation's channel scope (shift+tab) and bounded by its stats period
-      # (shift+space), ordered by go-live (publish_at asc).
+      # conversation's channel scope and bounded by its stats period
+      # (both ctrl+space), ordered by go-live (publish_at asc).
       #
       # Columns: # (id), Title, Channel, Go-live — the last a HUMAN relative date
       # ("in 3 hours", "tomorrow at noon", "on 1st of March") via the slate-only
@@ -28,7 +28,7 @@ module Pito
 
         # @param only_handles [Array<String>] explicit `only @h1, @h2` channel filter
         #   → the slate is scoped to the UNION of those channels' scheduled vids,
-        #   overriding the shift+tab channel_scope. Empty = full slate (shift+tab scope).
+        #   overriding the channel_scope. Empty = full slate (the channel scope).
         # @return [Array<Hash>] a single event ({ kind:, payload: }).
         def call(exclude_id:, channel_scope:, period:, conversation:, only_handles: [], now: Time.current)
           window_end = window_end_for(period, now)
@@ -52,8 +52,8 @@ module Pito
           scope = ::Video.where(privacy_status: :private).where("publish_at > ?", now)
           scope = scope.where("publish_at <= ?", window_end) if window_end
           scope = scope.where.not(id: exclude_id) if exclude_id.present?
-          # `only @h1, @h2` overrides the shift+tab scope with the UNION of the named
-          # channels; otherwise fall back to the single shift+tab channel scope.
+          # `only @h1, @h2` overrides the channel scope with the UNION of the named
+          # channels; otherwise fall back to the single channel scope.
           scope = if only_handles.present?
                     filter_channels(scope, only_handles)
           else

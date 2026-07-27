@@ -51,7 +51,7 @@ module Pito
       # @param metric     [Symbol]
       # @param level      [String, Symbol]  "channel" | "vid" | "game"
       # @param entity_ids [Array<Integer>]
-      # @param period     [String]          shift+space window token (e.g. "28d")
+      # @param period     [String]          stats-period window token (e.g. "28d")
       # @return [Filled]
       def for(metric:, level:, entity_ids:, period:)
         metric = metric.to_sym
@@ -79,7 +79,7 @@ module Pito
 
       # ── L0.5 cell cache plumbing ────────────────────────────────────────────────
 
-      # Metrics that ignore the shift+space period fetch at LIFETIME (likes,
+      # Metrics that ignore the stats period fetch at LIFETIME (likes,
       # bars, heatmap, retention) — their cache key must use the window they
       # actually read, or the same data would be cached once per period token.
       LIFETIME_METRICS = (%i[likes retention day_of_week_heatmap] + BAR_METRICS.keys).freeze

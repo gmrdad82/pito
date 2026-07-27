@@ -61,20 +61,23 @@
         right-aligned HINT SLOT on the SAME line. Exactly ONE hint shows at a time
         (chatbox-hints controller):
           • unfocused                     → `c to chat`
-          • focused + `list vids/games`   → shift+tab (channel cycler)
-          • focused + `analyze`           → shift+space (period cycler)
+          • focused + `list vids/games`   → ctrl+space (channel cycler)
+          • focused + `analyze`           → ctrl+space (period cycler)
           • focused + anything else       → nothing
-        The cycler spans double as chat-form targets so cycling still syncs. The
-        conversation NAME no longer lives here — it moved above the context bar. %>
+        Both cyclers share ONE physical binding (owner 2026-07-24: shift+tab/
+        shift+space retired, unified on ctrl+space) — chat-form tells them apart
+        by which of these two spans is visible. The cycler spans double as
+        chat-form targets so cycling still syncs. The conversation NAME no
+        longer lives here — it moved above the context bar. %>
     <div class="pito-chatbox__field-wrap" data-controller="pito--autosize"
          data-pito--autosize-autofocus-value="true">
       <%= text_area_tag :input_field, @initial_value, **input_attrs %>
       <% if !@reduced && @filter && @state != :start %>
         <div class="pito-chatbox__hint-slot text-fg-faded">
-          <span data-pito--chatbox-hints-target="shiftTabHint" data-pito--chat-form-target="channelDisplay" class="items-center hidden">
+          <span data-pito--chatbox-hints-target="channelHint" data-pito--chat-form-target="channelDisplay" class="items-center hidden">
             <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
           </span>
-          <span data-pito--chatbox-hints-target="shiftSpaceHint" data-pito--chat-form-target="periodDisplay" class="items-center hidden">
+          <span data-pito--chatbox-hints-target="periodHint" data-pito--chat-form-target="periodDisplay" class="items-center hidden">
             <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
           </span>
           <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "c", description: Pito::Copy.render("pito.copy.start_chatting"))) %></span>

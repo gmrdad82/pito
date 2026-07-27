@@ -67,7 +67,7 @@ class ConversationsController < ApplicationController
                 count:     count,
                 threshold: Pito::Shell::ContextMeterComponent::THRESHOLD
               },
-              # The shift+tab / shift+space cycler state (TUI seeds its
+              # The channel/period cycler state (ctrl+space; TUI seeds its
               # cyclers from these; additive — older clients ignore them).
               scope: {
                 channel: @conversation.scope_channel,
@@ -157,7 +157,7 @@ class ConversationsController < ApplicationController
   def update
     @conversation = Conversation.find_by!(uuid: params[:uuid])
 
-    # Scope-save path: shift+tab (scope_channel) / shift+space (stats_period)
+    # Scope-save path: ctrl+space channel (scope_channel) / period (stats_period)
     # persistence. Quiet background save — no Turbo Stream, just 204 No Content,
     # so a reload restores the conversation's last channel/period.
     scope_attrs = conversation_params.slice(:scope_channel, :stats_period)

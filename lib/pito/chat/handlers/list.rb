@@ -251,7 +251,7 @@ module Pito
 
           # Upcoming games are unreleased → no game↔vid links, so the channel
           # scope (which requires a link) would always exclude them. Show all
-          # upcoming regardless of the shift+tab channel.
+          # upcoming regardless of the channel scope.
           upcoming = Pito::Chat::GameListFilter.upcoming?(message.raw)
           if upcoming
             channel_scoped = false

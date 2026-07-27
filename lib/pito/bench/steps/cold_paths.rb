@@ -52,7 +52,7 @@ module Pito
         end
 
         # The analyze fan-out: one AnalyzeMetricFill per metric of BOTH roles
-        # (:system on the shift+space period, :enhanced always lifetime) —
+        # (:system on the stats period, :enhanced always lifetime) —
         # exactly what AnalyzePrepareJob dispatches for the pair. Runs the pair
         # TWICE inside one capture: the second pass folds from the first pass's
         # (virtual-)warm primitives, so its count is the repeat-analyze cost —

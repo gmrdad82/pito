@@ -27,6 +27,8 @@ en:
             title: "COMMANDS"
           keybindings:
             title: "KEYBINDINGS"
+        # Keys are the RAW shortcut (Pito::Keybinding::Glyph.format converts
+        # them at render time — see Pito::Slash::Handlers::Help#keybindings_section).
         keybindings:
-          "shift+↑ / shift+↓": "Scroll through chat history"
-          "↑ / ↓": "Browse input history in chatbox"
+          "shift+up/down": "Scroll through chat history"
+          "up/down": "Browse input history in chatbox"

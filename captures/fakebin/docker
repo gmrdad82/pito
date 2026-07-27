@@ -1,0 +1,85 @@
+#!/usr/bin/env sh
+# FAKE docker — for cast recording ONLY. Never contacts a real daemon; every
+# invocation is a no-op that just prints realistic-looking output. Lives first
+# on PATH during a capture so the pito installer/CLI's `docker` + `docker
+# compose` calls render nicely without starting/stopping/wiping anything real.
+#
+# Extended (still a pure no-op, never execs a real docker) to cover the extra
+# shapes the pito-cli/install.sh/update.sh/deploy-flip.sh flow needs: compose
+# stop/logs/images/run, plain `docker run --rm` (bootstrap_credentials),
+# `docker image inspect`/`image prune`, and `docker images` (old-tag prune).
+args="$*"
+
+# `docker image inspect --format ...` (pito-cli version) reads the tag back
+# out of the pito-cli install dir's own .env (cwd, since callers always cd
+# into PROJECT_DIR first) so the fake stays truthful across install -> update.
+cwd_tag() { sed -n 's/^PITO_TAG=//p' ./.env 2>/dev/null | head -1; }
+
+case "$args" in
+  "compose up"*)
+    case "$args" in
+      *web-green*) svc=web-green ;;
+      *web-blue*)  svc=web-blue ;;
+      *)           svc="" ;;
+    esac
+    if [ -n "$svc" ]; then
+      echo "[+] Running 1/1"
+      printf ' \033[32m\xe2\x9c\x94\033[0m Container pito-boot-%s-1  Started\n' "$svc"
+    else
+      echo "[+] Running 8/8"
+      for c in postgres web-blue lb pito-mcp embedder nlmapper caddy; do
+        printf ' \033[32m\xe2\x9c\x94\033[0m Container pito-boot-%s-1  Started\n' "$c"
+      done
+    fi
+    ;;
+  "compose pull"*)
+    case "$args" in
+      *web-green*) echo " pito-boot-web-green-1  Pulling"; echo " pito-boot-web-green-1  Pulled" ;;
+      *web-blue*)  echo " pito-boot-web-blue-1  Pulling";  echo " pito-boot-web-blue-1  Pulled" ;;
+      *)           echo " pito-boot  Pulling"; echo " pito-boot  Pulled" ;;
+    esac
+    ;;
+  "compose down"*)  echo " pito-boot  Removed" ;;
+  "compose stop"*)
+    case "$args" in
+      *web-green*) echo " Container pito-boot-web-green-1  Stopped" ;;
+      *)           echo " Container pito-boot-web-blue-1  Stopped" ;;
+    esac
+    ;;
+  "compose ps"*)    echo "NAME                    STATUS"; echo "pito-boot-web-blue-1    Up (healthy)" ;;
+  "compose logs"*)
+    echo "web-blue-1   | [info] Puma starting in single mode..."
+    echo "web-blue-1   | [info] * Listening on http://0.0.0.0:3000"
+    echo "web-blue-1   | [info] GET /up 200 in 2ms"
+    echo "postgres-1   | [info] database system is ready to accept connections"
+    echo "lb-1         | [info] caddy: serving initial configuration"
+    ;;
+  "compose images"*) echo "a1b2c3d4e5f6" ;;
+  "compose run"*)
+    echo " Container pito-boot-web-blue-run  Created"
+    echo "TOTP enrollment — scan this into your authenticator:"
+    echo "  Secret:  JBSWY3DPEHPK3PXP"
+    echo "  otpauth://totp/pito:owner?secret=JBSWY3DPEHPK3PXP&issuer=pito"
+    echo " Container pito-boot-web-blue-run  Removed"
+    ;;
+  "compose "*)      : ;;
+  "run --rm"*)
+    # bootstrap_credentials' one-off `docker run --rm -v ./config:... ruby -e ...`
+    echo "credentials written"
+    ;;
+  "image inspect"*)
+    tag=$(cwd_tag); tag="${tag:-latest}"
+    case "$args" in
+      *revision*)
+        rev=$(printf '%s' "$tag" | cksum | awk '{printf "%08x", $1}')
+        echo "${rev}cafef00dcafef00dcafef00dcafef00dcafef00"
+        ;;
+      *version*) echo "$tag" ;;
+      *) : ;;
+    esac
+    ;;
+  "image prune"*)   echo "Total reclaimed space: 184.3MB" ;;
+  info*|version*)   echo "Server Version: 27.5.0 (cast-mock)" ;;
+  *)                : ;;
+esac
+exit 0

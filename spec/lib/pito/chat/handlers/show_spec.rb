@@ -752,7 +752,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
         end
       end
 
-      it "with a specific shift+tab channel scope → resolves THAT channel's detail card" do
+      it "with a specific ctrl+space channel scope → resolves THAT channel's detail card" do
         result = show_scoped("show channel", "@gmrdad82")
         event = result.events.first
         expect(event[:kind]).to eq(:system)
@@ -829,7 +829,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
 
     # Convenience: invoke the real lexer + parser + handler with an optional
-    # channel param (mirrors the shift+tab channel scope).
+    # channel param (mirrors the ctrl+space channel scope).
     def show_real_channel(input, channel: nil)
       msg = Pito::Chat::Parser.call(
         Pito::Lex::Lexer.call(input), raw: input, conversation: Conversation.singleton
@@ -891,7 +891,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
     end
 
-    context "with channel scope (shift+tab @handle)" do
+    context "with channel scope (ctrl+space @handle)" do
       let!(:ch)          { create(:channel, handle: "@ordinalchan") }
       let!(:ch_vid)      { create(:video, channel: ch) }
       let!(:linked_game) { game_with_date(2022, 4, 20, title: "Linked To Chan") }
@@ -985,7 +985,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(result.consume).to be(false)
     end
 
-    context "with channel scope (shift+tab @handle)" do
+    context "with channel scope (ctrl+space @handle)" do
       let!(:other_chan)    { create(:channel, handle: "@othervid") }
       let!(:other_vid_pub) { create(:video, :public, channel: other_chan, title: "Other Chan Vid", published_at: 3.days.ago) }
 

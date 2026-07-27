@@ -33,7 +33,7 @@ module Pito
     # Note: "1m" is intentionally absent from CYCLE — 28d is the rolling-month
     # token and m0/m1/m2 cover calendar months.
     class Window
-      # Ordered token list for the shift+space UI cycle.
+      # Ordered token list for the ctrl+space period UI cycle.
       CYCLE = %w[7d 28d 3m 1y lifetime m0 m1 m2 y0 y1].freeze
 
       attr_reader :token, :start_date, :end_date, :prev_start, :prev_end, :label

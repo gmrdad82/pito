@@ -78,7 +78,7 @@ module Pito
         # @param title      [String] the scope's display title (shimmered subject)
         # @param level      [Symbol/String] :channel | :vid | :game
         # @param entity_ids [Array<Integer>] resolved entity ids at that level
-        # @param period     [String] the shift+space window token
+        # @param period     [String] the stats-period window token
         def pending(role:, title:, level:, entity_ids:, period:, conversation:, selection: nil)
           intro       = intro_for(role, title, period)
           token       = SecureRandom.hex(4)
@@ -122,8 +122,8 @@ module Pito
         # `analyze` → numbers only; `full` → both).
         # The :enhanced message is ALWAYS lifetime — its
         # audience-composition bars + retention are lifetime, so the whole card
-        # ignores shift+space. This also makes it cacheable with a 1-day TTL.
-        # The :system card keeps the shift+space period.
+        # ignores the stats period. This also makes it cacheable with a 1-day TTL.
+        # The :system card keeps the stats period.
         ENHANCED_PERIOD = "lifetime"
 
         def pair(level:, entity_ids:, title:, period:, conversation:, selection: nil, roles: ROLES)

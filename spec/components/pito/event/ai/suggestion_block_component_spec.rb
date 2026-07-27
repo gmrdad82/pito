@@ -25,6 +25,9 @@ RSpec.describe Pito::Event::Ai::SuggestionBlockComponent, type: :component do
     expect(node.css(".pito-copy__btn").size).to eq(1)
   end
 
+  # The chip label is glyph-formatted (Pito::Keybinding::Glyph via
+  # ShortcutComponent); only the label changed, the copy beside it is
+  # untouched and still comes from the copy pool.
   it "renders the shift+u accept chip (kbd-shimmer band) beside the command" do
     kbd = node.at_css("span.pito-kbd-shimmer")
     expect(kbd).not_to be_nil

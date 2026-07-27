@@ -100,9 +100,12 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         row = node.css(".pito-chatbox__hint-slot")
         expect(row).not_to be_empty
         expect(node.to_html).to include("to chat")
-        # No channel/period cyclers on the start row.
-        expect(node.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
-        expect(node.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
+        # No channel/period cyclers on the start row. (These are the REAL
+        # chatbox-hints target names — the spec used to assert on
+        # shiftTabHint/shiftSpaceHint, which never existed under any binding,
+        # so it passed vacuously.)
+        expect(node.css('[data-pito--chatbox-hints-target="channelHint"]')).to be_empty
+        expect(node.css('[data-pito--chatbox-hints-target="periodHint"]')).to be_empty
       end
 
       it "does NOT render the filter line when filter is nil" do
@@ -127,13 +130,18 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(faded_texts).not_to include("Period")
       end
 
-      it "renders shift+tab and shift+space as kbd-shimmer tokens within the filter row" do
+      # Both cyclers now carry the SAME label (owner 2026-07-24: shift+tab and
+      # shift+space retired, unified on ctrl+space), rendered in the glyph
+      # convention by Pito::Keybinding::Glyph — so the row shows "ctrl+space" twice and
+      # neither retired label may survive anywhere in it.
+      it "renders the unified ctrl+space glyph for BOTH cyclers within the filter row" do
         node = render_inline(described_class.new(
           filter: { channel: "@all", period: "7d" }
         ))
         kbd_texts = node.css("span.pito-kbd-shimmer").map(&:text)
-        expect(kbd_texts).to include("shift+tab")
-        expect(kbd_texts).to include("shift+space")
+        expect(kbd_texts.count("ctrl+space")).to eq(2)
+        expect(node.to_html).not_to include("shift+tab")
+        expect(node.to_html).not_to include("shift+space")
       end
 
       it "keeps a shimmer span inside channelDisplay for the cycling hook" do
@@ -461,9 +469,10 @@ RSpec.describe Pito::Shell::ChatboxComponent do
 
       it "renders the `c to chat` hint (not the channel/period cyclers) in reduced mode" do
         node2 = render_inline(described_class.new(reduced: true, filter: { channel: "@all", period: "7d" }))
-        # The reduced/share row shows only the always-on `c to chat` hint — no cyclers.
-        expect(node2.css('[data-pito--chatbox-hints-target="shiftTabHint"]')).to be_empty
-        expect(node2.css('[data-pito--chatbox-hints-target="shiftSpaceHint"]')).to be_empty
+        # The reduced/share row shows only the always-on `c to chat` hint — no
+        # cyclers. (Real target names; see the :start case above.)
+        expect(node2.css('[data-pito--chatbox-hints-target="channelHint"]')).to be_empty
+        expect(node2.css('[data-pito--chatbox-hints-target="periodHint"]')).to be_empty
         expect(node2.css("span.pito-token")).to be_empty
       end
 

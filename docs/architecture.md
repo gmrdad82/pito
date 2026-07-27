@@ -1,4 +1,4 @@
-# PITO — architecture
+# Pito — architecture
 
 ## Routes
 
@@ -27,12 +27,11 @@ login/connect form routes — `/connect`, `/new`, `/resume`, `/themes`, etc. are
 chatbox slash commands, not HTTP routes. (`POST /session` is the same TOTP
 verify+mint as `/authenticate`, packaged for cookie-jar clients.)
 
-## JSON client surface (1.0.0 — pito-tui et al.)
+## JSON client surface (1.0.0)
 
 The scrollback has always been client-agnostic — events persist structured
 `jsonb` payloads, never HTML — so the JSON surface is a projection, not a
-second app. A non-browser client (the Go/Bubble Tea `pito-tui`, and anything
-after it) speaks:
+second app. Any non-browser client speaks:
 
 1. **`POST /session` `{otp}`** → `201 {authenticated: true}` + the same
    encrypted `pito_session` cookie the web mints (`Pito::Auth::ChatLogin`
@@ -77,7 +76,7 @@ browser redirect-to-root.
 ## MCP server (read-only — G130)
 
 A second non-browser surface: an AI chat client (claude.ai, ChatGPT, any MCP
-client) connects over the Model Context Protocol and READS PITO. Strictly
+client) connects over the Model Context Protocol and READS Pito. Strictly
 read-only, OAuth-gated, and isolated in its own container.
 
 - **Ontology is config.** Every tool (dispatch "tools", known as verbs pre-2.0;
@@ -175,7 +174,7 @@ the owner runs himself.
 
 ## Local AI stack (3.0.0)
 
-PITO embeds text and maps free-text chat with two self-hosted `llama.cpp`
+Pito embeds text and maps free-text chat with two self-hosted `llama.cpp`
 sidecars — no cloud API key, no per-token cost, nothing leaves the box. This
 retired Voyage AI (the previous embeddings vendor) end to end. It is unrelated
 to the AI assistant's cloud providers above (`config/pito/ai_providers.yml`) —
@@ -279,7 +278,7 @@ the witty `huh` fallback:
    `nl:` block) — or no `nl:` block, or the sidecar's down — the mapper is
    never even consulted; out-of-domain input dies here as the `huh` copy.
 2. **Mapper** (`Pito::Nl::Mapper.map`, the EXPENSIVE path) asks the `nlmapper`
-   sidecar to rewrite the utterance as one PITO command line, constrained to
+   sidecar to rewrite the utterance as one Pito command line, constrained to
    a GBNF grammar (`Pito::Nl::GbnfBuilder`, compiled fresh from `tools.yml` on
    every `Config.data` identity change — a new chat tool "just appears" with
    zero changes to the builder) covering every chat-mappable tool (declares a
@@ -558,7 +557,7 @@ matching ViewComponent, and broadcasts a Turbo Stream `append` to
 - Every handler inherits `Pito::Slash::Handler`, declares `self.verb`, and
   returns a `Result` (`Ok` / `Error` / `NeedsConfirmation`).
 - `Pito::Slash::Registry` auto-discovers and registers handlers at boot.
-- Tools: `config`, `themes`, `games`, `disconnect`, `notifs`, `help`, and
+- Tools: `config`, `games`, `disconnect`, `notifs`, `help`, and
   **`jobs`** — the operator's window into SolidQueue (`status` / `requeue` /
   `run` / `pause` / `resume`), delegating to `Pito::Jobs::{Status,RequeueFailed,
 RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
@@ -687,7 +686,7 @@ search, stats, sync, showcase, credentials, embedding, nl}`.
 
 ## Game release-date representation
 
-PITO stores a game's release date as independent precision components, not as a
+Pito stores a game's release date as independent precision components, not as a
 single date plus an enum. Nullability of each component encodes how much we know.
 
 ### Columns on `games`
@@ -732,7 +731,7 @@ translate into that shape:
 
 - **IGDB** (`Game::Igdb::GameMapper`): maps `category` enum (0..7) → components.
 
-  | IGDB `category` | PITO components            |
+  | IGDB `category` | Pito components            |
   | --------------- | -------------------------- |
   | 0 (day)         | `{year:y, month:m, day:d}` |
   | 1 (month)       | `{year:y, month:m}`        |
@@ -754,7 +753,7 @@ translate into that shape:
 
 ## Self-host & operator tooling (0.7.0)
 
-PITO is **local-first**: it runs on your own machine, two ways. Native development
+Pito is **local-first**: it runs on your own machine, two ways. Native development
 uses `bin/dev` (Rails on the host, **development** env, recurring jobs off — see the
 `PITO_DEV_JOBS` toggle). Self-host uses Docker (**production** env) with a prebuilt
 multi-arch image.
@@ -763,12 +762,14 @@ multi-arch image.
   pushes it on a version-tag push only (never per-commit). `docker-compose.yml`
   references that image (with `build: .` as a fallback) and mounts the owner's
   `config/master.key` + `credentials.yml.enc` over the baked-in copies.
-- **`bin/pito`** — the self-contained operator CLI (no repo / no host Ruby): drives
-  `docker compose` against the compose file beside it (an install dir) or one level
-  up (this repo). Subcommands: `up`/`down`, `totp`, `console`, `logs`, `rake`,
-  `clean`, `install`, `update`, `deploy-flip`, `service`, `cloudflared`. `bin/boot`
-  is a thin compatibility shim forwarding to it. Every command that used to target
-  a container named `web` now targets `web-<PITO_ACTIVE_SLOT>` (see below).
+- **`bin/pito-cli`** — the self-contained operator CLI (no repo / no host Ruby):
+  drives `docker compose` against the compose file beside it (an install dir) or one
+  level up (this repo). Subcommands: `up`/`down`, `totp`, `console`, `logs`, `rake`,
+  `clean`, `install`, `update`, `deploy-flip`, `service`, `cloudflared`. `bin/pito` is
+  a one-release deprecation shim for the old name (execs `bin/pito-cli`, prints a
+  warning); `bin/boot` is a thin compatibility shim forwarding old `bin/boot`
+  invocations to `bin/pito-cli`. Every command that used to target a container named
+  `web` now targets `web-<PITO_ACTIVE_SLOT>` (see below).
 - **`script/install.sh` / `update.sh`** — `curl | sh` install/update: fetch the
   compose file + CLI + `Caddyfile.lb`, generate secrets non-interactively, pull the
   image, enroll TOTP, and optionally configure a Cloudflare tunnel + systemd unit.
@@ -809,7 +810,7 @@ check), `lb`'s config never needs rewriting across a deploy — it just
 follows whichever slot is actually up.
 
 `script/deploy-flip.sh <tag>` (called by `update.sh`, or by hand /
-`pito deploy-flip`) is the flip: pull the idle slot's image → start it (its
+`pito-cli deploy-flip`) is the flip: pull the idle slot's image → start it (its
 entrypoint runs `db:prepare` before Puma can pass `/up`, so old code is
 always what's serving during a migration — pito's additive-migration
 discipline is what makes that safe) → poll the idle slot's own
@@ -840,7 +841,7 @@ insert with `ON CONFLICT DO NOTHING` on a unique index
 (`PrivateReminderJob`, `ReleaseCountdownJob`, `YoutubeReauthCheckJob`) each
 carry their own daily/marker/unread-based dedup.
 
-An existing single-`web`-shape install migrates on its next `pito update`
+An existing single-`web`-shape install migrates on its next `pito-cli update`
 (`script/update.sh`): seed `PITO_TAG_BLUE` (mirroring whatever was already
 running) + the `blue` profile, fetch `Caddyfile.lb`, and — if a direct-HTTPS
 `./Caddyfile` exists — repoint its one `reverse_proxy web:80` line at
@@ -858,9 +859,9 @@ is the last downtime-ful one.
 
 ## The living background (fx, 2.1.0)
 
-One fixed canvas under the app runs the natural star sky (pito-tui's math:
-deterministic fnv star identity, 4 weighted color classes, 4-size rarity
-ladder, per-star breathing periods, two parallax drift layers) as the
+One fixed canvas under the app runs the natural star sky (deterministic fnv
+star identity, 4 weighted color classes, 4-size rarity ladder, per-star
+breathing periods, two parallax drift layers) as the
 resting mood. Eligible events (:system/:enhanced/:ai) are stamped at the
 single create door (`Event.create_with_position!` → `Pito::Fx::Context`)
 with `fx: {context, covers}` — Option B: the event says WHAT it is; the

@@ -185,18 +185,18 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
     # The three literal forms the owner repeatedly types — mirrors show's `full`
     # flag (config/pito/tools.yml's analyze `full` slot documents the same
     # meaning: every segment, numbers + breakdowns). No `@handle`/`#id` prefix
-    # on any of these — they lean on the bare/shift+tab and bare-digit paths.
+    # on any of these — they lean on the bare/channel-scope (ctrl+space) and bare-digit paths.
     context "owner auto-run shapes" do
       let!(:video) { create(:video, channel: channel) }
 
-      it "`analyze channels full` (plural, shift+tab scope) → both cards" do
+      it "`analyze channels full` (plural, channel scope) → both cards" do
         result = analyze("analyze channels full", channel: "@gmrdad82")
 
         expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])
         expect(result.events).to all(satisfy { |e| e[:payload].dig("analyze", "level") == "channel" })
       end
 
-      it "`analyze channel full` (singular, shift+tab scope) → both cards" do
+      it "`analyze channel full` (singular, channel scope) → both cards" do
         result = analyze("analyze channel full", channel: "@gmrdad82")
 
         expect(result.events.map { |e| e[:payload].dig("analyze", "role") }).to eq(%w[system enhanced])

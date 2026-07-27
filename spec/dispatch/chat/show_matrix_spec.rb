@@ -561,7 +561,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
   #
   # `show {first|last} [<genre>] game` — resolved via OrdinalResolver (stubbed).
   # The handler routes ordinal forms BEFORE id resolution; no numeric ref is parsed.
-  # Channel scope is passed via the handler's `channel` param (shift+tab).
+  # Channel scope is passed via the handler's `channel` param (ctrl+space).
 
   describe "ordinal game forms — recognition and routing" do
     before do
@@ -607,7 +607,7 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       call("show last shooter game")
     end
 
-    describe "channel scope forwarded from handler channel attr (shift+tab)" do
+    describe "channel scope forwarded from handler channel attr (the ctrl+space channel scope)" do
       def call_with_channel(raw, channel_val)
         parts       = raw.strip.split(/\s+/)
         body_words  = parts[1..]

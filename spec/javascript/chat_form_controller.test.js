@@ -11,8 +11,12 @@
 //   - Enter submits form + clears field + dispatches `pito:submitted` (non-empty)
 //   - Enter on empty field: submits but does NOT dispatch pito:submitted
 //   - Shift+Enter: no-op (does not submit)
-//   - Shift+Tab cycles channels (updates hidden input + display)
-//   - Shift+Space cycles periods (authenticated only)
+//   - Ctrl+Space cycles channels when the channel hint is visible (updates hidden input + display)
+//   - Ctrl+Space cycles periods when the period hint is visible (authenticated only)
+//   - Ctrl+Space is inert (no preventDefault, no cycle) when neither hint is visible
+//   - Ctrl+Space preventDefaults only when it actually cycled
+//   - Ctrl+Space does not cycle when unauthenticated
+//   - The retired Shift+Tab / Shift+Space bindings no longer cycle anything
 //   - a stale body[data-pito-cable-offline] flag does NOT block submit (no reload, no lost message)
 //   - handleKeydown returns early (no cycle) when unauthenticated
 //   - Shift+U at caret 0 clicks the LAST [data-pito-use-widget-fill] in the scrollback
@@ -106,8 +110,18 @@ function buildScaffold({
   return { form, inputField, hiddenInput, channelDisplay, periodDisplay, channelInput, periodInput }
 }
 
+// Returns dispatchEvent's own result: false when a handler called
+// preventDefault(). That return value is how the inertness tests below tell
+// "ctrl+space was swallowed" from "ctrl+space passed straight through".
 function keydown(el, key, opts = {}) {
-  el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...opts }))
+  return el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...opts }))
+}
+
+// ctrl+space, the ONE scope cycler. `code` (not `key`) because that is what
+// the controller matches on — ctrl+space's `key` value is unreliable across
+// browsers, so the spec must exercise the same discriminator the code uses.
+function ctrlSpace(el) {
+  return keydown(el, " ", { ctrlKey: true, code: "Space" })
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -224,30 +238,43 @@ describe("pito--chat-form controller", () => {
     expect(inputField.value).toBe("some text") // unchanged
   })
 
-  // ── Shift+Tab cycles channels ─────────────────────────────────────────────────
+  // ── ctrl+space cycles channels ────────────────────────────────────────────────
+  //
+  // ONE binding drives both scopes; which one it moves is decided by which
+  // display span chatbox-hints has revealed. The scaffold leaves BOTH spans
+  // visible, and the controller checks channelDisplay first — so the period
+  // cases below have to hide the channel span to reach the period branch,
+  // exactly as the live DOM does (hints reveals exactly one at a time).
 
-  it("Shift+Tab cycles to the next channel", async () => {
+  it("ctrl+space cycles to the next channel when the channel hint is visible", async () => {
     const { inputField, channelInput, channelDisplay } = buildScaffold({
       channels: ["@all", "@gaming", "@music"]
     })
     await waitForConnect()
 
-    keydown(inputField, "Tab", { shiftKey: true })
+    ctrlSpace(inputField)
 
     expect(channelInput.value).toBe("@gaming")
     expect(channelDisplay.querySelector(".text-cyan").textContent).toBe("@gaming")
   })
 
-  it("Shift+Tab wraps around to the first channel", async () => {
+  it("ctrl+space wraps around to the first channel", async () => {
+    // Three channels, asserted at every step. With only two, a final "@all"
+    // is indistinguishable from never having cycled at all — the assertion
+    // would pass even with the binding dead.
     const { inputField, channelInput } = buildScaffold({
-      channels: ["@all", "@gaming"]
+      channels: ["@all", "@gaming", "@music"]
     })
     await waitForConnect()
 
-    keydown(inputField, "Tab", { shiftKey: true }) // → @gaming
-    keydown(inputField, "Tab", { shiftKey: true }) // → @all (wraps)
+    expect(ctrlSpace(inputField)).toBe(false) // swallowed → it cycled
+    expect(channelInput.value).toBe("@gaming")
 
-    expect(channelInput.value).toBe("@all")
+    expect(ctrlSpace(inputField)).toBe(false)
+    expect(channelInput.value).toBe("@music") // last entry
+
+    expect(ctrlSpace(inputField)).toBe(false)
+    expect(channelInput.value).toBe("@all") // wraps to the first
   })
 
   it("plain Tab does not cycle channels", async () => {
@@ -261,15 +288,16 @@ describe("pito--chat-form controller", () => {
     expect(channelInput.value).toBe("@all") // unchanged
   })
 
-  // ── Shift+Space cycles periods ────────────────────────────────────────────────
+  // ── ctrl+space cycles periods ─────────────────────────────────────────────────
 
-  it("Shift+Space cycles to the next period (authenticated)", async () => {
-    const { inputField, periodInput, periodDisplay } = buildScaffold({
+  it("ctrl+space cycles to the next period when the period hint is visible (authenticated)", async () => {
+    const { inputField, periodInput, periodDisplay, channelDisplay } = buildScaffold({
       periods: ["7d", "28d", "3m"]
     })
     await waitForConnect()
+    channelDisplay.classList.add("hidden") // `analyze` → only the period cycler shows
 
-    keydown(inputField, " ", { shiftKey: true, code: "Space" })
+    ctrlSpace(inputField)
 
     expect(periodInput.value).toBe("28d")
     expect(periodDisplay.querySelector(".text-cyan").textContent).toBe("28d")
@@ -277,28 +305,85 @@ describe("pito--chat-form controller", () => {
 
   // ── item 10: cycling + sending gated on hint visibility ───────────────────────
 
-  it("Shift+Tab does NOT cycle the channel when its hint is hidden", async () => {
-    const { inputField, channelInput, channelDisplay } = buildScaffold({
+  it("ctrl+space does NOT cycle the channel when its hint is hidden", async () => {
+    const { inputField, channelInput, channelDisplay, periodDisplay } = buildScaffold({
       channels: ["@all", "@gaming"]
     })
     await waitForConnect()
     channelDisplay.classList.add("hidden") // not `list vids/games`
+    periodDisplay.classList.add("hidden")
 
-    keydown(inputField, "Tab", { shiftKey: true })
+    ctrlSpace(inputField)
 
     expect(channelInput.value).toBe("@all") // unchanged
   })
 
-  it("Shift+Space does NOT cycle the period when its hint is hidden", async () => {
-    const { inputField, periodInput, periodDisplay } = buildScaffold({
+  it("ctrl+space does NOT cycle the period when its hint is hidden", async () => {
+    const { inputField, periodInput, periodDisplay, channelDisplay } = buildScaffold({
       periods: ["7d", "28d"]
     })
     await waitForConnect()
     periodDisplay.classList.add("hidden") // not `analyze`
+    channelDisplay.classList.add("hidden")
 
-    keydown(inputField, " ", { shiftKey: true, code: "Space" })
+    ctrlSpace(inputField)
 
     expect(periodInput.value).toBe("7d") // unchanged
+  })
+
+  it("ctrl+space is INERT when neither hint is visible — no cycle, no preventDefault", async () => {
+    // The old per-scope bindings always preventDefault()'d, swallowing the
+    // keystroke even with nothing to cycle. The unified binding must let it
+    // through so ctrl+space keeps whatever meaning the browser/OS gives it
+    // outside a live scope context.
+    const { inputField, channelInput, periodInput, channelDisplay, periodDisplay } = buildScaffold()
+    await waitForConnect()
+    channelDisplay.classList.add("hidden")
+    periodDisplay.classList.add("hidden")
+
+    const notPrevented = ctrlSpace(inputField)
+
+    expect(notPrevented).toBe(true) // nothing called preventDefault()
+    expect(channelInput.value).toBe("@all")
+    expect(periodInput.value).toBe("7d")
+  })
+
+  it("ctrl+space DOES preventDefault when it actually cycles", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+
+    const notPrevented = ctrlSpace(inputField)
+
+    expect(notPrevented).toBe(false) // swallowed — it cycled the channel
+  })
+
+  // ── retired bindings ──────────────────────────────────────────────────────────
+
+  it("the retired shift+tab binding no longer cycles the channel", async () => {
+    const { inputField, channelInput, channelDisplay } = buildScaffold({
+      channels: ["@all", "@gaming"]
+    })
+    await waitForConnect()
+    channelDisplay.classList.remove("hidden") // hint visible: the ONLY thing that used to matter
+
+    const notPrevented = keydown(inputField, "Tab", { shiftKey: true })
+
+    expect(channelInput.value).toBe("@all") // unchanged
+    expect(notPrevented).toBe(true) // passes straight through now
+  })
+
+  it("the retired shift+space binding no longer cycles the period", async () => {
+    const { inputField, periodInput, periodDisplay, channelDisplay } = buildScaffold({
+      periods: ["7d", "28d"]
+    })
+    await waitForConnect()
+    channelDisplay.classList.add("hidden")
+    periodDisplay.classList.remove("hidden") // hint visible
+
+    const notPrevented = keydown(inputField, " ", { shiftKey: true, code: "Space" })
+
+    expect(periodInput.value).toBe("7d") // unchanged
+    expect(notPrevented).toBe(true) // passes straight through now
   })
 
   it("on submit, channelInput is DISABLED (omitted) when its hint is hidden", async () => {
@@ -347,16 +432,18 @@ describe("pito--chat-form controller", () => {
     expect(ctrl.periodsValue).toEqual(["7d", "28d", "3m", "1y", "lifetime"])
   })
 
-  it("Shift+Space does not cycle when unauthenticated", async () => {
-    const { inputField, periodInput } = buildScaffold({
+  it("ctrl+space does not cycle when unauthenticated", async () => {
+    const { inputField, periodInput, channelInput, channelDisplay } = buildScaffold({
       authenticated: false,
       periods: ["7d", "28d"]
     })
     await waitForConnect()
+    channelDisplay.classList.add("hidden")
 
-    keydown(inputField, " ", { shiftKey: true, code: "Space" })
+    ctrlSpace(inputField)
 
     expect(periodInput.value).toBe("7d") // unchanged
+    expect(channelInput.value).toBe("@all") // unchanged
   })
 
   // ── Cable-offline path ────────────────────────────────────────────────────────

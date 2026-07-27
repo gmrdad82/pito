@@ -4,12 +4,12 @@
 #
 #   sync vid|vids|video|videos [#id[,#id…]]
 #     Sync YouTube data for videos. With `#id`(s) → sync exactly those videos
-#     (ids win; shift+tab scope is ignored). Without ids → sync videos scoped by
-#     the shift+tab channel: @all / blank → all channels; @handle → that channel.
+#     (ids win; the channel scope is ignored). Without ids → sync videos scoped by
+#     the channel scope: @all / blank → all channels; @handle → that channel.
 #     (`only <ids>` is still accepted as a legacy id form.)
 #
 #   sync channels [with <item>[,<item>…]]
-#     Sync channel fields + stats scoped by the shift+tab channel:
+#     Sync channel fields + stats scoped by the channel scope:
 #       @all → all channels; @handle → one channel.
 #     The optional `with <items>` clause is a generic comma-list of sync
 #     targets — today just `videos` (sync the channel's uploads). Built to
@@ -123,12 +123,12 @@ module Pito
           video_ids = parse_video_ids(raw)
 
           if video_ids.any?
-            # Ids win — sync exactly these videos, ignoring the shift+tab scope.
+            # Ids win — sync exactly these videos, ignoring the channel scope.
             payload = Pito::MessageBuilder::Sync::VideosConfirmation.call(
               nil, channel_ids: [], video_ids: video_ids, conversation:
             )
           else
-            # No ids — obey the shift+tab channel scope.
+            # No ids — obey the channel scope.
             scope_label, channel_ids, error = resolve_scope
             return error if error
 
@@ -255,7 +255,7 @@ module Pito
 
         # Returns the handle string for a specific channel, or nil for @all/blank.
         # An `@handle` typed directly in the command (e.g. `sync channel @pito`)
-        # wins over the shift+tab scope, so a `sync channel @handle` click is
+        # wins over the channel scope, so a `sync channel @handle` click is
         # self-contained — mirrors `show channel @handle`. `@all` inline is not a
         # specific channel; it falls through to the all-channels path.
         def resolved_channel_handle

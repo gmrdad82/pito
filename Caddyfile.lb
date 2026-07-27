@@ -1,8 +1,8 @@
 # Caddyfile.lb — pito's internal, ALWAYS-ON load balancer between the
 # web-blue/web-green deploy slots (zero-downtime deploys, 3.6.0 — see
-# script/deploy-flip.sh). REPO-MANAGED: fetched fresh on every `pito update`,
+# script/deploy-flip.sh). REPO-MANAGED: fetched fresh on every `pito-cli update`,
 # exactly like docker-compose.yml — never hand-edit this file. The SEPARATE,
-# owner-editable ./Caddyfile (written by `pito caddy`) is for the optional
+# owner-editable ./Caddyfile (written by `pito-cli caddy`) is for the optional
 # direct-HTTPS domain block; it reverse_proxy's to lb:8080, same as here.
 #
 # No hostname on this block, so Caddy never attempts to issue a certificate

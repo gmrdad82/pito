@@ -28,12 +28,12 @@ en:
         search: "Search games, vids, or conversations. `like <x>` = related by meaning — a game/vid you name (search games like tekken → other fighters), or a free-text meaning-match for conversations (no title to name, so `like` just embeds your words); `about <x>` = free-text, vibe search with no title needed, all three nouns (search games about brutal but worth every second) — for conversations, `about` and `like` are the same search; `for <x>` = exact names/words, all three nouns (search games for tekken → games titled Tekken); no keyword at all = the same vibe search as `about` for games/vids (search games forcing skillful play — just write it), exact matching for conversations."
         ai: "Ask the AI assistant anything about your library (@ai <question>) — free text, full context, runnable suggestions back."
         update: "The one metadata setter: game footage/price/platform or vid description/tags (update game price 12 20). Vid fields stage a confirm before pushing to YouTube."
-        link: "Link a vid to its game (link 17 42 = vid 17 → game 42). Links are explicit — pito suggests after import, only you link."
+        link: "Link a vid to its game (link 17 42 = vid 17 → game 42). Links are explicit — Pito suggests after import, only you link."
         unlink: "Detach a vid from its game (unlink 17 42). Vid and game both stay; only the link goes."
-        sync: "Pull fresh data from YouTube — vids or channels (scope via shift+tab). Use when YouTube changed and pito should catch up."
+        sync: "Pull fresh data from YouTube — vids or channels (scope via ctrl+space). Use when YouTube changed and Pito should catch up."
         help: "List every follow-up target and its accepted actions — the reply-grammar cheat sheet."
         shinies: "Your achievement tracks and earned shinies for a game, vid, or channel."
-        analyze: "YouTube metrics over the shift+space period for a channel, vid, or game (analyze channel). Numbers and trends; for lifetime shape use breakdowns."
+        analyze: "YouTube metrics over the ctrl+space period for a channel, vid, or game (analyze channel). Numbers and trends; for lifetime shape use breakdowns."
         # Segment tools — each promotes one show/analyze :enhanced segment.
         "at-a-glance": "The quick pending-analytics summary for a channel, vid, or game — one screen, no deep dive (glance vid 12)."
         videos: "List a channel's vids, or the vids linked to a game (videos #game). A listing, not analytics."
@@ -45,8 +45,8 @@ en:
         # The `linked` two-word forms — the noun names what you get; the id is the OTHER entity's.
         linked: "Show what's linked — `linked game #vid` (a vid's game) or `linked vids #game` (a game's vids)"
         visit: "Open a vid's YouTube page, or a channel's YouTube page/Studio (visit vid 12 youtube). Bare `visit studio`/`visit youtube` targets your one connected channel."
-        greet: "Say hi — PITO greets you with what it can do"
-        farewell: "Say bye — PITO waves you off"
+        greet: "Say hi — Pito greets you with what it can do"
+        farewell: "Say bye — Pito waves you off"
       hashtag:
         add: "Track a metric in this conversation"
         remove: "Stop tracking a metric"

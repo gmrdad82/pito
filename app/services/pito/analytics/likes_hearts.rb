@@ -4,7 +4,7 @@ module Pito
   module Analytics
     # Computes the 1–2 likes-vs-dislikes HEARTS for an analyze scope, ALWAYS over
     # the LIFETIME window (the likes score is a lifetime verdict, independent of the
-    # message's shift+space period). Mirrors the job's `groups` model
+    # message's stats period). Mirrors the job's `groups` model
     # ([[channel, video_ids|:channel], …]) and folds likes/dislikes from the shared
     # `scalars` primitive (Pito::Analytics::Primitives), so the
     # hearts reuse whatever a glance or analyze already fetched for the scope.

@@ -39,7 +39,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
   describe "analyze channel — bare (6a)" do
     let(:raw) { "analyze channel" }
 
-    context "when shift+tab is @all" do
+    context "when the channel scope is @all" do
       let!(:channels) { create_list(:channel, 2) }
 
       it "resolves to all channels at :channel level" do
@@ -49,7 +49,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
       end
     end
 
-    context "when shift+tab is a specific channel" do
+    context "when the channel scope is a specific channel" do
       let(:channel_scope) { "@gmrdad82" }
       let!(:channel) { create(:channel, handle: "gmrdad82") }
       let!(:other)   { create(:channel, handle: "manfyhard") }
@@ -60,7 +60,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
       end
     end
 
-    context "when shift+tab names an unknown channel" do
+    context "when the channel scope names an unknown channel" do
       let(:channel_scope) { "@ghost" }
 
       it "errors with channel_not_found" do
@@ -75,7 +75,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
     let!(:a) { create(:channel, handle: "gmrdad82") }
     let!(:b) { create(:channel, handle: "manfyhard") }
 
-    it "resolves a single explicit handle, ignoring shift+tab" do
+    it "resolves a single explicit handle, ignoring the channel scope" do
       res = described_class.call(raw: "analyze channel @gmrdad82", channel_scope: "@all")
       expect(res.level).to eq(:channel)
       expect(res.scopes).to eq([ a ])
@@ -109,7 +109,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
       let!(:v1) { create(:video) }
       let!(:v2) { create(:video) }
 
-      it "resolves those vids at :vid level, ignoring shift+tab" do
+      it "resolves those vids at :vid level, ignoring the channel scope" do
         res = described_class.call(raw: "analyze vids ##{v1.id}, ##{v2.id}", channel_scope: "@all")
         expect(res.level).to eq(:vid)
         expect(res.scopes).to match_array([ v1, v2 ])
@@ -142,7 +142,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
       end
     end
 
-    context "bare `analyze games` → shift+tab channels → their linked games (6f-bis)" do
+    context "bare `analyze games` → channel-scope channels → their linked games (6f-bis)" do
       let(:channel)   { create(:channel, handle: "gmrdad82") }
       let(:other_ch)  { create(:channel, handle: "manfyhard") }
       let(:on_video)  { create(:video, channel:) }
@@ -183,7 +183,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
     let!(:a) { create(:channel, handle: "gmrdad82") }
     let!(:b) { create(:channel, handle: "manfyhard") }
 
-    it "resolves a single bare handle, ignoring shift+tab" do
+    it "resolves a single bare handle, ignoring the channel scope" do
       res = described_class.call(raw: "analyze @gmrdad82", channel_scope: "@all")
       expect(res).to be_ok
       expect(res.level).to eq(:channel)
@@ -210,7 +210,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
   describe "fuzzy handle resolution (mirrors ::Channel.resolve_handle, 3.0.1 P11)" do
     let!(:channel) { create(:channel, handle: "fighterpro") }
 
-    it "fuzzy-resolves a partial @handle via the shift+tab channel scope path" do
+    it "fuzzy-resolves a partial @handle via the channel-scope path" do
       res = described_class.call(raw: "analyze channel", channel_scope: "@fighter")
       expect(res).to be_ok
       expect(res.scopes).to eq([ channel ])
@@ -225,7 +225,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
   # Single-channel handle-skippability (owner Q51b, confirmed global
   # 2026-07-20): every @handle / channel-ref argument is optional when
   # exactly one channel is connected. ScopeResolver already defaults a bare,
-  # handle-less `channel`/`channels` noun to the shift+tab scope's ALL_SCOPE
+  # handle-less `channel`/`channels` noun to the channel scope (ctrl+space) ALL_SCOPE
   # (blank/@all → Channel.all) — with exactly one channel connected, "all
   # channels" IS that one channel, so no code change was needed here; these
   # specs prove the surfaces the owner named explicitly (`analyze`,
@@ -249,7 +249,7 @@ RSpec.describe Pito::Analytics::ScopeResolver do
         expect(res.scopes).to eq([ only_channel ])
       end
 
-      it "also resolves with a blank shift+tab scope (not just @all)" do
+      it "also resolves with a blank channel scope (not just @all)" do
         res = described_class.call(raw: "analyze channel", channel_scope: "")
         expect(res).to be_ok
         expect(res.scopes).to eq([ only_channel ])

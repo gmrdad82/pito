@@ -2,7 +2,8 @@
 //
 // Stimulus controller for the terminal chatbox form.
 // Captures Enter (no Shift) on the input target → submits via Turbo, clears input.
-// Shift+TAB cycles channels; Shift+SPACE cycles periods (authenticated only).
+// Ctrl+Space cycles the channel OR period scope, whichever the typed verb
+// context has revealed (authenticated only) — see #handleKeydown below.
 // Plain TAB is reserved for autocomplete (not handled here).
 // Enter on a bare `#<handle> apply|use|accept` intercepts BEFORE submit: stages
 // the source AI answer's suggested command instead of POSTing (see
@@ -108,22 +109,23 @@ export default class extends Controller {
         return;
       }
 
-      if (event.key === "Tab" && event.shiftKey) {
-        // shift+tab cycles the channel ONLY while its hint is visible
-        // (focused + `list vids/games`); inert otherwise.
-        event.preventDefault();
+      if (event.code === "Space" && event.ctrlKey) {
+        // ctrl+space cycles channel OR period depending on the typed verb
+        // context — chatbox-hints#mode() (verb/noun detection) already
+        // materializes that decision as DOM state: exactly one of
+        // channelDisplay/periodDisplay is visible at a time, or neither.
+        // Reading that visibility here reuses #mode()'s decision without
+        // duplicating its verb lists in this controller. event.code (not
+        // event.key) because ctrl+space's `key` value is unreliable across
+        // browsers. Inert (no preventDefault, no cycle) when neither hint
+        // is showing — unlike the old per-scope bindings, which always
+        // preventDefault()'d regardless of visibility.
         if (this.#displayVisible("channelDisplay")) {
+          event.preventDefault();
           this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay");
           this.#persistScope();
-        }
-        return;
-      }
-
-      if (event.code === "Space" && event.shiftKey) {
-        // shift+space cycles the period ONLY while its hint is visible
-        // (focused + `analyze`); inert otherwise.
-        event.preventDefault();
-        if (this.#displayVisible("periodDisplay")) {
+        } else if (this.#displayVisible("periodDisplay")) {
+          event.preventDefault();
           this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay");
           this.#persistScope();
         }
@@ -391,7 +393,7 @@ export default class extends Controller {
     return handles;
   }
 
-  // Persist the current channel scope (shift+tab) and stats period (shift+space)
+  // Persist the current channel scope and stats period (both ctrl+space)
   // to the conversation so a reload restores them. Fire-and-forget PATCH mirroring
   // pito--draft's autosave; a failure is non-fatal (the next cycle retries).
   #persistScope() {
@@ -430,8 +432,8 @@ export default class extends Controller {
   #syncHidden() {
     this.hiddenInputTarget.value = this.inputFieldTarget.value;
 
-    // Send the channel ONLY when shift+tab is visible (list vids/games), the period
-    // ONLY when shift+space is visible (analyze). A DISABLED input keeps its cycled
+    // Send the channel ONLY when channelDisplay is visible (list vids/games), the
+    // period ONLY when periodDisplay is visible (analyze). A DISABLED input keeps its cycled
     // value (so the cycling flow is preserved) but is omitted from the POST → the
     // backend falls back to its defaults (channel @all, period nil); no other
     // verb/noun evaluates channel or period.

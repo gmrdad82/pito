@@ -15,9 +15,9 @@
 #                           — ALIAS for `sync videos` (whole-channel sync). Emits
 #                              the same `:confirmation` event `sync videos` does,
 #                              so the executor enqueues SyncVideosJob on confirm.
-#                              Channel scope: shift+tab @all/blank → all channels;
+#                              Channel scope: @all/blank → all channels;
 #                              @handle → that channel. The optional `for @handle`
-#                              clause in the raw text OVERRIDES the shift+tab scope.
+#                              clause in the raw text OVERRIDES the channel scope.
 #
 # Bare `import` (no title) → opens the IGDB sidebar empty.
 module Pito
@@ -140,8 +140,8 @@ module Pito
         # Resolves channel scope for `import videos`.
         #
         # Priority:
-        #   1. `for @handle` clause in raw text → that channel (overrides shift+tab)
-        #   2. shift+tab channel filter        → specific channel or all
+        #   1. `for @handle` clause in raw text → that channel (overrides the channel scope)
+        #   2. the channel scope                → specific channel or all
         #
         # Returns [scope_label, channel_ids, nil] on success,
         #         [nil, nil, Result::Ok(error event)] on unknown handle.

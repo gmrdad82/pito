@@ -12,8 +12,9 @@ module Pito
     #     value_component: Pito::Table::LinkValueComponent.new(url: channel.youtube_channel_url)
     #   ))
     class LinkValueComponent < ViewComponent::Base
-      # The clickable-token shimmer (bold fg-default + theme-purple band, owner
-      # round 5). A per-url stagger offset keeps the two channel links out of
+      # The clickable-token shimmer (bold, pito-blue base + accent-purple band —
+      # the one canonical text band, shared with every keybinding chip since
+      # 2026-07-24). A per-url stagger offset keeps the two channel links out of
       # phase.
       DEFAULT_CLASS = "pito-action-shimmer"
 

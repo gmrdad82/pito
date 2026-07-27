@@ -3,18 +3,18 @@
 module Pito
   module Chat
     # Resolves the chronologically first or last Game or Video that matches
-    # optional filters and a shift+tab channel scope.
+    # optional filters and a channel scope.
     #
     # Used by `show first|last [<genre>] game` and
     #            `show first|last [<privacy>] vid`.
     #
-    # All-time scope — never windowed by the shift+space analytics period.
+    # All-time scope — never windowed by the ctrl+space analytics period.
     #
     # Ordering attributes:
     #   Game  → release_date ASC (first = oldest) / DESC (last = newest); NULLs last.
     #   Video → published_at  ASC / DESC;                                  NULLs last.
     #
-    # Channel scope (shift+tab):
+    # Channel scope (ctrl+space):
     #   "@all" / nil / blank → no channel filter (across all channels).
     #   "@handle"            → Game:  games linked via video_game_links to that channel's videos.
     #                          Video: that channel's videos only.

@@ -4,26 +4,31 @@
 # Pulls the latest GHCR image and applies it with a zero-downtime blue/green
 # flip (script/deploy-flip.sh) — NO git pull, no rebuild, and (after the
 # one-time slot migration below) no restart-caused outage window either. Run
-# it from the install dir, or via `./pito update`.
+# it from the install dir, or via `./pito-cli update`.
 #
 # Flags:
-#   --host URL         change the public base URL (else preserved)
+#   --port PORT        change the port pito answers on (else preserved)
 #   --tag TAG          change the image tag (else preserved)
 #   --edge             switch to / stay on edge (latest image + main CLI)
 #   --version vX.Y.Z   pin to a specific release (sets image tag + CLI ref)
 
 set -eu
 
-HOST=""; TAG=""; REF=""; CHANNEL=""; REQ_VERSION=""
+PORT=""; TAG=""; REF=""; CHANNEL=""; REQ_VERSION=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --host)    HOST="$2"; shift 2 ;;
+    --port)    PORT="$2"; shift 2 ;;
     --tag)     TAG="$2";  shift 2 ;;
+    # --host retired in 5.0.0 with the localhost-only installer — say so
+    # rather than silently accepting a base URL nothing will serve.
+    --host)
+      echo "update: --host is gone — pito answers on localhost only. Use --port PORT." >&2
+      exit 1 ;;
     --edge)    CHANNEL="edge"; shift ;;
     --version) REQ_VERSION="$2"; shift 2 ;;
     # Pattern-anchored (not a hardcoded line range) so a new flag line can
-    # never silently fall off the help again — same fix as bin/pito's usage().
+    # never silently fall off the help again — same fix as bin/pito-cli's usage().
     -h|--help) sed -n '2,/^#   --version/p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "update: unknown flag '$1'" >&2; exit 1 ;;
   esac
@@ -33,7 +38,7 @@ done
 
 # ── Single-updater lock ───────────────────────────────────────────────────────
 # One update at a time per install dir, whoever triggers it — a manual
-# `pito update`, the `pito autoupdate` timer, or a second impatient shell.
+# `pito-cli update`, the `pito-cli autoupdate` timer, or a second impatient shell.
 # flock(1) on a lockfile next to the compose file; the loser aborts politely
 # instead of racing image pulls / compose restarts. The fd stays open for the
 # script's lifetime, so the lock releases on ANY exit (success, error, kill).
@@ -56,9 +61,31 @@ env_set() {
 
 env_get() { [ -f .env ] && sed -n "s/^$1=//p" .env | head -1 || true; }
 
+# A port is 1-65535 and nothing else (mirrors script/install.sh's copy).
+valid_port() {
+  case "$1" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+# Re-parameterise the published port in the compose file we just re-fetched.
+# The repo copy hardcodes 3028; the install dir's copy is a fetched artifact,
+# so this is the installer's edit being re-applied after every refresh (see
+# script/install.sh's apply_port_binding — kept in step with it). Idempotent,
+# and a no-op once the published compose file carries ${PITO_PORT} itself.
+apply_port_binding() {
+  f="${1:-docker-compose.yml}"
+  [ -f "$f" ] || return 0
+  if grep -q 'PITO_PORT' "$f"; then return 0; fi
+  if ! grep -q '"127\.0\.0\.1:3028:8080"' "$f"; then return 0; fi
+  tmp=$(mktemp)
+  sed 's|"127\.0\.0\.1:3028:8080"|"127.0.0.1:${PITO_PORT:-3028}:8080"|' "$f" > "$tmp" && mv "$tmp" "$f"
+}
+
 # Add $1 to COMPOSE_PROFILES (comma list), dropping any token in $2
 # (space-separated — the slot's mutually-exclusive sibling, "blue green"; ""
-# for a plain additive token like "caddy", left untouched here).
+# for a plain additive token, left untouched here).
 profile_set() {
   want="$1"; exclusive="${2:-}"
   cur=$(env_get COMPOSE_PROFILES)
@@ -137,20 +164,72 @@ resolve_update
 REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/$REF"
 echo "→ Channel: $([ "$REF" = main ] && echo edge || echo "stable ($REF)") — image tag $TAG"
 
-echo "→ Refreshing docker-compose.yml + pito CLI + the load balancer's config"
+echo "→ Refreshing docker-compose.yml + pito-cli CLI (+ pito shim) + the load balancer's config"
 curl -fsSL "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
-curl -fsSL "$REPO_RAW/bin/pito" -o pito && chmod +x pito
+curl -fsSL "$REPO_RAW/bin/pito-cli" -o pito-cli && chmod +x pito-cli
+curl -fsSL "$REPO_RAW/bin/pito"     -o pito     && chmod +x pito
 curl -fsSL "$REPO_RAW/Caddyfile.lb" -o Caddyfile.lb
+apply_port_binding docker-compose.yml
 
-# Ensure `pito` is on PATH (best-effort) so it runs bare from anywhere. Skip the
-# sudo prompt when it's already linked here.
-if [ "$(readlink /usr/local/bin/pito 2>/dev/null)" != "$PWD/pito" ]; then
-  sudo ln -sf "$PWD/pito" /usr/local/bin/pito 2>/dev/null \
-    && echo "→ Linked /usr/local/bin/pito → $PWD/pito (run 'pito' from anywhere)" || true
+# ── the one-release `pito` shim — linked only when nothing else owns `pito` ──
+# `pito` is the terminal client's command name now (pito-tui ships its binary,
+# its .deb and its Homebrew formula under it — and on Intel macOS that formula
+# writes /usr/local/bin/pito, this exact path). Our shim is a one-release
+# courtesy for fingers that still type `pito` for the operator CLI, so it must
+# never win a fight it didn't pick: link it onto a free name, or over a shim we
+# placed ourselves (a symlink to a `pito` sitting beside a `pito-cli` — an
+# install dir of this stack; a Homebrew Cellar link can't match that). A `pito`
+# already resolvable further down PATH (the client's .deb lands one in
+# /usr/bin, which /usr/local/bin precedes) is left unshadowed for the same
+# reason: losing the courtesy beats hiding the client behind a deprecation
+# notice. This whole function goes when the shim does, next release.
+# NOTE: kept byte-identical with script/install.sh's copy (both scripts run
+# standalone via curl | sh, so they can't share a file) — a spec pins that.
+link_pito_shim() {
+  shim_dir="${PITO_BIN_DIR:-/usr/local/bin}"   # overridable so the spec can drive this
+  shim_target="$shim_dir/pito"
+  [ -f "$PWD/pito" ] || return 0
+  if [ -e "$shim_target" ] || [ -L "$shim_target" ]; then
+    shim_cur=$(readlink "$shim_target" 2>/dev/null || true)
+    if [ "${shim_cur##*/}" != "pito" ] || [ ! -f "${shim_cur%/pito}/pito-cli" ]; then
+      printf '%s\n' "!  $shim_target is not ours — left untouched (that's the pito terminal client). The operator CLI is 'pito-cli'." >&2
+      return 0
+    fi
+  else
+    shim_other=$(command -v pito 2>/dev/null || true)
+    if [ -n "$shim_other" ] && [ "$shim_other" != "$shim_target" ]; then
+      printf '%s\n' "!  'pito' already resolves to $shim_other — not shadowing it. The operator CLI is 'pito-cli'." >&2
+      return 0
+    fi
+  fi
+  sudo ln -sf "$PWD/pito" "$shim_target" 2>/dev/null || true
+}
+
+# Ensure `pito-cli` is on PATH (best-effort) so it runs bare from anywhere. Skip
+# the sudo prompt when it's already linked here. Also (best-effort, and only
+# when nothing else owns the name — see above) keep the deprecated `pito` shim
+# linked for one release.
+if [ "$(readlink /usr/local/bin/pito-cli 2>/dev/null)" != "$PWD/pito-cli" ]; then
+  sudo ln -sf "$PWD/pito-cli" /usr/local/bin/pito-cli 2>/dev/null \
+    && echo "→ Linked /usr/local/bin/pito-cli → $PWD/pito-cli (run 'pito-cli' from anywhere)" || true
 fi
+link_pito_shim
 
 env_set PITO_REF "$REF"
-[ -n "$HOST" ] && env_set PITO_APP_BASE_URL "$HOST"
+if [ -n "$PORT" ]; then
+  if ! valid_port "$PORT"; then
+    echo "update: '$PORT' is not a port number (1-65535)." >&2
+    exit 1
+  fi
+  env_set PITO_PORT "$PORT"
+  env_set PITO_APP_BASE_URL "http://localhost:$PORT"
+fi
+# Installs made before 5.0.0 have no PITO_PORT — seed it with the port the
+# compose file was already publishing so the refreshed, now-parameterised
+# binding keeps answering where it always did instead of quietly moving.
+if ! grep -q '^PITO_PORT=' .env 2>/dev/null; then
+  env_set PITO_PORT "${PORT:-3028}"
+fi
 
 # ── One-time migration to blue/green deploy slots (3.6.0) ────────────────────
 # Installs from before this feature have no PITO_ACTIVE_SLOT. Seed it —
@@ -207,7 +286,7 @@ if [ "$MIGRATING" = 1 ]; then
   fi
   # Written LAST, once the new shape is actually up: PITO_ACTIVE_SLOT is the
   # migration marker (the grep above), so a failed bounce leaves it absent
-  # and the next `pito update` re-runs this whole (idempotent) migration
+  # and the next `pito-cli update` re-runs this whole (idempotent) migration
   # instead of skipping it half-done.
   env_set PITO_ACTIVE_SLOT blue
   echo "→ Now delivering $TAG via a zero-downtime flip"

@@ -1,0 +1,265 @@
+#!/usr/bin/env sh
+# bin/pito-cli — the pito operator CLI for the Docker stack.
+#
+# Self-contained: needs only Docker (+ Compose) and a docker-compose.yml — no
+# repo checkout and no host Ruby. It drives `docker compose` against the compose
+# file next to it (an install dir) or one level up (this repo's bin/pito-cli), so the
+# same script works whether it was cloned or fetched by script/install.sh.
+#
+# Native development is unaffected — keep using bin/dev / bin/rails / bin/setup.
+#
+# Usage: pito-cli <command> [args]
+#   up [args]         Start the stack (docker compose up). `-d` to detach.
+#   down [args]       Stop the stack (docker compose down).
+#   boot [args]       Alias for `up`.
+#   totp              Enroll / re-enroll the owner's TOTP (prints the otpauth URI).
+#   console           Open a Rails console in the ACTIVE deploy slot's container.
+#   logs [args]       Tail container logs (default: follow the active slot). e.g. pito-cli logs --tail 50
+#   rake [task ...]   No task → list pito:* tasks; with a task → run it in-container.
+#   clean             Clear regenerable tmp + dev logs (pito:clean).
+#   backup [--list]   Back up DB + assets to ./backups/<ts>/ (keeps newest PITO_BACKUP_KEEP, default 7); --list shows existing.
+#   restore <dir>     Restore a backup dir (DB + assets) over the live stack (destructive, prompts).
+#   backup-schedule   Install a daily systemd timer that runs `pito-cli backup`.
+#   install [args]    Fetch + first-boot a fresh install (script/install.sh).
+#                     Pito answers on localhost; `--port PORT` picks which one.
+#   update [args]     Pull the latest image + apply it with a zero-downtime
+#                     blue/green flip (script/update.sh → script/deploy-flip.sh).
+#   deploy-flip <tag> Run the zero-downtime flip directly (manual/debug use —
+#                     `pito-cli update` already calls this for you).
+#   autoupdate [args] Keep this install on the newest release unattended:
+#                     bare = check/update once; --check = dry-run;
+#                     --install / --uninstall = 15-min systemd timer + logrotate.
+#   build [args]      Build the image LOCALLY from a source checkout, tagged
+#                     ghcr.io/gmrdad82/pito:${PITO_TAG:-local}. Deploy it into
+#                     an install dir's IDLE slot by setting PITO_TAG_BLUE or
+#                     PITO_TAG_GREEN to that tag + `docker compose up -d
+#                     web-<slot>` (NOT `pito-cli update`, which pulls from GHCR).
+#                     Same Docker host.
+#   self-update       Refresh just pito-cli from the repo (no image pull, no
+#                     restart — your running stack/data is untouched). (alias: cli-update)
+#   service [args]    Install/uninstall a systemd unit (reboot-persistence).
+#   link              Symlink pito-cli onto your PATH so it runs as a bare `pito-cli` (plus a one-release `pito` shim).
+#   version           Show the running stack version + channel (stable/edge).
+#   --help            This help.
+
+set -eu
+
+# ── Locate the compose project dir ──────────────────────────────────────────
+CDPATH=''  # neutralize CDPATH so `cd` never prints or jumps unexpectedly
+# Resolve symlinks so an on-PATH symlink (e.g. /usr/local/bin/pito-cli → install dir)
+# still finds the real install dir where docker-compose.yml lives. POSIX (no
+# `readlink -f`, which BSD/macOS lacks): follow the chain by hand.
+self="$0"
+while [ -L "$self" ]; do
+  target=$(readlink "$self")
+  case "$target" in
+    /*) self="$target" ;;
+    *)  self="$(dirname -- "$self")/$target" ;;
+  esac
+done
+SCRIPT_DIR=$(cd -- "$(dirname -- "$self")" && pwd)
+if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+  PROJECT_DIR="$SCRIPT_DIR"                       # install dir: pito-cli next to compose
+elif [ -f "$SCRIPT_DIR/../docker-compose.yml" ]; then
+  PROJECT_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)    # repo: bin/pito-cli → repo root
+else
+  echo "pito-cli: docker-compose.yml not found near $SCRIPT_DIR" >&2
+  exit 1
+fi
+cd "$PROJECT_DIR"
+
+dc() { docker compose "$@"; }
+
+# The currently-active blue/green deploy slot's service name (see
+# script/deploy-flip.sh) — every command below that used to hardcode `web`
+# targets this instead, so it always reaches whichever slot is actually
+# serving traffic. Defaults to blue (matches a fresh install / an
+# install.sh-seeded .env).
+active_slot=$(sed -n 's/^PITO_ACTIVE_SLOT=//p' .env 2>/dev/null | head -1); active_slot="${active_slot:-blue}"
+WEB_SVC="web-$active_slot"
+
+# Run a helper script (install.sh / update.sh). In a repo checkout it lives under
+# script/; in a fetched install dir it doesn't, so pull it from the repo first.
+# shellcheck disable=SC2034  # kept for reference; fetch now uses $ref from .env
+REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/main"
+run_script() {
+  name="$1"; shift
+  if [ -f "$PROJECT_DIR/script/$name" ]; then
+    exec sh "$PROJECT_DIR/script/$name" "$@"
+  fi
+  command -v curl >/dev/null 2>&1 || { echo "pito-cli: curl is required to fetch script/$name" >&2; exit 1; }
+  ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
+  tmp=$(mktemp)
+  curl -fsSL "https://raw.githubusercontent.com/gmrdad82/pito/$ref/script/$name" -o "$tmp" || { echo "pito-cli: failed to fetch script/$name" >&2; exit 1; }
+  exec sh "$tmp" "$@"
+}
+
+usage() {
+  # Print the whole usage comment block (line 3 → the `--help` line) so new
+  # commands never fall off a hardcoded line range again (pre-1.0 bug: the
+  # help silently truncated after self-update).
+  sed -n '3,/^#   --help/p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+}
+
+cmd="${1:-}"
+[ $# -gt 0 ] && shift || true
+
+case "$cmd" in
+  up|boot)   dc up "$@" ;;
+  down)      dc down "$@" ;;
+  totp)      dc run --rm "$WEB_SVC" bin/rails pito:totp ;;
+  console)   dc exec "$WEB_SVC" bin/rails console ;;
+  logs)
+    if [ $# -eq 0 ]; then dc logs -f --tail=200 "$WEB_SVC"; else dc logs "$@"; fi
+    ;;
+  rake)
+    if [ $# -eq 0 ]; then dc exec "$WEB_SVC" bin/rails -T pito; else dc exec "$WEB_SVC" bin/rails "$@"; fi
+    ;;
+  clean)     dc exec "$WEB_SVC" bin/rails pito:clean ;;
+  backup)
+    BACKUP_DIR="${PITO_BACKUP_DIR:-backups}"
+    if [ "${1:-}" = "--list" ]; then
+      if ! ls -d "$BACKUP_DIR"/*/ >/dev/null 2>&1; then
+        echo "No backups yet in $BACKUP_DIR. Run 'pito-cli backup' to create one."
+        exit 0
+      fi
+      printf '%-28s  %12s  %12s\n' "TIMESTAMP" "DATABASE" "ASSETS"
+      # shellcheck disable=SC2012
+      ls -1dt "$BACKUP_DIR"/*/ | while IFS= read -r d; do
+        ts=$(basename "$d")
+        db=$(du -h "$d/database.sql.gz" 2>/dev/null | cut -f1)
+        db="${db:--}"
+        assets_sz=$(du -h "$d/active_storage.tar.gz" 2>/dev/null | cut -f1)
+        assets_sz="${assets_sz:--}"
+        printf '%-28s  %12s  %12s\n' "$ts" "$db" "$assets_sz"
+      done
+      exit 0
+    fi
+    dest="$BACKUP_DIR/$(date +%Y-%m-%d_%H-%M-%S)"
+    mkdir -p "$dest"
+    echo "Backing up to $dest"
+    dc exec -T postgres pg_dump -U pito --no-owner --no-privileges pito_production | gzip > "$dest/database.sql.gz"
+    dc exec -T "$WEB_SVC" tar cf - -C /var/lib/pito-assets . | gzip > "$dest/active_storage.tar.gz"
+    echo "Done. Backup at $dest"
+    ls -lh "$dest"
+    N="${PITO_BACKUP_KEEP:-7}"
+    # shellcheck disable=SC2012
+    ls -1dt "$BACKUP_DIR"/*/ 2>/dev/null | tail -n +$((N+1)) | xargs -r rm -rf
+    echo "Pruned old backups; keeping newest $N."
+    ;;
+  restore)
+    dir="${1:-}"
+    if [ -z "$dir" ]; then
+      echo "Usage: pito-cli restore <backup-dir>   (see 'pito-cli backup --list')" >&2
+      exit 1
+    fi
+    if [ ! -d "$dir" ]; then
+      echo "pito-cli restore: '$dir' is not a directory." >&2
+      exit 1
+    fi
+    missing=""
+    [ -f "$dir/database.sql.gz" ]        || missing="$missing database.sql.gz"
+    [ -f "$dir/active_storage.tar.gz" ]  || missing="$missing active_storage.tar.gz"
+    if [ -n "$missing" ]; then
+      echo "pito-cli restore: missing from $dir:$missing" >&2
+      exit 1
+    fi
+    echo "WARNING: this will overwrite the current database and assets with the backup at $dir."
+    printf 'Restore %s over the live stack? This OVERWRITES current data. [y/N]: ' "$dir"
+    read -r ans </dev/tty || ans=n
+    case "$ans" in
+      y|Y) ;;
+      *) echo "Aborted."; exit 0 ;;
+    esac
+    echo "Restoring database…"
+    gunzip -c "$dir/database.sql.gz" | dc exec -T postgres psql -U pito -d pito_production
+    echo "Restoring assets…"
+    gunzip -c "$dir/active_storage.tar.gz" | dc exec -T "$WEB_SVC" tar xf - -C /var/lib/pito-assets
+    if command -v systemctl >/dev/null 2>&1 && systemctl cat pito.service >/dev/null 2>&1; then
+      echo "Restarting pito service…"
+      sudo systemctl restart pito
+    else
+      echo "Restored. Restart the stack: docker compose up -d (or your service)."
+    fi
+    ;;
+  backup-schedule)
+    if ! command -v systemctl >/dev/null 2>&1; then
+      echo "backup-schedule needs systemd (systemctl not found). On non-systemd hosts, run 'pito-cli backup' from cron instead." >&2
+      exit 1
+    fi
+    run_script install.sh --backup-timer-only "$@"
+    ;;
+  install)   run_script install.sh "$@" ;;
+  update)    run_script update.sh "$@" ;;
+  autoupdate) run_script autoupdate.sh "$@" ;;
+  deploy-flip) run_script deploy-flip.sh "$@" ;;
+  build)
+    # Build the production image LOCALLY from a source checkout (needs the
+    # Dockerfile + repo context). Tags it ghcr.io/gmrdad82/pito:${PITO_TAG:-local}
+    # — an install dir's web-blue/web-green pick it up via PITO_TAG_BLUE /
+    # PITO_TAG_GREEN. Default tag `local` so a hand-built image never
+    # collides with a published release tag. Plain `docker build` (not
+    # `docker compose build`) on purpose: the blue/green slots tag their
+    # image from PER-SLOT vars, not the bare PITO_TAG this command uses, so
+    # there's no single compose service left to target.
+    if [ ! -f "$PROJECT_DIR/Dockerfile" ]; then
+      echo "pito-cli build: no Dockerfile in $PROJECT_DIR — run this from a pito source checkout." >&2
+      echo "  git clone https://github.com/gmrdad82/pito && cd pito && PITO_TAG=local pito-cli build" >&2
+      exit 1
+    fi
+    PITO_TAG="${PITO_TAG:-local}"
+    echo "Building ghcr.io/gmrdad82/pito:$PITO_TAG locally…"
+    docker build -t "ghcr.io/gmrdad82/pito:$PITO_TAG" --build-arg "PITO_VERSION=${PITO_VERSION:-}" "$@" "$PROJECT_DIR"
+    echo
+    echo "Built ghcr.io/gmrdad82/pito:$PITO_TAG"
+    echo "Deploy it from your install dir (SAME Docker host) into the IDLE slot, e.g.:"
+    echo "  1) set  PITO_TAG_GREEN=$PITO_TAG  in <install-dir>/.env  (swap _GREEN for _BLUE if that's idle)"
+    echo "  2) cd <install-dir> && docker compose up -d web-green   # runs the local image, no pull"
+    echo "Note: use 'docker compose up -d web-<slot>' directly (NOT 'pito-cli update'/'pito-cli deploy-flip'"
+    echo "— those pull from GHCR and would replace it)."
+    ;;
+  self-update|cli-update)
+    # Refresh ONLY pito-cli from the repo — no image pull, no restart, stack
+    # and data untouched. (`pito-cli update` also does this, but pulls + restarts.)
+    if [ -d "$PROJECT_DIR/.git" ]; then
+      echo "pito-cli $cmd: this is a source checkout — update the CLI with git, not a fetch." >&2
+      exit 1
+    fi
+    command -v curl >/dev/null 2>&1 || { echo "pito-cli: curl is required" >&2; exit 1; }
+    ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
+    echo "Updating pito-cli from $ref (no image pull)…"
+    tmp=$(mktemp)
+    if curl -fsSL "https://raw.githubusercontent.com/gmrdad82/pito/$ref/bin/pito-cli" -o "$tmp"; then
+      chmod +x "$tmp" && mv "$tmp" "$self"
+      echo "pito-cli updated. Stack untouched."
+    else
+      rm -f "$tmp"; echo "pito-cli: CLI update failed" >&2; exit 1
+    fi
+    ;;
+  service)   run_script install.sh --service-only "$@" ;;
+  link)      run_script install.sh --link-only "$@" ;;
+  version|--version|-v)
+    tag=$(sed -n 's/^PITO_TAG=//p' .env 2>/dev/null | head -1); tag="${tag:-latest}"
+    ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
+    case "$ref" in main|"") channel="edge" ;; *) channel="stable" ;; esac
+    # Prefer the actual image the ACTIVE slot runs; fall back to the ghcr ref.
+    img=$(dc images -q "$WEB_SVC" 2>/dev/null | head -1)
+    [ -z "$img" ] && img="ghcr.io/gmrdad82/pito:$tag"
+    ver=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$img" 2>/dev/null)
+    rev=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$img" 2>/dev/null)
+    [ -z "$ver" ] && ver="$tag"
+    printf 'pito %s (%s)\n' "$ver" "$channel"
+    printf '  active slot: %s\n' "$WEB_SVC"
+    if [ -n "$rev" ]; then
+      printf '  image: ghcr.io/gmrdad82/pito:%s  (rev %s)\n' "$tag" "$(printf '%s' "$rev" | cut -c1-8)"
+    else
+      printf '  image: ghcr.io/gmrdad82/pito:%s\n' "$tag"
+    fi
+    case "$channel" in stable) printf '  cli:   %s\n' "$ref" ;; *) printf '  cli:   main (rolling)\n' ;; esac
+    ;;
+  ""|-h|--help|help) usage ;;
+  *)
+    echo "pito-cli: unknown command '$cmd'. Run 'pito-cli --help'." >&2
+    exit 1
+    ;;
+esac

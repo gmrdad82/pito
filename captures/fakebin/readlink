@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# FAKE readlink — for cast recording ONLY. Passes through to the real
+# readlink for everything except update.sh's two /usr/local/bin symlink
+# probes (`readlink /usr/local/bin/pito-cli` / `/usr/local/bin/pito`). Those
+# exist only to decide whether a re-link (+ message) is needed; since fake
+# sudo never creates a real symlink there (see fakebin/sudo), answer as if
+# the install cast's earlier "Linked" step already succeeded — pointing at
+# THIS install dir (cwd) — so update.sh's re-link branch is silently skipped
+# instead of reprinting a link message that would leak this scratchpad's tmp
+# path into the cast. Never touches /usr/local/bin for real.
+case "$*" in
+  "/usr/local/bin/pito-cli") printf '%s/pito-cli\n' "$PWD"; exit 0 ;;
+  "/usr/local/bin/pito")     printf '%s/pito\n' "$PWD"; exit 0 ;;
+esac
+exec /usr/bin/readlink "$@"

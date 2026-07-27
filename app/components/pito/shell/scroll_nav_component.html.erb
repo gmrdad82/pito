@@ -12,7 +12,7 @@
     <div class="pito-scroll-nav__pill pito-scroll-nav__pill--top">
       <span class="text-fg-default" data-scroll-nav-count></span>
       <span class="<%= token_class("ctrl+home") %> cursor-pointer"
-            data-action="click->pito--scroll-nav#jumpTop">ctrl+home</span>
+            data-action="click->pito--scroll-nav#jumpTop"><%= token_glyph("ctrl+home") %></span>
       <span class="text-fg-dim"><%= jump_to_start %></span>
     </div>
   </template>
@@ -22,7 +22,7 @@
     <div class="pito-scroll-nav__pill pito-scroll-nav__pill--bottom">
       <span class="text-fg-default" data-scroll-nav-count></span>
       <span class="<%= token_class("ctrl+end") %> cursor-pointer"
-            data-action="click->pito--scroll-nav#jumpBottom">ctrl+end</span>
+            data-action="click->pito--scroll-nav#jumpBottom"><%= token_glyph("ctrl+end") %></span>
       <span class="text-fg-dim"><%= jump_to_end %></span>
     </div>
   </template>

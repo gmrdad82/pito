@@ -73,7 +73,7 @@ module Pito
     class Router
       # @param input          [String]            the raw command / reconstructed reply text.
       # @param conversation   [Conversation]      the active conversation.
-      # @param channel        [String, nil]       shift+tab channel scope.
+      # @param channel        [String, nil]       channel scope (ctrl+space).
       # @param period         [String, nil]       analytics window (e.g. "28d").
       # @param follow_up      [Pito::Chat::FollowUpContext, nil] present on `#<handle>` replies.
       # @param viewport_width [Integer, String, nil] scrollback width for list auto-fill.

@@ -3,7 +3,7 @@
 module Pito
   module Analytics
     # Computes a VIEWS-WEIGHTED average of a per-day YouTube average metric, with
-    # ADAPTIVE time bucketing over a shift+space window.
+    # ADAPTIVE time bucketing over a stats-period window.
     #
     # `value_key` picks which YouTube per-day average to weight:
     #   :average_view_duration   → avg view duration (seconds)   [default]

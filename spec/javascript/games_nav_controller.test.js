@@ -3,7 +3,7 @@
 // Vitest suite for pito--games-nav Stimulus controller.
 //
 // Strategy: mount the real controller on a jsdom document using the same
-// Stimulus-Application pattern as theme_nav_controller.test.js.
+// Stimulus-Application pattern shared by the *_nav controller tests.
 //
 // COVERAGE
 //   - connect() highlights first row

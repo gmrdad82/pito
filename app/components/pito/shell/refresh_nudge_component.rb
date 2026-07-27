@@ -29,27 +29,18 @@ module Pito
       # The reload affordance, by platform: touch devices (the Android
       # shell has no keyboard and no refresh button — pull-to-refresh is
       # deliberately OFF) get "Tap here" (the nudge itself is tappable);
-      # Macs get ⌘R; everyone else Ctrl+R (F5 lives too). Sniffed server-side
-      # so the rendered string stays fully resolved from the dictionary; the
-      # dictionary's %{combo} lines are article-free so all three read well.
+      # everyone else — Mac included — gets Ctrl+R (F5 lives too). Owner
+      # 2026-07-24: the Mac cmd-swap DISPLAY is retired app-wide, so this no
+      # longer sniffs for Mac to show ⌘R; the combo is Ctrl-based for every
+      # keyboard, regardless of the OS actually bound to Cmd+R.
       def combo
-        if touch?
-          "Tap here"
-        elsif mac?
-          "⌘R"
-        else
-          "Ctrl+R (or F5)"
-        end
+        touch? ? "Tap here" : "Ctrl+R (or F5)"
       end
 
       private
 
       def touch?
         helpers.request.user_agent.to_s.match?(/Android|iPhone|iPad|Mobile/)
-      end
-
-      def mac?
-        helpers.request.user_agent.to_s.match?(/Mac OS X|Macintosh/)
       end
     end
   end

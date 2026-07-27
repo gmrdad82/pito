@@ -72,7 +72,7 @@ module Pito
       # Pito::Notifications::Source::PrivateReminder) and rides in `data.title`
       # ONLY when present; a blank title is omitted entirely rather than sent
       # as "" (FCM data values must be strings, and an empty title is not a
-      # value worth shipping — the Android side falls back to "PITO" when the
+      # value worth shipping — the Android side falls back to "Pito" when the
       # key is absent). Never raises — see file header Outcome contract.
       def call(token:, message:, level: "info", title: nil)
         return disabled_outcome unless configured?

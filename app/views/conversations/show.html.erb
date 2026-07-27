@@ -32,8 +32,8 @@
             conversation_name: (@conversation.named? ? @conversation.display_name : nil)
           ) %>
     <% end %>
-    <%# Restore the conversation's last channel scope (shift+tab) and stats period
-        (shift+space) so a reload keeps them; the chat-form controller persists
+    <%# Restore the conversation's last channel scope and stats period
+        (both ctrl+space) so a reload keeps them; the chat-form controller persists
         each change back via PATCH /chat/:uuid. %>
     <% filter = Current.session.present? ? {
          channel: @channels.any? ? @conversation.scope_channel : "none",

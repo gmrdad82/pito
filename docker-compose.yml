@@ -37,8 +37,8 @@ volumes:
 x-web-common: &web-common
   # Self-hosters pull this prebuilt image from GHCR (docker compose pull); no
   # source checkout needed. `build: .` stays as a fallback so a repo checkout
-  # can still `docker compose up --build` (or `pito build`, which now builds
-  # straight from the Dockerfile — see bin/pito).
+  # can still `docker compose up --build` (or `pito-cli build`, which now builds
+  # straight from the Dockerfile — see bin/pito-cli).
   build:
     context: .
     dockerfile: Dockerfile
@@ -170,7 +170,7 @@ services:
   # script/deploy-flip.sh just starts the idle slot, waits for it to answer
   # healthy, then stops the old one, and `lb`'s own health check follows
   # along on its next probe. Config lives in ./Caddyfile.lb — a REPO-MANAGED
-  # file refreshed on every `pito update` (like docker-compose.yml itself),
+  # file refreshed on every `pito-cli update` (like docker-compose.yml itself),
   # never hand-edited — that's ./Caddyfile below (the SEPARATE
   # owner-editable file for the optional direct-HTTPS `caddy` service).
   lb:
@@ -255,6 +255,27 @@ services:
     # silently swaps the inference build out from under a running fleet.
     # This digest is what production runs today.
     image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
+    #
+    # ⚠️ INVARIANT — q8_0 STAYS (P10, 5.0.0). Do not "upgrade" this to an
+    # fp16 GGUF. Four reasons, and the last one is unrecoverable:
+    #
+    #   1. `-qat-` means the weights were Quantisation-Aware Trained: 8-bit
+    #      is this model's INTENDED shipping format, not a compromise.
+    #   2. This container is CPU-only by design and capped at `mem_limit:
+    #      1g` below. fp16 is ~600MB of weights against ~300MB — close
+    #      enough to the cap to fall over under load.
+    #   3. On CPU, q8_0 is FASTER than fp16: integer kernels are optimised
+    #      (AVX2/AVX-512) while fp16 gets widened to fp32 for the actual
+    #      arithmetic anyway. It would be bigger AND slower.
+    #   4. Changing precision changes the VECTOR SPACE. Every embedding
+    #      already stored in production would have to be recomputed — the
+    #      whole corpus — before search returned sane results again. There
+    #      is no gradual migration; the two spaces cannot be mixed.
+    #
+    # Studio (pito-tui) uses fp16 for its own transcript index. That is a
+    # GPU-native, brand-new index with nothing to migrate, and it is a
+    # SEPARATE vector space — never merge the two without re-embedding one
+    # side. One vector space per table, always.
     command: -hf ggml-org/embeddinggemma-300m-qat-q8_0-GGUF --embeddings --host 0.0.0.0 --port 8081
     restart: unless-stopped
     mem_limit: 1g
@@ -306,11 +327,11 @@ services:
   # (automatic Let's Encrypt) and reverse-proxies to `lb` — the internal load
   # balancer above, which fronts the web-blue/web-green deploy slots — over
   # the compose network. OFF by default — it runs only when
-  # COMPOSE_PROFILES contains "caddy" in .env (written by `pito caddy`,
+  # COMPOSE_PROFILES contains "caddy" in .env (written by `pito-cli caddy`,
   # which also writes ./Caddyfile; the blue/green slot profile, "blue" or
   # "green", rides alongside it in the same comma-separated var — see
   # script/install.sh). Living in THIS file (not an override) is deliberate:
-  # `pito update` re-fetches docker-compose.yml from the repo, so an
+  # `pito-cli update` re-fetches docker-compose.yml from the repo, so an
   # override would be wiped while a profile survives — .env is always
   # preserved. Requires ports 80/443 open and the domain's DNS A record
   # pointing at this host.

@@ -17,7 +17,7 @@ module Pito
     #     that pass is what warms the breakdown bars and retention).
     #
     # Period tokens: "7d" is the conversation default (conversations.stats_period),
-    # "28d" the common shift+space window (the bench's canonical token —
+    # "28d" the common stats-period window (the bench's canonical token —
     # lib/pito/bench/steps/cold_paths.rb). Live windows expire after 4h
     # (Window policy), so warmth depends on the AnalyticsWarmupJob cadence.
     #

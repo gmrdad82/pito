@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# PATCH /chat/:uuid with scope params (shift+tab channel scope / shift+space
+# PATCH /chat/:uuid with scope params (ctrl+space channel scope /
 # stats period). Persists onto the conversation so a reload restores them.
 #   scope save → 204, persists scope_channel/stats_period, no Turbo Stream,
 #                title + draft untouched.

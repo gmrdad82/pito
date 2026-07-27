@@ -41,6 +41,13 @@ services:
     # silently swaps the inference build out from under a running fleet.
     # This digest is what production runs today.
     image: ghcr.io/ggml-org/llama.cpp@sha256:6bc9134e3278a0ecab23d7ef2f6a46b4595740014fe9bc2f67e8ba7dca8395b4
+    # ⚠️ INVARIANT — q8_0 STAYS (P10, 5.0.0), and dev must MATCH production
+    # exactly: a dev box embedding at a different precision produces vectors
+    # from a different space, so anything compared across the two is
+    # meaningless. Full reasoning sits beside the same line in
+    # docker-compose.yml. Short version: `-qat-` means 8-bit is the intended
+    # format, fp16 is bigger AND slower on CPU, and switching would require
+    # re-embedding the entire production corpus.
     command: -hf ggml-org/embeddinggemma-300m-qat-q8_0-GGUF --embeddings --host 0.0.0.0 --port 8081
     ports:
       - "127.0.0.1:8091:8081"

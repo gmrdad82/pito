@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # Persist the per-conversation chatbox scope so a reload restores it:
-#   scope_channel — the shift+tab channel filter (e.g. "@all", "@manfygreats")
-#   stats_period  — the shift+space stats window (e.g. "7d", "28d", "lifetime")
+#   scope_channel — the channel filter (ctrl+space; e.g. "@all", "@manfygreats")
+#   stats_period  — the stats window (ctrl+space; e.g. "7d", "28d", "lifetime")
 # Both carry sensible defaults so existing rows and new conversations start at
 # "@all" / "7d" with no backfill job.
 class AddScopeToConversations < ActiveRecord::Migration[8.1]

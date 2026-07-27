@@ -439,7 +439,7 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       expect(result.events.first[:payload]["table_rows"]).to be_nil
     end
 
-    it "filters to `only @handles` (union), overriding the shift+tab scope" do
+    it "filters to `only @handles` (union), overriding the channel scope" do
       mine   = create(:channel, handle: "@mine")
       theirs = create(:channel, handle: "@theirs")
       create(:video, channel: mine,   privacy_status: :private, publish_at: 2.days.from_now, title: "Mine")

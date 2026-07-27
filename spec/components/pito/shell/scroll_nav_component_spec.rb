@@ -42,14 +42,14 @@ RSpec.describe Pito::Shell::ScrollNavComponent do
     expect(token.first["class"]).to include("pito-action-shimmer")
   end
 
-  it "labels the top token ctrl+home" do
+  it "labels the top token ctrl+Home, glyph-formatted" do
     token = node.css("[data-action='click->pito--scroll-nav#jumpTop']")
-    expect(token.text).to eq("ctrl+home")
+    expect(token.text).to eq("ctrl+Home")
   end
 
-  it "labels the bottom token ctrl+end" do
+  it "labels the bottom token ctrl+End, glyph-formatted" do
     token = node.css("[data-action='click->pito--scroll-nav#jumpBottom']")
-    expect(token.text).to eq("ctrl+end")
+    expect(token.text).to eq("ctrl+End")
   end
 
   # ── Jump copy (1-variant, server-rendered) ───────────────────────────────────

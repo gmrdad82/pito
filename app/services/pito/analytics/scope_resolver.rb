@@ -3,21 +3,21 @@
 module Pito
   module Analytics
     # Resolves an `analyze` command into the set of scope entities to analyze and
-    # the presentation level, applying the owner's shift+tab (channel scope) and
-    # entity-argument rules. The shift+space PERIOD is NOT resolved here — it is
-    # threaded separately to the fetch/aggregation layer.
+    # the presentation level, applying the owner's channel-scope (ctrl+space) and
+    # entity-argument rules. The PERIOD (also ctrl+space) is NOT resolved here —
+    # it is threaded separately to the fetch/aggregation layer.
     #
     # Rules:
     #   bare `analyze`              → :suggest (show options; do nothing)
-    #   analyze channel            → shift+tab (@all → all channels; else that one)
-    #   analyze channel @h         → that channel (ignore shift+tab)
-    #   analyze channels @h1,@h2   → those channels (ignore shift+tab)
+    #   analyze channel            → the channel scope (@all → all channels; else that one)
+    #   analyze channel @h         → that channel (ignore the channel scope)
+    #   analyze channels @h1,@h2   → those channels (ignore the channel scope)
     #   analyze @h                 → same as `analyze channel @h` (no noun
     #                                needed — a bare @handle is unambiguous)
-    #   analyze vids               → == analyze channel (shift+tab)
-    #   analyze vids #1,#2         → those vids (ignore shift+tab)
+    #   analyze vids               → == analyze channel (the channel scope)
+    #   analyze vids #1,#2         → those vids (ignore the channel scope)
     #   analyze games #1,#2        → those games (presented at game level)
-    #   analyze games (no ids)     → shift+tab channels → their videos → linked games
+    #   analyze games (no ids)     → the channel scope's channels → their videos → linked games
     #
     # Result:
     #   status  :ok | :suggest | :error
@@ -84,7 +84,7 @@ module Pito
           return ok(:game, games)
         end
 
-        # bare `games` → shift+tab channels → their videos → linked games
+        # bare `games` → the channel scope's channels → their videos → linked games
         channels, error_result = scope_channel_records
         return error_result if error_result
 
@@ -96,9 +96,9 @@ module Pito
         ok(:game, games)
       end
 
-      # ── shift+tab channel scope ──────────────────────────────────────────────────
+      # ── channel scope (ctrl+space) ────────────────────────────────────────────────
 
-      # :ok at :channel level from the shift+tab scope (bare `channel` and bare `vids`).
+      # :ok at :channel level from the channel scope (bare `channel` and bare `vids`).
       def scope_channels
         channels, error_result = scope_channel_records
         return error_result if error_result
@@ -141,7 +141,7 @@ module Pito
       end
 
       # Numeric refs: `#1`, `1`, comma- or space-separated. A period token never
-      # appears in an analyze command (period comes from shift+space), so a bare
+      # appears in an analyze command (period comes from ctrl+space), so a bare
       # digit scan is safe.
       def explicit_ids
         @raw.scan(/#?(\d+)/).flatten.map(&:to_i).uniq

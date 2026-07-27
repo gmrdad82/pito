@@ -34,20 +34,17 @@ function key(target, init) {
 // Normalized key-value → handler. Keyed so the wiring stays data-driven:
 // the component just stamps the raw shortcut text and we resolve it here.
 const HANDLERS = {
-  // chat_form_controller: Shift+Tab cycles channel scope (textarea-bound).
-  // Dispatch WITHOUT focusing — cycling happens in place, focus stays put.
-  "shift+tab": () => {
+  // chat_form_controller: Ctrl+Space cycles channel OR period scope
+  // (textarea-bound), whichever chatbox-hints has revealed for the typed
+  // verb context — chat_form_controller decides which by reading which
+  // display span is visible. Dispatch WITHOUT focusing — cycling happens in
+  // place, focus stays put. code: "Space" (not key: " ") mirrors
+  // chat_form_controller's own listener — event.key for ctrl+space is
+  // unreliable across browsers.
+  "ctrl+space": () => {
     const field = chatbox()
     if (!field) return
-    key(field, { key: "Tab", shiftKey: true })
-  },
-
-  // chat_form_controller: Shift+Space cycles stats period (textarea-bound).
-  // Dispatch WITHOUT focusing — cycling happens in place, focus stays put.
-  "shift+space": () => {
-    const field = chatbox()
-    if (!field) return
-    key(field, { key: " ", code: "Space", shiftKey: true })
+    key(field, { code: "Space", ctrlKey: true })
   },
 
   // chat_form_controller: Shift+R reuses last repliable handle — only fires
@@ -110,9 +107,10 @@ export default class extends Controller {
 
   // mousedown fires before the tap moves focus. Preventing its default keeps the
   // chatbox from blurring when a hint chip is tapped — otherwise the focusout
-  // swaps the focused-state hints (shift+tab / shift+space) away mid-tap and the
-  // mobile keyboard dismisses. Handlers that DO want focus (c / tab) set it
-  // themselves. The classic "toolbar button that doesn't steal focus" pattern.
+  // swaps the focused-state hints (channel / period ctrl+space cyclers) away
+  // mid-tap and the mobile keyboard dismisses. Handlers that DO want focus
+  // (c / tab) set it themselves. The classic "toolbar button that doesn't
+  // steal focus" pattern.
   hold(event) {
     event.preventDefault()
   }

@@ -392,8 +392,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to include("analyze channel")
         end
 
-        it "body mentions shift+tab scope" do
-          expect(result["body"]).to include("shift+tab")
+        it "body mentions the ctrl+space scope, glyph-formatted" do
+          expect(result["body"]).to include("ctrl+space")
         end
 
         it "body mentions stats/analytics as verb aliases" do

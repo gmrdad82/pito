@@ -4,14 +4,17 @@
 // hint shows at a time, chosen from the chatbox focus state AND the leading
 // verb/noun the owner is typing:
 //
-//   unfocused                                   → chatHint      (`m to start chatting`)
-//   focused + `list` + a vids/games noun        → shiftTabHint  (channel cycler)
-//   focused + `analyze`                          → shiftSpaceHint (period cycler)
+//   unfocused                                   → chatHint    (`m to start chatting`)
+//   focused + `list` + a vids/games noun        → channelHint (ctrl+space channel cycler)
+//   focused + `analyze`                          → periodHint  (ctrl+space period cycler)
 //   focused + anything else (empty / other verb) → nothing
 //
-// Focus alone NO LONGER reveals the cyclers — shift+tab only makes sense for
-// `list vids/games` and shift+space only for `analyze`; chat-form gates the
-// keystrokes and the form submission on the same visibility.
+// Focus alone NO LONGER reveals the cyclers — the ctrl+space cycler only makes
+// sense for `list vids/games` (channel) or `analyze` (period); chat-form gates
+// the keystroke and the form submission on the same visibility. Both hints
+// share ONE physical binding (owner 2026-07-24: shift+tab/shift+space retired,
+// unified on ctrl+space) — #mode() below still tells them apart so chat-form
+// knows WHICH scope to cycle.
 //
 // The controller only manages the default-state row (which carries all three
 // targets). The start-screen / 404 / /share rows render a static always-on
@@ -31,7 +34,7 @@ const VID_NOUNS     = [ "vid", "vids", "video", "videos" ]
 const GAME_NOUNS    = [ "game", "games", "gamez" ]
 
 export default class extends Controller {
-  static targets = ["chatHint", "shiftTabHint", "shiftSpaceHint"]
+  static targets = ["chatHint", "channelHint", "periodHint"]
 
   connect() {
     this._focused = this.#computeFocused()
@@ -73,7 +76,7 @@ export default class extends Controller {
     }
   }
 
-  // Which hint to show: "m" | "shiftTab" | "shiftSpace" | "none".
+  // Which hint to show: "m" | "channel" | "period" | "none".
   #mode() {
     if (!this._focused) return "m"
 
@@ -84,22 +87,22 @@ export default class extends Controller {
     const tokens = text.split(/\s+/)
     const verb   = tokens[0]
 
-    if (ANALYZE_VERBS.includes(verb)) return "shiftSpace"
+    if (ANALYZE_VERBS.includes(verb)) return "period"
     if (LIST_VERBS.includes(verb) &&
         tokens.slice(1).some((t) => VID_NOUNS.includes(t) || GAME_NOUNS.includes(t))) {
-      return "shiftTab"
+      return "channel"
     }
     return "none"
   }
 
   _apply() {
     // No-op on rows without the targets (start screen / 404 / share static hint).
-    if (!this.hasChatHintTarget && !this.hasShiftTabHintTarget && !this.hasShiftSpaceHintTarget) return
+    if (!this.hasChatHintTarget && !this.hasChannelHintTarget && !this.hasPeriodHintTarget) return
 
     const mode = this.#mode()
-    if (this.hasChatHintTarget)       this.#setVisible(this.chatHintTarget,       mode === "m")
-    if (this.hasShiftTabHintTarget)   this.#setVisible(this.shiftTabHintTarget,   mode === "shiftTab")
-    if (this.hasShiftSpaceHintTarget) this.#setVisible(this.shiftSpaceHintTarget, mode === "shiftSpace")
+    if (this.hasChatHintTarget)    this.#setVisible(this.chatHintTarget,    mode === "m")
+    if (this.hasChannelHintTarget) this.#setVisible(this.channelHintTarget, mode === "channel")
+    if (this.hasPeriodHintTarget)  this.#setVisible(this.periodHintTarget,  mode === "period")
   }
 
   // Swap display classes (never leave inline-flex + hidden fighting).

@@ -32,7 +32,7 @@
 #   show {first|last} [<privacy>] vid       — all-time first/last vid by published_at
 #
 # Ordinal is the first word after the tool. Channel scope comes from the
-# shift+tab channel param (same as `list`). Genre/privacy filters are optional.
+# channel param (same as `list`). Genre/privacy filters are optional.
 # `show last vid` is an alias for `show last published vid` (default privacy).
 #
 # Resolution is delegated to Pito::Chat::OrdinalResolver. Not-found (no entity
@@ -260,8 +260,8 @@ module Pito
         end
 
         # Resolve the channel by @handle (case-insensitive, @-agnostic). A bare
-        # `show channel` (no @handle in the body) falls back to the shift+tab
-        # channel SCOPE — so it's treated as a channel, never the game picker.
+        # `show channel` (no @handle in the body) falls back to the channel
+        # SCOPE — so it's treated as a channel, never the game picker.
         # In a channel-sourced follow-up with no typed handle (a bare `games` /
         # `videos` / `at-a-glance` reply), the source card's channel_id IS the
         # channel (same source-entity contract as the game/vid replies). Still
@@ -280,7 +280,7 @@ module Pito
           ::Channel.resolve_handle(handle)
         end
 
-        # The shift+tab channel scope as a concrete @handle, or nil for @all / blank
+        # The channel scope as a concrete @handle, or nil for @all / blank
         # (ambiguous — a bare `show channel` then asks which channel, not which game).
         def scoped_channel_handle
           h = channel.to_s.strip
@@ -541,7 +541,7 @@ module Pito
         # text the channel noun happened to capture ("at-a-glance my whole
         # channel"). An explicit @handle miss is the channel's id-analogue
         # and keeps the crisp not-found, as do numeric refs, follow-up
-        # replies, and nl_eligible: false dispatches. The shift+tab SCOPE
+        # replies, and nl_eligible: false dispatches. The channel-scope
         # fallback (typed ref absent) is machine state, never free text —
         # the caller only passes the TYPED ref here.
         def nl_soft_fail_channel_ref?(ref)

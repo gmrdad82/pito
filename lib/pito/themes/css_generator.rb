@@ -24,6 +24,7 @@ module Pito
     #   fg_faded       → --fg-faded
     #   accent_*       → --accent-*   (underscore → hyphen)
     #   brand_pito     → --brand-pito
+    #   comet_a/b      → --comet-a/b
     #
     # Usage
     # -----

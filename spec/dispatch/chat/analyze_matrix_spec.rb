@@ -9,7 +9,7 @@ require "rails_helper"
 # resolver "finds" exactly what was requested, and we assert the parsed scope
 # (level + entity ids / count) per the scope-resolution contract.
 #
-# Recognition engine = Pito::Analytics::ScopeResolver (raw + shift+tab scope →
+# Recognition engine = Pito::Analytics::ScopeResolver (raw + ctrl+space channel scope →
 # {status, level, scopes}). The handler is a thin wrapper over it.
 RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :dispatch do
   def resolve(raw, scope: "@all")
@@ -24,7 +24,7 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
     allow(::Game).to    receive(:where) { |a| double(to_a: Array(a[:id]).map { |i| double(id: i) }) }
     allow(::Channel).to receive(:find_by).and_return(double(id: 7, at_handle: "@x", handle: "@x"))
     allow(::Channel).to receive(:all).and_return(double(to_a: [ double(id: 1), double(id: 2) ]))
-    # bare `analyze games` → shift+tab channels → linked games (chained query)
+    # bare `analyze games` → channel-scope channels → linked games (chained query)
     allow(::Game).to receive(:joins).and_return(
       double(where: double(distinct: double(to_a: [ double(id: 1), double(id: 2) ])))
     )
@@ -58,7 +58,7 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
       end
     end
 
-    it "analyze games (bare) → :game (via shift+tab channels → linked games)" do
+    it "analyze games (bare) → :game (via channel-scope channels → linked games)" do
       expect(resolve("analyze games")).to have_attributes(status: :ok, level: :game)
     end
   end
@@ -82,7 +82,7 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
       end
     end
 
-    it "ids win over shift+tab scope" do
+    it "ids win over the channel scope" do
       expect(resolve("analyze vids #9", scope: "@pito")).to have_attributes(level: :vid)
       expect(ids_of(resolve("analyze vids #9", scope: "@pito"))).to eq([ 9 ])
     end
@@ -103,7 +103,7 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
     end
   end
 
-  # ── channel @handle scoping (explicit handles ignore shift+tab) ─────────────
+  # ── channel @handle scoping (explicit handles ignore the channel scope) ─────────────
   describe "channel @handle scoping" do
     it "analyze channel @h → that one channel" do
       r = resolve("analyze channel @pito")
@@ -122,8 +122,8 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
     end
   end
 
-  # ── shift+tab scope (bare channel/vids) ─────────────────────────────────────
-  describe "shift+tab channel scope (bare)" do
+  # ── channel scope, ctrl+space (bare channel/vids) ─────────────────────────────────────
+  describe "ctrl+space channel scope (bare)" do
     it "bare channel @all → all channels" do
       r = resolve("analyze channel", scope: "@all")
       expect(r).to have_attributes(status: :ok, level: :channel)
@@ -162,7 +162,7 @@ RSpec.describe "Dispatch matrix — analyze (recognition, DB mocked)", type: :di
       expect(resolve("analyze channels @nope")).to have_attributes(status: :error, error_key: :channels_not_found)
     end
 
-    it "bare channel with unknown shift+tab handle → :channel_not_found" do
+    it "bare channel with unknown channel-scope handle → :channel_not_found" do
       allow(::Channel).to receive(:find_by).and_return(nil)
       allow(::Channel).to receive(:where).and_return(double(order: double(first: nil)))
       expect(resolve("analyze channel", scope: "@nope")).to have_attributes(status: :error, error_key: :channel_not_found)

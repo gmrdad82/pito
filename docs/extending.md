@@ -1,6 +1,6 @@
-# Extending PITO
+# Extending Pito
 
-PITO is a one-person tool, but it's built to be extended — by me later, or by
+Pito is a one-person tool, but it's built to be extended — by me later, or by
 anyone who forks it. This is the map for the four most common "I want to add a…"
 tasks: a **theme**, a **language**, a new kind of **message content**, and a new
 reveal **fx**. It's dual-audience on purpose — written to read clearly for a human
@@ -36,7 +36,7 @@ A few rules thread through everything here:
 
 ## Adding a new theme
 
-PITO's palette is data-driven: `app/assets/tailwind/themes.css` is a **generated
+Pito's palette is data-driven: `app/assets/tailwind/themes.css` is a **generated
 file** (`rake pito:themes:export`). The one invariant: never hand-edit
 `themes.css`. All theme work happens in the source layer; the generator writes the
 file.
@@ -105,7 +105,7 @@ file.
 ### Verify
 
 ```bash
-bundle exec rspec spec/services/pito/themes/
+bundle exec rspec spec/lib/pito/themes/
 ```
 
 `registry_completeness_spec.rb` checks the exact theme count (update the `eq(19)`
@@ -129,7 +129,7 @@ that `brand_pito` is `#5170ff` everywhere.
 
 ## Adding a new language
 
-PITO ships English-only: every locale file under `config/locales/pito/` is a single
+Pito ships English-only: every locale file under `config/locales/pito/` is a single
 `en.yml`, and there's no locale switcher yet. A new language is two jobs — the YAML
 files, and the mechanism that selects the locale.
 

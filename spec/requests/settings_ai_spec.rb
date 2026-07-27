@@ -3,7 +3,7 @@
 require "rails_helper"
 
 RSpec.describe "PATCH /settings/ai", type: :request do
-  # ── Auth helper (mirrors settings_theme_spec) ────────────────────────────────
+  # ── Auth helper (TOTP login via POST /session) ───────────────────────────────
 
   def authenticate_via_totp
     seed = ROTP::Base32.random_base32

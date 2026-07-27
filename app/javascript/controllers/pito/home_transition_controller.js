@@ -248,7 +248,7 @@ export default class extends Controller {
     document.dispatchEvent(new CustomEvent("pito:chat-page-ready"))
 
     // Ensure hidden channel/period inputs exist so the chat_form controller can
-    // cycle them (shift+tab / shift+space) and POSTs carry the scope params.
+    // cycle them (ctrl+space) and POSTs carry the scope params.
     // NOTE: the old filter-LINE injection that lived here is gone — no
     // server page renders `#pito-chatbox-filter` since the meta moved into the
     // hint slot, so the morph was appending a dead element whose empty

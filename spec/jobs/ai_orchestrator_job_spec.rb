@@ -128,8 +128,12 @@ RSpec.describe AiOrchestratorJob do
   end
 
   describe "the naming law" do
-    it "spells the product PITO, all caps, in the system prompt" do
-      expect(described_class.system_prompt).to include("always written PITO")
+    it "spells the product Pito, capital P only, in the system prompt" do
+      expect(described_class.system_prompt).to include("always written Pito")
+    end
+
+    it "forbids the retired all-caps spelling" do
+      expect(described_class.system_prompt).to include("never PITO or pito")
     end
   end
 

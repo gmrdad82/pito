@@ -27,20 +27,29 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
     end
   end
 
-  describe "shift+space shortcut (the label)" do
-    it "renders the shift+space shortcut as a kbd-shimmer token" do
+  # The period cycler binds ctrl+space (owner 2026-07-24: shift+space retired,
+  # both cyclers unified on one physical key), displayed in the glyph
+  # convention via Pito::Keybinding::Glyph inside ShortcutComponent — so this
+  # renders the SAME token the channel cycler does.
+  describe "ctrl+space shortcut (the label)" do
+    it "renders the ctrl+space shortcut as a kbd-shimmer glyph token" do
       node = render_inline(described_class.new(period: "7d"))
       kbd = node.css("span.pito-kbd-shimmer").first
       expect(kbd).not_to be_nil
-      expect(kbd.text).to include("shift+space")
+      expect(kbd.text).to eq("ctrl+space")
     end
 
-    it "renders shift+space before the period value (shortcut is the label)" do
+    it "renders the shortcut before the period value (shortcut is the label)" do
       node = render_inline(described_class.new(period: "7d"))
       spans = node.css("span.inline-flex.items-center.gap-2 > span")
       first_span = spans.first
       expect(first_span["class"]).to include("pito-kbd-shimmer")
-      expect(first_span.text).to include("shift+space")
+      expect(first_span.text).to eq("ctrl+space")
+    end
+
+    it "never renders the retired shift+space label" do
+      node = render_inline(described_class.new(period: "7d"))
+      expect(node.to_html).not_to include("shift+space")
     end
   end
 

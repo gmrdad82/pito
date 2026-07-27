@@ -3,8 +3,8 @@
 # Handler for the `analyze` chat tool (aliases: `analytics`, `stats`).
 #
 # Interval-aware YouTube analytics scoped to a channel, vid, or game. Resolves the
-# scope via Pito::Analytics::ScopeResolver (entity arg + shift+tab channel scope),
-# the period from shift+space (conversation.stats_period). On a resolvable scope it
+# scope via Pito::Analytics::ScopeResolver (entity arg + channel scope),
+# the period from ctrl+space (conversation.stats_period). On a resolvable scope it
 # parses a Pito::Chat::SegmentSelection (segments `numbers` → the :system card,
 # `breakdowns` → the :enhanced card) and emits ONLY the selected pending message(s)
 # — each with its own Pito::Copy intro — then returns immediately; the Finalizer

@@ -172,7 +172,7 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
 
   # ── 3. Video noun — @handle scope, no ids ────────────────────────────────────
   #
-  # No #ids in input → obey shift+tab channel scope.
+  # No #ids in input → obey the ctrl+space channel scope.
   # resolve_scope finds the channel and returns [ch.id].
 
   describe "video noun — @handle scope → resolved channel_ids, video_ids: []" do
@@ -189,7 +189,7 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
   # ── 4. Video noun + #ids — ids win, scope entirely ignored ───────────────────
   #
   # When hash-prefixed ids are present, video_ids carries them and
-  # channel_ids is always [] regardless of the shift+tab scope.
+  # channel_ids is always [] regardless of the channel scope.
 
   describe "video noun + #ids — ids win, channel_ids always []" do
     {
@@ -390,17 +390,17 @@ RSpec.describe "Dispatch matrix — sync (recognition, DB mocked)", type: :dispa
   # ── 11b. Channels — inline @handle scopes to that channel ────────────────────
   #
   # `sync channel @handle` typed directly scopes to that one channel (overriding
-  # the shift+tab scope) so an image-fallback click is self-contained. `@all`
+  # the channel scope) so an image-fallback click is self-contained. `@all`
   # inline is not a specific handle → all channels.
 
-  describe "channel noun — inline @handle overrides shift+tab scope" do
-    it "sync channel @pito (no shift+tab) → channel_ids: [#{SYNC_CHAN_ID}]" do
+  describe "channel noun — inline @handle overrides the channel scope" do
+    it "sync channel @pito (no channel scope) → channel_ids: [#{SYNC_CHAN_ID}]" do
       p = payload_of("sync channel @pito")
       expect(p["command"]).to eq("sync_channel")
       expect(p["channel_ids"]).to eq([ SYNC_CHAN_ID ])
     end
 
-    it "inline @pito beats a shift+tab @all scope" do
+    it "inline @pito beats a channel-scope @all" do
       p = payload_of("sync channel @pito", channel: "@all")
       expect(p["channel_ids"]).to eq([ SYNC_CHAN_ID ])
     end

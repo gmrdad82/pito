@@ -1,10 +1,114 @@
 # Changelog
 
-All notable changes to PITO are documented here. The format follows
+All notable changes to Pito are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+> Pito chat is, and stays, **free, public and AGPL-3.0**. The terminal
+> side of the family became a paid product at 5.0.0 — that is a different
+> repository and changes nothing here. The version numbers across the Pito
+> repos are aligned at 5.0.0 so a given release of one names the release
+> of the others it was built against.
+
+## [4.2.0] — 2026-07-27
+
+### Changed
+
+- **The name is Pito.** Capital P, lowercase rest — in every sentence, every
+  title, every reply the assistant writes. The all-caps `PITO` of the 4.x line
+  is retired: it read like an acronym, and it never was one. Lowercase `pito`
+  survives exactly where it is something you type or something a machine
+  matches on — the `pito` and `pito-cli` commands, `bin/pito`, the `Pito::`
+  Ruby namespace, `pito.copy.*` keys, `ghcr.io/gmrdad82/pito`, `pito.service`,
+  the `pito` database user, the `pito:*` rake tasks, `~/.config/pito/`, and the
+  domains. The rule in one line: *Pito reads the meaning, not the words*, but
+  *run `pito-cli update`*. The assistant's own naming law was rewritten to
+  match, so replies no longer shout.
+
+- **The installer asks for a port, not a public URL.** Pito chat installs on
+  this machine and answers on `127.0.0.1:PORT` — so that is the only question
+  `script/install.sh` asks. It offers **3028**, checks with `ss`/`netstat`/
+  `lsof` that nothing is already listening there, refuses a port that is taken
+  (and a number that isn't one), and writes the answer to `PITO_PORT` in the
+  install dir's `.env`, where `pito-cli update` keeps it. `--port PORT` answers
+  the question up front; `pito-cli update --port PORT` moves an existing
+  install. `--host` is gone from both scripts and says so rather than being
+  quietly ignored.
+
+  The published port is no longer hardcoded either: the installer
+  parameterises the compose file it fetches (`127.0.0.1:${PITO_PORT:-3028}`),
+  and `pito-cli update` re-applies that after every refresh. An install made
+  before 5.0.0 has its `PITO_PORT` seeded with the port it was already
+  publishing, so an update never moves it.
+
+- **Embeddings are pinned to q8_0, and now say so where it matters.** The
+  `embedder` sidecar has always served `embeddinggemma-300m-qat-q8_0`; the
+  choice is now written beside the line someone would change, in both
+  compose files and in `Pito::Embedding::Client`. It is not a placeholder
+  waiting for a better quantisation: `-qat-` means the model was *trained*
+  to ship at 8 bits, the sidecar is CPU-only with a 1 GB cap, and on a CPU
+  q8_0 is faster than fp16 rather than slower. Above all, precision
+  defines the vector space — switching it would make every embedding
+  already stored meaningless until the whole corpus was recomputed.
+
+- **Breaking muscle memory: one key cycles the scope now** — `shift+tab`
+  (channel) and `shift+space` (period) are retired; both scopes unify on
+  **`ctrl+space`**, which cycles whichever scope the verb you're typing
+  implies — channel for `list vids` / `list games`, period for `analyze`.
+  Type neither and the key is inert: no cycle, and it no longer swallows
+  the keystroke the way the old per-scope bindings did. Nothing changed
+  server-side — the persisted scope and its JSON surface are byte-identical
+  — and the terminal client (pito-tui) ships the same single binding.
+- **Every shortcut wears WORDS now, one formatter for all of them (T8, full
+  reversal of decision 11)** — `Pito::Keybinding::Glyph` renders every
+  keyboard label in the app, so the chips, the `/help` KEYBINDINGS table,
+  and the scroll-nav pills all read alike: `ctrl+` and `shift+` spelled
+  out, `space` and `tab` as words, `↑↓←→` the only glyphs left (no compact
+  word form, and they read fine), letters lowercase (`ctrl+k`, not
+  `ctrl+K`), and Esc/Home/End/PgUp/PgDn/Enter as Title-case words. An
+  earlier pass shipped `⌃`/`⇧` glyphs (decision 11, "I like ^c" — decades
+  of terminal convention already read `^C` as ctrl); the owner reversed
+  that same-day, so the glyph form never actually shipped — `Glyph` still
+  folds any leftover `⌃`/`⇧`/`␣`/`⇥` input to its word form, for
+  idempotency against a caller holding the old output. `⌘` is gone
+  app-wide either way — the Mac cmd-swap *display* is retired (Mac Cmd
+  input still works where it did) — which also settles the old `+`/`-`
+  separator and `Esc`/`esc` inconsistencies. Applies to pito-tui too, via
+  the sibling `render.KeyGlyph` formatter — one convention, two apps.
+- **One shimmer for everything you can press** — keybinding chips and
+  clickable action text (`#id` / `@handle` prefills, links, the scroll-nav
+  pills) used to sweep in two different colours on the same page: blue for
+  shortcuts, purple for actions, both on a near-white base. They now share
+  a single band — pito-blue `#5170ff` carrying an accent-purple `#bb9af7`
+  glint — the same ramp the terminal client's key-caps wear, so the two
+  apps read as one product. This one family is pinned to those two literal
+  colours rather than to palette tokens, on purpose: `#5170ff` is what
+  `--brand-pito` already resolves to in all 20 palettes, and freezing the
+  glint at tokyonight's purple is what keeps the chips identical to the
+  terminal on every theme. The band is also five times wider (60% of the
+  token, was 12%) and soft on both edges (a raised-cosine window, no more
+  hard-cut stripe). Sweep angle (135°) and speed (2.6s for text) are
+  untouched, and the per-token stagger that keeps neighbours out of phase
+  still works exactly as before.
+- **Breaking for self-hosters: the operator CLI is now `pito-cli`** —
+  `bin/pito` is renamed to `bin/pito-cli`; a `bin/pito` deprecation shim
+  ships for one release (prints "the operator CLI is now pito-cli" and
+  execs `pito-cli`) before it's removed. The install default moves from
+  `./pito` to `./pito-cli`; `install.sh`/`update.sh` now fetch both
+  `bin/pito-cli` and the shim, and the PATH symlink is
+  `/usr/local/bin/pito-cli` (primary) plus `/usr/local/bin/pito` → the
+  shim — the latter **only when nothing else owns that name**. `pito` is
+  the terminal client's command now (pito-tui ships its binary, `.deb` and
+  Homebrew formula as `pito`, and on Intel macOS that formula writes this
+  exact path), so the scripts never replace a `pito` they didn't place, and
+  never plant one in `/usr/local/bin` that would shadow the client's
+  `/usr/bin/pito` from the `.deb` — they say which they found and move on.
+  Every documented invocation in this repo is now `pito-cli <cmd>`;
+  the three CLI cast GIFs (`docs/media/*cast*.gif`) were regenerated to
+  match, backed by a new reproducible `captures/` rig. **Upgrade note:**
+  the CLI is now `pito-cli`; `./pito` shims for one release, then is
+  removed — and if you also run the terminal client, `pito` stays the
+  client: the shim steps aside and the CLI is `pito-cli`.
 
 ### Fixed
 
@@ -18,6 +122,64 @@ updated**` instead of bold. The previewed surface now carries only the
   rich message rides in a details field instead, which no shade previews.
   Same fix `WebhookDigest` already applied to the batched achievement/release
   digests, now extended to the individual per-notification webhook path.
+- **`analyze` fills the card it lives in** — on desktop the metric grid's two
+  columns were nailed to 450px each, so the right-hand panel stopped ten pixels
+  short of where the message's own text ends and left a notch down the card's
+  right side. The columns are fluid now and split whatever width the message
+  actually has, so the right panel lands flush at any width. Nothing else moved:
+  every chart keeps its natural size and sits left in its (marginally roomier)
+  panel, the 16px gutter between the columns is unchanged, a lone metric on an
+  odd last row still takes one column, and phones are untouched — the grid
+  still stacks to a single column below the app's one breakpoint.
+
+### Removed
+
+- **Runtime theme switching, whole.** Pito ships exactly one theme now —
+  **synth**, the neon-on-indigo palette every shimmer color and contrast
+  choice was already tuned around — fixed at boot. `/themes` (the tool, the
+  sidebar picker and its copy), `PATCH /settings/theme`, the `set-theme`
+  Turbo Stream action and the 19-palette gallery are gone; `themes.css` is a
+  single `:root` block. The multi-theme token engine stays in
+  `lib/pito/themes/` as latent capability for a future major, and a
+  `PITO_THEME` internal knob (docker-compose / `bin/dev`) covers debugging —
+  an unknown slug degrades to the default rather than erroring. Old
+  conversations that carry `theme_diff` events still render them.
+
+- **Seven of the ten background moods.** The fx registry keeps **sky** (the
+  flock of six and its idle rings), **plasma** and **water**; `duotone`,
+  `lens`, `glow`, `trails`, `aurora`, `globs` and `cover_wall` are deleted —
+  YAML entries and renderer JS both. The remap: the AI family wears plasma;
+  game detail (and its analyze twin) wears water; vid detail wears water
+  when the vid resolves to a game and the sky otherwise; every many-cover
+  moment and the default are the sky. After the cull no context pool offers
+  more than one renderable effect, so the mood a conversation renders with
+  derives from stable keys — never a random draw — which is what makes
+  conversation-level fragment caching honest. Text effects (scramble,
+  comets, the currency flicker) are untouched.
+
+- **`pito-cli hetzner`** — provisioning a cloud box is not this project's
+  job any more. Pito chat installs to `localhost:PORT` and runs there;
+  the Hetzner provisioning script moved, intact and unchanged, to the
+  private infrastructure repo that also holds the backup schedule and the
+  tunnel units. It was **moved, not deleted** — if you used it, it still
+  exists and still works, just somewhere that makes sense.
+- **The GitHub Sponsors button and the Sponsor section** — `FUNDING.yml`
+  and the README copy are gone. Pito chat is still free, still AGPL, and
+  still costs nothing to run.
+- **`pito-cli cloudflared` and `pito-cli caddy`**, and the installer's whole
+  HTTPS step. Deciding how a machine is reachable from the internet — which
+  tunnel, which certificate authority, which ports to open, which systemd
+  unit to install as root — is not a question an installer should answer on
+  your behalf, and the answers it used to write (a `~/.cloudflared/config.yml`,
+  a system-wide `cloudflared.service`, a `Caddyfile` plus a compose profile)
+  were all outside the install dir it otherwise owns. Pito now installs on
+  localhost, and the README's *Reaching Pito from somewhere else* says plainly
+  what to point at `127.0.0.1:PORT` if you want more than that.
+
+  Nothing you already run stops working: an existing tunnel, `Caddyfile` or
+  `cloudflared.service` keeps doing its job untouched, and the dormant `caddy`
+  compose profile is still in `docker-compose.yml` for installs that enabled
+  it. Only the *installer's* opinions about them are gone.
 
 ## [4.1.0] — 2026-07-22
 
@@ -272,7 +434,7 @@ footage <id> +2` / `-1.5` adds or subtracts from the running total,
 
 - **Schedule refuses vids YouTube would refuse** — YouTube rejects
   `publishAt` for any video that has ever been published; a mass schedule
-  over previously-public vids sailed through pito's confirmation and died
+  over previously-public vids sailed through Pito's confirmation and died
   minutes later as `invalidPublishAt` watchdog errors (2026-07-19, live).
   The rule now lives in pito: stage-time and confirm-time guards name the
   already-public vid with honest copy, single and mass alike — and the
@@ -288,7 +450,7 @@ footage <id> +2` / `-1.5` adds or subtracts from the running total,
   nullable `title` column; every source with a clear identity stamps a
   copy-driven title ("Unpublished vids", and friends), the FCM payload
   sends it as `data.title` (omitted entirely when a notification has
-  none), and pito-android maps it with a "PITO" fallback for old servers.
+  none), and pito-android maps it with a "Pito" fallback for old servers.
 - **Answers estimate their cost when the provider won't say** — OpenCode
   Zen bills per token but never reports a per-call cost, so its answers
   wore a bare model badge. When the provider reports nothing, the badge
@@ -320,7 +482,7 @@ footage <id> +2` / `-1.5` adds or subtracts from the running total,
   columns, and date columns are content-sized and never truncate; prose
   columns carry the squeeze, wrapping at comfortable widths and
   tightening only under many-column or narrow-container pressure.
-- **AI table columns align by what they hold** — pito's table law grows
+- **AI table columns align by what they hold** — Pito's table law grows
   from numbers-only to three families: a column of numbers ("7,709",
   "2.2K", "93%"), of `#id`s, or of dates right-aligns, heading cell
   included; prose keeps reading left.
@@ -368,7 +530,7 @@ footage <id> +2` / `-1.5` adds or subtracts from the running total,
 - **The AI closes with ONE suggestion, not a volley** — at most one
   ready-to-run command per answer (a mass command counts as one), zero when
   there's nothing actionable. Its tables also grew up: long labels truncate
-  instead of crushing the values, dates render in pito's own
+  instead of crushing the values, dates render in Pito's own
   `DD-MM-YYYY HH:MM` (the model's raw date strings never reach the screen
   again), and a leading `#id` in a row is now tappable like every other id
   column when the row carries its command.
@@ -406,8 +568,8 @@ footage <id> +2` / `-1.5` adds or subtracts from the running total,
 
 ### Added
 
-- **Phone notifications, no extra apps** — every pito notification now also
-  lands on your phone as a real push, with the pito icon, tap-to-open into
+- **Phone notifications, no extra apps** — every Pito notification now also
+  lands on your phone as a real push, with the Pito icon, tap-to-open into
   your conversation, delivered even when the app has been closed for days.
   The Android shell registers its device silently the first time you open it
   with a session (one Android 13+ permission ask, native-side), and the
@@ -448,7 +610,7 @@ about <text>` works, routing to the same meaning-search the `like` keyword
   already ran for conversations (there is no seed to name, so for this noun
   the two keywords are honest synonyms). Bare conversation queries stay
   literal — exact recall ("find where I said X") is that noun's default job.
-- **pito mumbles confusion in ten languages** — the didn't-understand
+- **Pito mumbles confusion in ten languages** — the didn't-understand
   dictionary grows Italian, French, German, Japanese, Chinese, Korean,
   Dutch, and Portuguese variants alongside the English deck and the
   long-standing Spanish "Lo siento". Same odds, same shrug, more passports.
@@ -564,7 +726,7 @@ about <text>` works, routing to the same meaning-search the `like` keyword
 - **Four game traits flip from Claude's judgment to synced IGDB fact** —
   `multiplayer`, `single_player`, `hyped`, and `family_friendly` used to
   ship as `source: classified` (a Claude judgment call) purely because
-  pito didn't sync IGDB's `game_modes`, `hypes`, and `age_ratings`. All
+  Pito didn't sync IGDB's `game_modes`, `hypes`, and `age_ratings`. All
   three now sync (`Game::Igdb::Client::GAME_FIELDS`, new `games.game_modes`
   / `games.hypes` / `games.age_ratings` columns), so `Game::Traits::Derive`
   computes the four tags deterministically on every IGDB sync:
@@ -586,7 +748,7 @@ pito:games:resync_release_dates` sweeps every game with an `igdb_id`).
   positions and lets the frame clock drive the work, so a busy scrollback
   no longer fights the cursor.
 - **Analyze joins the soft-fail lane** — when the NL mapper picks `analyze`
-  with a subject pito can't resolve locally, the reply now carries the
+  with a subject Pito can't resolve locally, the reply now carries the
   did-you-mean fallback instead of a dead-end error (games, videos,
   channels, and linked lookups already had no local dead-ends).
 - **The NL mapper gets 30 seconds, not 10** — cold-start completions on the
@@ -768,7 +930,7 @@ vids"`; the NL gate was only reachable when the first word matched no
 - **Local AI replaces Voyage AI** — two CPU-only [llama.cpp](https://github.com/ggml-org/llama.cpp)
   sidecars ship in both compose files: `embedder` (embeddinggemma-300m, Q8,
   768-dim, the OpenAI-compatible `/v1/embeddings` API) and `nlmapper`
-  (Qwen3-0.6B, Q8, grammar-constrained to PITO's own command set). No
+  (Qwen3-0.6B, Q8, grammar-constrained to Pito's own command set). No
   signup, no API key, nothing leaves your machine — see the README's "Local
   AI" section for the ports, env vars, and troubleshooting curls.
   `Pito::Embedding::Client` (`app/services/pito/embedding/client.rb`) is the
@@ -776,11 +938,11 @@ vids"`; the NL gate was only reachable when the first word matched no
   the Voyage client grew up on: forgiving `#embed` (nil on any failure,
   never raises) and strict `#embed_batch` (raises, naming the real cause,
   for bulk/reindex jobs that want a visible failure).
-- **Talk to PITO in your own words** — chat input that matches no tool now
+- **Talk to Pito in your own words** — chat input that matches no tool now
   routes through an embedding router (`Pito::Nl::Router`, a cheap
   cosine-nearest lookup against every tool's `nl_examples:`) and, when
   nothing trained is close enough, a grammar-constrained mapper
-  (`Pito::Nl::Mapper`) asks the `nlmapper` sidecar to compose a real PITO
+  (`Pito::Nl::Mapper`) asks the `nlmapper` sidecar to compose a real Pito
   command, then proves it by round-tripping through the actual chat parser
   — LLM output that doesn't parse to a known tool never reaches you.
   Read-only mappings at confidence ≥ 0.90 auto-run immediately with an
@@ -1039,7 +1201,7 @@ pito:embeddings:reindex` for a full games+videos+events sweep) so your
   you act. Scheduled vids stay out; the filter survives paging and speaks
   MCP.
 - **The night watchman** — at 01:45 every night (right after the sync),
-  PITO counts your private vids older than a day and, if any exist, nags
+  Pito counts your private vids older than a day and, if any exist, nags
   you once — the bell, Slack, and Discord all carry the same line, drawn
   from a fresh 50-variant dictionary. One reminder per day, silence when
   the shelf is clear.
@@ -1064,7 +1226,7 @@ pito:embeddings:reindex` for a full games+videos+events sweep) so your
 - **The app can't get trapped on a dead conversation anymore** — deleting
   the conversation you're standing in used to strand the Android shell on
   the native error screen (Hotwire never renders an HTTP error's body).
-  PITO now serves its own graceful not_found page as a success to the
+  Pito now serves its own graceful not_found page as a success to the
   native shell, so the app renders it like any visit; browsers keep the
   honest 404. No app update needed — every installed APK is fixed.
 
@@ -1076,7 +1238,7 @@ pito:embeddings:reindex` for a full games+videos+events sweep) so your
   the first web search itself on `@ai --web` turns and hands the model the
   results, so no model can skip the web again (DeepSeek's tool forcing is
   unreliable; ours isn't).
-- The AI now spells the product **PITO** — all caps, always.
+- The AI now spells the product **Pito** — all caps, always.
 
 ## [2.1.0] — 2026-07-13
 
@@ -1103,7 +1265,7 @@ pito:embeddings:reindex` for a full games+videos+events sweep) so your
   butterfly.
 - **The butterfly flock** — every effect chases an autonomous attractor that
   flies in eased legs of uneven tempo (darting, cruising, drifting), startles
-  when pito events land, leans toward your mouse without obeying it — and a
+  when Pito events land, leans toward your mouse without obeying it — and a
   whole flock of them wears visible bodies over the resting sky: thin
   brand-colored rings trailing fading echoes, never touching, never over a
   mood (they fade as a mood rises). The lens and halftone moods anchor up to
@@ -1153,7 +1315,7 @@ pito:embeddings:reindex` for a full games+videos+events sweep) so your
   restarting it — neighbours only, and never the same effect twice in a row
   when the art changes and the pool offers an alternative.
 - **The ffprobe snippet moved out** — `footage snippet` (and its `footage
-game <id>` alias) left pito entirely; probing your recordings now lives in
+game <id>` alias) left Pito entirely; probing your recordings now lives in
   pito-tui's ctrl+f flow, where the files actually are. `footage update
 <id> <hours>` stays.
 - **The scrollback never scrolls for you anymore** — the follow-the-newest
@@ -1203,7 +1365,7 @@ game <id>` alias) left pito entirely; probing your recordings now lives in
 ### Changed
 
 - **The install banner switches to the app** — on Android the banner's action
-  is now an intent link: if the PITO app is installed it opens straight into
+  is now an intent link: if the Pito app is installed it opens straight into
   it, and if not the same tap falls back to downloading the newest APK.
 
 ## [2.0.1] — 2026-07-12
@@ -1225,10 +1387,10 @@ game <id>` alias) left pito entirely; probing your recordings now lives in
 
 ### Added
 
-- **The `@ai` verb — ask PITO's assistant anything** — `@ai what should I play
+- **The `@ai` verb — ask Pito's assistant anything** — `@ai what should I play
 next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
-  configured provider: the model reads your library through PITO's own
-  read-only tools, then either answers by running ONE real pito command (its
+  configured provider: the model reads your library through Pito's own
+  read-only tools, then either answers by running ONE real Pito command (its
   native card appears, exactly as if you typed it) or composes its own reply.
   The pending message narrates which tool it is reading; provider switches via
   `/config ai` apply on the very next question; loop/token caps and provider
@@ -1418,7 +1580,7 @@ next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
   gradient counter-rotates against them; crossing ~30% of the screen height
   fires the reload on the spot, and letting go earlier just drops it back out.
   The conversation itself no longer moves during the pull.
-- **AI answers dress like PITO** — the `:ai` message opens with its timestamp
+- **AI answers dress like Pito** — the `:ai` message opens with its timestamp
   inline in the first line (wrapped text returns to the left margin) and sits
   on a purple→pito-blue gradient surface in the accent bar's exact colors,
   cycling every ~10 rows so long answers sweep purple→blue→purple instead of
@@ -1474,7 +1636,7 @@ next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
   …) including two-word forms (`list games series x`). `arcade` is gone, matching
   the v1.4.0 platform drop — and Arcade is now stripped from imported platform
   data too (a migration scrubs previously imported rows), so the word no longer
-  exists anywhere in PITO.
+  exists anywhere in Pito.
 - **Filters and columns in `--help`** — `list games --help` / `list vids --help`
   now list the available filters (e.g. `upcoming`, `scheduled`) alongside the
   columns, and both are generated from the same source the table and MCP use, so a
@@ -1516,9 +1678,9 @@ next?` (any casing: `@AI`, `@Ai`, `@aI`) runs an agentic loop against your
 
 ### Added
 
-- **Connect an AI chat (MCP)** — PITO now speaks the Model Context Protocol at
+- **Connect an AI chat (MCP)** — Pito now speaks the Model Context Protocol at
   `/mcp`, so an AI assistant (claude.ai on your phone, ChatGPT, or any MCP client)
-  can READ your PITO over a one-time connection: list and show your games, videos,
+  can READ your Pito over a one-time connection: list and show your games, videos,
   and channels; pull analytics, breakdowns, at-a-glance snapshots, similar games,
   channel coverage, and shinies; and read your past conversations. Thirteen typed
   tools in all, declared entirely in `config/pito/verbs.yml` — no new plumbing per
@@ -1866,7 +2028,7 @@ views` slims it, `with likes` widens it, and sort follows whatever is
   stays `ls` when accepted, and Enter on any complete verb or alias sends
   immediately. One row per verb (never `list` AND `ls`), arguments continue
   after each space exactly as before.
-- **Bottom pull-to-refresh in the Android app** — pito lives at the bottom of
+- **Bottom pull-to-refresh in the Android app** — Pito lives at the bottom of
   the scrollback, so the refresh gesture does too (Slack-style): overscroll
   past the last message and release. App-only; browsers keep their reload
   buttons. Top pull-to-refresh stays off — it fights scrolling the history.
@@ -1935,7 +2097,7 @@ views` slims it, `with likes` widens it, and sort follows whatever is
   public IP: automatic Let's Encrypt, WebSockets included, survives
   `pito update`. The installer now offers the choice (tunnel stays the
   default); the existing cloudflared flow is untouched.
-- **`pito hetzner`** — provision a Hetzner Cloud box ready to run PITO from
+- **`pito hetzner`** — provision a Hetzner Cloud box ready to run Pito from
   your laptop: `provision` idempotently creates the SSH key (prefers a
   dedicated `~/.ssh/pito-hetzner.pub`), a 22/80/443 firewall, and the server
   (CX23 / ubuntu-26.04 / fsn1 defaults, all overridable) with cloud-init that
@@ -1960,7 +2122,7 @@ views` slims it, `with likes` widens it, and sort follows whatever is
 - **README: "Android app" grew into "Beyond the browser"** — the clients
   section now covers `pito-android` AND `pito-tui` (the Go/Bubble Tea terminal
   client) and points to the [pitomd.com](https://pitomd.com) showcase; the
-  whole PITO family cross-references itself across every repo.
+  whole Pito family cross-references itself across every repo.
 - **The lists answer back properly.** `ls games` gains `views`/`likes` columns
   (summed across a game's linked vids — 0 when nothing is linked) in
   `with`/`without` and `sort`; `ls channels` joins the with/without mechanism
@@ -2148,7 +2310,7 @@ request-rewriting release. Same product, a fraction of the requests.
 - **`CacheSweepJob`** (daily 04:00) — sweeps expired analytics cache/primitive
   rows and `api_requests` audit rows older than 90 days.
 - **Automatic recovery after reauth** — the moment a dead YouTube grant is
-  reauthenticated, PITO requeues every failed job and immediately re-runs the
+  reauthenticated, Pito requeues every failed job and immediately re-runs the
   scheduled passes the flag had been skipping (channel + video sync per
   channel, stats, achievements) — no more waiting for the next nightly.
 
@@ -2190,7 +2352,7 @@ panel, a self-hosted typeface, and an exhaustive dispatcher-recognition spec net
 that hardens every verb/keyword combination across the slash, hashtag, and chat
 stacks. (Bespoke analytics view components close out the tag.)
 
-### What PITO does that no one else does — not even Studio
+### What Pito does that no one else does — not even Studio
 
 As of this tag, the full set of things that exist here and nowhere else — not in
 YouTube Studio, not in TubeBuddy, not in vidIQ:
@@ -2316,7 +2478,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   comes back with no data** keeps its dotted-paper no-data canvas and shows **n/a**
   in place of a value — the others still fill, and that state persists on refresh.
 
-- **Channel banner on `show channel`** — PITO now caches its own copy of the
+- **Channel banner on `show channel`** — Pito now caches its own copy of the
   YouTube channel banner during sync: it fetches the **original 2560×1440** banner
   (the raw URL serves only a 512×288 default) and downscales it to 374×210 — the
   same 16:9 box as a video thumbnail (both 16:9, so nothing is cropped), served
@@ -2580,7 +2742,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   wipe); they always play. Message prose renders instantly (see Removed).
 - **Mobile chatbox meta line** stacks each shortcut chip key-over-caption (2 rows
   per pair) with an ellipsised conversation name, instead of overflowing.
-- **PITO logo broken-neon reveal** — on the start screen and the 404 page the
+- **Pito logo broken-neon reveal** — on the start screen and the 404 page the
   block-logo flickers in glyph-by-glyph at random, like a faulty neon sign warming
   up, then settles (with the odd rare flicker). Its own animation, always plays.
 
@@ -2608,7 +2770,7 @@ YouTube Studio, not in TubeBuddy, not in vidIQ:
   (typewriter, scramble, and the word-jump comet), plus the theme-change diff
   morph, are gone. Chat messages and theme switches now render **instantly**. The
   widget/chrome reveals stay and always play: chart sweeps (area/bar/metric),
-  the context-bar dynamite fuse, the PITO logo flicker, the desktop sidebar
+  the context-bar dynamite fuse, the Pito logo flicker, the desktop sidebar
   slide, and shimmers — none of them respect the OS "reduce motion" setting any
   more, they always animate.
 - **`/config motion` and `/config fx`** — with the content reveals gone, the
@@ -2922,8 +3084,8 @@ The **golden tape** release — the README now _moves_, and game prices read as 
 ### Added
 
 - **CLI casts in the README** (recorded with [VHS](https://github.com/charmbracelet/vhs),
-  themed in PITO's own synthwave palette):
-  - **Operating PITO** — `pito --help` → `version` → `logs` → `rake` → `backup`, live.
+  themed in Pito's own synthwave palette):
+  - **Operating Pito** — `pito --help` → `version` → `logs` → `rake` → `backup`, live.
   - **Install** — `curl | sh` showing the version picker → fetch (the "one line" proof).
   - **`pito update`** — the interactive stable/edge version picker switching the stack.
 - **`Pito::Coin` — price as coin tiers.** Game prices now read at a glance as
@@ -3058,7 +3220,7 @@ stable` that reserved a permanent ~6 px strip down the right of every page (the
 
 ## [0.7.2] — 2026-06-24
 
-The **polish, prose & paper-cuts** release. PITO gets its proper name (uppercase,
+The **polish, prose & paper-cuts** release. Pito gets its proper name (uppercase,
 at last), a README that actually moves, a guide for extending it — and a fistful of
 fixes for the ways it used to quietly eat your message or refuse to install.
 
@@ -3074,9 +3236,10 @@ fixes for the ways it used to quietly eat your message or refuse to install.
 
 ### Changed
 
-- **pito → PITO.** The product name is now written PITO in all prose and user-facing
-  copy. Code identifiers stay lowercase — the `Pito::` namespace, the `pito` CLI,
-  `bin/pito`, `pito.copy.*` i18n keys, URLs, and paths are unchanged.
+- **pito → PITO.** *(Historical record — reversed in 5.0.0, which settled the
+  name as `Pito`.)* The product name became PITO in all prose and user-facing
+  copy. Code identifiers stayed lowercase — the `Pito::` namespace, the `pito`
+  CLI, `bin/pito`, `pito.copy.*` i18n keys, URLs, and paths were unchanged.
 - **Leaner image.** `.dockerignore` now excludes `node_modules`, `docs/` (incl. the
   ~14 MB media gallery), `spec/`, and the dev `public/pito-storage` blobs — roughly
   60 MB off a local build, ~17 MB off the published image.
@@ -3100,7 +3263,7 @@ fixes for the ways it used to quietly eat your message or refuse to install.
 
 ## [0.7.1] — 2026-06-23
 
-The **polish** release on top of 0.7.0: PITO now keeps your pictures, talks back
+The **polish** release on top of 0.7.0: Pito now keeps your pictures, talks back
 when you say hello, ships its arm64 image without the emulation tax, and stops
 pinging Slack five times for one green push.
 
@@ -3122,7 +3285,7 @@ pinging Slack five times for one green push.
 morning` … and `bye` / `goodbye` / `hasta luego` / `ciao` / `later` … now get a
   witty reply (one of 50 variants each) instead of an error — matched as
   whole-input phrases in the chat parser, isolated from the verb grammar.
-- **Witty fallback for nonsense.** Input PITO genuinely can't parse ("boo!", "I'm
+- **Witty fallback for nonsense.** Input Pito genuinely can't parse ("boo!", "I'm
   hungry") no longer errors; it returns a `:system` reply from 50 variants, always
   nudging toward `help`. Errors are now reserved for _recognised_ verbs with bad
   arguments.
@@ -3141,7 +3304,7 @@ morning` … and `bye` / `goodbye` / `hasta luego` / `ciao` / `later` … now ge
 
 ## [0.7.0] — 2026-06-23
 
-The **local-first self-host** release. PITO stops being "clone the repo and pray"
+The **local-first self-host** release. Pito stops being "clone the repo and pray"
 and becomes "one command, on your own machine." No cloud, no Kamal, no monthly
 anything — your laptop, your data, still.
 
@@ -3202,7 +3365,7 @@ anything — your laptop, your data, still.
 
 ### Removed
 
-- **Kamal** (`config/deploy.yml`, `.kamal/`, `bin/kamal`) — PITO is local-only; there
+- **Kamal** (`config/deploy.yml`, `.kamal/`, `bin/kamal`) — Pito is local-only; there
   was never a cloud-deploy story to maintain.
 - The stock **`/up` health route** — single-owner tool, not a load balancer.
 - **Action Mailer, Action Mailbox, and Action Text** — all unused (notifications ride
@@ -3211,7 +3374,7 @@ anything — your laptop, your data, still.
 
 ## [0.6.0] — 2026-06-23
 
-The **it-has-to-look-good** release. PITO grows a trophy cabinet (shinies),
+The **it-has-to-look-good** release. Pito grows a trophy cabinet (shinies),
 learns to shimmer, trails a comet behind your cursor, and surfaces analytics at a
 glance — because if you're going to stare at your numbers all day, they ought to
 look good doing it.
@@ -3365,7 +3528,7 @@ look good doing it.
 - **Mobile-adaptive detail cards** — on narrow screens (< 768px) the `show video` /
   `show game` cards (and the linked-game card) stack into a single column — cover/thumbnail
   on top, the details table beneath — instead of being squeezed into two columns; desktop
-  keeps the two-column layout. (PITO's first responsive breakpoint.)
+  keeps the two-column layout. (Pito's first responsive breakpoint.)
 - **Linked-game card upgraded** — when a video links a game, `show video`'s linked-game card now
   uses the same big Ken-Burns cover + two-column layout as `show game` (was a small static cover),
   stacking on mobile.
