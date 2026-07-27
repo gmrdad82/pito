@@ -47,7 +47,7 @@ en:
           recents: "Recents"
       slash:
         descriptions:
-          login: "Log in to access PITO"
+          login: "Log in to access Pito"
           channels: "List your YouTube channels"
           videos: "List vids for a channel"
           import: "Import a game from IGDB"
@@ -57,6 +57,6 @@ en:
           new: "Start a new session"
     ui:
       palettes:
-        page_title: "PITO — command palettes preview"
+        page_title: "Pito — command palettes preview"
         slash_subheading: "Slash command palette  ·  opens above chatbox when / is typed"
         ctrlp_subheading: "ctrl+k command palette  ·  centered modal overlay"

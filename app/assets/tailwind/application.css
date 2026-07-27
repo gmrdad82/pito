@@ -52,20 +52,66 @@
   /* ── Shimmer tokens — single source of truth for ALL shimmers. ──
      Angle + speed are GLOBAL (every shimmer uses them). Each shimmer family has
      its own base/band colour tokens so they retune with one edit. */
-  --pito-shimmer-angle: 135deg;   /* diagonal sweep angle, everywhere */
+  /* 90deg = HORIZONTAL, left→right (owner 2026-07-25, correcting the earlier
+     135deg): *"the 90 degrees means shimmering left to right like
+     horizontally… Similar to what claude cli has in the terminal."* It is the
+     only angle the two apps can genuinely SHARE — a pito-tui chip is one row
+     of character cells, so a diagonal is physically impossible there, and the
+     tui's bars / score bar / ttb have always been horizontal by construction
+     (bars.go colours by cell index across the width). This token is global by
+     design, so the change also turns the network sweep and the chart / score /
+     ttb sweeps horizontal, which is the point: everything matches now.
+     Four gradients in the SHINY-BADGE block near the bottom of this file keep
+     their own hardcoded angles (135/115/180) — those are material lighting on
+     a metal chip, not this travelling band, and were left alone deliberately. */
+  --pito-shimmer-angle: 90deg;    /* horizontal sweep angle, everywhere */
   --pito-shimmer-speed: 5s;       /* sweep duration, everywhere (incl. charts/badges) */
   /* TEXT bands (kbd + clickable tokens) sweep FASTER (owner round 5: the band
-     is a thin abrupt glint now — at 5s it read as a slow purple wash). */
+     is a thin abrupt glint now — at 5s it read as a slow purple wash).
+     UNCHANGED by the 2026-07-25 respec: only the colours and the angle moved. */
   --pito-shimmer-speed-text: 2.6s;
-  /* action — CLICKABLE tokens (#id / @handle prefills, links): fg-default base
-     + the theme's PURPLE band (owner round 5: every special token rests on the
-     same white as plain text; only the sweeping band carries color). */
-  --shimmer-action-base: var(--fg-default);
-  --shimmer-action-band: var(--accent-purple);
-  /* kbd — KEYBINDINGS (shift+r, ctrl+k, …): fg-default base + the theme's
-     BLUE band (the palette token, NOT pito-blue). */
-  --shimmer-kbd-base: var(--fg-default);
-  --shimmer-kbd-band: var(--accent-blue);
+  /* token — the ONE text band. KEYBINDINGS (shift+r, ctrl+home, …) and
+     CLICKABLE tokens (#id / @handle prefills, action links) wear the same
+     ramp, the one the tui's key-cap chip wears.
+
+     THE 2026-07-25 RESPEC, verbatim: *"I basically want that shimmering just
+     to use the purple - blue - purple over the font color which I think it
+     was supposed to be white."* So the TEXT IS WHITE and the colour is the
+     travelling band, not the text — the base used to be pito-blue with a
+     purple band, which made a chip blue-to-purple end to end with no white
+     anywhere. The band itself now runs purple → blue → purple across its
+     core, with a soft raised-cosine falloff back to white over its outer
+     quarter on each side ("gradient and not hard color").
+
+     ALL THREE HEXES ARE LITERALS, AND THAT IS THE POINT. The owner's order
+     was that the two apps end up VISUALLY IDENTICAL, and pito-tui has no idea
+     which web theme is on — it hardcodes the same three in
+     internal/ui/render/gradient.go's KeycapBand. #5170ff is exactly what
+     var(--brand-pito) resolves to in all 20 theme blocks of themes.css, so
+     pinning it loses nothing; #bb9af7 is :root's --accent-purple, which the
+     other themes DO retune (#8839ef … #d4bfff), and following them would
+     desync this family from the terminal on every mood but the default.
+     Themed shimmer families (network, ai-badge, subject/reference) still use
+     var() tokens — this one family is pinned on purpose. Change these three
+     values and you must change KeycapBand in the same breath.
+
+     ⚠️ THE WHITE BASE ASSUMES A DARK GROUND. Pito is fixed to synthwave
+     (--bg-root #1a0b2e, --fg-default #f5e0ff), so white chips read exactly as
+     the owner asked. themes.css still carries light definitions as a latent
+     capability, and on those (--bg-root #ffffff / #eff1f5 / #fafafa) a white
+     base would be invisible wherever the band is not passing. If runtime
+     theme switching is ever revived, this base has to become theme-aware
+     (var(--fg-default)) and the tui-parity note above has to be renegotiated
+     — the two cannot both hold on a light ground. */
+  --shimmer-token-base: #ffffff;  /* the TEXT — white, the band travels over it */
+  --shimmer-token-band: #bb9af7;  /* = :root --accent-purple, both ends of the band's core */
+  --shimmer-token-core: #5170ff;  /* = --brand-pito, the band's crest */
+  /* action ICON — the .pito-copy__btn SVG (a 2-keyframe `color` pulse, not a
+     clipped gradient). Deliberately NOT retokened onto the canonical pair
+     above: whether it joins the band is the owner's call (borderline #3 of the
+     2026-07-24 shimmer recon), so it keeps its round-5 colours untouched. */
+  --shimmer-action-icon-base: var(--fg-default);
+  --shimmer-action-icon-band: var(--accent-purple);
   /* network — ALL network activity (thinking, IGDB search/import, notif load-more):
      the INVERSE of action (purple base + pito-blue band). */
   --shimmer-network-base: var(--accent-purple);
@@ -371,8 +417,11 @@ body > .flex::before {
 [data-scrollback-message] .pito-kbd-shimmer {
   /* text-shadow is INHERITED — from the naked-content halo above or the
      meta-line rule — and on background-clip:text glyphs it paints OVER the
-     gradient, muddying the white base (the "same component, different look"
-     bug). Cancel it; the drop-shadow below is these families' halo. */
+     gradient, muddying the base (the "same component, different look" bug).
+     Cancel it; the drop-shadow below is these families' halo. It is a dark
+     page-colour halo BEHIND the painted pixels, not a tint over them, which
+     is exactly why it survived the 2026-07-25 move to a WHITE base — white
+     glyphs over a dark ground want that halo more, not less. */
   text-shadow: none;
   filter: drop-shadow(0 1px 3px var(--bg-root));
 }
@@ -848,12 +897,38 @@ body > .flex::before {
 /* The trend triangle rides snug after its value token (e.g. `841K▲`). */
 .pito-metric__trend { margin-left: 0.15ch; }
 
-/* ── Clickable-token shimmer (owner round 5, the two-band scheme) ──
-   Everything special rests on fg-default — the same white as plain text —
-   and ONLY a sweeping band carries color: PURPLE for clickable tokens
-   (#id / @handle prefills, links), BLUE for keybindings below. Bold, no
-   chips, no backgrounds. Staggered animation-delay buckets (-dN, negative
-   so they start mid-cycle) keep tokens out of phase. */
+/* ── The TEXT band — ONE recipe for clickable tokens AND keybindings ──
+   (owner 2026-07-24: "all keybindings and all clickable action text use one
+   colour: purple with blue, exactly like the tui's key-cap".) The two-band
+   scheme of round 5 (purple for actions, blue for kbd) is long gone; the
+   2026-07-25 respec then corrected what the ONE band is made of.
+
+   WHITE TEXT, and a soft purple → blue → purple band travelling across it.
+   The 13 in-band stops are, in order: white, two shoulder samples fading up
+   (25% / 75% of the band colour over the white), PURPLE at full strength,
+   two purple→blue steps, BLUE on the crest, back out the mirror image. The
+   shoulder is the band's outer QUARTER on each side and its two samples are
+   sin²(30°) = 0.25 and sin²(60°) = 0.75, so the band arrives and leaves as a
+   gradient rather than a block; its middle half carries the hue ramp at full
+   strength, which is what lets the purple ends actually read purple instead
+   of washing out to lavender.
+
+   This table is mirrored HEX FOR HEX in pito-tui —
+   internal/ui/render/gradient.go's KeycapBand, 21 stops on a 1/20 grid where
+   indices 4…16 are these same 13. Edit one, edit the other, or the two apps
+   stop matching on the surface the owner uses to compare them.
+
+   --pito-shimmer-speed-text (2.6s) and the sweep keyframes are UNTOUCHED, so
+   the speed is exactly what it was; --pito-shimmer-angle moved 135deg → 90deg
+   (see the token block at the top of this file) so both apps sweep
+   horizontally, left→right.
+
+   background-size stays 200% 200%: the image's gradient line is 2× the
+   element's, so an image-space span of 35%→65% (30%) paints 60% of the
+   element — the canonical band width. No background-size change is required.
+
+   Bold, no chips, no backgrounds. Staggered animation-delay buckets (-dN,
+   negative so they start mid-cycle) keep adjacent tokens out of phase. */
 @keyframes pito-action-shimmer-sweep {
   0%   { background-position: 200% 200%; }
   100% { background-position: 0% 0%; }
@@ -861,17 +936,26 @@ body > .flex::before {
 
 .pito-action-shimmer {
   font-weight: 700;
-  /* The band is a THIN, HARD-EDGED glint (owner round 5): identical stops
-     back-to-back cut the ramp entirely, so the token is solid white except
-     for a narrow purple stripe racing through — never a wash. */
+  /* THE CANONICAL BAND — byte-identical to .pito-kbd-shimmer's below. Edit
+     one, edit both (they stay two class names because ~40 specs and every
+     component call site pin them separately). */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
-    var(--shimmer-action-base) 0%,
-    var(--shimmer-action-base) 47%,
-    var(--shimmer-action-band) 47%,
-    var(--shimmer-action-band) 53%,
-    var(--shimmer-action-base) 53%,
-    var(--shimmer-action-base) 100%
+    var(--shimmer-token-base)                                                          0%,
+    var(--shimmer-token-base)                                                         35%,
+    color-mix(in srgb, var(--shimmer-token-band)   25%, var(--shimmer-token-base))   37.5%,
+    color-mix(in srgb, var(--shimmer-token-band)   75%, var(--shimmer-token-base))     40%,
+    var(--shimmer-token-band)                                                       42.5%,
+    color-mix(in srgb, var(--shimmer-token-core) 33.3%, var(--shimmer-token-band))     45%,
+    color-mix(in srgb, var(--shimmer-token-core) 66.7%, var(--shimmer-token-band))   47.5%,
+    var(--shimmer-token-core)                                                         50%,
+    color-mix(in srgb, var(--shimmer-token-core) 66.7%, var(--shimmer-token-band))   52.5%,
+    color-mix(in srgb, var(--shimmer-token-core) 33.3%, var(--shimmer-token-band))     55%,
+    var(--shimmer-token-band)                                                       57.5%,
+    color-mix(in srgb, var(--shimmer-token-band)   75%, var(--shimmer-token-base))     60%,
+    color-mix(in srgb, var(--shimmer-token-band)   25%, var(--shimmer-token-base))   62.5%,
+    var(--shimmer-token-base)                                                         65%,
+    var(--shimmer-token-base)                                                        100%
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;
@@ -885,19 +969,29 @@ body > .flex::before {
 }
 
 /* ── Keybinding shimmer (Pito::Keybinding::ShortcutComponent) ──
-   Same recipe, the theme's BLUE band — every keyboard shortcut (shift+r,
-   ctrl+k, tab…) reads as bold white with a blue gleam passing through. */
+   THE SAME BAND as .pito-action-shimmer, to the byte — a keyboard shortcut
+   (shift+r, ctrl+home, tab…) and a clickable #id are the same kind of thing
+   to the eye, and they now look it. The blue-band/purple-band split is gone. */
 .pito-kbd-shimmer {
   font-weight: 700;
-  /* Same thin hard-edged glint as the action family — blue. */
+  /* Keep in lockstep with .pito-action-shimmer above. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
-    var(--shimmer-kbd-base) 0%,
-    var(--shimmer-kbd-base) 47%,
-    var(--shimmer-kbd-band) 47%,
-    var(--shimmer-kbd-band) 53%,
-    var(--shimmer-kbd-base) 53%,
-    var(--shimmer-kbd-base) 100%
+    var(--shimmer-token-base)                                                          0%,
+    var(--shimmer-token-base)                                                         35%,
+    color-mix(in srgb, var(--shimmer-token-band)   25%, var(--shimmer-token-base))   37.5%,
+    color-mix(in srgb, var(--shimmer-token-band)   75%, var(--shimmer-token-base))     40%,
+    var(--shimmer-token-band)                                                       42.5%,
+    color-mix(in srgb, var(--shimmer-token-core) 33.3%, var(--shimmer-token-band))     45%,
+    color-mix(in srgb, var(--shimmer-token-core) 66.7%, var(--shimmer-token-band))   47.5%,
+    var(--shimmer-token-core)                                                         50%,
+    color-mix(in srgb, var(--shimmer-token-core) 66.7%, var(--shimmer-token-band))   52.5%,
+    color-mix(in srgb, var(--shimmer-token-core) 33.3%, var(--shimmer-token-band))     55%,
+    var(--shimmer-token-band)                                                       57.5%,
+    color-mix(in srgb, var(--shimmer-token-band)   75%, var(--shimmer-token-base))     60%,
+    color-mix(in srgb, var(--shimmer-token-band)   25%, var(--shimmer-token-base))   62.5%,
+    var(--shimmer-token-base)                                                         65%,
+    var(--shimmer-token-base)                                                        100%
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;
@@ -1441,7 +1535,7 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 
 /* Absolute-right hint slot on the textarea's line: vertically centered;
    right:0 = the field-wrap's right edge = the symmetric 22px purple inset. Only one
-   child (c-to-chat / shift+tab / shift+space) is visible at a time. */
+   child (c-to-chat / channel cycler / period cycler, both ctrl+space) is visible at a time. */
 .pito-chatbox__hint-slot {
   position: absolute;
   right: 0;
@@ -2777,11 +2871,12 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   --scalars-value-w: 10ch;   /* TUNE: fits the longest value, the likes/dislikes icon split */
 
   /* LOCKED 2-up layout invariant (same as .pito-game-channels): desktop = two
-     450px columns (450 + 450 + 16 gap = 916 = the 964px column content width);
-     mobile stacks to one column. Charts are COLS=42 braille cells; braille glyphs
-     render at the SCOPED FALLBACK face's advance (0.7324em ≈ 10.25px @14px, NOT
-     the mono 1ch = 8.43px), so 42 cells ≈ 430px + 12px metric padding ≈ 442px —
-     fits a 450px column without clipping. Each cell contributes exactly ONE grid
+     FLUID columns that split the message's content width; mobile stacks to one
+     column. Charts are COLS=42 braille cells; braille glyphs render at the
+     SCOPED FALLBACK face's advance (0.7324em ≈ 10.25px @14px, NOT the mono
+     1ch = 8.43px), so 42 cells ≈ 430px + 12px metric padding ≈ 442px — which is
+     why the columns must never fall below ~450px at the 964px column width
+     (they don't: (926 − 16) / 2 = 455). Each cell contributes exactly ONE grid
      item — the cell wrapper is display:contents, so its single child becomes the
      grid item. */
   display: grid;
@@ -2790,7 +2885,17 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 }
 
 @media (min-width: 768px) {
-  .pito-analytics-scalars { grid-template-columns: repeat(2, minmax(0, 450px)); }
+  /* The grid is the LONE flex item of .pito-analytics-enhanced__panel, and a flex
+     item is content-sized by default — so the old fixed `repeat(2, minmax(0,450px))`
+     tracks pinned it to 916px and left the right-hand surface panel short of the
+     message's right edge (a barred segment's content box is 964 − 4 bar − 6 gap −
+     12 left − 16 right = 926px, not 916). flex:1 makes the grid span the panel and
+     fluid 1fr tracks split whatever that width is, so the right column ends exactly
+     at the message's right edge at ANY column width. Column-gap stays 16px.
+     The CHARTS do not grow with the track: .pito-metric__chart keeps
+     width:max-content and left-aligns inside the widened surface panel. */
+  .pito-analytics-enhanced__panel > .pito-analytics-scalars { flex: 1 1 auto; min-width: 0; }
+  .pito-analytics-scalars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Each metric cell wrapper — carries the stable per-message dom-id
@@ -2818,7 +2923,7 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  /* FILL the 450 grid column (was max-content, which overflowed a narrower column
+  /* FILL the grid column (was max-content, which overflowed a narrower column
      and made adjacent surface panels touch/overlap). The chart/pair inside keep
      their natural width, left-aligned; min-width:0 lets the panel shrink with the
      column. */
@@ -2829,7 +2934,7 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
 }
 .pito-analytics-scalars__charted .pito-metric { background: transparent; padding: 0; width: 100%; }
 
-/* Every analyze/glance surface panel fills exactly ONE 450 grid column so the two
+/* Every analyze/glance surface panel fills exactly ONE grid column so the two
    columns keep their 16px gap and never touch/overlap. */
 .pito-analytics-scalars .pito-metric {
   width: 100%;
@@ -2897,7 +3002,7 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   cursor: pointer;
   font: inherit;
   line-height: 0;                       /* trim the button box to the glyph */
-  color: var(--shimmer-action-base);
+  color: var(--shimmer-action-icon-base);
   animation-name: pito-action-icon-shimmer;
   animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
@@ -2928,11 +3033,14 @@ body:has(#pito-command-palette:not(.hidden)) #pito-scrollback {
   background: transparent;
 }
 
-/* Icon shimmer: pulse currentColor between the action base (pito-blue) and band
-   (purple) — the SVG-stroke analogue of .pito-action-shimmer's text sweep. */
+/* Icon shimmer: pulse currentColor between the icon base and band — the
+   SVG-stroke analogue of .pito-action-shimmer's text sweep. NOTE (2026-07-24):
+   the text families moved to the canonical pito-blue↔purple band; this icon
+   deliberately did NOT follow (it is a 2-keyframe colour pulse at 5s, not a
+   15-stop gradient at 2.6s) — pending the owner's ruling on whether it should. */
 @keyframes pito-action-icon-shimmer {
-  0%, 100% { color: var(--shimmer-action-base); }
-  50%      { color: var(--shimmer-action-band); }
+  0%, 100% { color: var(--shimmer-action-icon-base); }
+  50%      { color: var(--shimmer-action-icon-band); }
 }
 
 /* ═══ SHINIES — the material design system ═══════════════════════════

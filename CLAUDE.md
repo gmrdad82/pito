@@ -1,16 +1,16 @@
-# PITO — project card
+# Pito — project card
 
 > The global working agreement in `~/.claude/CLAUDE.md` applies (verification
 > spine, dev-notes, git/PIN ceremony, privacy). This file carries only what is
-> PITO-specific. Deeper architecture: `docs/architecture.md`; the visual
+> Pito-specific. Deeper architecture: `docs/architecture.md`; the visual
 > contract: `docs/design.md` — read the relevant one before writing code for
 > it, don't work from memory.
 
-# PITO architecture (map + invariants)
+# Pito architecture (map + invariants)
 
 A self-hosted, chat-first YouTube channel manager for a single owner: the owner
 types into one chatbox and everything renders as Turbo Stream events on the
-scrollback. YouTube Studio stays the upload tool — PITO mirrors channel data,
+scrollback. YouTube Studio stays the upload tool — Pito mirrors channel data,
 stages edits, and surfaces game / channel / scheduling recommendations.
 
 **This is a map, not a manual.** The code is commented and `docs/architecture.md`

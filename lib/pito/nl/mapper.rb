@@ -31,7 +31,7 @@ module Pito
       # (see that class's #perform_request doc comment). Root cause was the
       # GBNF grammar strangling the model mid-think; with thinking off via
       # either mechanism the model composed the command on the first try.
-      INSTRUCTION = "Rewrite the owner's words as one PITO command. " \
+      INSTRUCTION = "Rewrite the owner's words as one Pito command. " \
                     "Output ONLY the shortest valid command. /no_think"
 
       # Short on purpose: this is one command line ("ls rpg games", "link 14

@@ -1,12 +1,12 @@
-# PITO
+# Pito
 
 [![CI](https://github.com/gmrdad82/pito/actions/workflows/ci.yml/badge.svg)](https://github.com/gmrdad82/pito/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?logo=githubsponsors)](https://github.com/sponsors/gmrdad82)
 
 <!-- prettier-ignore -->
-<p align="center"><a href="https://youtu.be/7y3R403XtDE"><img src="docs/media/pito-tour-thumb.png" width="760" alt="▶ PITO — Inception Wednesday: a guided tour"></a></p>
-<p align="center"><em>▶ A guided tour of PITO — <a href="https://youtu.be/7y3R403XtDE">watch the tour</a>, on <a href="https://www.youtube.com/@gmrdad82">@gmrdad82</a>.</em></p>
+<p align="center"><a href="https://youtu.be/7y3R403XtDE"><img src="docs/media/pito-tour-thumb.png" width="760" alt="▶ Pito — Inception Wednesday: a guided tour"></a></p>
+<p align="center"><em>▶ A guided tour of Pito — <a href="https://youtu.be/7y3R403XtDE">watch the tour</a>, on <a href="https://www.youtube.com/@gmrdad82">@gmrdad82</a>.</em></p>
 
 ## Why does this thing exist?
 
@@ -32,7 +32,7 @@ counting rhyme kids use to pick who's "it":
 > _Pito, pito, gorgorito, ¿a dónde vas tú tan bonito?_
 
 I fell for it on the spot: the sound, the daftness, the way it lodges in your head and
-won't leave. So I baptized the thing **PITO** and never looked back.
+won't leave. So I baptized the thing **Pito** and never looked back.
 
 ## What I wanted it to be
 
@@ -62,11 +62,11 @@ game/channel recommendations. Your laptop, your data.
 > obligation. issues triaged when there's time; PRs welcome but not guaranteed to
 > merge. no hosted service from this repo.
 
-## What PITO does that no one else does — not even Studio
+## What Pito does that no one else does — not even Studio
 
-Everything in this section is native to PITO and simply **absent** from YouTube
+Everything in this section is native to Pito and simply **absent** from YouTube
 Studio, TubeBuddy, and vidIQ. Not "better" — absent. Studio knows your videos
-inside out; it has just never once asked which _game_ you were playing. PITO is
+inside out; it has just never once asked which _game_ you were playing. Pito is
 built around that question — and it's best _seen_: it moves.
 
 ### An assistant that lives in your library
@@ -74,15 +74,15 @@ built around that question — and it's best _seen_: it moves.
 <p align="center"><img src="docs/media/mkt-ai.gif" width="760" alt="@ai comparing channels — a real table, a braille bar chart, and the model's cost receipt"></p>
 
 **`@ai`** — ask in plain words ("compare my channels, chart the split") and the
-assistant reads your library through PITO's own read-only tools, then answers in
-PITO's native voice: real tables, braille charts, score bars — streaming in block
+assistant reads your library through Pito's own read-only tools, then answers in
+Pito's native voice: real tables, braille charts, score bars — streaming in block
 by block. Bring any model with your own key (that answer came from a free one);
 every reply is signed with the model's name and its reported cost, and the web
 stays out of it unless you pass `--web`.
 
 ### Your library speaks MCP
 
-<p align="center"><img src="docs/media/mkt-mcp.png" width="760" alt="The PITO OAuth consent screen, approving a new MCP client with a TOTP code"></p>
+<p align="center"><img src="docs/media/mkt-mcp.png" width="760" alt="The Pito OAuth consent screen, approving a new MCP client with a TOTP code"></p>
 
 The same library speaks **MCP** — Claude on your phone, ChatGPT, or any MCP
 client can read your channels, vids, games, and analytics from wherever you are.
@@ -90,7 +90,7 @@ Read-only, gated by a consent screen and your TOTP ([setup](#connect-an-ai-chat-
 
 ### Which of your channels owns a game
 
-<p align="center"><img src="docs/media/mkt-02-coverage.png" width="760" alt="PITO — cross-channel game coverage: distribution + recommendation"></p>
+<p align="center"><img src="docs/media/mkt-02-coverage.png" width="760" alt="Pito — cross-channel game coverage: distribution + recommendation"></p>
 
 `show game` answers the one question a multi-channel gamer actually has: side by
 side, how this game's coverage is **distributed** across your channels (weighted by
@@ -108,9 +108,9 @@ audience.
 
 ### Smart linkage: games ↔ videos ↔ channels
 
-<p align="center"><img src="docs/media/03-linkage.gif" width="760" alt="PITO — game/video/channel linkage demo"></p>
+<p align="center"><img src="docs/media/03-linkage.gif" width="760" alt="Pito — game/video/channel linkage demo"></p>
 
-Explicitly `link` a video to a game and PITO builds the graph: which games you cover,
+Explicitly `link` a video to a game and Pito builds the graph: which games you cover,
 which channels they fit, and — via a local embedding sidecar — the similar games and
 best-fit channels you hadn't thought of. It never guesses from titles; the links are yours.
 
@@ -124,7 +124,7 @@ on that graph.
 <p align="center"><img src="docs/media/mkt-15-semantic-search.png" width="760" alt="Typing 'search games with a good story' into the chatbox and getting a ranked list of games back, no keywords or filters involved"></p>
 
 No keywords, no syntax to memorize — just say what you're after. Type `search games
-with a good story` or `something brutal but worth every second` and PITO reads the
+with a good story` or `something brutal but worth every second` and Pito reads the
 meaning, not the words, then ranks your library by how close each game lands. Every
 game carries a small, curated trait vocabulary — difficulty from easy to brutal, story
 from bad to emotional, pace from relaxing to chaotic, plus a set of qualitative tags —
@@ -139,25 +139,25 @@ Ask for a feeling and you get the shelf that feels that way — `search games ab
 brutal but worth every second` surfaces the punishing-but-loved corner of your
 library, closest match first, with a pager for the rest. It's honest when it comes
 up empty, too: if nothing in your library is genuinely close to what you typed,
-PITO says so instead of padding the page with weak matches just to fill it. And
-the whole thing runs on an embedding model living inside your own PITO stack: no
+Pito says so instead of padding the page with weak matches just to fill it. And
+the whole thing runs on an embedding model living inside your own Pito stack: no
 API key, no cloud call, nothing leaves your machine.
 
 ### And the rest of the loot
 
-<p align="center"><img src="docs/media/01-chat.gif" width="760" alt="PITO — one chatbox demo"></p>
+<p align="center"><img src="docs/media/01-chat.gif" width="760" alt="Pito — one chatbox demo"></p>
 
 **One chatbox — that's the entire app.** No menus, no forty-tab settings labyrinth.
-You type, PITO answers — a terminal-style chat with keyboard-first UI/UX that gets
+You type, Pito answers — a terminal-style chat with keyboard-first UI/UX that gets
 out of your way and stays out of it.
 
-<p align="center"><img src="docs/media/02-language.gif" width="760" alt="PITO — plain-language query demo"></p>
+<p align="center"><img src="docs/media/02-language.gif" width="760" alt="Pito — plain-language query demo"></p>
 
-**Ask in plain language.** Type the way you think. PITO reads a little natural
+**Ask in plain language.** Type the way you think. Pito reads a little natural
 language, so `list vids`, `show game`, or a quick question gets you your numbers
 without hunting through dashboards.
 
-<p align="center"><img src="docs/media/04-schedule.gif" width="760" alt="PITO — scheduling helper demo"></p>
+<p align="center"><img src="docs/media/04-schedule.gif" width="760" alt="Pito — scheduling helper demo"></p>
 
 **A calendar that finds the gap** — `schedule <id> slate` lays out what's already
 booked across _every_ channel, so releases spread out instead of quietly stacking
@@ -185,7 +185,7 @@ these strictly one video at a time.
 <p align="center"><img src="docs/media/mkt-07-heatmap.png" width="760" alt="Day-of-week heatmap"></p>
 
 **Day-of-week heatmap** — Mon→Sun bars computed from your daily views, busiest day
-green. The YouTube API doesn't even offer this dimension; PITO does the math itself.
+green. The YouTube API doesn't even offer this dimension; Pito does the math itself.
 
 <p align="center"><img src="docs/media/mkt-13-similar.png" width="760" alt="Similar games"></p>
 
@@ -202,7 +202,7 @@ included. Go ahead, try sending someone a Studio screen.
 **Conversations are snapshots** — an old conversation still shows your numbers _as
 they were_. A time machine no dashboard gives you.
 
-<p align="center"><img src="docs/media/mkt-11-mobile.png" width="760" alt="PITO on mobile"></p>
+<p align="center"><img src="docs/media/mkt-11-mobile.png" width="760" alt="Pito on mobile"></p>
 
 **Happily mobile** — the chatbox works on your phone. Studio on a phone is… an app
 that isn't this.
@@ -212,7 +212,7 @@ that isn't this.
 **Shinies** — lifetime achievement badges across channels, vids, and games.
 Gaming-flavored bragging rights that unlock as you grow.
 
-<p align="center"><img src="docs/media/05-themes.gif" width="760" alt="PITO — live theme switching demo"></p>
+<p align="center"><img src="docs/media/05-themes.gif" width="760" alt="Pito — live theme switching demo"></p>
 
 **Themes for every desire** — 19 built-in palettes — familiar editor themes, dark and
 light — switched live with `/themes` and remembered per your taste. Don't love one?
@@ -254,7 +254,7 @@ full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
   needed) finds games by feel instead of by name, typo and all. Same local embedding
   sidecar — no API key, no cloud call.
 - **Linking** — explicit `link` / `unlink` between a video and a game, both
-  directions; **PITO** never guesses from titles.
+  directions; **Pito** never guesses from titles.
 - **Planning** — `schedule <id> slate` shows what's already on the calendar so you can
   spread releases; per-game `price` and `footage` help you budget and plan.
 - **Notifications** — Slack + Discord integration (rich, colored, emoji'd) for reauth
@@ -269,7 +269,7 @@ full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
 
 ## Themes
 
-PITO ships **19 built-in themes** — familiar editor palettes — switched live with
+Pito ships **19 built-in themes** — familiar editor palettes — switched live with
 `/themes` (opens a picker; your choice persists):
 
 - **Dark** — `ayu-dark` · `ayu-mirage` · `catppuccin-mocha` · `dracula` · `github-dark` · `gruvbox-dark` · `nord` · `one-dark` · `solarized-dark` · `synthwave` · `tokyo-night` · `tomorrow-night`
@@ -323,7 +323,7 @@ Hacking on it natively instead? You'll want:
 - **imagemagick** · **libvips** (game cover / thumbnail image processing)
 
 No Redis — background jobs, cache, and websockets all ride on Postgres
-(Solid Queue / Cache / Cable). And **no ffmpeg**: PITO itself never shells out to it.
+(Solid Queue / Cache / Cable). And **no ffmpeg**: Pito itself never shells out to it.
 The only place it comes up is the optional `footage snippet` helper — a copyable
 one-liner _you_ run in your own video folder (it uses `ffprobe`) to total your raw
 hours. Install ffmpeg only if you want that convenience, wherever your footage lives.
@@ -336,77 +336,89 @@ Two ways in. **Docker runs production mode; native runs development mode.**
 
 ### Docker — the easy path (only Docker needed)
 
-No clone, no Ruby. One command fetches a small `./pito` install (a compose file + the
-`pito` CLI), generates your _own_ secrets, pulls the prebuilt image, and walks you
+No clone, no Ruby. One command fetches a small `./pito-cli` install (a compose file + the
+`pito-cli` CLI), generates your _own_ secrets, pulls the prebuilt image, and walks you
 through enrolling a login:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.sh | sh
 ```
 
-<p align="center"><img src="docs/media/pito-install-cast.gif" width="820" alt="curl | sh installing PITO — version picker, then it fetches + sets up"></p>
+<p align="center"><img src="docs/media/pito-install-cast.gif" width="820" alt="curl | sh installing Pito — version picker, then it fetches + sets up"></p>
 
 It first asks **which version** to install — pick a **stable** release (the newest
 is the default + recommended) or **edge** (latest image + bleeding-edge CLI from
-`main`). Then it asks for the public URL (default **http://localhost:3028**), mints a
-fresh master key + credentials (no editor required), enrolls TOTP (scan the printed
-`otpauth://` into any authenticator), and — for a non-localhost host — **configures a Cloudflare
-tunnel and brings up both the tunnel and pito as systemd services**, so everything
-survives a reboot with no manual `cloudflared tunnel run`. When it finishes, open the
-URL and `/login`. (The only thing a public host needs that can't be scripted is the
-one-time `cloudflared tunnel login` browser approval, which the installer launches for
-you. If you already have a tunnel, it's reused untouched.)
+`main`). Then it asks **which port** to answer on (default **3028**), checks that
+nothing is already listening there, mints a fresh master key + credentials (no
+editor required), enrolls TOTP (scan the printed `otpauth://` into any
+authenticator) and offers to install a systemd unit so the stack comes back after
+a reboot. When it finishes, open **http://localhost:PORT** and `/login`.
 
-**Custom host or in-place install.** Flags pass through with `sh -s --`:
+**Pito chat runs on localhost.** It installs on your machine, listens on
+`127.0.0.1`, and that is the whole story the installer tells. There is no
+public-host question and no HTTPS step: putting a local port on the internet is a
+separate job, with its own tools and its own security decisions, and the installer
+deliberately does not make them for you. If you want remote access, terminate TLS
+and reverse-proxy to `127.0.0.1:PORT` with whatever you already run.
+
+**Pick the port, or install in place.** Flags pass through with `sh -s --`:
 
 ```bash
-# set the public host up front, and install into the CURRENT folder (no ./pito subdir):
+# answer on 4000, and install into the CURRENT folder (no ./pito-cli subdir):
 curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.sh \
-  | sh -s -- --host https://app.example.com --dir .
+  | sh -s -- --port 4000 --dir .
 ```
 
-The script's `--help` lists them all: `--host URL`, `--dir DIR` (default `./pito`),
-`--version vX.Y.Z` (pin a release) / `--edge` (skip the version prompt),
-`--skip-pull`, plus `--service-only` / `--cloudflared-only` to (re)run just the
-systemd or tunnel step. You provide nothing else — the master key + credentials are
+The script's `--help` lists them all: `--port PORT` (default: prompt, then 3028),
+`--dir DIR` (default `./pito-cli`), `--version vX.Y.Z` (pin a release) / `--edge`
+(skip the version prompt), `--skip-pull`, plus `--service-only` to (re)run just
+the systemd step. You provide nothing else — the master key + credentials are
 generated for you; API keys go in later via `/config`.
+
+Changing the port later is `pito-cli update --port PORT`.
 
 **Versions: stable vs edge.** `stable` pins a release — image tag _and_ CLI/scripts
 come from the same `vX.Y.Z` git tag, so the whole install is reproducible. `edge`
-runs the `:latest` image with the CLI tracking `main`. `pito --version` shows which
-you're on (`pito 0.7.3 (stable)`); `pito update` lets you move between them.
+runs the `:latest` image with the CLI tracking `main`. `pito-cli --version` shows which
+you're on (`pito 0.7.3 (stable)`); `pito-cli update` lets you move between them.
 
 **Re-running is safe.** Running the installer again keeps your existing master key +
 credentials, never touches the Postgres volume (channels, videos, games, `/config`
 keys + webhooks), and does **not** re-enroll TOTP — your authenticator keeps working.
-To just pull a newer image, use `pito update` (image swap + restart only, nothing
+To just pull a newer image, use `pito-cli update` (image swap + restart only, nothing
 else touched).
 
-The installer symlinks the CLI onto your `PATH`, so **`pito` runs from anywhere**
-(if that step is skipped — no sudo — use `./pito` from the install dir instead):
+The installer symlinks the CLI onto your `PATH`, so **`pito-cli` runs from anywhere**
+(`pito` is kept as a deprecation shim for one release, if you're used to the old name;
+if the symlink step is skipped — no sudo — use `./pito-cli` from the install dir instead):
 
 ```bash
-pito logs -f     # tail the app
-pito console     # a Rails console in the container
-pito update      # pull the latest image + restart
-pito --help      # the rest
+pito-cli logs -f     # tail the app
+pito-cli console     # a Rails console in the container
+pito-cli update      # pull the latest image + restart
+pito-cli --help      # the rest
 ```
+
+The shim is linked **only** when nothing else owns the `pito` name — an
+existing `pito` is never replaced or shadowed, the installer says so, and the
+operator CLI stays `pito-cli` either way.
 
 Same on Linux, macOS, and Windows (WSL2) — and on both amd64 and arm64 (the image is
 multi-arch, so a Raspberry Pi 5 or Apple Silicon box is fine too).
 
 **The MCP service.** Alongside the two `web` deploy slots, the compose file ships a
 second Puma, `pito-mcp` — the same image on an isolated port, so a slow AI tool-loop
-can never starve the app. `pito update` re-fetches `docker-compose.yml`, then brings
-it up with `docker compose up -d pito-mcp`. Your tunnel/reverse proxy routes the
-paths `^/(mcp|oauth|\.well-known)` to it (port 3029) and everything else to
-`127.0.0.1:3028` — the internal load balancer (`lb`) that fronts the two deploy
-slots (see [Zero-downtime deploys](#zero-downtime-deploys) below).
+can never starve the app. `pito-cli update` re-fetches `docker-compose.yml`, then brings
+it up with `docker compose up -d pito-mcp`. If you put a reverse proxy in front
+of Pito, route the paths `^/(mcp|oauth|\.well-known)` to it (port 3029) and
+everything else to `127.0.0.1:PORT` — the internal load balancer (`lb`) that
+fronts the two deploy slots (see
+[Zero-downtime deploys](#zero-downtime-deploys) below).
 
 ### Connect an AI chat (MCP)
 
-PITO speaks the [Model Context Protocol](https://modelcontextprotocol.io) at
-`/mcp`, so an AI assistant can **read** your PITO — your games, videos, channels,
+Pito speaks the [Model Context Protocol](https://modelcontextprotocol.io) at
+`/mcp`, so an AI assistant can **read** your Pito — your games, videos, channels,
 analytics, breakdowns, at-a-glance snapshots, similar games, channel coverage,
 shinies, and your past conversations — as first-class tools. It is strictly
 **read-only**: nothing it can call changes anything, and MCP calls never appear in
@@ -415,17 +427,18 @@ your scrollback or resume sidebar.
 To attach a client (e.g. claude.ai, on your phone or desktop):
 
 1. In the client's connector settings, add a custom MCP connector with the URL
-   `https://<your-pito-host>/mcp` (whatever domain your tunnel serves, e.g.
-   `https://app.pitomd.com/mcp`).
-2. The client discovers PITO's OAuth automatically and opens a **consent page** in
+   `https://<your-pito-host>/mcp` — whatever public name you reach your instance
+   by (see [Reaching Pito from somewhere else](#reaching-pito-from-somewhere-else)).
+   A remote MCP client cannot talk to a bare `localhost` install.
+2. The client discovers Pito's OAuth automatically and opens a **consent page** in
    your browser. It shows the app name and the read-only tool list, and asks for
    your current **6-digit TOTP code** — the same code you use for `/authenticate`.
 3. Enter the code once to approve. That's it — the client refreshes its access
    silently from then on; you never enter a code again for that client (revoke by
-   deleting its `OauthClient` / `OauthToken` rows in `pito console`).
+   deleting its `OauthClient` / `OauthToken` rows in `pito-cli console`).
 
 Then ask the assistant things like _"what games does @gmrdad82 play?"_ or _"what did
-PITO say about retention yesterday?"_ and it will call the matching tool.
+Pito say about retention yesterday?"_ and it will call the matching tool.
 
 ### Native — for hacking on it (development mode)
 
@@ -445,7 +458,7 @@ bin/rails db:encryption:init             # paste the printed keys into the crede
 Then install your OS deps (below), run `bin/setup` (brings up Postgres + prepares the
 DB) and `bin/dev` → **http://localhost:3027**. Enroll your login with
 `bin/rails pito:totp` — or, in development, just type `/login 123456` (a dev-only
-dummy code; see [Operating PITO](#operating-pito)).
+dummy code; see [Operating Pito](#operating-pito)).
 
 | OS                | System packages                                                               |
 | ----------------- | ----------------------------------------------------------------------------- |
@@ -459,21 +472,22 @@ you want the optional `footage snippet` helper.)
 
 ### Not a cloud thing
 
-PITO is built to run **on your own machine** — your laptop, a home server, a NUC under
+Pito is built to run **on your own machine** — your laptop, a home server, a NUC under
 the TV. There's no hosted service from this repo and no cloud-deploy story baked in
 (no Kamal, no Helm, no "click to deploy"). You're welcome to put it behind a domain
-with a Cloudflare tunnel (see [Exposing PITO](#exposing-pito-cloudflare-tunnel)) or
-deploy it however you please — it's AGPL, go wild — but the supported, tested path is
-local self-host.
+however you please (see
+[Reaching Pito from somewhere else](#reaching-pito-from-somewhere-else)) — it's
+AGPL, go wild — but the supported, tested path is **localhost self-host**, and that
+is the only one the installer knows how to set up.
 
 ## Accounts & API keys
 
-**PITO** needs two sets of credentials. Grab them, then paste them into the chatbox
+**Pito** needs two sets of credentials. Grab them, then paste them into the chatbox
 with `/config` (stored encrypted). Only Google is strictly required to do anything
 useful; IGDB unlocks the game features. Similar games, channel recommendations, and
 the natural-language chat mapper run on local AI sidecars baked into the compose
 stack — no signup, no key, nothing to `/config` (see
-[Local AI](#local-ai-embeddings-and-language-mapping) under Operating PITO).
+[Local AI](#local-ai-embeddings-and-language-mapping) under Operating Pito).
 
 **1. Google / YouTube** _(required — it's the whole point)_
 
@@ -481,10 +495,11 @@ stack — no signup, no key, nothing to `/config` (see
 2. **APIs & Services → Library** → enable **YouTube Data API v3**.
 3. **OAuth consent screen** → _External_ → add your own Google account as a test user.
 4. **Credentials → Create credentials → OAuth client ID → Web application**. Add the
-   authorized redirect URI **`http://localhost:3028/auth/youtube/callback`** (use your
-   real host/tunnel if not local). Copy the **Client ID** + **Client secret**.
+   authorized redirect URI **`http://localhost:3028/auth/youtube/callback`** — swap
+   3028 for the port you installed on, or use your public URL if you put a reverse
+   proxy in front. Copy the **Client ID** + **Client secret**.
 5. **Credentials → Create credentials → API key**. Copy it.
-6. In **PITO**: `/config google client_id=… client_secret=… api_key=…`, then `/connect`
+6. In **Pito**: `/config google client_id=… client_secret=… api_key=…`, then `/connect`
    to authorize each channel.
 
 **2. IGDB** _(game data — runs on Twitch)_
@@ -492,7 +507,7 @@ stack — no signup, no key, nothing to `/config` (see
 1. [Twitch Developer Console](https://dev.twitch.tv/console/apps) → **Register Your
    Application** (any name; OAuth redirect `http://localhost` is fine).
 2. Copy the **Client ID** and generate a **Client Secret**.
-3. In **PITO**: `/config igdb client_id=… client_secret=…`.
+3. In **Pito**: `/config igdb client_id=… client_secret=…`.
 
 **Optional — Slack / Discord notifications:** create an incoming webhook in each, then
 `/config webhook slack=… discord=…`.
@@ -503,36 +518,34 @@ stack — no signup, no key, nothing to `/config` (see
 2. `/config` your keys, then `/connect` your first channel.
 3. `list channels` → `sync vids` → `list games`. You're off.
 
-## Operating PITO
+## Operating Pito
 
-The Docker stack is driven by the **`pito`** CLI (on your `PATH` after install —
-or `./pito` from the install dir):
+The Docker stack is driven by the **`pito-cli`** CLI (on your `PATH` after install —
+or `./pito-cli` from the install dir):
 
-<p align="center"><img src="docs/media/pito-cli-cast.gif" width="820" alt="the pito CLI in action — help, version, logs, rake, backup"></p>
+<p align="center"><img src="docs/media/pito-cli-cast.gif" width="820" alt="pito-cli in action — help, version, logs, rake, backup"></p>
 
-| Command            | What it does                                            |
-| ------------------ | ------------------------------------------------------- |
-| `pito up` / `down` | start / stop the stack                                  |
-| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated)   |
-| `pito console`     | a Rails console inside the running container            |
-| `pito rake [task]` | list `pito:*` tasks, or run one in the container        |
-| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs    |
-| `pito totp`        | (re)enroll your login                                   |
-| `pito version`     | show the running version + channel (stable/edge)        |
-| `pito update`      | update — pick a release (stable) or edge, zero-downtime |
-| `pito deploy-flip` | run the zero-downtime blue/green flip by hand           |
-| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)    |
-| `pito build`       | build the image **locally** from a source checkout      |
-| `pito self-update` | refresh just the CLI (no image pull / restart)          |
-| `pito caddy`       | direct HTTPS via Caddy — the no-tunnel alternative      |
-| `pito hetzner`     | provision a Hetzner Cloud box ready to run PITO         |
-| `pito autoupdate`  | pull new releases automatically (15-min systemd timer)  |
+| Command                | What it does                                            |
+| ---------------------- | ------------------------------------------------------- |
+| `pito-cli up` / `down` | start / stop the stack                                  |
+| `pito-cli logs [-f]`   | tail container logs (Docker's own — capped + rotated)   |
+| `pito-cli console`     | a Rails console inside the running container            |
+| `pito-cli rake [task]` | list `pito:*` tasks, or run one in the container        |
+| `pito-cli clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs    |
+| `pito-cli totp`        | (re)enroll your login                                   |
+| `pito-cli version`     | show the running version + channel (stable/edge)        |
+| `pito-cli update`      | update — pick a release (stable) or edge, zero-downtime |
+| `pito-cli deploy-flip` | run the zero-downtime blue/green flip by hand           |
+| `pito-cli backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)    |
+| `pito-cli build`       | build the image **locally** from a source checkout      |
+| `pito-cli self-update` | refresh just the CLI (no image pull / restart)          |
+| `pito-cli autoupdate`  | pull new releases automatically (15-min systemd timer)  |
 
-**`pito update`** is the one you'll reach for most — it's interactive: it lists the
+**`pito-cli update`** is the one you'll reach for most — it's interactive: it lists the
 available releases (or **edge**) and switches the whole stack (image **and** CLI) to
 your pick in one step:
 
-<p align="center"><img src="docs/media/pito-update-cast.gif" width="820" alt="pito update — pick a stable release, the whole stack switches"></p>
+<p align="center"><img src="docs/media/pito-update-cast.gif" width="820" alt="pito-cli update — pick a stable release, the whole stack switches"></p>
 
 ### Running a locally-built image
 
@@ -540,19 +553,19 @@ To run your own build instead of a published release — on the **same Docker ho
 
 ```sh
 # 1) in a source checkout — build + tag it locally (default tag: `local`)
-PITO_TAG=local pito build
+PITO_TAG=local pito-cli build
 
 # 2) in your install dir — point the stack at that tag and (re)start
 echo 'PITO_TAG=local' >> .env      # or edit the existing PITO_TAG line
-pito up -d                         # runs the local image; no pull
+pito-cli up -d                         # runs the local image; no pull
 ```
 
-`pito build` tags the image `ghcr.io/gmrdad82/pito:local`; because the install-dir
+`pito-cli build` tags the image `ghcr.io/gmrdad82/pito:local`; because the install-dir
 compose resolves `image: ghcr.io/gmrdad82/pito:${PITO_TAG}`, setting `PITO_TAG=local`
-makes `pito up` run your build (Compose uses a present image and never pulls). The
-`local` tag keeps it from colliding with a real release. Use **`pito up`**, not
-**`pito update`** — `update` pulls from GHCR and would replace the local image. To
-return to a release, set `PITO_TAG` back (e.g. `0.8.5`) and run `pito update`.
+makes `pito-cli up` run your build (Compose uses a present image and never pulls). The
+`local` tag keeps it from colliding with a real release. Use **`pito-cli up`**, not
+**`pito-cli update`** — `update` pulls from GHCR and would replace the local image. To
+return to a release, set `PITO_TAG` back (e.g. `0.8.5`) and run `pito-cli update`.
 
 In-app, **`/jobs`** is your window into the background queue: `/jobs status` (workers,
 state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>` (run a
@@ -568,7 +581,7 @@ recurring task now), and `/jobs pause` / `/jobs resume`.
 
 ### Backups
 
-`pito backup` writes a timestamped folder on the **host** (`./backups/<ts>/`,
+`pito-cli backup` writes a timestamped folder on the **host** (`./backups/<ts>/`,
 git-ignored) with two artifacts:
 
 - `database.sql.gz` — `pg_dump` run inside the Postgres container (version-matched,
@@ -576,37 +589,37 @@ git-ignored) with two artifacts:
 - `active_storage.tar.gz` — your avatars/thumbnails/covers **and their variants**
   from the assets volume.
 
-It runs against the live stack, so bring it up first (`pito up -d`). The full surface:
+It runs against the live stack, so bring it up first (`pito-cli up -d`). The full surface:
 
-| Command                | What it does                                                      |
-| ---------------------- | ----------------------------------------------------------------- |
-| `pito backup`          | back up DB + assets; **prunes to the newest 7** afterward         |
-| `pito backup --list`   | list existing backups with their sizes                            |
-| `pito restore <dir>`   | restore a backup over the live stack (prompts — it's destructive) |
-| `pito backup-schedule` | install a **daily** systemd timer that runs `pito backup`         |
+| Command                    | What it does                                                      |
+| -------------------------- | ----------------------------------------------------------------- |
+| `pito-cli backup`          | back up DB + assets; **prunes to the newest 7** afterward         |
+| `pito-cli backup --list`   | list existing backups with their sizes                            |
+| `pito-cli restore <dir>`   | restore a backup over the live stack (prompts — it's destructive) |
+| `pito-cli backup-schedule` | install a **daily** systemd timer that runs `pito-cli backup`     |
 
 Tune retention + location with `PITO_BACKUP_KEEP` (default `7`) and `PITO_BACKUP_DIR`
-(default `./backups`). `pito backup-schedule` is also offered during install; once set,
+(default `./backups`). `pito-cli backup-schedule` is also offered during install; once set,
 backups run daily at 03:00 and self-prune — hands-off rolling backups on the host.
 
-Restore is deliberate (`pito restore` confirms first, then reloads the DB + assets and
+Restore is deliberate (`pito-cli restore` confirms first, then reloads the DB + assets and
 restarts the service). The equivalent manual one-liners, if you prefer:
 
 ```bash
 gunzip -c backups/<ts>/database.sql.gz | docker compose exec -T postgres psql -U pito -d pito_production
-# <slot> is whichever of web-blue / web-green is currently active — `pito version` says which:
+# <slot> is whichever of web-blue / web-green is currently active — `pito-cli version` says which:
 gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T <slot> tar xf - -C /var/lib/pito-assets
 ```
 
 ### Zero-downtime deploys
 
-`pito update` doesn't stop-and-start the app — it flips between two deploy
+`pito-cli update` doesn't stop-and-start the app — it flips between two deploy
 **slots**, `web-blue` and `web-green`, one active at a time:
 
 1. Pull the new image into the **idle** slot and start it. Its entrypoint runs
    `db:prepare` for any pending migration **before** it can pass its health
    check — the active slot keeps serving the old code the whole time (this is
-   exactly why every PITO migration is additive-only: old code has to keep
+   exactly why every Pito migration is additive-only: old code has to keep
    working against the new schema for however long that takes).
 2. Wait for the idle slot to answer `/up` (bounded retries). If it never does,
    the idle slot is stopped and the update aborts loudly — **the active slot
@@ -617,8 +630,8 @@ gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T <slot> tar
 4. Flip the bookkeeping (`PITO_ACTIVE_SLOT` in `.env`) so the next deploy
    knows which slot is idle.
 
-An internal Caddy instance (`lb`, always running, `127.0.0.1:3028` — the same
-port cloudflared/your tunnel already points at) sits in front of both slots
+An internal Caddy instance (`lb`, always running, on `127.0.0.1:PORT` — the
+port you picked at install time) sits in front of both slots
 with an active health check against `/up`; whichever slot answers gets 100%
 of traffic. **Nothing about `lb` changes during a deploy** — a flip never
 rewrites its config, it just starts/stops containers and lets the health
@@ -633,26 +646,26 @@ same scheduled run twice.
 **Recovery.** If a flip ever leaves things in a bad spot, `sudo systemctl
 restart pito` remains the full-stack bounce — it's downtime-ful (the old
 "just restart everything" behavior) but always works, regardless of which
-slot is stuck. `pito deploy-flip <tag>` re-runs the flip by hand if you want
+slot is stuck. `pito-cli deploy-flip <tag>` re-runs the flip by hand if you want
 to retry without a full restart.
 
 **Upgrading an existing install.** Installs from before this feature have no
-`PITO_ACTIVE_SLOT` — their **next** `pito update` migrates the compose file,
-`.env`, and (if you run direct-HTTPS Caddy) `./Caddyfile` to the two-slot
-shape automatically, once. That migration itself needs one last ordinary
+`PITO_ACTIVE_SLOT` — their **next** `pito-cli update` migrates the compose file
+and `.env` to the two-slot shape automatically, once (and seeds `PITO_PORT` from
+the port that install was already publishing, so nothing moves under you). That migration itself needs one last ordinary
 restart (there's no shape to flip between yet); the version you actually
 asked for then lands via the new zero-downtime flip, in the same run. Every
 update after that is zero-downtime.
 
 ### Auto-update (your server pulls new releases)
 
-Your server keeps itself current — CI never logs in anywhere. **`pito autoupdate`**
+Your server keeps itself current — CI never logs in anywhere. **`pito-cli autoupdate`**
 checks GitHub for a newer release, waits until the release's multi-arch image is
-actually live on GHCR, and applies it with the **same `pito update`** you'd type
+actually live on GHCR, and applies it with the **same `pito-cli update`** you'd type
 by hand. One command turns it on:
 
 ```bash
-pito autoupdate --install     # systemd timer, every 15 min + logrotate rule
+pito-cli autoupdate --install     # systemd timer, every 15 min + logrotate rule
 ```
 
 Why pull instead of push:
@@ -662,14 +675,14 @@ Why pull instead of push:
 - **No inbound access.** CI runners never connect to your server.
 - **Fork-friendly.** Any self-hosted instance updates itself without touching
   the upstream repo's CI at all.
-- **Race-proof.** `pito update` holds a single-updater lock (`flock` on
-  `.pito-update.lock`), so the timer and a manual `pito update` — for when you
+- **Race-proof.** `pito-cli update` holds a single-updater lock (`flock` on
+  `.pito-update.lock`), so the timer and a manual `pito-cli update` — for when you
   don't feel like waiting 15 minutes — can never run on top of each other.
 
 Everything it does lands in `log/autoupdate.log` (rotated weekly). Optional:
 set `SLACK_WEBHOOK=<url>` in the install dir's `.env` and every applied (or
-failed) update pings you via a plain `curl`. `pito autoupdate --check` dry-runs
-the decision; `pito autoupdate --uninstall` removes the timer.
+failed) update pings you via a plain `curl`. `pito-cli autoupdate --check` dry-runs
+the decision; `pito-cli autoupdate --uninstall` removes the timer.
 
 From then on: `git tag v1.2.3 && git push origin v1.2.3` → green CI gate →
 multi-arch image on GHCR → within 15 minutes your server is running it,
@@ -707,10 +720,10 @@ a shorter ladder may re-color badges you've already earned.
 
 ### Monitoring (optional)
 
-PITO can report performance, errors, and logs to [AppSignal](https://appsignal.com)
+Pito can report performance, errors, and logs to [AppSignal](https://appsignal.com)
 in production. Grab a **Push API key** from your AppSignal app (**App settings →
 Push & deploy → Push API key**), set `APPSIGNAL_PUSH_API_KEY=<key>` in the install
-dir's `.env`, then `pito up -d` to pick it up. The key never touches the image, the
+dir's `.env`, then `pito-cli up -d` to pick it up. The key never touches the image, the
 repo, or Rails credentials — just that one `.env` line. No key, no AppSignal — the
 app boots exactly as before.
 
@@ -722,16 +735,16 @@ compose stack — no signup, no API key, nothing leaves your machine:
 - **`embedder`** — embeddinggemma-300m (Q8), serving the OpenAI-compatible
   `/v1/embeddings` API (768-dim vectors, stored in Postgres via pgvector). Powers
   search-like matching, similar games, and channel-fit recommendations.
-- **`nlmapper`** — Qwen3-0.6B (Q8), grammar-constrained to PITO's own command set.
+- **`nlmapper`** — Qwen3-0.6B (Q8), grammar-constrained to Pito's own command set.
   Maps free-text chat ("list me the vids") onto a real command when nothing else in
   the grammar matches it — a cold path that never touches normal typing.
 
 Both pull their GGUF weights from Hugging Face on first boot into their own model
 volumes (`embedder_models` / `nlmapper_models`), then never again — the embedder's is
-~350MB, so give the first `pito up` a
+~350MB, so give the first `pito-cli up` a
 few extra minutes while it downloads (the healthchecks' generous `start_period`
 covers it). Each sidecar is capped at **1g RAM**, worth knowing if you're running
-PITO on a small box.
+Pito on a small box.
 
 The app reaches them over `PITO_EMBEDDER_URL` / `PITO_NLMAPPER_URL` — the compose
 stack sets both for you; native dev's host-Puma uses the published
@@ -739,9 +752,9 @@ stack sets both for you; native dev's host-Puma uses the published
 matching feature just quietly degrades (search-like/similar/link-suggestions, or the
 NL mapper) — nothing crashes, nothing bad persists.
 
-Upgrading an existing instance? After `pito update`, re-embed your library with the
+Upgrading an existing instance? After `pito-cli update`, re-embed your library with the
 chat `reindex` command (`reindex game <id>` / `reindex vid <id>`) — or, for
-everything at once, run `pito rake pito:embeddings:reindex`.
+everything at once, run `pito-cli rake pito:embeddings:reindex`.
 
 Troubleshooting (dev; both ports are published to `127.0.0.1` there):
 
@@ -751,52 +764,32 @@ curl http://127.0.0.1:8092/health   # nlmapper — same
 docker compose logs embedder        # watch the model download
 ```
 
-## Exposing PITO (HTTPS)
+## Reaching Pito from somewhere else
 
-PITO forces HTTPS in production, so anything past `localhost` needs TLS in front.
-Set your public URL at install time (or in `.env` as `PITO_APP_BASE_URL`, e.g.
-`https://app.example.com`); that single value wires Host Authorization, link
-generation, and asset delivery. The installer offers both mechanisms below —
-pick at the HTTPS prompt, or run the matching `pito` command later.
+Pito installs on this machine and answers on `127.0.0.1:PORT`. That is the whole
+supported story, and the installer sticks to it: it asks for a port, checks the
+port is free, and stops there. It does not create tunnels, request certificates,
+open firewall holes, or write systemd units for anything but Pito itself.
 
-### Cloudflare Tunnel (the default)
+If you want to reach your instance from another machine, that is your call and
+your tooling. Whatever you use — a Cloudflare tunnel, a Tailscale node, an nginx
+or Caddy in front, an SSH port-forward — the shape is the same:
 
-The tidiest option for a machine behind NAT (a home box, a laptop) — no open
-ports, no certs to babysit.
+- point it at **`127.0.0.1:PORT`** (the internal load balancer, `lb`, which
+  fronts the two zero-downtime deploy slots — see
+  [Zero-downtime deploys](#zero-downtime-deploys)), and let **WebSockets**
+  through, because the scrollback is a live cable stream;
+- terminate **TLS** in front of it. Pito forces HTTPS in production, so a plain
+  `http://` public address will not work;
+- set **`PITO_APP_BASE_URL`** in the install dir's `.env` to that public URL.
+  That one value wires Host Authorization, link generation and asset delivery —
+  Pito has to be told the name it is reached by.
 
-Install `cloudflared` (`pacman -S cloudflared`, `brew install cloudflared`, or
-Cloudflare's apt repo), then the installer — or `pito cloudflared` — drops a starter
-`config.yml` and prints the steps:
-
-```bash
-cloudflared tunnel login
-cloudflared tunnel create pito
-cloudflared tunnel route dns pito app.example.com
-cloudflared tunnel --config ./cloudflared-config.yml run pito
-```
-
-Point the tunnel at `127.0.0.1:3028` and set Cloudflare's SSL/TLS mode to **Full**.
-
-### Caddy direct HTTPS (no tunnel)
-
-For a server with its own public IP (a VPS — see `pito hetzner`), skip the tunnel:
-**`pito caddy`** writes a `Caddyfile` for your domain and adds the dormant
-`caddy` compose profile alongside your active deploy-slot profile in `.env`.
-Caddy terminates TLS with automatic Let's Encrypt certificates and proxies to
-`lb` — the always-on internal load balancer that fronts the two zero-downtime
-deploy slots (see [Zero-downtime deploys](#zero-downtime-deploys)) —
-WebSockets included.
+An SSH forward is the smallest thing that works and needs none of the above:
 
 ```bash
-pito caddy            # writes ./Caddyfile + adds "caddy" to COMPOSE_PROFILES
-pito down && pito up -d
+ssh -N -L 3028:127.0.0.1:3028 you@your-box   # then open http://localhost:3028
 ```
-
-Needs your domain's **A record** pointing at the server and ports **80/443** open.
-The profile lives in the stock `docker-compose.yml`, so `pito update` never
-disturbs it; installs that never ran `pito caddy` don't even start the container.
-If the domain is behind Cloudflare's proxy (orange cloud), set SSL/TLS mode to
-**Full (strict)** — or keep the record DNS-only and let Caddy carry TLS alone.
 
 ## Beyond the browser
 
@@ -809,14 +802,10 @@ serves them all.
   server-rendered app, with native navigation and back-stack (the path
   configuration lives at `/configurations/android_v1.json`). Self-hoster
   friendly by design: on first launch the app asks for your instance URL, so
-  it works with ANY domain you host PITO on — not just the author's. Signed
-  APKs ship on the releases page (no Play Store required), and PITO itself
+  it works with ANY domain you host Pito on — not just the author's. Signed
+  APKs ship on the releases page (no Play Store required), and Pito itself
   offers the download in a dismissible banner when you visit from an Android
   browser.
-- [**pito-tui**](https://github.com/gmrdad82/pito-tui) — the same chatbox
-  in your terminal: Go + Bubble Tea, raw text in, the server's JSON events
-  out, live over ActionCable. The grammar stays server-side, so the TUI can
-  never lag behind the web.
 
 And when you want the guided-strut version of all this,
 [**pitomd.com**](https://pitomd.com)
@@ -831,7 +820,7 @@ And when you want the guided-strut version of all this,
 
 ## Sponsor
 
-PITO is free, AGPL, and costs nothing to give away — but it costs _time_. If it saves
+Pito is free, AGPL, and costs nothing to give away — but it costs _time_. If it saves
 you the €50-a-month the others wanted, you can point a fraction of that back at keeping
 it alive and growing, through **GitHub Sponsors**:
 
@@ -855,13 +844,13 @@ can convey.
 
 ## Support
 
-**PITO** is one person's tool, but if you're stuck, lost, or just want to report that
+**Pito** is one person's tool, but if you're stuck, lost, or just want to report that
 the cover art _finally_ loaded, there's a Discord — pop in, ask away, judgment kept to
 a minimum 👉 **[discord.gg/q947UyDTqJ](https://discord.gg/q947UyDTqJ)**
 
 Prefer elsewhere? Find me on X 👉 **[@GamerDady82](https://x.com/GamerDady82)**, or on
 YouTube at **[@gmrdad82](https://www.youtube.com/@gmrdad82)** — my engineering/personal
-channel, where PITO gets its tour. (The gaming side is the **Manfy** network linked up
+channel, where Pito gets its tour. (The gaming side is the **Manfy** network linked up
 top.)
 
 No SLA, no ticket queue, no "your call is important to us." Just a channel and a human

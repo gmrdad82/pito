@@ -1,19 +1,19 @@
 #!/usr/bin/env sh
 # script/autoupdate.sh — keep a pito install on the newest release, unattended.
 #
-#   pito autoupdate              check once; update + notify if newer
-#   pito autoupdate --check      dry-run: report what would happen, change nothing
-#   pito autoupdate --install    install the systemd timer (15 min) + logrotate
-#   pito autoupdate --uninstall  remove the timer (log + logrotate rule kept)
+#   pito-cli autoupdate              check once; update + notify if newer
+#   pito-cli autoupdate --check      dry-run: report what would happen, change nothing
+#   pito-cli autoupdate --install    install the systemd timer (15 min) + logrotate
+#   pito-cli autoupdate --uninstall  remove the timer (log + logrotate rule kept)
 #
 # The PULL model: the server checks GitHub for a newer release tag every
-# 15 minutes and applies it with the same `pito update` you would run by
+# 15 minutes and applies it with the same `pito-cli update` you would run by
 # hand — so CI needs NO deploy secrets, no SSH from runners, nothing.
-# Concurrency is safe by construction: `pito update` itself holds the
+# Concurrency is safe by construction: `pito-cli update` itself holds the
 # single-updater flock, so a manual update and the timer can never race.
 #
 # Update fires ONLY when the release's multi-arch image manifest is already
-# live on GHCR — a tag alone isn't enough (`pito update` rewrites .env before
+# live on GHCR — a tag alone isn't enough (`pito-cli update` rewrites .env before
 # pulling, so firing mid-build would strand the install on a missing tag).
 #
 # Log: ./log/autoupdate.log in the install dir (rotated weekly by the
@@ -108,7 +108,7 @@ run_check() {
   fi
 
   log "updating v$cur -> $newest…"
-  if ./pito update --version "$newest" >>"$LOG_FILE" 2>&1; then
+  if ./pito-cli update --version "$newest" >>"$LOG_FILE" 2>&1; then
     log "updated to $newest."
     notify ":rocket: pito auto-updated to \`$newest\` on $(hostname)"
   else
@@ -134,7 +134,7 @@ Requires=docker.service
 Type=oneshot
 User=$user
 WorkingDirectory=$workdir
-ExecStart=$workdir/pito autoupdate
+ExecStart=$workdir/pito-cli autoupdate
 EOF
   sudo tee /etc/systemd/system/pito-autoupdate.timer >/dev/null <<EOF
 [Unit]

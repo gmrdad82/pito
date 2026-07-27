@@ -135,7 +135,7 @@ module Pito
         end
 
         # `schedule <id> slate` — render the upcoming-schedule planner, obeying the
-        # conversation's channel scope (shift+tab) + stats period (shift+space) and
+        # conversation's channel scope + stats period (both ctrl+space) and
         # excluding the reference vid (the leading id, or the source vid on a reply).
         def slate(body, slate_idx)
           events = Pito::MessageBuilder::Video::Slate.call(

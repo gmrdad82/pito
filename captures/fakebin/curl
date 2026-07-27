@@ -1,0 +1,59 @@
+#!/usr/bin/env sh
+# FAKE curl — for cast recording ONLY. NEVER touches the real network. Serves
+# local pito source files (read-only) for the installer/CLI's github
+# raw-content fetches, a canned release-tags API response for the version
+# picker, and an instant "healthy" for deploy-flip.sh's localhost /up probe.
+# Every other URL is a silent, successful no-op (exit 0, empty body) — same
+# posture as the fake docker: realistic-looking, never real.
+
+# PITO_SRC: read-only root the served file bodies come from. capture.sh
+# exports this to point at a fresh, per-run copy of the CURRENT repo state
+# (staged into the mktemp sandbox — see capture.sh); the literal default here
+# only matters if this script is ever invoked standalone, outside capture.sh.
+PITO_SRC="${PITO_SRC:-$HOME/Dev/pito}"
+
+url=""
+outfile=""
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "-o" ]; then
+    outfile="$arg"; prev=""; continue
+  fi
+  case "$arg" in
+    -o) prev="-o" ;;
+    -*) ;;                # any other flag (-f -s -S -L --fail etc.) ignored
+    *)  url="$arg" ;;
+  esac
+done
+
+serve() {  # serve SRC_PATH -> $outfile if set, else stdout
+  src="$1"
+  if [ -n "$outfile" ]; then
+    cp "$src" "$outfile"
+  else
+    cat "$src"
+  fi
+}
+
+case "$url" in
+  *api.github.com/repos/gmrdad82/pito/tags*)
+    cat <<'EOF'
+[
+  {"name": "v4.2.0"},
+  {"name": "v4.1.0"},
+  {"name": "v4.0.1"},
+  {"name": "v4.0.0"},
+  {"name": "v3.2.0"}
+]
+EOF
+    ;;
+  */docker-compose.yml)    serve "$PITO_SRC/docker-compose.yml" ;;
+  */bin/pito-cli)          serve "$PITO_SRC/bin/pito-cli" ;;
+  */bin/pito)              serve "$PITO_SRC/bin/pito" ;;
+  */Caddyfile.lb)          serve "$PITO_SRC/Caddyfile.lb" ;;
+  */script/update.sh)      serve "$PITO_SRC/script/update.sh" ;;
+  */script/deploy-flip.sh) serve "$PITO_SRC/script/deploy-flip.sh" ;;
+  http://127.0.0.1:*/up)   : ;;   # deploy-flip health probe — always "healthy" now
+  *)                       : ;;   # unknown / empty URL — silent no-op
+esac
+exit 0

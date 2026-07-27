@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe Pito::Keybinding::ShortcutComponent do
   describe "rendered output" do
-    it "renders the keys text in a kbd-shimmer span (bold fg + blue band via CSS)" do
+    it "renders the keys text, glyph-formatted, in a kbd-shimmer span (bold, pito-blue base + purple band via CSS)" do
       node = render_inline(described_class.new(keys: "ctrl+k"))
       span = node.css("span.pito-kbd-shimmer").first
       expect(span).not_to be_nil
@@ -33,18 +33,30 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
     end
 
     it "merges data-* attributes from the data hash, concatenating controller/action" do
-      node = render_inline(described_class.new(keys: "ctrl+k", data: { "controller" => "pito--platform-key", "action" => "toggle" }))
+      node = render_inline(described_class.new(keys: "ctrl+k", data: { "controller" => "pito--example", "action" => "toggle" }))
       span = node.css("span").first
-      expect(span["data-controller"]).to eq("pito--kbd-click pito--platform-key")
+      expect(span["data-controller"]).to eq("pito--kbd-click pito--example")
       expect(span["data-action"]).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire toggle")
       expect(span["data-pito--kbd-click-key-value"]).to eq("ctrl+k")
     end
 
-    it "renders various key strings correctly" do
-      [ "shift+tab", "shift+space", "m", "ctrl+/", "ctrl+k" ].each do |keys|
+    it "routes every key string through Pito::Keybinding::Glyph before rendering" do
+      {
+        "ctrl+space" => "ctrl+space",
+        "m"          => "m",
+        "ctrl+/"     => "ctrl+/",
+        "ctrl+k"     => "ctrl+k"
+      }.each do |keys, glyph|
         node = render_inline(described_class.new(keys: keys))
-        expect(node.css("span.pito-kbd-shimmer").text).to eq(keys)
+        expect(node.css("span.pito-kbd-shimmer").text).to eq(glyph)
       end
+    end
+
+    it "leaves the data-pito--kbd-click-key-value attribute RAW (unformatted) — the tap-to-fire lookup stays keyed on the semantic shortcut, not its display glyph" do
+      node = render_inline(described_class.new(keys: "ctrl+k"))
+      span = node.css("span").first
+      expect(span["data-pito--kbd-click-key-value"]).to eq("ctrl+k")
+      expect(span.text).to eq("ctrl+k")
     end
   end
 end

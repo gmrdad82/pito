@@ -1,4 +1,4 @@
-# Slide 1 — "PITO speaks human" (long GIF): three commands typed in chunks with
+# Slide 1 — "Pito speaks human" (long GIF): three commands typed in chunks with
 # an explicit full-tool+kwargs frame each, thinking + message bursts. Frames
 # stay on disk for the keep-every-Nth optimization pass.
 name: mkt-language

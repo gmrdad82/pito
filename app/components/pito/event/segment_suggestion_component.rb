@@ -17,7 +17,10 @@ module Pito
     #   pre        — text before the code span
     #   code       — the inline code string (e.g. "/connect")
     #   post       — text after the code span, before the separator
-    #   shortcut   — keyboard hint (e.g. "ctrl+/") — rendered yellow
+    #   shortcut   — keyboard hint (e.g. "ctrl+/"), rendered through
+    #                Pito::Keybinding::ShortcutComponent so it inherits the
+    #                word-form key labels and tap-to-fire wiring instead of
+    #                hand-rolling a raw span that would drift from them
     #   run_label  — muted label after shortcut (e.g. "run this")
     #   run_cmd    — command populated into the chatbox on ctrl+/
     class SegmentSuggestionComponent < ViewComponent::Base

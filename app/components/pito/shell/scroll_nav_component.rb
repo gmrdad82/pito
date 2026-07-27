@@ -39,10 +39,23 @@ module Pito
         I18n.t("pito.copy.scrollback_nav.after", raise: true)
       end
 
-      # Yellow (clickable) shimmer CSS class for the jump token span.
-      # `clickable: true` selects the clickable pito-action-shimmer (fg-default + purple band).
+      # Clickable-shimmer CSS class for the jump token span. Keyed on the RAW
+      # shortcut text (not its glyph display) so the staggered offset bucket
+      # stays stable regardless of display convention.
+      # `clickable: true` selects .pito-action-shimmer — which since 2026-07-24
+      # paints the SAME pito-blue↔purple band as .pito-kbd-shimmer, so routing
+      # these keybindings through the clickable path no longer changes how they
+      # look (it was the token that exposed the old two-colour split).
       def token_class(text)
         Pito::Shimmer::TokenComponent.css_class(text, clickable: true)
+      end
+
+      # Display text for the jump token span — the same central formatter
+      # every ShortcutComponent call site routes through (this one is a
+      # static <template> literal, not a ShortcutComponent, so it calls
+      # Glyph directly).
+      def token_glyph(text)
+        Pito::Keybinding::Glyph.format(text)
       end
     end
   end

@@ -698,6 +698,29 @@ class ChatController < ApplicationController
   # Renders a Turbo Stream that populates #pito-sidebar with the theme picker.
   # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
   # No echo, no Turn, no async job.
+  def handle_theme_sidebar(conversation)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/themes"
+        ),
+        kind:    :error,
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
+      )
+      return respond_to_client(conversation)
+    end
+
+    render partial: "chat/theme_sidebar",
+           formats: [ :turbo_stream ],
+           locals:  {
+             groups:        Pito::Themes::Registry.grouped,
+             current_theme: AppSetting.theme
+           }
+  end
+
   # True for exactly `/config ai` — the picker-opening form. Every other
   # /config shape (credentials, toggles, --help, bare) keeps its existing path.
   def config_ai_command?(input)
@@ -706,8 +729,8 @@ class ChatController < ApplicationController
 
   # Renders a Turbo Stream that mounts the /config ai picker overlay: model
   # selection + API-key management for the active AI provider (state assembled
-  # here — the component reads no globals). Auth gating mirrors the theme
-  # sidebar. No echo, no Turn, no async job.
+  # here — the component reads no globals). Auth gating mirrors the picker
+  # sidebars. No echo, no Turn, no async job.
   def handle_ai_picker(conversation)
     unless Current.session.present?
       broadcaster = Pito::Stream::Broadcaster.new(conversation:)
@@ -733,29 +756,6 @@ class ChatController < ApplicationController
     render partial: "chat/ai_picker",
            formats: [ :turbo_stream ],
            locals:  Ai::PickerState.call(conversation:)
-  end
-
-  def handle_theme_sidebar(conversation)
-    unless Current.session.present?
-      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-      broadcaster.emit(
-        turn:    conversation.turns.create!(
-          position:   Turn.next_position_for(conversation),
-          input_kind: :slash,
-          input_text: "/themes"
-        ),
-        kind:    :error,
-        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
-      )
-      return respond_to_client(conversation)
-    end
-
-    render partial: "chat/theme_sidebar",
-           formats: [ :turbo_stream ],
-           locals:  {
-             groups:        Pito::Themes::Registry.grouped,
-             current_theme: AppSetting.theme
-           }
   end
 
   # Renders a Turbo Stream that populates #pito-sidebar with the games picker.

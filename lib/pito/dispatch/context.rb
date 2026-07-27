@@ -8,7 +8,7 @@ module Pito
     # `Pito::Dispatch::Router` builds one of these per invocation and passes it to
     # the tool's dispatch class as `call(kwargs:, context:)`. It carries exactly
     # what today's chat handlers read: the parsed +message+, the +conversation+,
-    # the shift+tab +channel+ scope, the analytics +period+, the +follow_up+
+    # the +channel+ scope, the analytics +period+ (both ctrl+space), the +follow_up+
     # context (present only on `#<handle>` replies), and the scrollback
     # +viewport_width+. The Router-bound arguments (segment selection / reply
     # ReplyBinding output) travel separately in `kwargs`, keeping "what the tool

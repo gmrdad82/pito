@@ -109,7 +109,7 @@ RSpec.describe Pito::Chat::Handlers::Import do
       expect(event[:payload]["command"]).to eq("sync_videos")
     end
 
-    it "scopes to the specific shift+tab channel" do
+    it "scopes to the specific channel-scope channel" do
       payload = handler_for("import videos", channel: "@pito").call.events.first[:payload]
       expect(payload["channel_ids"]).to eq([ channel.id ])
     end
@@ -120,7 +120,7 @@ RSpec.describe Pito::Chat::Handlers::Import do
       expect(payload["reply_target"]).to eq("confirmation")
     end
 
-    it "returns a system error event for unknown shift+tab handle" do
+    it "returns a system error event for unknown channel-scope handle" do
       result = handler_for("import videos", channel: "@unknown_xyz").call
       expect(result.events.first[:kind]).to eq(:system)
     end
@@ -128,19 +128,19 @@ RSpec.describe Pito::Chat::Handlers::Import do
     # ── for @handle override ──────────────────────────────────────────────────
 
     context "for @handle override" do
-      it "overrides shift+tab @all scope with the for-handle channel" do
+      it "overrides a channel-scope @all with the for-handle channel" do
         payload = handler_for("import videos for @pito", channel: "@all").call.events.first[:payload]
         expect(payload["channel_ids"]).to eq([ channel.id ])
       end
 
-      it "overrides a different shift+tab channel with the for-handle channel" do
+      it "overrides a different channel-scope channel with the for-handle channel" do
         other_connection = create(:youtube_connection)
         other = create(:channel, handle: "@other", youtube_connection: other_connection)
         payload = handler_for("import videos for @pito", channel: "@other").call.events.first[:payload]
         expect(payload["channel_ids"]).to eq([ channel.id ])
       end
 
-      it "scopes correctly with no shift+tab channel (blank), using for @handle" do
+      it "scopes correctly with no channel scope (blank), using for @handle" do
         payload = handler_for("import videos for @pito").call.events.first[:payload]
         expect(payload["channel_ids"]).to eq([ channel.id ])
       end

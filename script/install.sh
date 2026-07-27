@@ -4,18 +4,22 @@
 #   curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.sh | sh
 #
 # No git clone, no host Ruby — everything runs against the prebuilt GHCR image
-# (ghcr.io/gmrdad82/pito). It lands a self-contained install in ./pito:
-# docker-compose.yml + the pito CLI + .env + your own generated secrets.
+# (ghcr.io/gmrdad82/pito). It lands a self-contained install in ./pito-cli:
+# docker-compose.yml + the pito-cli + .env + your own generated secrets.
+#
+# Pito chat installs on THIS machine and answers on localhost only. The
+# installer asks which port to use, checks that nothing is already listening
+# there, and wires the whole stack to it. There is no public-host question and
+# no HTTPS step: putting a local port on the internet is a separate job with
+# its own tools, and it is deliberately not this script's business.
 #
 # Flags:
-#   --dir DIR          install location (default: ./pito)
-#   --host URL         public base URL (default: prompt; e.g. https://app.pitomd.com)
+#   --dir DIR          install location (default: ./pito-cli)
+#   --port PORT        port to answer on (default: prompt, then 3028)
 #   --tag TAG          image tag to run (default: latest)
 #   --service-only     skip install; only (re)configure the systemd unit
-#   --cloudflared-only   skip install; only print Cloudflare Tunnel guidance
-#   --caddy-only         skip install; only (re)configure Caddy direct HTTPS
 #   --backup-timer-only  skip install; only (re)configure the daily backup timer
-#   --link-only          skip install; only symlink pito onto your PATH
+#   --link-only          skip install; only symlink pito-cli onto your PATH
 #   --skip-pull          use the locally-present image (for testing a local build)
 #   --edge               use the edge channel (image: latest, CLI from main)
 #   --version VER        pin a specific release (e.g. v0.7.3)
@@ -23,15 +27,16 @@
 # Re-running is safe and non-destructive: existing master.key / credentials are
 # kept, the Postgres volume (channels, videos, games, /config API keys + webhooks)
 # is never touched, and TOTP is NOT re-enrolled — your authenticator keeps working.
-# To just update the image use `pito update`; to (re)configure the service or
-# tunnel use `pito service` / `pito cloudflared` (the installer symlinks `pito`
-# onto your PATH; otherwise run it as ./pito from the install dir).
+# To just update the image use `pito-cli update`; to (re)configure the service
+# use `pito-cli service` (the installer symlinks `pito-cli` onto your PATH;
+# otherwise run it as ./pito-cli from the install dir).
 
 set -eu
 
 REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/main"
-DIR="./pito"
-HOST=""
+DIR="./pito-cli"
+PORT=""
+DEFAULT_PORT=3028
 TAG="latest"
 REF=""
 CHANNEL=""
@@ -43,17 +48,23 @@ CREDS_FRESH=0   # set to 1 by bootstrap_credentials only when it mints NEW secre
 while [ $# -gt 0 ]; do
   case "$1" in
     --dir)              DIR="$2"; shift 2 ;;
-    --host)             HOST="$2"; shift 2 ;;
+    --port)             PORT="$2"; shift 2 ;;
     --tag)              TAG="$2"; shift 2 ;;
     --service-only)     MODE="service"; shift ;;
-    --cloudflared-only)  MODE="cloudflared"; shift ;;
-    --caddy-only)        MODE="caddy"; shift ;;
     --backup-timer-only) MODE="backup-timer"; shift ;;
     --link-only)         MODE="link"; shift ;;
     --edge)              CHANNEL="edge"; shift ;;
     --version)           REQ_VERSION="$2"; shift 2 ;;
     --skip-pull)         SKIP_PULL=1; shift ;;
-    -h|--help)          sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    # --host is gone on purpose (5.0.0): pito installs on localhost and a
+    # public address is no longer something this script knows how to make
+    # true. Say so instead of quietly ignoring the flag.
+    --host)
+      echo "install: --host is gone — pito now installs on localhost only. Use --port PORT." >&2
+      exit 1 ;;
+    # Pattern-anchored (not a hardcoded line range) so a new flag line can
+    # never silently fall off the help — same fix as bin/pito-cli's usage().
+    -h|--help)          sed -n '2,/^#   --version/p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "install: unknown flag '$1'" >&2; exit 1 ;;
   esac
 done
@@ -82,8 +93,8 @@ env_set() {
 
 # Add $1 to COMPOSE_PROFILES (comma list), dropping any token in $2
 # (space-separated — the blue/green slot's mutually-exclusive sibling; ""
-# for a plain additive token like "caddy", which leaves the active deploy
-# slot's own profile untouched).
+# for a plain additive token, which leaves the active deploy slot's own
+# profile untouched).
 profile_set() {
   want="$1"; exclusive="${2:-}"
   cur=$(env_get COMPOSE_PROFILES)
@@ -105,164 +116,98 @@ profile_set() {
   env_set COMPOSE_PROFILES "$out"
 }
 
-# ── cloudflared tunnel (auto-configured + run as a service) ───────────────────
-# Writes the ingress config to cloudflared's OWN dir (~/.cloudflared/config.yml),
-# reuses an existing tunnel when one is configured (running a tunnel needs only its
-# creds JSON, never a fresh account login), otherwise creates one, and installs a
-# systemd service so the tunnel comes up on boot — no manual `cloudflared tunnel run`.
-setup_cloudflared() {
-  base="${1:-$(env_get PITO_APP_BASE_URL)}"
-  host=$(printf '%s' "$base" | sed -E 's#^https?://##; s#/.*$##')
-  case "$base" in
-    *localhost*|*127.0.0.1*|"") warn "Host is local ($base) — no tunnel needed."; return 0 ;;
+# ── the port pito answers on ─────────────────────────────────────────────────
+# Pito chat is a localhost service. Everything below is about ONE question —
+# which port — asked once, checked before it is used, and then written into
+# .env so every later `pito-cli update` keeps it.
+
+# True when something is already listening on TCP port $1. Tries the tools a
+# host is likely to have, in order, and gives up honestly rather than
+# guessing: an unknown answer must not block an install.
+#   0 = in use   1 = free   2 = could not tell
+port_in_use() {
+  p="$1"
+  if have ss; then
+    if ss -ltn 2>/dev/null | grep -qE "[:.]${p}[[:space:]]"; then return 0; fi
+    return 1
+  fi
+  if have netstat; then
+    if netstat -ltn 2>/dev/null | grep -qE "[:.]${p}[[:space:]]"; then return 0; fi
+    return 1
+  fi
+  if have lsof; then
+    if lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then return 0; fi
+    return 1
+  fi
+  return 2
+}
+
+# A port is 1-65535 and nothing else. Rejects "80a", "", "0", "99999".
+valid_port() {
+  case "$1" in
+    ''|*[!0-9]*) return 1 ;;
   esac
+  [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
 
-  say "Cloudflare Tunnel for $host"
+# Ask for the port (unless --port already answered), validate it, and refuse
+# one that is taken. Loops on a tty; without one it takes the default and
+# fails loudly if that is occupied, because a non-interactive install that
+# silently lands on a different port than it printed is worse than no install.
+prompt_port() {
+  # `retry` is the ONLY thing that lets the loop go round again, and it is
+  # set exclusively by a successful read from the terminal. A piped install
+  # (curl | sh with no tty) therefore gets exactly one attempt and a clear
+  # error — never a spin.
+  while : ; do
+    retry=0
+    if [ -z "$PORT" ]; then
+      printf 'Port pito will answer on [%s]: ' "$DEFAULT_PORT"
+      if read -r PORT </dev/tty; then
+        retry=1
+      else
+        PORT=""
+      fi
+      if [ -z "$PORT" ]; then PORT="$DEFAULT_PORT"; fi
+    fi
 
-  if ! have cloudflared; then
-    cat <<EOF
-cloudflared is not installed — install it, then re-run  ./pito cloudflared :
-  Arch:          sudo pacman -S cloudflared
-  Debian/Ubuntu: https://pkg.cloudflare.com/  (cloudflared package)
-  macOS:         brew install cloudflared
-  Other:         https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-EOF
+    if ! valid_port "$PORT"; then
+      warn "'$PORT' is not a port number (1-65535)."
+      if [ "$retry" = 0 ]; then die "Pick another with --port PORT."; fi
+      PORT=""; continue
+    fi
+
+    port_in_use "$PORT" && rc=0 || rc=$?
+    case "$rc" in
+      0)
+        warn "Something is already listening on port $PORT."
+        if [ "$retry" = 0 ]; then die "Pick a free one with --port PORT."; fi
+        PORT=""; continue ;;
+      2)
+        warn "Couldn't check port $PORT (no ss, netstat or lsof here) — carrying on."
+        return 0 ;;
+      *)
+        say "Port $PORT is free — pito will answer at http://localhost:$PORT"
+        return 0 ;;
+    esac
+  done
+}
+
+# The install dir's docker-compose.yml is a FETCHED artifact, not a repo file,
+# so the installer is free to parameterise the one line that hardcodes the
+# published port. Idempotent, and a no-op once the published compose file
+# carries ${PITO_PORT} itself. script/update.sh re-applies it after every
+# refresh — the fetch would otherwise put 3028 back.
+apply_port_binding() {
+  f="${1:-docker-compose.yml}"
+  [ -f "$f" ] || return 0
+  if grep -q 'PITO_PORT' "$f"; then return 0; fi
+  if ! grep -q '"127\.0\.0\.1:3028:8080"' "$f"; then
+    warn "Couldn't find the published-port line in $f — leaving it as it came."
     return 0
   fi
-
-  cfdir="$HOME/.cloudflared"
-  cfg="$cfdir/config.yml"
-  mkdir -p "$cfdir"
-
-  if [ -f "$cfg" ] && grep -q '^tunnel:' "$cfg" && grep -q 3028 "$cfg"; then
-    # A working tunnel→:3028 config already exists — REUSE it untouched. This is
-    # also the path when the account cert has expired: running needs only the
-    # creds JSON, so we never call account-level ops (list/create/route) here.
-    say "Reusing existing tunnel config ($cfg)"
-  elif [ -f "$cfg" ] && grep -q '^tunnel:' "$cfg"; then
-    # Tunnel exists but its ingress doesn't point at the prod port — fix in place.
-    say "Repointing existing tunnel ingress → http://127.0.0.1:3028"
-    tunnel_id=$(sed -n 's/^tunnel:[[:space:]]*//p' "$cfg" | head -1)
-    creds=$(sed -n 's/^credentials-file:[[:space:]]*//p' "$cfg" | head -1)
-    [ -z "$creds" ] && creds="$cfdir/$tunnel_id.json"
-    cp "$cfg" "$cfg.bak.$$" && warn "Backed up $cfg → $cfg.bak.$$"
-    write_cf_config "$cfg" "$tunnel_id" "$creds" "$host"
-  else
-    # No tunnel yet — create one. Account login is a one-time browser step.
-    if [ ! -f "$cfdir/cert.pem" ]; then
-      say "Logging in to Cloudflare (opens a browser — pick the zone for $host)"
-      cloudflared tunnel login </dev/tty || { warn "cloudflared login failed — re-run ./pito cloudflared"; return 0; }
-    fi
-    tunnel_name="${PITO_TUNNEL:-pito}"
-    say "Creating tunnel '$tunnel_name'"
-    create_out=$(cloudflared tunnel create "$tunnel_name" 2>&1) || {
-      printf '%s\n' "$create_out" >&2
-      warn "tunnel create failed — re-run ./pito cloudflared after 'cloudflared tunnel login'."
-      return 0
-    }
-    printf '%s\n' "$create_out"
-    tunnel_id=$(printf '%s' "$create_out" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
-    [ -z "$tunnel_id" ] && tunnel_id="$tunnel_name"
-    write_cf_config "$cfg" "$tunnel_id" "$cfdir/$tunnel_id.json" "$host"
-    say "Routing DNS: $host → tunnel"
-    cloudflared tunnel route dns "$tunnel_name" "$host" 2>&1 | sed 's/^/  /' || \
-      warn "route dns failed (may already exist) — otherwise add a CNAME for $host in Cloudflare."
-  fi
-
-  install_cloudflared_service "$cfg"
-
-  cat <<EOF
-
-Tunnel for $host is configured and runs on boot (systemd unit: cloudflared).
-In Cloudflare's SSL/TLS settings use mode "Full" (pito forces SSL).
-EOF
-}
-
-# Write a cloudflared ingress config:  write_cf_config PATH TUNNEL_ID CREDS_FILE HOST
-write_cf_config() {
-  cat > "$1" <<EOF
-# pito tunnel — routes $4 to the Docker stack on 127.0.0.1:3028 (the PRODUCTION
-# port; a dev tunnel for bin/dev would use :3027). Managed by pito's installer.
-tunnel: $2
-credentials-file: $3
-ingress:
-  - hostname: $4
-    service: http://127.0.0.1:3028
-  - service: http_status:404
-EOF
-}
-
-# Run cloudflared as a reboot-persistent systemd service:  install_cloudflared_service CONFIG
-install_cloudflared_service() {
-  cfg="$1"
-  bin=$(command -v cloudflared)
-  say "Installing cloudflared as a systemd service (tunnel runs on boot — no manual run)"
-  sudo tee /etc/systemd/system/cloudflared.service >/dev/null <<EOF
-[Unit]
-Description=cloudflared tunnel (pito)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart=$bin tunnel --no-autoupdate --config $cfg run
-Restart=always
-RestartSec=5
-User=$(id -un)
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now cloudflared
-  say "cloudflared.service enabled + started."
-}
-
-# ── Caddy direct HTTPS (no cloudflared) ──────────────────────────────────────
-# Alternative to the tunnel for hosts with a public IP: writes ./Caddyfile for
-# the configured domain and turns on the compose `caddy` profile via .env
-# (COMPOSE_PROFILES). The caddy service itself ships dormant in the repo's
-# docker-compose.yml, so this survives `pito update` (which re-fetches the
-# compose file but never touches .env or ./Caddyfile). The default cloudflared
-# flow is completely unaffected — caddy runs only where this was chosen.
-setup_caddy() {
-  base="${1:-$(env_get PITO_APP_BASE_URL)}"
-  host=$(printf '%s' "$base" | sed -E 's#^https?://##; s#/.*$##')
-  case "$base" in
-    *localhost*|*127.0.0.1*|"")
-      warn "Host is local ($base) — Caddy/HTTPS not needed. Set a public host first (pito update --host https://your.domain)."
-      return 0 ;;
-  esac
-
-  say "Caddy direct HTTPS for $host"
-
-  if [ -f Caddyfile ]; then
-    warn "Existing ./Caddyfile kept (delete it and re-run ./pito caddy to regenerate)."
-  else
-    cat > Caddyfile <<EOF
-# pito — Caddy terminates TLS for $host (automatic Let's Encrypt) and proxies
-# to lb — the internal load balancer that fronts the web-blue/web-green
-# zero-downtime deploy slots — over the compose network (WebSockets included).
-# Managed by pito's installer; edit freely, updates never overwrite it.
-$host {
-    reverse_proxy lb:8080
-}
-EOF
-    say "Wrote ./Caddyfile ($host → lb:8080)"
-  fi
-
-  profile_set caddy ""
-
-  cat <<EOF
-
-Caddy is configured (compose profile "caddy" enabled in .env).
-Checklist for HTTPS to come up:
-  - DNS: an A record for $host pointing at THIS host's public IP
-  - Ports 80 and 443 open (cloud firewall + host firewall)
-  - If the domain sits behind Cloudflare's proxy (orange cloud), set SSL mode
-    to "Full (strict)" — or keep it DNS-only (gray) and let Caddy handle TLS
-  - Apply with:  ./pito down && ./pito up -d   (or: sudo systemctl restart pito)
-EOF
+  tmp=$(mktemp)
+  sed 's|"127\.0\.0\.1:3028:8080"|"127.0.0.1:${PITO_PORT:-3028}:8080"|' "$f" > "$tmp" && mv "$tmp" "$f"
 }
 
 # ── systemd unit (reboot persistence) ────────────────────────────────────────
@@ -333,7 +278,7 @@ Requires=docker.service
 Type=oneshot
 User=$user
 WorkingDirectory=$workdir
-ExecStart=$workdir/pito backup
+ExecStart=$workdir/pito-cli backup
 EOF
   sudo tee /etc/systemd/system/pito-backup.timer >/dev/null <<EOF
 [Unit]
@@ -351,20 +296,57 @@ EOF
   say "pito-backup.timer enabled — daily at 03:00, keeping the newest 7 backups in ./backups (override with PITO_BACKUP_KEEP)."
 }
 
-# ── put `pito` on PATH ───────────────────────────────────────────────────────
-# Symlink the install-dir CLI to /usr/local/bin/pito so it runs as a bare `pito`
-# from anywhere (bin/pito resolves the symlink back to its install dir). Best
-# effort: if sudo/PATH isn't available, fall back to ./pito.
+# ── the one-release `pito` shim — linked only when nothing else owns `pito` ──
+# `pito` is the terminal client's command name now (pito-tui ships its binary,
+# its .deb and its Homebrew formula under it — and on Intel macOS that formula
+# writes /usr/local/bin/pito, this exact path). Our shim is a one-release
+# courtesy for fingers that still type `pito` for the operator CLI, so it must
+# never win a fight it didn't pick: link it onto a free name, or over a shim we
+# placed ourselves (a symlink to a `pito` sitting beside a `pito-cli` — an
+# install dir of this stack; a Homebrew Cellar link can't match that). A `pito`
+# already resolvable further down PATH (the client's .deb lands one in
+# /usr/bin, which /usr/local/bin precedes) is left unshadowed for the same
+# reason: losing the courtesy beats hiding the client behind a deprecation
+# notice. This whole function goes when the shim does, next release.
+# NOTE: kept byte-identical with script/update.sh's copy (both scripts run
+# standalone via curl | sh, so they can't share a file) — a spec pins that.
+link_pito_shim() {
+  shim_dir="${PITO_BIN_DIR:-/usr/local/bin}"   # overridable so the spec can drive this
+  shim_target="$shim_dir/pito"
+  [ -f "$PWD/pito" ] || return 0
+  if [ -e "$shim_target" ] || [ -L "$shim_target" ]; then
+    shim_cur=$(readlink "$shim_target" 2>/dev/null || true)
+    if [ "${shim_cur##*/}" != "pito" ] || [ ! -f "${shim_cur%/pito}/pito-cli" ]; then
+      printf '%s\n' "!  $shim_target is not ours — left untouched (that's the pito terminal client). The operator CLI is 'pito-cli'." >&2
+      return 0
+    fi
+  else
+    shim_other=$(command -v pito 2>/dev/null || true)
+    if [ -n "$shim_other" ] && [ "$shim_other" != "$shim_target" ]; then
+      printf '%s\n' "!  'pito' already resolves to $shim_other — not shadowing it. The operator CLI is 'pito-cli'." >&2
+      return 0
+    fi
+  fi
+  sudo ln -sf "$PWD/pito" "$shim_target" 2>/dev/null || true
+}
+
+# ── put `pito-cli` on PATH ───────────────────────────────────────────────────────
+# Symlink the install-dir CLI to /usr/local/bin/pito-cli so it runs as a bare
+# `pito-cli` from anywhere, and (only when it's free — see above) link
+# /usr/local/bin/pito to the one-release shim. bin/pito-cli resolves the
+# symlink back to its install dir. Best effort: if sudo/PATH isn't available,
+# fall back to ./pito-cli.
 LINKED=0
 link_cli() {
-  src="$PWD/pito"
-  [ -f "$src" ] || { warn "pito CLI not found in $PWD — skipping PATH link."; return 0; }
-  say "Linking pito onto your PATH (/usr/local/bin/pito)"
-  if sudo ln -sf "$src" /usr/local/bin/pito 2>/dev/null; then
+  src="$PWD/pito-cli"
+  [ -f "$src" ] || { warn "pito-cli not found in $PWD — skipping PATH link."; return 0; }
+  say "Linking pito-cli onto your PATH (/usr/local/bin/pito-cli)"
+  if sudo ln -sf "$src" /usr/local/bin/pito-cli 2>/dev/null; then
     LINKED=1
-    say "Linked — you can now run 'pito' from anywhere."
+    link_pito_shim
+    say "Linked — you can now run 'pito-cli' from anywhere."
   else
-    warn "Couldn't link to /usr/local/bin (no sudo / not writable). Run it as ./pito from $PWD."
+    warn "Couldn't link to /usr/local/bin (no sudo / not writable). Run it as ./pito-cli from $PWD."
   fi
 }
 
@@ -389,7 +371,7 @@ resolve_version() {
     warn "Couldn't list releases (offline / API limit) — defaulting to edge (latest + main)."
     REF="main"; TAG="latest"; return 0
   fi
-  echo "Available PITO versions:" >&2
+  echo "Available Pito versions:" >&2
   i=1; printf '%s\n' "$tags" | head -5 | while IFS= read -r t; do
     if [ "$t" = "$newest" ]; then printf '  %d) %s   stable (recommended)\n' "$i" "$t" >&2; else printf '  %d) %s   stable\n' "$i" "$t" >&2; fi
     i=$((i+1))
@@ -418,18 +400,19 @@ do_install() {
   mkdir -p "$DIR/config"
   cd "$DIR"
 
-  say "Fetching docker-compose.yml + the pito CLI + the load balancer's config (no git clone)"
+  say "Fetching docker-compose.yml + the pito-cli CLI (+ pito shim) + the load balancer's config (no git clone)"
   curl -fsSL "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
-  curl -fsSL "$REPO_RAW/bin/pito" -o pito && chmod +x pito
+  curl -fsSL "$REPO_RAW/bin/pito-cli" -o pito-cli && chmod +x pito-cli
+  curl -fsSL "$REPO_RAW/bin/pito"     -o pito     && chmod +x pito
   curl -fsSL "$REPO_RAW/Caddyfile.lb" -o Caddyfile.lb
 
-  # Public host
-  if [ -z "$HOST" ]; then
-    printf 'Public URL pito will be reached at [http://localhost:3028]: '
-    read -r HOST </dev/tty || HOST=""
-    [ -z "$HOST" ] && HOST="http://localhost:3028"
-  fi
-  env_set PITO_APP_BASE_URL "$HOST"
+  # The one question: which port. Asked, checked, then wired everywhere —
+  # .env for the app's own base URL, and the fetched compose file's published
+  # port (apply_port_binding).
+  prompt_port
+  apply_port_binding docker-compose.yml
+  env_set PITO_PORT "$PORT"
+  env_set PITO_APP_BASE_URL "http://localhost:$PORT"
   env_set PITO_TAG "$TAG"
   env_set PITO_REF "$REF"
   # Fresh installs start life natively in the blue/green shape — always on
@@ -456,40 +439,23 @@ do_install() {
   if [ "$CREDS_FRESH" = "1" ]; then
     say "Enrolling your login (TOTP) — scan the QR/secret below into an authenticator"
     docker compose run --rm web-blue bin/rails pito:totp || \
-      warn "TOTP enrollment failed — run './pito totp' once the stack is healthy."
+      warn "TOTP enrollment failed — run './pito-cli totp' once the stack is healthy."
   else
-    warn "Existing install — keeping your data + TOTP enrollment (use './pito totp' to re-enroll)."
+    warn "Existing install — keeping your data + TOTP enrollment (use './pito-cli totp' to re-enroll)."
   fi
 
-  # HTTPS mechanism — cloudflared tunnel stays the default (Enter / no tty
-  # keeps the exact pre-1.0 behavior); Caddy is the direct-HTTPS alternative
-  # for hosts with a public IP. Local hosts skip both inside the setup fns.
-  case "$HOST" in
-    *localhost*|*127.0.0.1*)
-      setup_cloudflared "$HOST"   # prints the "no tunnel needed" notice
-      ;;
-    *)
-      printf 'HTTPS for %s — [t]unnel via cloudflared (default) / [c]addy direct HTTPS / [s]kip: ' "$HOST"
-      read -r https_choice </dev/tty || https_choice="t"
-      case "$https_choice" in
-        c|C) setup_caddy "$HOST" ;;
-        s|S) warn "Skipped HTTPS setup (later: ./pito cloudflared or ./pito caddy)." ;;
-        *)   setup_cloudflared "$HOST" ;;
-      esac
-      ;;
-  esac
   setup_systemd
   link_cli
 
   printf 'Install a daily backup timer (DB + assets → ./backups, keep 7)? [y/N]: '
   read -r choice </dev/tty || choice="n"
-  case "$choice" in y|Y) setup_backup_timer ;; *) warn "Skipped backup timer (add later: pito backup-schedule)." ;; esac
+  case "$choice" in y|Y) setup_backup_timer ;; *) warn "Skipped backup timer (add later: pito-cli backup-schedule)." ;; esac
 
-  say "Done. pito is at $HOST"
+  say "Done. pito is at http://localhost:$PORT"
   if [ "$LINKED" = "1" ]; then
-    echo "Manage it from anywhere:  pito logs -f   pito console   pito update"
+    echo "Manage it from anywhere:  pito-cli logs -f   pito-cli console   pito-cli update"
   else
-    echo "Manage it from $DIR:  ./pito logs -f   ./pito console   ./pito update"
+    echo "Manage it from $DIR:  ./pito-cli logs -f   ./pito-cli console   ./pito-cli update"
   fi
 }
 
@@ -555,8 +521,6 @@ bootstrap_credentials() {
 case "$MODE" in
   install)      do_install ;;
   service)      setup_systemd ;;
-  cloudflared)  setup_cloudflared ;;
-  caddy)        setup_caddy ;;
   backup-timer) setup_backup_timer ;;
   link)         link_cli ;;
 esac

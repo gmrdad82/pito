@@ -22,15 +22,15 @@ en:
         mass_no_valid_rows: "None of those rows resolved to a real vid — nothing staged. `list vids` to see ids."
       greet:
         descriptions:
-          greet: "Say hi (hi / hello / hola, any case) — PITO greets you with what it can do"
+          greet: "Say hi (hi / hello / hola, any case) — Pito greets you with what it can do"
       farewell:
         descriptions:
-          farewell: "Say bye (bye / goodbye / hasta luego) — PITO waves you off"
+          farewell: "Say bye (bye / goodbye / hasta luego) — Pito waves you off"
       show:
         descriptions:
           show: "Show a game's details (by id)"
         needs_ref: "Which game? Use `list games` to see ids, then `show game <id>`."
-        channel_needs_ref: "Which channel? Use `list channels` to see them, then `show channel @handle` (or set a channel scope with shift+tab)."
+        channel_needs_ref: "Which channel? Use `list channels` to see them, then `show channel @handle` (or set a channel scope with ctrl+space)."
       import:
         descriptions:
           import: "Import a game from IGDB (`import vids` is an alias of `sync vids`)"
@@ -59,7 +59,7 @@ en:
         too_soon: "YouTube requires a publish time at least 30 minutes in the future. Pick a later time."
       sync:
         descriptions:
-          sync: "Sync vids or channels from YouTube (scope via shift+tab channel)"
+          sync: "Sync vids or channels from YouTube (scope via ctrl+space channel)"
         needs_ref: "Usage: `sync vids [only <id>,<id>,…]` or `sync channels [with vids]`."
         unknown_channel: "Unknown channel %{handle}. Use `list channels` to see handles."
       link:
@@ -81,7 +81,7 @@ en:
           help: "List follow-up targets and their accepted actions"
       analyze:
         descriptions:
-          analyze: "Analyze YouTube metrics for a channel, vid, or game (over the shift+space period)"
+          analyze: "Analyze YouTube metrics for a channel, vid, or game (over the ctrl+space period)"
       shinies:
         descriptions:
           shinies: "Show achievement tracks and obtained shinies for a game, vid, or channel"

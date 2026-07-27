@@ -4,7 +4,7 @@ module Pito
   module Analytics
     # Computes the views-weighted average audience-retention curve for a scope.
     #
-    # Retention is ALWAYS lifetime — the shift+space period window is ignored.
+    # Retention is ALWAYS lifetime — the stats-period window is ignored.
     # The YouTube Analytics API for retention is single-video (no batch), so we
     # fetch one retention curve per video and cache each in AnalyticsPrimitive
     # (report: "retention") with a ~1h TTL (since the window always ends today

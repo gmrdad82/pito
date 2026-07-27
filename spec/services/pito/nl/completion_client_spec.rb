@@ -8,7 +8,7 @@ RSpec.describe Pito::Nl::CompletionClient, type: :service do
   let(:grammar) { 'root ::= "ls vids"' }
   let(:messages) do
     [
-      { role: "system", content: "Rewrite the owner's words as one PITO command." },
+      { role: "system", content: "Rewrite the owner's words as one Pito command." },
       { role: "user", content: "show the vids" },
       { role: "assistant", content: "ls vids" },
       { role: "user", content: "ls vids" }
@@ -31,7 +31,7 @@ RSpec.describe Pito::Nl::CompletionClient, type: :service do
         stub_request(:post, chat_endpoint)
           .with(body: hash_including(
             "messages" => [
-              { "role" => "system", "content" => "Rewrite the owner's words as one PITO command." },
+              { "role" => "system", "content" => "Rewrite the owner's words as one Pito command." },
               { "role" => "user", "content" => "show the vids" },
               { "role" => "assistant", "content" => "ls vids" },
               { "role" => "user", "content" => "ls vids" }

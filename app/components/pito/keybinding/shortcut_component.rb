@@ -3,8 +3,10 @@
 module Pito
   module Keybinding
     # Renders a single keyboard shortcut token in the canonical keybinding
-    # styling: bold fg-default with the theme-BLUE shimmer band
-    # (.pito-kbd-shimmer, owner round 5). Single source of truth for the
+    # styling: bold, on the shared pito-blue base with the accent-purple band
+    # travelling through it (.pito-kbd-shimmer — identical to the clickable
+    # .pito-action-shimmer since 2026-07-24, and to the tui's key-cap chip;
+    # the blue-band/purple-band split is gone). Single source of truth for the
     # shortcut appearance. The staggered offset comes from the shared
     # Pito::Shimmer.offset_class so it never re-derives the bucket math by hand.
     class ShortcutComponent < ViewComponent::Base
@@ -20,7 +22,7 @@ module Pito
       end
 
       def call
-        tag.span(@keys, class: "pito-kbd-shimmer #{Pito::Shimmer.offset_class(@keys)}", **data_attrs)
+        tag.span(Pito::Keybinding::Glyph.format(@keys), class: "pito-kbd-shimmer #{Pito::Shimmer.offset_class(@keys)}", **data_attrs)
       end
 
       private
@@ -29,7 +31,7 @@ module Pito
       # tappable on touch (tap == pressing the key). This adds behavior only —
       # no styling. Any caller-supplied `data:` is merged in; `controller` and
       # `action` are concatenated (Stimulus allows multiple) so a hint can carry
-      # both pito--kbd-click and, say, pito--platform-key at once.
+      # pito--kbd-click alongside another caller-supplied controller at once.
       def data_attrs
         return @data.transform_keys { |k| :"data-#{k}" } unless @kbd_click
 

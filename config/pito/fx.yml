@@ -11,22 +11,38 @@
 #
 #   effects:   what each mood IS and what it needs. `covers:` is the law of
 #              the land — single | many | none:
-#                single — the mood renders ONE cover (water, duotone, lens).
-#                many   — the mood renders a SET of covers (cover_wall).
-#                none   — the mood needs no art (sky, plasma, globs, trails).
-#   contexts:  what each kind of message carries (`covers:` again) and its
+#                single — the mood renders ONE cover (water).
+#                many   — the mood renders a SET of covers (none ship).
+#                none   — the mood needs no art (sky, plasma).
+#   contexts:  what each kind of message CARRIES (`covers:` again) and its
 #              weighted mood pool. A `single` mood may ONLY be pooled on a
 #              `single` context; a `many` mood only on a `many` context;
 #              `none` moods go anywhere. Water on a list is a BOOT ERROR.
 #   engine:    global physics (clock, crossfade, flock).
 #
-# OWNER LOCKS (2026-07-13): water, duotone, and lens are LOCKED — their knobs
-# and their single-cover-only placement are settled. Locked moods belong to
-# single-cover messages (show/analyze of ONE game or vid + their
-# sub-segments), NEVER to lists, breakdowns, or channel messages. Cover walls
-# belong to ls games, ls vids, and show channel (the wall counted from games
-# linked to the channel's vids) + their segments. Replies carry no special
-# rules — a reply is judged by its own payload markers like any message.
+# ── THE 5.0.0 CULL (owner ruling 2026-07-26) ────────────────────────────────
+# THREE MOODS SHIP: sky (with its flock and its idle rings), plasma, water.
+# duotone, lens, glow, trails, aurora, globs and cover_wall are GONE — their
+# entries here and their renderer modules under app/javascript/fx/renderers/
+# were deleted together. The 2026-07-13 OWNER LOCKS on duotone and lens are
+# retired with the effects themselves; water's lock stands, knobs untouched.
+#
+# What the cull buys, and why the pools below all hold exactly one entry:
+# every context now resolves to ONE viable effect, so fx/engine.js's seeded
+# pick (`fnv1a("fx:<eventId>:<context>")`) has nothing left to roll. The mood
+# a conversation wears is a pure function of (context, does it carry art,
+# what the device can run) — never of which event id happened to land. The
+# scrollback's `data-fx-context` / `data-fx-covers` attributes are therefore
+# a COMPLETE description of its background, which is exactly what the L2
+# snapshot (Pito::Stream::ScrollbackCache) stores.
+#
+# THE SKY IS SPELLED, NEVER IMPLIED. `sky` is a declared effect but has no
+# renderer module (it lives at app/javascript/fx/sky.js and is painted by the
+# controller's own resting pass), so fx/engine.js's viable() always filters it
+# out and the empty pool falls through to the sky. Pooling `{ effect: sky }`
+# is how a context SAYS "this is a sky moment" — a non-empty pool the
+# validator accepts, that can never win a roll. `default` has always worked
+# this way; the cull gives four more contexts the same shape.
 schema_version: 2
 
 # Global engine knobs (F9/F6): the fx clock never exceeds fps; canvas backing
@@ -42,11 +58,12 @@ engine:
   enforcer_alpha: 0.62
   # Butterfly-body ceiling (owner: "like 6 of them, in different sizes,
   # never colliding"); each page load rolls a flock of 3..this. The FIRST is
-  # the leader every effect follows and the mouse leans.
+  # the leader every effect follows and the mouse leans. KEPT by the 5.0.0
+  # cull — the flock is part of the sky, not a mood of its own.
   butterflies: 6
   # The rings show over the NIGHT SKY only, and only once the conversation
   # has been idle this long — activity fades them out, idling fades them
-  # back in (owner 2026-07-13).
+  # back in (owner 2026-07-13). KEPT by the 5.0.0 cull.
   ring_idle_ms: 8000
   # The CABLE PUSH (2026-07-19, owner: "random per butterfly, random per
   # payload event, random in everything — push tilt pull move whatever"):
@@ -66,6 +83,11 @@ engine:
 #   needs_float: WebGL EXT_color_buffer_float required (degrades to another
 #                pool entry when absent).
 #   tint_source: theme | cover | fixed — where the palette comes from.
+#
+# NOTE: no `many` effect ships after the 5.0.0 cull. The cardinality itself
+# stays legal (the validator, the guard and engine.js's viable() all still
+# understand it) so a future wall is a YAML edit again — but nothing today
+# demands art it cannot be given.
 effects:
   sky:
     engine: canvas
@@ -90,22 +112,9 @@ effects:
     covers: none
     needs_float: false
     tint_source: theme
-  # LOCKED (owner 2026-07-13). The dual-tone dot grid ("duotone" is the
-  # owner's word for it — formerly halftone).
-  duotone:
-    engine: webgl
-    covers: single
-    needs_float: false
-    tint_source: cover
-    # dpr supersamples the dots 2x for crisp edges; cells are CANVAS px, so
-    # visual size = cell / dpr — 3.5..10.5 css px, 30% under the original
-    # 5..15 (owner 2026-07-13: smaller discs, better resolution).
-    knobs:
-      dpr: 2
-      cell_min: 7
-      cell_max: 21
-  # LOCKED (owner 2026-07-13): a pond, not a downpour — rare gentle drops,
-  # slow fat waves, high damping.
+  # LOCKED (owner 2026-07-13, lock re-affirmed by the 5.0.0 cull): a pond,
+  # not a downpour — rare gentle drops, slow fat waves, high damping. The
+  # one mood that wears cover art.
   water:
     engine: webgl
     covers: single
@@ -116,165 +125,83 @@ effects:
       drop_interval_ms: 1600
       drop_strength: 0.07
       drop_radius: 0.055
-  # LOCKED (owner 2026-07-13): the chromatic reveal circles — up to three,
-  # riding the flock, neon purple->blue->pink rims.
-  lens:
-    engine: webgl
-    covers: single
-    needs_float: false
-    tint_source: cover
-  # LOCKED (owner 2026-07-13, from the gallery): the cover spotlight — one
-  # dreamy glow per flock member, staggered sizes, heavy-lagged drift.
-  glow:
-    engine: canvas
-    covers: single
-    needs_float: false
-    tint_source: cover
-    knobs:
-      dim: 0.35
-      glow_alpha: 0.85
-  # APPROVED (owner 2026-07-13, the pitomd screenshot): the ring-cascade —
-  # each flock member drags a stack of big soft luminous circles, small
-  # bright head to swelling faint tail, purple/blue/pink, additive.
-  trails:
-    engine: canvas
-    covers: none
-    needs_float: false
-    tint_source: fixed
-    # follow = the spring-chain ease (higher = snappier, lower = dreamier).
-    knobs:
-      scale: 1.0
-      stack: 14
-      alpha: 0.5
-      follow: 0.35
-  # APPROVED (owner 2026-07-13 verdict sheet): 2-4 blurred hue areas at
-  # uneven sizes riding the flock — the analyze family's mood. Params
-  # iterate here (sizes are vmax fractions; blur px; alpha 0..1).
-  aurora:
-    engine: css
-    covers: none
-    needs_float: false
-    tint_source: fixed
-    knobs:
-      size_0: 0.58
-      size_1: 0.4
-      size_2: 0.5
-      size_3: 0.3
-      blur: 48
-      alpha: 1.0
-  # LOCKED (owner 2026-07-13, from the gallery): the gooey metaball field —
-  # driven blobs ride the flock, ambient blobs orbit on their own clock.
-  globs:
-    engine: webgl
-    covers: none
-    needs_float: false
-    tint_source: theme
-    knobs:
-      blob_scale: 1.0
-  cover_wall:
-    engine: css
-    covers: many
-    needs_float: false
-    tint_source: cover
-    # FEW COVERS -> BIG TILES (owner 2026-07-13): the wall never doubles art
-    # to fill space — it scales what it has. Tile size is a fraction of the
-    # viewport's short side: size_frac at a full wall of max_tiles, boosted
-    # by sqrt(max_tiles/count) as the shelf thins, capped at size_ceiling_frac.
-    # min_covers (owner 2026-07-13): below 5 covers a wall reads as a few
-    # lost stamps — the effect simply isn't viable and the context's pool
-    # falls through to its other entries (or the sky).
-    knobs:
-      min_covers: 5
-      max_tiles: 14
-      floor_frac: 0.14
-      size_frac: 0.22
-      size_ceiling_frac: 0.45
 
-# Context → { covers, pool } (F8: seeded per-event pick, deliberately not
-# 1:1; effects may appear in many pools — mood is shared, not owned). The
-# engine falls back to the sky for any context absent here (F1), and
-# `default` IS the sky — start_screen, not_found, anything that doesn't fit.
+# Context → { covers, pool } (F8: seeded per-event pick — after the 5.0.0
+# cull no pool offers more than ONE renderable effect, so the seed decides
+# nothing and the mood is stable for the whole conversation). The engine
+# falls back to the sky for any context absent here (F1), and `default` IS
+# the sky — start_screen, not_found, anything that doesn't fit.
 #
-# `covers:` declares what the context CARRIES; the registry refuses any pool
-# entry whose effect demands more than that.
+# `covers:` declares what the context CARRIES — it describes the PAYLOAD, not
+# the pool. Pito::Fx::Context still resolves and stamps a wall of cover paths
+# for the list/channel contexts below, so `many` remains the honest word for
+# them even though no `many` effect survives to wear it; the registry refuses
+# any pool entry whose effect demands more than the context has.
 contexts:
-  # ── Single-cover moments: the locked trio lives here and ONLY here. ──
+  # ── Single-cover moments: water, and only water. ──
   game_detail:
     covers: single
     pool:
-      - { effect: duotone, weight: 3 }
-      - { effect: water, weight: 3 }
-      - { effect: lens, weight: 2 }
+      - { effect: water, weight: 1 }
+  # A vid's art is its LINKED GAME's art (Pito::Fx::Context#vid_covers), so a
+  # vid with no game link resolves to zero covers. Owner ruling 2026-07-26:
+  # water only when the vid resolves to a game, otherwise the sky. That is
+  # exactly what fx/engine.js's viable() already does — a `covers: single`
+  # effect with zero covers is non-viable, the pool empties, the sky answers
+  # — so the rule is the degrade, not a second code path. `sky` is spelled
+  # out here to say so at the point of use.
   vid_detail:
     covers: single
     pool:
-      - { effect: water, weight: 3 }
-      - { effect: duotone, weight: 2 }
-      - { effect: lens, weight: 2 }
+      - { effect: water, weight: 1 }
+      - { effect: sky, weight: 1 }
   # Analyze twins its show counterpart VERBATIM (owner 2026-07-13).
   analyze_game:
     covers: single
     pool:
-      - { effect: duotone, weight: 3 }
-      - { effect: water, weight: 3 }
-      - { effect: lens, weight: 2 }
+      - { effect: water, weight: 1 }
   analyze_vid:
     covers: single
     pool:
-      - { effect: water, weight: 3 }
-      - { effect: duotone, weight: 2 }
-      - { effect: lens, weight: 2 }
+      - { effect: water, weight: 1 }
+      - { effect: sky, weight: 1 }
 
-  # ── Many-cover moments: the wall's home (owner: ls games, ls vids, show
-  #    channel — counted from games linked to the channel's vids). ──
+  # ── Many-cover moments: the wall is gone, so these are sky moments. ──
+  # The payload still CARRIES its wall of covers (see the `covers:` note
+  # above); nothing renders them, and the sky is the whole answer.
   game_list:
     covers: many
     pool:
-      # 50/50 (owner): plasma is the wall's partner AND the thin-shelf
-      # answer when the wall sits under min_covers.
-      - { effect: cover_wall, weight: 1 }
-      - { effect: plasma, weight: 1 }
+      - { effect: sky, weight: 1 }
   vid_list:
     covers: many
     pool:
-      # 50/50 (owner): plasma is the wall's partner AND the thin-shelf
-      # answer when the wall sits under min_covers.
-      - { effect: cover_wall, weight: 1 }
-      - { effect: plasma, weight: 1 }
+      - { effect: sky, weight: 1 }
   channel:
     covers: many
     pool:
-      # 50/50 (owner): plasma is the wall's partner AND the thin-shelf
-      # answer when the wall sits under min_covers.
-      - { effect: cover_wall, weight: 1 }
-      - { effect: plasma, weight: 1 }
+      - { effect: sky, weight: 1 }
 
   # ── Cover-less moments. ──
-  # Plasma is JUST FOR WALLS (owner Q2) — the analyze family wears aurora
-  # (+ trails, landing next).
   # Analyze channel twins show channel (owner 2026-07-13) — the derive
   # layer hands it the same linked-games wall covers. Bare analyze
   # (breakdowns, multi-entity) has NO entry: absent = the sky (F1).
   analyze_channel:
     covers: many
     pool:
-      - { effect: cover_wall, weight: 1 }
-      - { effect: plasma, weight: 1 }
-  # An AI answer referencing EXACTLY ONE game (media block) wears that
-  # game's cover — and GLOW, exclusively; glow appears nowhere else
-  # (owner 2026-07-13).
+      - { effect: sky, weight: 1 }
+  # The AI family wears PLASMA (owner ruling 2026-07-26 — glow, globs, trails
+  # and aurora are culled). ai_game keeps its own context because the derive
+  # layer still distinguishes it and because plasma is `covers: none`: the
+  # game's cover rides the payload, plasma simply doesn't read it.
   ai_game:
     covers: single
     pool:
-      - { effect: glow, weight: 1 }
-  # AI wears the globs, the ring-cascade trails, and the aurora — aurora
-  # EXCLUSIVELY here (owner 2026-07-13); plasma stays walls-only.
+      - { effect: plasma, weight: 1 }
   ai:
     covers: none
     pool:
-      - { effect: globs, weight: 1 }
-      - { effect: trails, weight: 1 }
-      - { effect: aurora, weight: 1 }
+      - { effect: plasma, weight: 1 }
   default:
     covers: none
     pool:

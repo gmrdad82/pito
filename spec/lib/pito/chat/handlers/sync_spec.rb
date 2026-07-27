@@ -123,7 +123,7 @@ RSpec.describe Pito::Chat::Handlers::Sync do
     end
   end
 
-  # ── sync vids #id (targeted — ids win over shift+tab scope) ───────────────────
+  # ── sync vids #id (targeted — ids win over the channel scope) ────────────────
 
   describe "sync vids #id (targeted)" do
     let!(:video2) { create(:video, channel: channel, title: "Boss Fight") }
@@ -139,7 +139,7 @@ RSpec.describe Pito::Chat::Handlers::Sync do
       expect(payload["video_ids"]).to eq([ video.id, video2.id ])
     end
 
-    it "ids win — ignores the shift+tab channel scope (channel_ids empty)" do
+    it "ids win — ignores the channel scope (channel_ids empty)" do
       payload = handler_for("vids", "##{video.id}", channel: "@pito").call.events.first[:payload]
       expect(payload["video_ids"]).to eq([ video.id ])
       expect(payload["channel_ids"]).to eq([])
@@ -231,13 +231,13 @@ RSpec.describe Pito::Chat::Handlers::Sync do
   # ── sync channel @handle — inline scope (self-contained click) ────────────────
 
   describe "sync channel @handle (inline scope)" do
-    it "scopes to the inline @handle channel (no shift+tab scope needed)" do
+    it "scopes to the inline @handle channel (no channel scope needed)" do
       payload = handler_for("channel", "@pito").call.events.first[:payload]
       expect(payload["command"]).to eq("sync_channel")
       expect(payload["channel_ids"]).to eq([ channel.id ])
     end
 
-    it "inline @handle overrides the shift+tab @all scope" do
+    it "inline @handle overrides a channel-scope @all" do
       payload = handler_for("channel", "@pito", channel: "@all").call.events.first[:payload]
       expect(payload["channel_ids"]).to eq([ channel.id ])
     end

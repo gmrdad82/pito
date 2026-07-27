@@ -26,7 +26,7 @@ module Pito
       # @param source_event   [Event]        the live event being replied to.
       # @param rest            [String]       text after `#<handle> ` (e.g. "show 5", "rm").
       # @param conversation    [Conversation]
-      # @param channel         [String, nil]  shift+tab channel scope, if any.
+      # @param channel         [String, nil]  channel scope (ctrl+space), if any.
       # @param period          [String, nil]  analytics window (e.g. "28d"), if any.
       # @param viewport_width  [Integer, String, nil] scrollback width for list auto-fill.
       # @return [Pito::FollowUp::Result::Append, Pito::FollowUp::Result::Error]

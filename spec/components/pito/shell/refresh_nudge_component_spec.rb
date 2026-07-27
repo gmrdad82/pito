@@ -37,10 +37,10 @@ RSpec.describe Pito::Shell::RefreshNudgeComponent, type: :component do
     node = render_inline(described_class.new)
     inner = node.css("template#pito-refresh-nudge").first.inner_html
     expect(inner).not_to include("%{combo}")
-    expect(inner).to include("Ctrl+R").or include("⌘R")
+    expect(inner).to include("Ctrl+R")
   end
 
-  describe "the OS-aware combo" do
+  describe "the combo (owner 2026-07-24: Mac cmd-swap DISPLAY retired — Ctrl+R for every keyboard)" do
     it "offers Ctrl+R (or F5) to non-Mac visitors" do
       vc_test_request.env["HTTP_USER_AGENT"] = "Mozilla/5.0 (X11; Linux x86_64)"
       component = described_class.new
@@ -48,11 +48,11 @@ RSpec.describe Pito::Shell::RefreshNudgeComponent, type: :component do
       expect(component.combo).to eq("Ctrl+R (or F5)")
     end
 
-    it "offers ⌘R to Macs" do
+    it "offers Ctrl+R (or F5) to Macs too — no ⌘R display swap" do
       vc_test_request.env["HTTP_USER_AGENT"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
       component = described_class.new
       render_inline(component)
-      expect(component.combo).to eq("⌘R")
+      expect(component.combo).to eq("Ctrl+R (or F5)")
     end
 
     # G73: touch devices (the Android shell included — no keyboard, no refresh

@@ -139,9 +139,12 @@ class AiOrchestratorJob < ApplicationJob
   # The static protocol above + the content rules declared in
   # config/pito/content.yml (no emoji / kaomoji, styling, colors) — edited
   # there, never here.
-  # The product's name is spelled ONE way (owner 2026-07-13).
-  NAMING_LAW = "NAMING: the product is always written PITO — all caps, " \
-               "never Pito or pito."
+  # The product's name is spelled ONE way (owner 2026-07-25, reversing the
+  # 2026-07-13 all-caps ruling): Pito in prose. Lowercase `pito` survives only
+  # as a technical identifier the owner types — a command, a path, a domain.
+  NAMING_LAW = "NAMING: the product is always written Pito — capital P only, " \
+               "never PITO or pito. Lowercase pito appears only inside a " \
+               "command, path or domain the owner types."
 
   # The one-line preamble ahead of an anchored reply's projection (see
   # #anchor_addendum below) — model-facing, so a plain Ruby string, exactly

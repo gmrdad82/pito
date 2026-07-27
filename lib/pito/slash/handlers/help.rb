@@ -76,10 +76,13 @@ module Pito
 
         # Keybindings that are NOT already surfaced in copy/locales.
         # Sourced from pito.slash.help.keybindings locale key so the list
-        # is maintainable without touching Ruby.
+        # is maintainable without touching Ruby. Locale keys carry the RAW
+        # shortcut ("shift+up/down") — formatted through the same
+        # Pito::Keybinding::Glyph every ShortcutComponent call site routes
+        # through, so this table matches every other shortcut chip.
         def keybindings_section
           rows = I18n.t("pito.slash.help.keybindings").map do |shortcut, description|
-            { key: shortcut.to_s, value: description }
+            { key: Pito::Keybinding::Glyph.format(shortcut.to_s), value: description }
           end
           return [] if rows.empty?
 

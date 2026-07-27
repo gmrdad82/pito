@@ -27,7 +27,7 @@ require "rails_helper"
 #   3. "--help" / "-h" are intercepted by the dispatcher BEFORE handler runs
 #      (regex /\s--help\b|\s-h\b/ on raw input). The handler has NO help? guard.
 #      For verb "notifs" the HelpBuilder returns generic command help (not the
-#      nonsense easter egg — that's only for "help" and "themes").
+#      nonsense easter egg — that's only for "help").
 #   4. The grammar spec has slots: [] (0 positional slots, not unbounded). The
 #      dispatcher's arity guard rejects any extra positional arg with too_many_args
 #      BEFORE the handler is instantiated.  Handler-level leniency ("any extra

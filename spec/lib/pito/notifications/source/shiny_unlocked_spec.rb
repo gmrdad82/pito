@@ -159,21 +159,46 @@ RSpec.describe Pito::Notifications::Source::ShinyUnlocked do
     end
   end
 
+  describe ".headline" do
+    it "composes '<witty name> (<compact threshold> <metric label>)'" do
+      video       = create(:video, title: "Speed Run")
+      achievement = create(:achievement, achievable: video, metric: "likes", threshold: 20)
+
+      witty = Pito::Copy.render("pito.copy.shinies.steps.20")
+      expect(described_class.headline(achievement)).to eq("#{witty} (20 Likes)")
+    end
+
+    it "uses the singular label at threshold 1" do
+      video       = create(:video, title: "Speed Run")
+      achievement = create(:achievement, achievable: video, metric: "views", threshold: 1)
+
+      witty = Pito::Copy.render("pito.copy.shinies.steps.1")
+      expect(described_class.headline(achievement)).to eq("#{witty} (1 View)")
+    end
+  end
+
   describe ".digest_row" do
-    it "returns [witty achievement name, entity display name] for a Video achievable" do
+    it "returns [headline (witty name + metric detail), entity display name] for a Video achievable" do
       video       = create(:video, title: "Speed Run")
       achievement = create(:achievement, achievable: video, metric: "views", threshold: 1_000)
 
       witty = Pito::Copy.render("pito.copy.shinies.steps.1000")
-      expect(described_class.digest_row(achievement)).to eq([ witty, "Speed Run" ])
+      expect(described_class.digest_row(achievement)).to eq([ "#{witty} (1K Views)", "Speed Run" ])
     end
 
-    it "returns [witty achievement name, entity display name] for a Game achievable" do
+    it "returns [headline, entity display name] for a Game achievable" do
       game        = create(:game, title: "Hollow Knight")
       achievement = create(:achievement, achievable: game, metric: "views", threshold: 1_000)
 
       witty = Pito::Copy.render("pito.copy.shinies.steps_game.1000")
-      expect(described_class.digest_row(achievement)).to eq([ witty, "Hollow Knight" ])
+      expect(described_class.digest_row(achievement)).to eq([ "#{witty} (1K Views)", "Hollow Knight" ])
+    end
+
+    it "includes the metric + threshold detail so the digest names WHAT was achieved" do
+      video       = create(:video, title: "Speed Run")
+      achievement = create(:achievement, achievable: video, metric: "likes", threshold: 20)
+
+      expect(described_class.digest_row(achievement).first).to include("20 Likes")
     end
 
     it "uses the channel's at_handle as the entity name for a Channel achievable" do

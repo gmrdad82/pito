@@ -43,10 +43,33 @@ RSpec.describe Pito::Event::SegmentSuggestionComponent do
   end
 
   describe "keyboard shortcut" do
-    it "renders ctrl+/ as a kbd-shimmer token" do
+    # The span goes through ShortcutComponent, so the DISPLAY is glyphed while
+    # the kbd-click key value stays the raw label the handler table is keyed on
+    # — the two must never be conflated (a glyphed key value would kill tap).
+    {
+      "ctrl+/"     => "ctrl+/",
+      "ctrl+space" => "ctrl+space",
+      "shift+up"   => "shift+↑"
+    }.each do |raw, glyphed|
+      it "renders #{raw} as the glyph token #{glyphed} while keeping the raw key value" do
+        node     = render_inline(described_class.new(suggestion: { code: "/x", shortcut: raw, run_cmd: "/x" }))
+        shortcut = node.css("span.pito-kbd-shimmer").first
+
+        expect(shortcut).to be_present
+        expect(shortcut.text).to eq(glyphed)
+        expect(shortcut["data-pito--kbd-click-key-value"]).to eq(raw)
+      end
+    end
+
+    it "wires the kbd-click controller so a tap fires the key" do
       shortcut = node.css("span.pito-kbd-shimmer").first
-      expect(shortcut).to be_present
-      expect(shortcut.text).to eq("ctrl+/")
+      expect(shortcut["data-controller"]).to include("pito--kbd-click")
+      expect(shortcut["data-action"]).to include("pito--kbd-click#fire")
+    end
+
+    it "passes an unparseable shortcut through unchanged rather than mangling it" do
+      node = render_inline(described_class.new(suggestion: { code: "/x", shortcut: "any key", run_cmd: "/x" }))
+      expect(node.css("span.pito-kbd-shimmer").first.text).to eq("any key")
     end
 
     it "renders the run label" do

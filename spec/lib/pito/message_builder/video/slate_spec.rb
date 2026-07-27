@@ -93,7 +93,7 @@ RSpec.describe Pito::MessageBuilder::Video::Slate do
       ).first[:payload]["video_ids"]
     end
 
-    it "scopes to the UNION of the named channels, overriding shift+tab" do
+    it "scopes to the UNION of the named channels, overriding the channel scope" do
       va = scheduled(2.days.from_now, on: ch_a)
       vb = scheduled(3.days.from_now, on: ch_b)
       scheduled(2.days.from_now, on: ch_c) # not named → excluded

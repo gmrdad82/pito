@@ -2,11 +2,15 @@
 
 require "rails_helper"
 
+# `hint:` is a raw key LABEL; the shimmer span shows its GLYPH form, because
+# KeyHintComponent delegates to HintComponent → ShortcutComponent →
+# Pito::Keybinding::Glyph. The kbd-click key-value keeps the RAW text (that is
+# what the JS handler map is keyed on), so the two differ by design.
 RSpec.describe Pito::Shell::MiniStatus::KeyHintComponent do
   describe "hint span" do
-    it "renders the hint text in a kbd-shimmer span" do
+    it "renders the hint text as a glyph in a kbd-shimmer span" do
       node = render_inline(described_class.new(hint: "ctrl+k", label: "commands"))
-      expect(node.css("span.pito-kbd-shimmer").text).to include("ctrl+k")
+      expect(node.css("span.pito-kbd-shimmer").text).to eq("ctrl+k")
     end
 
     it "adds data-* attributes from hint_data onto the hint span" do
@@ -48,7 +52,7 @@ RSpec.describe Pito::Shell::MiniStatus::KeyHintComponent do
   describe "without optional params" do
     it "renders successfully with only hint and label" do
       node = render_inline(described_class.new(hint: "tab", label: "channels"))
-      expect(node.css("span.pito-kbd-shimmer").text).to include("tab")
+      expect(node.css("span.pito-kbd-shimmer").text).to eq("tab")
       expect(node.css("span.text-fg-dim").text).to include("channels")
     end
   end

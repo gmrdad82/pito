@@ -3,14 +3,17 @@
 require "zlib"
 
 module Pito
-  # Shared helpers for the shimmer effects (keybinding / identifier / hashtag).
+  # Shared helpers for the shimmer effects (keybinding / identifier / token).
   #
   # SINGLE SOURCE OF TRUTH for the staggered animation-delay bucket: every
   # shimmer call site derives its `.pito-shimmer-dN` class from `offset_class`
   # so adjacent tokens never pulse in sync, and changing the bucket count is a
   # one-line edit here (mirrored by the `.pito-shimmer-d0..dN-1` classes in
-  # application.css). The colour classes (`.pito-reference-shimmer`,
-  # `.pito-action-shimmer`, `.pito-hashtag-shimmer`) live in application.css.
+  # application.css). The colour classes live in application.css: since
+  # 2026-07-24 `.pito-action-shimmer` and `.pito-kbd-shimmer` wear ONE band
+  # (pito-blue base, accent-purple band — the tui's key-cap ramp), while
+  # `.pito-reference-shimmer` / `.pito-subject-shimmer` are static. The
+  # stagger below is colour-agnostic and unchanged by that unification.
   module Shimmer
     # Number of shared staggered delay buckets (.pito-shimmer-d0..d{OFFSETS-1}).
     OFFSETS = 20

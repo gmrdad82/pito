@@ -48,8 +48,9 @@
 #   created via `ShinyUnlocked.report!(achievement, skip_webhook: true)` — the
 #   in-app record and mini-status broadcast still land per shiny, only the
 #   individual `NotificationWebhookDeliverJob` is suppressed. Every shiny's
-#   `[witty, entity]` pair (`ShinyUnlocked.digest_row`) is collected into
-#   `rows` and, once the run finishes, sent as ONE
+#   `[headline, entity]` pair (`ShinyUnlocked.digest_row` — headline carries
+#   the metric + threshold, e.g. "Score! (20 Likes)", not just the witty step
+#   name) is collected into `rows` and, once the run finishes, sent as ONE
 #   `Pito::Notifications::WebhookDigest` call — a single colored Slack/Discord
 #   message listing every shiny earned this run instead of a flood of
 #   individual webhooks. Real-time (non-batch) unlock paths are untouched:

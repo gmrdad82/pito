@@ -145,19 +145,34 @@ RSpec.describe Pito::Slash::Handlers::Help, "extended coverage", type: :service 
       expect(keys).not_to include("space")
     end
 
-    it "lists shift+↑ / shift+↓ (scroll history — not in copy)" do
+    it "lists shift+↑/↓ (scroll history — not in copy), glyph-formatted" do
       keys = keybindings_section[:rows].map { |r| r[:key] }
-      expect(keys).to include("shift+↑ / shift+↓")
+      expect(keys).to include("shift+↑/↓")
     end
 
-    it "does NOT list shift+tab (already surfaced in shell/copy locales)" do
+    # The scope cyclers unified on ctrl+space (owner 2026-07-24), and that one
+    # binding is surfaced contextually by the chatbox cycler chip (shell
+    # locales) — so by this table's own "not already surfaced" policy none of
+    # the three belongs here, and the two retired labels must never reappear
+    # in any form, raw or glyph.
+    it "does NOT list the retired shift+tab, raw or formatted" do
       keys = keybindings_section[:rows].map { |r| r[:key] }
       expect(keys).not_to include("shift+tab")
+      expect(keys).not_to include("⇧tab")   # pre-reversal glyph form
+      expect(keys).not_to include("shift+tab") # post-T8 mixed form
     end
 
-    it "does NOT list shift+space (already surfaced in shell/copy locales)" do
+    it "does NOT list the retired shift+space, raw or formatted" do
       keys = keybindings_section[:rows].map { |r| r[:key] }
       expect(keys).not_to include("shift+space")
+      expect(keys).not_to include("⇧space")   # pre-reversal glyph form
+      expect(keys).not_to include("shift+space") # post-T8 mixed form
+    end
+
+    it "does NOT list ctrl+space (surfaced by the chatbox cycler chip instead)" do
+      keys = keybindings_section[:rows].map { |r| r[:key] }
+      expect(keys).not_to include("ctrl+space")
+      expect(keys).not_to include("ctrl+space")
     end
 
     it "does NOT list ctrl+/ (already surfaced in shell locales)" do

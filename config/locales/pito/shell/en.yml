@@ -10,8 +10,12 @@ en:
         filter:
           channel_label: "Channel"
           period_label: "Period"
-          channel_shortcut: "shift+tab"
-          period_shortcut: "shift+space"
+          # Both cyclers unify on the SAME physical shortcut (owner 2026-07-24)
+          # — ctrl+space cycles channel OR period depending on the typed verb
+          # context (chatbox_hints_controller#mode). Formatted through
+          # Pito::Keybinding::Glyph at render time (ShortcutComponent).
+          channel_shortcut: "ctrl+space"
+          period_shortcut: "ctrl+space"
         no_channels: "none"
       mini_status:
         authenticated: "%{tag}"
@@ -24,6 +28,5 @@ en:
         chat_hint: "m"
         chat_label: "chat"
         commands_hint: "ctrl+k"
-        commands_hint_mac: "cmd+k"
         commands_label: "commands"
         separator: "·"

@@ -4,7 +4,10 @@ require "rails_helper"
 
 RSpec.describe Pito::Shell::MiniStatus::NotificationsComponent do
   describe "rendered output" do
-    it "renders the ctrl+/ hint as a kbd-shimmer token" do
+    # Displayed in the glyph convention (Pito::Keybinding::Glyph, routed
+    # through ShortcutComponent): "ctrl+/" — a lone "/" is the literal slash key,
+    # not a two-key join separator.
+    it "renders the ctrl+/ hint as a kbd-shimmer glyph token" do
       node = render_inline(described_class.new(count: 3))
       kbd = node.css("span.pito-kbd-shimmer").first
       expect(kbd).to be_present

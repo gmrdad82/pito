@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# FAKE sudo — for cast recording ONLY. A no-op SUCCESS: it exits 0 without
+# ever exec'ing "$@", so install.sh/update.sh's `sudo ln -sf ... /usr/local/
+# bin/pito-cli` (and the `pito` shim link) render the clean, already-scripted
+# "Linked" success path — but NO real symlink, file, or system change is ever
+# made. Never elevates, never prompts, never touches the real system.
+exit 0

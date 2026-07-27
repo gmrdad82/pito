@@ -1,6 +1,21 @@
 // The enforcer renderer registry (2.1.0 P5): name → renderer module. The
 // context engine treats an unregistered effect as non-viable and lets the
-// sky answer, so this file growing IS the rollout switch.
+// sky answer, so this file IS the rollout switch — and, since the 5.0.0
+// cull, the kill switch too.
+//
+// TWO MOODS MOUNT HERE. `sky` is the third shipped effect but is NOT a
+// renderer: it lives at fx/sky.js and is painted by the fx controller's own
+// resting pass, so it is deliberately absent from this map — which is how
+// `{ effect: sky }` in a context pool resolves to "the sky answers"
+// (fx/engine.js viable() → no renderer → non-viable → empty pool → null).
+//
+// THE 5.0.0 CULL (owner ruling 2026-07-26): duotone, lens, glow, trails,
+// aurora, globs and cover_wall were deleted from this directory together
+// with their config/pito/fx.yml entries. cover_wall was the only CSS-engine
+// renderer, so the DOM-instance path it needed (an `element` instead of a
+// `canvas`, mounted into the controller's wall layer) now has no user —
+// pito--fx_controller.js still implements it, unexercised, and the contract
+// below is written for the canvas renderers that actually ship.
 //
 // THE RENDERER CONTRACT (every module in this directory):
 //
@@ -26,20 +41,7 @@
 //   Rules: self-contained (no imports, no DOM queries outside the own
 //   canvas, no listeners); WebGL2 only via the own canvas's context;
 //   return null from create() when the environment can't run it.
-//
-//   CSS-ENGINE VARIANT (cover_wall): instead of `canvas`, the instance
-//   exposes `element` — a self-built DOM node the compositor mounts into
-//   the fx layer and drives via style.opacity = crossfade alpha. frame()
-//   updates the element's custom properties (butterfly drift); destroy()
-//   removes it.
 import plasma from "fx/renderers/plasma"
-import glow from "fx/renderers/glow"
-import globs from "fx/renderers/globs"
-import aurora from "fx/renderers/aurora"
-import trails from "fx/renderers/trails"
-import duotone from "fx/renderers/duotone"
 import water from "fx/renderers/water"
-import lens from "fx/renderers/lens"
-import cover_wall from "fx/renderers/cover_wall"
 
-export default { plasma, glow, globs, aurora, trails, duotone, water, lens, cover_wall }
+export default { plasma, water }

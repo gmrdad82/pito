@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe Pito::Keybinding::HintComponent do
   describe "shortcut span" do
-    it "renders the shortcut in bold yellow" do
+    it "renders the shortcut in bold yellow, glyph-formatted" do
       node = render_inline(described_class.new(shortcut: "ctrl+k", description: "commands"))
       expect(node.css("span.pito-kbd-shimmer").text).to include("ctrl+k")
     end

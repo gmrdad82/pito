@@ -12,6 +12,16 @@
 # the pgvector columns. Changing the model requires a coordinated
 # re-embed + column migration; do not change it in passing.
 #
+# ⚠️ AND SO IS THE PRECISION — q8_0, permanently (P10, 5.0.0). The
+# sidecar is pinned to `embeddinggemma-300m-qat-q8_0-GGUF` in BOTH compose
+# files, and "upgrading" it to fp16 is not an upgrade: `-qat-` means 8-bit
+# is the format this model was trained to ship in, fp16 is bigger and
+# slower on the CPU-only box, and — the part that cannot be undone —
+# precision changes the vector space, so every row already embedded would
+# be garbage until the entire corpus was recomputed. Studio (pito-tui)
+# runs fp16 on a GPU against a brand-new index of its own; that is a
+# DIFFERENT vector space and the two are never mixed.
+#
 # Configuration: `ENV["PITO_EMBEDDER_URL"]` (http://embedder:8081 in the
 # production stack, http://127.0.0.1:8091 for host-Puma dev). A blank or
 # absent URL means "not configured" and mirrors the old keyless-Voyage

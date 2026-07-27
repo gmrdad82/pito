@@ -29,6 +29,8 @@ RSpec.describe Pito::Event::MetaLineComponent do
   end
 
   describe "shift+r affordance" do
+    # Glyph-formatted label (Pito::Keybinding::Glyph via ShortcutComponent);
+    # the binding itself is unchanged — shift+r still reuses the last handle.
     it "renders a hidden `shift+r` hint (keybinding shimmer, no leading dot) when a handle is present" do
       node = render_inline(described_class.new(handle: "alpha-42"))
       hint = node.css("[data-pito-lasthashtag-hint]").first

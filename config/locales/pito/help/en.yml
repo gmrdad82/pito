@@ -53,7 +53,7 @@ en:
           sections:
             Arguments:
               "channel": "Target noun (aliases: channels)"
-              "@handle": "Channel handle — omit to use the shift+tab scope"
+              "@handle": "Channel handle — omit to use the ctrl+space scope"
             Options:
               "full": "Render every segment (detail, games, videos, at-a-glance)"
               "with <segments>": "Add named segments to the default detail card; bare shows detail only"
@@ -74,7 +74,7 @@ en:
           sections:
             Arguments:
               "channel": "Target noun (aliases: glance, overview)"
-              "@handle": "Channel handle — omit to use the shift+tab scope"
+              "@handle": "Channel handle — omit to use the ctrl+space scope"
             Options:
               "--help": "Print this help message"
         vid:
@@ -100,7 +100,7 @@ en:
           sections:
             Arguments:
               "channel": "Target noun (aliases: vids, linked-vids)"
-              "@handle": "Channel handle — omit to use the shift+tab scope"
+              "@handle": "Channel handle — omit to use the ctrl+space scope"
             Options:
               "--help": "Print this help message"
         game:
@@ -128,7 +128,7 @@ en:
           sections:
             Arguments:
               "channel": "Target noun"
-              "@handle": "Channel handle — omit to use the shift+tab scope"
+              "@handle": "Channel handle — omit to use the ctrl+space scope"
             Options:
               "--help": "Print this help message"
       similar:
@@ -158,7 +158,7 @@ en:
           sections:
             Arguments:
               "channel": "Target noun (aliases: lifetime, life)"
-              "[@handle]": "One or more channel handles; omit for the shift+tab scope"
+              "[@handle]": "One or more channel handles; omit for the ctrl+space scope"
             Options:
               "--help": "Print this help message"
         vid:
@@ -301,7 +301,7 @@ en:
             Arguments:
               "video": "Target noun"
               "#id": "Local numeric video id"
-              "slate": "Show the upcoming schedule (this week + the rest of your shift+space period), excluding this vid — obeys the shift+tab channel scope"
+              "slate": "Show the upcoming schedule (this week + the rest of your ctrl+space period), excluding this vid — obeys the ctrl+space channel scope"
               "#id <when>, #id <when>, …": "Mass form — comma-separated rows, ONE confirmation, all or nothing; the 60-minute channel spacing rule applies across the whole batch"
               "<when>": |-
                 Publish time (local, ≥30 min out). One of:
@@ -399,8 +399,8 @@ en:
           usage: "analyze channel [@handle[, @h2…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
-              "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are command aliases"
-              "[@handle]": "One or more channel handles; omit to use the shift+tab scope (@all = every channel, else the selected one)"
+              "channel": "Target noun (aliases: channels) — analytics for the ctrl+space period; `stats` and `analytics` are command aliases"
+              "[@handle]": "One or more channel handles; omit to use the ctrl+space scope (@all = every channel, else the selected one)"
             Options:
               "full": "Emit both numbers and breakdowns segments"
               "with <segments>": "Add named segments to the bare default; can mix with metric names: `with views,breakdowns`"
@@ -414,7 +414,7 @@ en:
           usage: "analyze vid [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
-              "vid": "Target noun (aliases: vids, video, videos) — bare form uses the shift+tab channel scope (same as `analyze channel`)"
+              "vid": "Target noun (aliases: vids, video, videos) — bare form uses the ctrl+space channel scope (same as `analyze channel`)"
               "[#id]": "One or more local numeric video ids"
             Options:
               "full": "Emit both numbers and breakdowns segments"
@@ -429,7 +429,7 @@ en:
           usage: "analyze game [#id[, #id…]] [full | with <segments>[,metric…] | only <segments> | without <segments|metrics>]"
           sections:
             Arguments:
-              "game": "Target noun (aliases: games, gamez) — bare form resolves shift+tab → linked videos → games, presented at game level"
+              "game": "Target noun (aliases: games, gamez) — bare form resolves ctrl+space → linked videos → games, presented at game level"
               "[#id]": "One or more local numeric game ids; resolves linked videos and presents results at game level"
             Options:
               "full": "Emit both numbers and breakdowns segments"
@@ -776,7 +776,7 @@ en:
               Arguments:
                 "<id>": "Row number from the list"
                 "<when>": "Publish time — see `schedule --help` for forms"
-                "slate": "Show your upcoming schedule (this week + the rest of the shift+space period), excluding this vid"
+                "slate": "Show your upcoming schedule (this week + the rest of the ctrl+space period), excluding this vid"
                 "<id> <when>, <id> <when>, …": "Mass form — comma-separated rows, ONE confirmation, all or nothing"
               Options:
                 "--help": "Print this help message"
@@ -886,7 +886,7 @@ en:
               Arguments:
                 "<id>": "Row number from the list"
                 "<when>": "Publish time — see `schedule --help` for forms"
-                "slate": "Show your upcoming schedule (this week + the rest of the shift+space period), excluding this vid"
+                "slate": "Show your upcoming schedule (this week + the rest of the ctrl+space period), excluding this vid"
                 "<id> <when>, <id> <when>, …": "Mass form — comma-separated rows, ONE confirmation, all or nothing"
               Options:
                 "--help": "Print this help message"

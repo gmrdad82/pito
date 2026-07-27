@@ -146,14 +146,17 @@ RSpec.describe Pito::Ai::PickerComponent, type: :component do
     let(:footer) { render_picker.css(".text-fg-faded").last }
     let(:hints)  { footer.css("span.pito-kbd-shimmer") }
 
+    # Hint TEXT is the glyph form (Pito::Keybinding::Glyph, via
+    # ShortcutComponent); the kbd-click key-value keeps the raw label, which is
+    # what the JS handler map is keyed on.
     it "wires all four footer hints to pito--kbd-click, same as the title-row Esc hint" do
-      expect(hints.map(&:text)).to eq(%w[↑/↓ enter ctrl+f ctrl+x])
+      expect(hints.map(&:text)).to eq([ "↑/↓", "Enter", "ctrl+f", "ctrl+x" ])
       hints.each { |hint| expect(hint["data-controller"]).to eq("pito--kbd-click") }
     end
 
     it "merges each hint's own click action onto the base kbd_click wiring — the mechanism stays intact" do
       by_text = hints.index_by(&:text)
-      { "↑/↓" => "hintMove", "enter" => "hintEnter", "ctrl+f" => "hintFavorite", "ctrl+x" => "hintClearKey" }
+      { "↑/↓" => "hintMove", "Enter" => "hintEnter", "ctrl+f" => "hintFavorite", "ctrl+x" => "hintClearKey" }
         .each do |text, method|
           action = by_text.fetch(text)["data-action"]
           expect(action).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire click->pito--ai-picker##{method}")
