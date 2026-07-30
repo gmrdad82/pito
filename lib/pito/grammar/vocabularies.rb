@@ -25,7 +25,7 @@ module Pito
       PROVIDER_KEYS = {
         "ai"       => %w[provider api_key model effort],
         "tavily"   => %w[api_key],
-        "google"   => %w[client_id client_secret redirect_uri api_key],
+        "google"   => %w[client_id client_secret redirect_uri],
         "igdb"     => %w[client_id client_secret],
         "webhook"  => %w[slack discord],
         "sound"    => [],

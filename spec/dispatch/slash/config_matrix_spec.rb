@@ -53,7 +53,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
 
     # ── AppSetting class-level writers (igdb, webhook, sound, me, tz)
     allow(AppSetting).to receive(:google_oauth_redirect_uri=)
-    allow(AppSetting).to receive(:google_api_key=)
     allow(AppSetting).to receive(:igdb_client_id=)
     allow(AppSetting).to receive(:igdb_client_secret=)
     allow(AppSetting).to receive(:slack_webhook_url=)
@@ -72,7 +71,6 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     allow(Pito::Credentials).to receive(:google_oauth_client_id).and_return("set")
     allow(Pito::Credentials).to receive(:google_oauth_client_secret).and_return(nil)
     allow(Pito::Credentials).to receive(:google_oauth_redirect_uri).and_return(nil)
-    allow(Pito::Credentials).to receive(:google_api_key).and_return(nil)
     allow(Pito::Credentials).to receive(:igdb_client_id).and_return(nil)
     allow(Pito::Credentials).to receive(:igdb_client_secret).and_return(nil)
     allow(Pito::Credentials).to receive(:slack_webhook_url).and_return(nil)
@@ -143,9 +141,10 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
     it "/config google --help body contains all google key tokens + /connect hint" do
       result = build_handler(args: %w[google], raw: "/config google --help").call
       body = result.events.first[:payload]["body"]
-      %w[client_id= client_secret= redirect_uri= api_key=].each do |key|
+      %w[client_id= client_secret= redirect_uri=].each do |key|
         expect(body).to include(key)
       end
+      expect(body).not_to include("api_key=")
       expect(body).to include("/connect")
     end
 
@@ -251,10 +250,10 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "/config google api_key=x → Result::Ok; calls AppSetting.google_api_key=" do
-      expect(AppSetting).to receive(:google_api_key=).with("my-api-key")
+    it "/config google api_key=x → unknown_keys error (public API-key path removed)" do
       result = build_handler(args: %w[google], kwargs: { api_key: "my-api-key" }).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result).to be_a(Pito::Slash::Result::Error)
+      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
     end
 
     # ── multi-kwarg setters ───────────────────────────────────────────────────
@@ -263,15 +262,10 @@ RSpec.describe "Dispatch matrix — /config (recognition, mocked)", type: :dispa
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "/config google redirect_uri=x api_key=y → Result::Ok" do
-      result = build_handler(args: %w[google], kwargs: { redirect_uri: "http://localhost/cb", api_key: "k" }).call
-      expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    it "/config google client_id=a client_secret=b redirect_uri=c api_key=d (all kwargs) → Result::Ok" do
+    it "/config google client_id=a client_secret=b redirect_uri=c (all kwargs) → Result::Ok" do
       result = build_handler(
         args: %w[google],
-        kwargs: { client_id: "a", client_secret: "b", redirect_uri: "http://x/cb", api_key: "k" }
+        kwargs: { client_id: "a", client_secret: "b", redirect_uri: "http://x/cb" }
       ).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end

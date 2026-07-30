@@ -498,8 +498,7 @@ stack — no signup, no key, nothing to `/config` (see
    authorized redirect URI **`http://localhost:3028/auth/youtube/callback`** — swap
    3028 for the port you installed on, or use your public URL if you put a reverse
    proxy in front. Copy the **Client ID** + **Client secret**.
-5. **Credentials → Create credentials → API key**. Copy it.
-6. In **Pito**: `/config google client_id=… client_secret=… api_key=…`, then `/connect`
+5. In **Pito**: `/config google client_id=… client_secret=…`, then `/connect`
    to authorize each channel.
 
 **2. IGDB** _(game data — runs on Twitch)_

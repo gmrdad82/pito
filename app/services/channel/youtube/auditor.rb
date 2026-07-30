@@ -1,5 +1,4 @@
-# Shared audit-row writer used by `Channel::Youtube::Client` and
-# `Channel::Youtube::PublicClient`.
+# Shared audit-row writer used by `Channel::Youtube::Client`.
 #
 # GoogleIdentity → YoutubeConnection rename (ADR 0006).
 # The audit-row column flipped to `youtube_connection_id`; this writer

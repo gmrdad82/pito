@@ -64,7 +64,6 @@ en:
                 client_id: "Google OAuth client ID (Google Cloud Console)"
                 client_secret: "Google OAuth client secret"
                 redirect_uri: "OAuth callback URL (e.g. http://localhost:3027/auth/youtube/callback)"
-                api_key: "Google API key (YouTube Data v3)"
               omit_hint: "Omit all keys to show current credential status."
               suggestion:
                 pre: "Run"

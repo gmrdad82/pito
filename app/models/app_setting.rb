@@ -70,7 +70,6 @@ class AppSetting < ApplicationRecord
   # Fields stored as plain key/value rows — value column is encrypted
   # (deterministic). Avoids schema migrations for per-service credentials.
   GOOGLE_OAUTH_REDIRECT_URI_KEY = "google_oauth_redirect_uri"
-  GOOGLE_API_KEY_KEY            = "google_api_key"
   IGDB_CLIENT_ID_KEY            = "igdb_client_id"
   IGDB_CLIENT_SECRET_KEY        = "igdb_client_secret"
   SLACK_WEBHOOK_URL_KEY         = "slack_webhook_url"
@@ -83,15 +82,6 @@ class AppSetting < ApplicationRecord
   def self.google_oauth_redirect_uri=(uri)
     set(GOOGLE_OAUTH_REDIRECT_URI_KEY, uri)
   end
-
-  def self.google_api_key
-    get(GOOGLE_API_KEY_KEY)
-  end
-
-  def self.google_api_key=(key)
-    set(GOOGLE_API_KEY_KEY, key)
-  end
-
 
   def self.igdb_client_id
     get(IGDB_CLIENT_ID_KEY)
