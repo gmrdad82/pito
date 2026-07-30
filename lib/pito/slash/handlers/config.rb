@@ -62,8 +62,7 @@ module Pito
           "google" => {
             client_id:     ->(v) { AppSetting.singleton_row.update!(google_oauth_client_id: v) },
             client_secret: ->(v) { AppSetting.singleton_row.update!(google_oauth_client_secret: v) },
-            redirect_uri:  ->(v) { AppSetting.google_oauth_redirect_uri = v },
-            api_key:       ->(v) { AppSetting.google_api_key = v }
+            redirect_uri:  ->(v) { AppSetting.google_oauth_redirect_uri = v }
           },
           # The @ai --web search backend (Tavily; P14).
           "tavily" => {
@@ -101,8 +100,7 @@ module Pito
             {
               "Client ID"     => status_flag(Pito::Credentials.google_oauth_client_id),
               "Client Secret" => status_flag(Pito::Credentials.google_oauth_client_secret),
-              "Redirect URI"  => status_flag(Pito::Credentials.google_oauth_redirect_uri),
-              "API Key"       => status_flag(Pito::Credentials.google_api_key)
+              "Redirect URI"  => status_flag(Pito::Credentials.google_oauth_redirect_uri)
             }
           },
           "tavily" => -> {
@@ -232,8 +230,7 @@ module Pito
           rows = [
             [ "client_id=",     I18n.t("pito.slash.config.help.providers.google.keys.client_id") ],
             [ "client_secret=", I18n.t("pito.slash.config.help.providers.google.keys.client_secret") ],
-            [ "redirect_uri=",  I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") ],
-            [ "api_key=",       I18n.t("pito.slash.config.help.providers.google.keys.api_key") ]
+            [ "redirect_uri=",  I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") ]
           ]
           connect_post = I18n.t("pito.slash.config.help.providers.google.suggestion.post")
 

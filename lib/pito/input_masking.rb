@@ -45,8 +45,8 @@ module Pito
     # (google/igdb/webhook) — so google's redirect_uri and webhook's
     # slack/discord URLs are masked too, with one uniform rule — and is a no-op for
     # every other input (non-credential /config, chat, hashtags). Example:
-    #   /config google client_id=abc client_secret=xyz redirect_uri=http://… api_key=k
-    # → /config google client_id=*** client_secret=*** redirect_uri=*** api_key=***
+    #   /config google client_id=abc client_secret=xyz redirect_uri=http://…
+    # → /config google client_id=*** client_secret=*** redirect_uri=***
     #   /config webhook slack=https://hooks.slack.com/…  →  /config webhook slack=***
     def mask_config_credentials(input)
       return input.to_s unless config_credential_command?(input)

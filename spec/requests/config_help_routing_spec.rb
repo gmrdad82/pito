@@ -41,7 +41,7 @@ RSpec.describe "POST /chat — /config <provider> --help routing", type: :reques
       expect(body).to include("client_id=")
       expect(body).to include("client_secret=")
       expect(body).to include("redirect_uri=")
-      expect(body).to include("api_key=")
+      expect(body).not_to include("api_key=")
       expect(body).to include("/connect")
     end
   end

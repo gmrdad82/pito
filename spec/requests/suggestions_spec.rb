@@ -80,8 +80,8 @@ RSpec.describe "POST /suggestions", type: :request do
       labels = body["menu_items"].map { |i| i["label"] }
       masked = body["menu_items"].select { |i| i["masked"] }.map { |i| i["label"] }
       expect(body["stage"]).to eq("tool")
-      expect(labels).to include("client_id", "client_secret", "api_key")
-      expect(masked).to include("client_id", "client_secret", "api_key")
+      expect(labels).to include("client_id", "client_secret", "redirect_uri")
+      expect(masked).to include("client_id", "client_secret")
     end
   end
 

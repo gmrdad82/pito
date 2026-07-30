@@ -74,7 +74,8 @@ RSpec.describe "/connect + OAuth callback", type: :request do
       error_event = conversation.events.find_by(kind: :error)
       expect(error_event.payload["text"]).to include("not configured")
       expect(error_event.payload["credentials"]).to be_a(Hash)
-      expect(error_event.payload["credentials"].keys).to include("client_id", "client_secret", "redirect_uri", "api_key")
+      expect(error_event.payload["credentials"].keys).to include("client_id", "client_secret", "redirect_uri")
+      expect(error_event.payload["credentials"].keys).not_to include("api_key")
     end
   end
 

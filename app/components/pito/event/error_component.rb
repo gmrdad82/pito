@@ -8,7 +8,7 @@ module Pito
     # Payload shapes accepted:
     #   { text: "friendly message", detail: "raw error (optional)" }
     #   { message_key: "pito.some.key", message_args: {} }  — resolved via I18n
-    #   { credentials: { client_id:, client_secret:, redirect_uri:, api_key: } }
+    #   { credentials: { client_id:, client_secret:, redirect_uri: } }
     #       — when present, renders a credential-status table (set / MISSING)
     #
     # The `detail` key renders the raw backtrace or machine error below the
@@ -35,9 +35,7 @@ module Pito
           { label: "Client Secret", present: @credentials[:client_secret],
             display: @credentials[:client_secret] ? "[set]" : "MISSING" },
           { label: "Redirect URI",  present: @credentials[:redirect_uri].present?,
-            display: @credentials[:redirect_uri].presence || "MISSING" },
-          { label: "API Key",       present: @credentials[:api_key],
-            display: @credentials[:api_key] ? "[set]" : "MISSING" }
+            display: @credentials[:redirect_uri].presence || "MISSING" }
         ]
       end
     end

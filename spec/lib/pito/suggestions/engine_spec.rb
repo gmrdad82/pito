@@ -160,13 +160,13 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     it "suggests config keys after provider is typed" do
       result = call(input: "/config google ", cursor: 15, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("client_id", "client_secret", "api_key")
+      expect(labels).to include("client_id", "client_secret", "redirect_uri")
     end
 
-    it "sets masked: true for sensitive keys (client_id, client_secret, api_key)" do
+    it "sets masked: true for sensitive keys (client_id, client_secret)" do
       result = call(input: "/config google ", cursor: 15, authenticated: true)
       masked_labels = result[:menu_items].select { |i| i[:masked] }.map { |i| i[:label] }
-      expect(masked_labels).to include("client_id", "client_secret", "api_key")
+      expect(masked_labels).to include("client_id", "client_secret")
     end
 
     it "sets masked: false for non-sensitive keys (redirect_uri, slack, discord)" do
@@ -198,7 +198,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     # Bug B — the palette must empty out so Enter SUBMITS instead of re-selecting
     # a key the user already supplied / is currently filling in.
     it "suggests nothing while typing a value (key=…)" do
-      input = "/config google api_key=pa-secret"
+      input = "/config google client_id=my-id"
       expect(call(input:, cursor: input.length, authenticated: true)[:menu_items]).to be_empty
     end
 
@@ -206,11 +206,11 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       input  = "/config google client_id=x "
       labels = call(input:, cursor: input.length, authenticated: true)[:menu_items].map { |i| i[:label] }
       expect(labels).not_to include("client_id")
-      expect(labels).to include("client_secret", "redirect_uri", "api_key")
+      expect(labels).to include("client_secret", "redirect_uri")
     end
 
     it "offers nothing once every provider key is supplied" do
-      input = "/config google client_id=a client_secret=b redirect_uri=c api_key=d "
+      input = "/config google client_id=a client_secret=b redirect_uri=c "
       expect(call(input:, cursor: input.length, authenticated: true)[:menu_items]).to be_empty
     end
   end
@@ -1330,7 +1330,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         result = call(input: "/config google client_id=x ", cursor: 27, authenticated: true)
         labels = result[:menu_items].map { |i| i[:label] }
         expect(labels).not_to be_empty
-        expect(labels).to include("client_secret", "redirect_uri", "api_key")
+        expect(labels).to include("client_secret", "redirect_uri")
       end
     end
 

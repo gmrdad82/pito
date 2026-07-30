@@ -64,9 +64,9 @@ class Channel
           Rails.application.config.youtube_daily_budget_units || DEFAULT_DAILY_BUDGET_UNITS
       end
 
-      # Remaining budget for `youtube_connection` today. Sums
-      # OAuth-client units only (PublicClient has its own bucket
-      # under `client_kind: "public"`, deferred to a later phase).
+      # Remaining budget for `youtube_connection` today. Sums OAuth-client
+      # units only — the unauthenticated public-API-key client was removed
+      # (chat only ever uses the owner's own connected channels).
       def budget_remaining(youtube_connection)
         return daily_budget_units unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:today)
 

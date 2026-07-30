@@ -62,9 +62,9 @@ RSpec.describe Pito::InputMasking do
 
   describe ".mask_config_credentials" do
     it "masks ALL credential kwarg values (incl redirect_uri) to ***" do
-      input  = "/config google client_id=abc client_secret=xyz api_key=k redirect_uri=http://x"
+      input  = "/config google client_id=abc client_secret=xyz redirect_uri=http://x"
       masked = described_class.mask_config_credentials(input)
-      expect(masked).to eq("/config google client_id=*** client_secret=*** api_key=*** redirect_uri=***")
+      expect(masked).to eq("/config google client_id=*** client_secret=*** redirect_uri=***")
     end
 
     it "masks webhook delivery URLs (slack / discord)" do
